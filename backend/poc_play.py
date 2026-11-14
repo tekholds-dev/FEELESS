@@ -5,7 +5,7 @@ import base64
 import re
 
 MAX_BYTES = 12 * 1024 * 1024          # a 4K PNG of a busy scene stays under this
-TEMPLATES = ('free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas')
+TEMPLATES = ('free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas', 'adset')
 _DATA = re.compile(r'^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$')
 _MAGIC = {'png': b'\x89PNG\r\n\x1a\n', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF'}
 

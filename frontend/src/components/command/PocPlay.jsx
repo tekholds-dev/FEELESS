@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Ellipse, Group, Image as KImage, Label, Layer, Rect, Stage, Star, Tag, Text, Transformer } from 'react-konva';
-import { FRAMES, FRAME_KEYS, alpha, cropFor, frameLayers, history, newId, push, redo, reframe, reorder, undo } from '../../lib/pocPlay';
+import { FRAMES, FRAME_KEYS, alpha, cropFor, frameLayers, history, newId, push, redo, reframe, reorder, undo, splitAroundMain, clipType, CLIP_MAX_SEC } from '../../lib/pocPlay';
 import '../../styles/pocPlay.css';
 
 // 🎨 POC-PLAY (owner 2026-11-13): every PoC image / video opens here. Grab, move, resize, rotate, layer, crop, add text, shapes and badges,
@@ -86,6 +86,34 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
   const save = async () => { setErr(''); setDone(''); let url; try { url = exportUrl(); } catch { setErr('A picture from another site blocks the export. Upload that file instead of linking it.'); return; }
     setBusy('save'); try { await onSave?.(url, frame, from); setDone('Saved into the proof as a new version. The original stays.'); } catch (e) { setErr(e.message); } setBusy(''); };
 
+  // 🎬 MP4 (or WebM) of a video proof with the edit on top: the layers under and over the main picture are drawn once, the real video plays
+  // between them, and the browser records it (Chrome writes MP4 itself; no ffmpeg, no key). Sound comes along when the video allows it.
+  const [rec, setRec] = useState(0);
+  const exportClip = async () => {
+    const v = vidRef.current; const st = stageRef.current; setErr(''); setDone('');
+    if (!v || !v.videoWidth || !main) { setErr('Grab a frame first, then export the clip.'); return; }
+    const ct = clipType(x => !!window.MediaRecorder?.isTypeSupported?.(x)); if (!ct) { setErr('This browser cannot record video. Try Chrome.'); return; }
+    setSel(null); trRef.current?.nodes([]);
+    const { under, main: ml, over } = splitAroundMain(layers);
+    const shot = keep => { const ids = new Set(keep.map(l => l.id)); const all = layers.map(l => st.findOne(`#${l.id}`)).filter(Boolean);
+      all.forEach(n => n.visible(ids.has(n.id()))); trRef.current?.visible(false); const c = st.toCanvas({ pixelRatio: 1 / scale }); all.forEach(n => n.visible(true)); trRef.current?.visible(true); return c; };
+    const underC = shot(under); const overC = shot(over);
+    const c = document.createElement('canvas'); c.width = F.w; c.height = F.h; const g = c.getContext('2d');
+    const cr = ml.crop || { x: 0, y: 0, width: v.videoWidth, height: v.videoHeight };
+    const draw = () => { g.drawImage(underC, 0, 0, F.w, F.h); g.drawImage(v, cr.x, cr.y, cr.width, cr.height, ml.x, ml.y, ml.width, ml.height); g.drawImage(overC, 0, 0, F.w, F.h); };
+    let stream; try { draw(); stream = c.captureStream(30); } catch { setErr('This video does not allow reuse. Download it and upload the file.'); return; }
+    try { (v.captureStream?.() || v.mozCaptureStream?.())?.getAudioTracks().forEach(a => stream.addTrack(a)); } catch { /* no sound: the picture still records */ }
+    const parts = []; const r = new MediaRecorder(stream, { mimeType: ct.type, videoBitsPerSecond: 6e6 }); r.ondataavailable = e => e.data.size && parts.push(e.data);
+    const stopped = new Promise(res => { r.onstop = res; });
+    setBusy('clip'); v.pause(); v.currentTime = 0; await new Promise(res => { v.onseeked = res; setTimeout(res, 800); });
+    r.start(250); await v.play().catch(() => {}); const t0 = performance.now();
+    await new Promise(res => { const tick = () => { draw(); setRec(Math.min(1, v.currentTime / Math.min(v.duration || CLIP_MAX_SEC, CLIP_MAX_SEC)));
+      if (v.ended || v.paused || (performance.now() - t0) / 1000 > CLIP_MAX_SEC) res(); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+    v.pause(); r.stop(); await stopped; setBusy(''); setRec(0);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(parts, { type: ct.type.split(';')[0] })); a.download = `feeless-${frame}.${ct.ext}`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000); setDone(`Your clip downloaded as ${ct.ext.toUpperCase()}${v.duration > CLIP_MAX_SEC ? ` (the first ${CLIP_MAX_SEC} seconds)` : ''}.`);
+  };
+
   const swatches = SWATCH_VARS.map(cssVar).filter(Boolean);
   return <div className="ppl" role="dialog" aria-modal="true" aria-label={`Playground: ${title}`} data-testid="poc-play">
     <header className="ppl-top">
@@ -112,7 +140,8 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
         {kind === 'video' ? <section className="ppl-sec"><span className="m-label">VIDEO</span>
           <video ref={vidRef} src={src} crossOrigin="anonymous" controls playsInline preload="auto" className="ppl-vid" onLoadedData={() => !main && grabFrame(true)} data-testid="ppl-video" />
           <span className="ppl-row"><button type="button" className="m-btn m-go" onClick={() => grabFrame(true)} data-tip="This moment becomes the main picture" data-testid="ppl-grab">Grab this frame</button>
-            <button type="button" className="m-btn" disabled={!main} onClick={() => grabFrame(false)} data-tip="Add this moment as one more picture">+ as layer</button></span></section> : null}
+            <button type="button" className="m-btn" disabled={!main} onClick={() => grabFrame(false)} data-tip="Add this moment as one more picture">+ as layer</button></span>
+          <span className="ppl-row"><button type="button" className="m-btn m-go" disabled={!main || !!busy} onClick={exportClip} data-tip="The video plays under your edit and downloads as a clip (MP4 in Chrome, up to a minute)" data-testid="ppl-clip">{busy === 'clip' ? `Recording… ${Math.round(rec * 100)}%` : 'Export clip'}</button></span></section> : null}
         <section className="ppl-sec"><span className="m-label">ADD</span>
           <span className="ppl-grid">
             <button type="button" className="m-btn" onClick={() => add({ type: 'text', text: 'Your words', fontSize: 72, fontStyle: 'bold', fill: t.text, width: 600 })} data-testid="ppl-add-text" data-tip="A line of text">Text</button>

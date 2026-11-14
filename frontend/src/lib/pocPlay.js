@@ -12,6 +12,7 @@ export const FRAMES = {
   shelf: { label: 'Shelf', w: 1200, h: 1200, tip: 'A product standing on a shop shelf' },
   launch: { label: 'Launch', w: 1080, h: 1350, tip: 'A product launch card: badge, headline, product' },
   ideas: { label: 'Idea board', w: 1600, h: 1000, tip: 'Sticky notes around your picture, to plan from' },
+  adset: { label: 'Ad set', w: 1800, h: 1000, tip: 'One product, three ad sizes side by side: square, story and banner' },
 };
 export const FRAME_KEYS = Object.keys(FRAMES);
 
@@ -99,9 +100,32 @@ export function frameLayers(key, img, t) {
     [[90, 90], [600, 70], [1130, 100], [110, 640], [1120, 620]].forEach(([x, y], i) => {
       out.push({ id: newId('n'), type: 'note', x, y, width: 360, height: 260, rotation: [-3, 2, -2, 3, -1][i], text: `Idea ${i + 1}`, fill: t.note, ink: t.noteInk });
     });
+  } else if (key === 'adset') {
+    deco('rect', { x: 0, y: 0, width: W, height: H, fill: t.bg });
+    const cards = [['SQUARE 1:1', 60, 200, 620, 620], ['STORY 9:16', 740, 60, 495, 880], ['BANNER 16:9', 1295, 300, 445, 250]];
+    cards.forEach(([lab, x, y, w, h], i) => {
+      deco('rect', { x: x - 6, y: y - 6, width: w + 12, height: h + 12, cornerRadius: 18, fill: t.ink, stroke: t.line, strokeWidth: 3 });
+      if (img) out.push({ id: i ? newId('i') : 'main', type: 'image', main: !i, src: img.src, ...coverBox(img, x, y, w, h), cornerRadius: 12 });
+      deco('text', { x, y: y + h + 14, width: w, text: lab, fontSize: 22, fontStyle: 'bold', fill: t.dim });
+      title(i === 2 ? 'Shop now' : 'Your headline', { x: x + 24, y: y + 24, width: w - 48, fontSize: i === 2 ? 36 : 54 });
+    });
   }
   return out;
 }
+
+// pure: a video proof keeps playing UNDER the edit — split the layers around the main picture: what paints before it (frame decor) and
+// what paints over it (text, badges, shapes). → { under, main, over }
+export function splitAroundMain(layers) {
+  const i = layers.findIndex(l => l.main);
+  return i < 0 ? { under: layers, main: null, over: [] } : { under: layers.slice(0, i), main: layers[i], over: layers.slice(i + 1) };
+}
+
+// pure: the best clip type this browser records (Chrome 126+ writes MP4 itself; others WebM). → { type, ext } or null
+export function clipType(supports) {
+  const want = [['video/mp4;codecs=avc1', 'mp4'], ['video/mp4', 'mp4'], ['video/webm;codecs=vp9', 'webm'], ['video/webm', 'webm']];
+  const hit = want.find(([t]) => supports(t)); return hit ? { type: hit[0], ext: hit[1] } : null;
+}
+export const CLIP_MAX_SEC = 60;
 
 // pure: undo / redo over whole layer lists (each step a full copy; 60 steps kept)
 export const KEEP_STEPS = 60;

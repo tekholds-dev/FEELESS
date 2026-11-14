@@ -1,10 +1,10 @@
-import { FRAMES, FRAME_KEYS, alpha, cropFor, fitInto, frameLayers, history, push, redo, reframe, reorder, undo, KEEP_STEPS } from './pocPlay';
+import { FRAMES, FRAME_KEYS, alpha, cropFor, fitInto, frameLayers, history, push, redo, reframe, reorder, undo, KEEP_STEPS, splitAroundMain, clipType } from './pocPlay';
 
 const T = { bg: 'b', text: 't', accent: 'a', accentInk: 'ai', dim: 'd', ink: 'i', line: 'l', shade: 's', clear: 'c', sky: 'k', glow: 'g', note: 'n', noteInk: 'ni' };
 const IMG = { src: '/x.png', w: 2000, h: 1000 };
 
 test('🎨 every frame builds: locked decor under, one movable main picture that stays inside the frame', () => {
-  expect(FRAME_KEYS).toEqual(['free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas']);
+  expect(FRAME_KEYS).toEqual(['free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas', 'adset']);
   for (const k of FRAME_KEYS) {
     const ls = frameLayers(k, IMG, T); const F = FRAMES[k]; const main = ls.filter(l => l.main);
     expect(main).toHaveLength(1); expect(main[0].deco).toBeFalsy();
@@ -52,4 +52,23 @@ test('🎨 a frame change keeps what you added and rebuilds the frame', () => {
 test('🎨 a token colour at an opacity for the canvas (it cannot read color-mix)', () => {
   expect(alpha('#19e68c', 0.2)).toBe('rgba(25,230,140,0.2)'); expect(alpha('#fff', 1)).toBe('rgba(255,255,255,1)');
   expect(alpha('rgb(1, 2, 3)', 0.5)).toBe('rgba(1,2,3,0.5)'); expect(alpha('', 0.5)).toBe('rgba(0,0,0,.2)');
+});
+
+
+test('the ad set shows one product in three ad sizes: one main picture, two copies that move on their own', () => {
+  const ls = frameLayers('adset', IMG, T); const pics = ls.filter(l => l.type === 'image');
+  expect(pics).toHaveLength(3); expect(pics.filter(l => l.main)).toHaveLength(1); expect(pics.every(l => !l.deco)).toBe(true);
+  expect(ls.filter(l => l.deco && l.type === 'text').map(l => l.text)).toEqual(['SQUARE 1:1', 'STORY 9:16', 'BANNER 16:9']);
+});
+
+test('a video clip paints the frame decor under the playing video and the edit over it', () => {
+  const ls = frameLayers('story', IMG, T); const { under, main, over } = splitAroundMain(ls);
+  expect(main.main).toBe(true); expect(under.every(l => l.deco)).toBe(true); expect(over.length).toBeGreaterThan(0);
+  expect(splitAroundMain([{ id: 'a' }])).toEqual({ under: [{ id: 'a' }], main: null, over: [] });
+});
+
+test('the clip is MP4 where the browser records it, else WebM, else none', () => {
+  expect(clipType(t => t.startsWith('video/mp4'))).toEqual({ type: 'video/mp4;codecs=avc1', ext: 'mp4' });
+  expect(clipType(t => t === 'video/webm')).toEqual({ type: 'video/webm', ext: 'webm' });
+  expect(clipType(() => false)).toBeNull();
 });
