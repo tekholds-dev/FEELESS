@@ -127,8 +127,8 @@ body.theme-day .cof-h h3 { color: var(--boo-s23); } body.theme-day .cof h4{ colo
 @keyframes bstBreath { 50% { transform: scale(1.012); } }
 .pp-mini { display: inline-block; width: 46px; height: 52px; cursor: help; vertical-align: middle; } .pp-mini svg { width: 100%; height: 100%; display: block; }
 .clx > .pp-stage { margin-top: 12px; }
-body.fx-lite :is(.pp-desk-art, .bst-coinart img, .pp-wire .is-halo, .clx-f-tiles span) { animation: none; } body.fx-lite .bst-coinart img { filter: none; }
-@media (prefers-reduced-motion: reduce) { :is(.pp-desk-art, .bst-coinart img, .pp-wire .is-halo, .clx-f-tiles span) { animation: none; } }
+body.fx-lite :is(.pp-desk-art, .bst-coinart img, .pp-wire .is-halo) { animation: none; } body.fx-lite .bst-coinart img { filter: none; }
+@media (prefers-reduced-motion: reduce) { :is(.pp-desk-art, .bst-coinart img, .pp-wire .is-halo) { animation: none; } }
 body.theme-day .pp-list h4 { color: var(--boo-ac17); } body.theme-day .pp-head, body.theme-day .pp-list li { color: var(--bst-ink); }
 @media (max-width: 640px) { .pp-head { grid-template-columns: auto minmax(0, 1fr); } .pp-level { grid-column: 1 / -1; } .pp-stage { height: min(var(--pp-h, 460px), 400px); } .pp-desk-art { width: 110%; right: -40%; bottom: -8%; } .clx-pill-coin .bst-coinart { width: 34px; height: 34px; } }
 
@@ -159,13 +159,7 @@ body.theme-day .pp-list h4 { color: var(--boo-ac17); } body.theme-day .pp-head, 
 
 /* the blue Collective folder */
 :is(button, a).dsk-ico.is-honey .dsk-ico-art, :is(button, a).dsk-ico.is-colony .dsk-ico-art, :is(button, a).dsk-ico.is-collective .dsk-ico-art, :is(button, a).dsk-ico.is-boost .dsk-ico-art, :is(button, a).dsk-ico.is-print .dsk-ico-art { --f: var(--boo-ac1); --f2: var(--boo-ac35); }
-.clx-folder { --bst-b: var(--m-accent); --bst-g: var(--m-accent); --bst-o: var(--m-warn); --bst-line: color-mix(in srgb, var(--m-accent) 20%, transparent); --bst-ink: var(--m-text); --bst-dim: var(--m-accent); display: grid; gap: 12px; padding: 12px; align-content: start; grid-auto-rows: max-content; background: radial-gradient(90% 50% at 50% 0%, color-mix(in srgb, var(--m-accent) 27%, transparent), transparent 70%); color: var(--bst-ink); }
-.clx-f-hero { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 17px; border: 1px solid color-mix(in srgb, var(--m-accent) 33%, transparent); background: linear-gradient(120deg, var(--m-accent), var(--m-surface-2) 70%); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 11%, transparent), 0 0 30px color-mix(in srgb, var(--m-accent) 13%, transparent); overflow: hidden; }
-.clx-f-coin .bst-coinart { width: 64px; height: 64px; } .clx-f-hero small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: var(--m-accent); } .clx-f-hero .bst-num { font-size: clamp(22px, 4vw, 34px); color: var(--m-accent); text-shadow: 0 0 22px color-mix(in srgb, var(--m-accent) 40%, transparent); } .clx-f-hero p { margin: 2px 0 0; font: 500 12px var(--f-ui); color: var(--m-accent); }
-.clx-f-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .clx-f-tiles span { display: grid; gap: 4px; padding: 10px 11px; border-radius: 13px; border: 1px solid var(--bst-line); background: linear-gradient(160deg, var(--m-surface-2), var(--m-surface-2)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 8%, transparent); cursor: help; transition: transform .15s, border-color .15s; animation: bstIn .2s ease-out backwards; animation-delay: calc(var(--i, 0) * 45ms); } .clx-f-tiles span:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); } .clx-f-tiles small { font: 800 8.4px var(--f-mono); letter-spacing: .1em; color: var(--bst-dim); } .clx-f-tiles b { font-size: 16px; color: var(--m-text); }
-.clx-f-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; align-items: start; } .clx-f-grid h4 { margin: 0 0 7px; font: 800 11px var(--f-tech); letter-spacing: .1em; color: var(--m-accent); } .clx-f-side { display: grid; gap: 10px; }
-@media (max-width: 760px) { .clx-f-grid { grid-template-columns: minmax(0, 1fr); } .clx-f-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .clx-f-hero { grid-template-columns: auto minmax(0, 1fr); } .pp-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pp-read { grid-template-columns: minmax(0, 1fr); } .pp-sends li { grid-template-columns: minmax(0, 1fr); } }
-body.theme-day .clx-folder, body.theme-day .ge { color: var(--bst-ink, var(--m-bg)); }
+body.theme-day .ge { color: var(--bst-ink, var(--m-bg)); }
 
 /* a folder's window is its one scroller: never clip inside it */
 

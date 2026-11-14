@@ -3,7 +3,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
 
 jest.mock('./AtomPrint', () => ({ __esModule: true, default: ({ proofs }) => <div data-testid="cll-3d-print">{(proofs || []).length} atoms</div> }));
-jest.mock('./KeepDeal', () => ({ KeepDeal: ({ start, testid }) => <div data-testid={testid}>{start.usd}</div>, StakeStory: ({ testid }) => <div data-testid={testid} />, ScoreLadder: ({ testid }) => <div data-testid={testid} /> }));
+jest.mock('./PaysFlow', () => ({ __esModule: true, default: ({ rules }) => <div data-testid="cll-flow">{rules ? rules.score.top : 'none'}</div> }));
 jest.mock('./SplitFlow', () => ({ usePoolRules: () => ({ score: { top: 300 } }) }));
 jest.mock('../../lib/adminCall', () => ({ useAdmin: () => ({ isAdmin: false, call: jest.fn() }) }));
 
@@ -21,7 +21,7 @@ test('the front page (LOOK-1): real atoms → live strip + matrix + 3D, three pa
   await act(async () => { q('cvx-flat').click(); });
   expect([...el.querySelectorAll('[role=tab]')].map(b => b.textContent)).toEqual(['The print', 'How a proof works', 'How it pays']); expect(q('cll-view-stash')).toBeNull();
   await act(async () => { q('cll-cta').click(); }); expect(q('cll-walk')).toBeTruthy(); expect(el.textContent).toContain('Tally');
-  await act(async () => { q('cll-view-pays').click(); }); expect(q('cll-deal').textContent).toBe('1'); expect(q('cll-pays').textContent).toContain('no money moves'); expect(q('cll-view-try')).toBeNull(); expect(q('cll-ladder')).toBeNull();
+  await act(async () => { q('cll-view-pays').click(); }); for (let i = 0; i < 20 && !q('cll-flow'); i += 1) await act(async () => { await new Promise(r => { setTimeout(r, 20); }); }); expect(q('cll-flow').textContent).toBe('300'); expect(q('cll-pays').textContent).toContain('NO MONEY MOVES'); expect(q('cll-view-try')).toBeNull(); expect(q('cll-ladder')).toBeNull();
   expect(el.textContent).not.toMatch(/OSSY|G4/);
   el.remove(); document.body.classList.remove('fx-lite');
 });

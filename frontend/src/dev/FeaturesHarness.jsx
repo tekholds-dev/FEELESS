@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
+import potFixture from './potFixture.json';
 import ORCAT from '../components/command/__fixtures__/mediaModels.json';   // 🎬 the real media_models answer (OpenRouter presets + samples), from media_gen.catalog
 import { StashBoard } from '../components/command/GitFolder';
 import { ReviewReel, ProofBrief } from '../components/command/ProofDoors';
@@ -32,6 +33,7 @@ import { D as COCKPIT } from '../components/command/__fixtures__/cockpit';
 import '../styles/agentDesk.css';
 import { CodeLines, StatusBar, Tabs, diffRows } from '../components/command/CodeView';
 import WATCH from '../components/command/__fixtures__/watchLive.json';   // game_scores.board + .game on ESPN's live NBA scoreboard, 2026-11-10
+const AgentPotLazy = lazy(() => import('../components/command/AgentPot'));
 
 // 🧪 DEV ONLY (`/dev/features`, never in a production build): an agent's Features folder on fixtures, no sign-in. The Showcase reel and the
 // Start something tiles render for real; nothing reaches the server (3D pieces answer "Opening it…").
@@ -120,7 +122,7 @@ export default function FeaturesHarness() {
       { id: 'e1', n: 1, topic: 'Q3 books', net: 2460, income: 16950, costs: 14490, graded: 'right', months: [], cats: [], hash: 'abc' }];
     return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><EcoFolder cat={cat} d={{ poeFolders }} setD={() => {}} work={async () => ({ poeFolders })} onCommand={() => {}} /></div>; }
   if (/eco/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><EcoDesk cat={cat} work={async () => ECO} onCommand={() => {}} proofs={() => <p>Proofs</p>} /></div>;
-  if (/collective/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><CollectiveLanding more={<p>Its pot</p>} moreLabel="Its pot" /></div>;
+  if (/collective/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><CollectiveLanding more={<Suspense fallback={null}><AgentPotLazy pool={potFixture.pool} d={potFixture.d} actions={<p className="ap-none">The send form sits here on a real agent.</p>} /></Suspense>} moreLabel="Its pot" /></div>;   // ?collective — Its pot on Sicario's real proofs + pool view (dev/potFixture.json)
   if (/play/.test(window.location.search)) return <div className="fea" style={{ height: '100vh', background: '#07040d', boxSizing: 'border-box', overflow: 'auto' }}><Playground3D cat={cat} work={work} onBack={() => {}} /></div>;
   return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ height: 'calc(100vh - 32px)', overflow: 'auto' }}><FeaturesFolder cat={cat} d={{ setup: { use: 'code' } }} work={work} /></div></div>;
 }

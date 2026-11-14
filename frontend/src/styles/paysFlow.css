@@ -1,0 +1,47 @@
+/* 💸 How it pays (redo 2026-11-14): a steerable profit/loss river, the pot-unlock dial, three guardrail meters. Tokens only. */
+.pf { --pf-cool: color-mix(in srgb, var(--m-accent) 50%, var(--m-text)); --pf-dim: color-mix(in srgb, var(--m-text) 22%, transparent); --pf-track: color-mix(in srgb, var(--m-text) 7%, transparent);
+  display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.pf section { position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid var(--m-line); background: linear-gradient(155deg, color-mix(in srgb, var(--m-text) 5%, transparent), transparent 40%), var(--m-surface); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 10%, transparent); animation: pfIn .32s ease both; animation-delay: calc(var(--i, 0) * 55ms); }
+.pf header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pf header small, .pf-rails small, .pf-ring-c small { font: 700 9px var(--f-mono); letter-spacing: .2em; color: var(--m-accent); }
+.pf h3 { margin: 4px 0 0; font: 700 clamp(16px, 1.8vw, 21px)/1.15 var(--f-display); letter-spacing: -.02em; color: var(--m-text); }
+.pf .m-seg button { min-height: 32px; font-family: var(--f-tech); }
+.pf-side { display: grid; gap: 12px; }
+
+.pf-sankey { height: 280px; min-width: 0; }
+.pf-node-t { font: 600 12px var(--f-ui); fill: var(--m-text); }
+.pf-node-v { font: 700 12px var(--f-mono); fill: var(--m-accent); }
+.pf-link { stroke-opacity: .38; transition: stroke-opacity .2s; animation: pfFlow 2.6s ease-in-out infinite; }
+.pf-link:hover { stroke-opacity: .7; animation: none; }
+.pf-steer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; font: 600 12px var(--f-ui); color: var(--m-dim); }
+.pf-steer input { grid-column: 1 / -1; grid-row: 2; width: 100%; min-height: 32px; accent-color: var(--m-accent); cursor: pointer; }
+.pf-steer input:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
+.pf-steer b { font-size: 16px; color: var(--m-accent); }
+.pf-said { margin: 0; font: 400 13px/1.5 var(--f-ui); color: var(--m-dim); } .pf-said b { color: var(--m-text); font-family: var(--f-mono); }
+
+.pf-dial-body { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; }
+.pf-ring { position: relative; height: 150px; }
+.pf-ring-c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 2px; pointer-events: none; }
+.pf-ring-c b { font-size: 18px; color: var(--m-text); }
+.pf-rungs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pf-rungs li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--m-line); opacity: .55; transition: border-color .2s, transform .2s; }
+.pf-rungs li:hover { transform: translateX(2px); border-color: var(--m-line-hi); }
+.pf-rungs li.is-open { opacity: 1; } .pf-rungs li.is-now { border-color: var(--m-accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent), 0 0 18px -8px var(--m-accent); }
+.pf-rungs b { font-size: 17px; color: var(--m-text); } .pf-rungs li.is-now b { color: var(--m-accent); }
+.pf-rungs span { display: grid; min-width: 0; } .pf-rungs em { font: 600 12px var(--f-ui); font-style: normal; color: var(--m-text); } .pf-rungs small { font: 400 11px var(--f-ui); color: var(--m-dim); }
+.pf-rungs i { font: 700 9px var(--f-mono); font-style: normal; letter-spacing: .14em; color: var(--m-dim); } .pf-rungs li.is-now i { color: var(--m-accent); }
+
+.pf-rails > div { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.pf-meter { display: block; height: 6px; border-radius: 99px; background: var(--pf-track); overflow: hidden; }
+.pf-meter u { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 50%, transparent), var(--m-accent)); transform-origin: left; animation: pfGrow .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 90ms); }
+.pf-rails span { font: 400 12px var(--f-ui); color: var(--m-dim); }
+.pf-warn { margin: 2px 0 0; font: 400 12px/1.45 var(--f-ui); color: var(--m-dim); } .pf-warn b { color: var(--m-warn); }
+
+@keyframes pfIn { from { opacity: 0; transform: translateY(8px); } }
+@keyframes pfFlow { 50% { stroke-opacity: .55; } }
+@keyframes pfGrow { from { transform: scaleX(0); } }
+
+body.fx-lite .pf section, body.fx-lite .pf-link, body.fx-lite .pf-meter u { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pf section, .pf-link, .pf-meter u { animation: none; } }
+body.theme-day .pf section { background: linear-gradient(155deg, var(--m-surface), var(--m-surface-2)); }
+@media (max-width: 760px) { .pf { grid-template-columns: minmax(0, 1fr); } .pf-sankey { height: 240px; } .pf-dial-body { grid-template-columns: 120px minmax(0, 1fr); } .pf-ring { height: 120px; } }

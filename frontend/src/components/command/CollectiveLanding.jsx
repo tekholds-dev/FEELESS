@@ -6,10 +6,10 @@ import { useAdmin } from '../../lib/adminCall';
 import { isCalm } from '../../lib/fxPause';
 import { useCountUp } from '../../lib/useCountUp';
 import { usePoolRules } from './SplitFlow';
-import { KeepDeal } from './KeepDeal';
 import '../../styles/collectiveLanding.css';
 
 const AtomPrint = lazy(() => import('./AtomPrint'));
+const PaysFlow = lazy(() => import('./PaysFlow'));
 
 // 🧬 THE COLLECTIVE — LOOK-1 redo (owner 2026-11-13, asked ~20×: "a brand new look"). One dense live board on FEELESS green / Obsidian tokens:
 // a ticking strip of the real proof counts on top, then the print as a proof MATRIX (one cell = one real proof from the public atoms feed, by
@@ -136,14 +136,14 @@ function TheProof({ t }) {
     <ul className="cvx-kinds" aria-label="The proof types">{KINDS.map(([k, say], i) => { const r = t.byKind.find(x => x.k === k); const n = r?.rows.length || 0; const settled = (r?.won || 0) + (r?.lost || 0); return <li key={k} style={{ '--i': i }} data-tip={`${n} on the print · ${settled} settled`}><b>{k}</b><span>{say}</span><i><u style={{ transform: `scaleX(${settled ? Math.max(0.03, r.won / settled) : 0})` }} /></i><em className="m-num">{settled ? `${Math.round((100 * r.won) / settled)}% won` : `${n} filed`}</em></li>; })}</ul>
   </div>;
 }
-// 💰 How it pays: the live pool rules. Change the amount, the score and the pot, and everything follows. Nothing is sent from here.
+// 💸 How it pays (redo 2026-11-14): the live rules as a river you steer (profit three ways, a loss drained in order), the pot-unlock dial and three
+// guardrails. PaysFlow.jsx. Nothing moves from here.
 function ThePool() {
   const r = usePoolRules();
-  return <div className="cvx-page" data-testid="cll-pays"><header className="cvx-head"><div><small>02 · HOW IT PAYS</small><h2>See what $1 does.</h2></div><em className="m-chip" data-tip="This page is a calculator on the live rules">CALCULATOR · NO MONEY MOVES</em></header>
-    <p className="cvx-lede">A better score means a higher limit. Only real pool profit pays it, and pools can lose money. These are the live rules. <b>Nothing is sent from this page, and no money moves.</b></p>
-    {r ? <KeepDeal rules={r} score={r.score} start={{ usd: 1 }} testid="cll-deal" /> : <p className="cvx-none">Reading the live rules…</p>}</div>;
+  return <div className="cvx-page" data-testid="cll-pays"><header className="cvx-head"><div><small>02 · HOW IT PAYS</small><h2>Real profit in. <em>Three ways out.</em></h2></div><em className="m-chip" data-tip="Drawn from the live rules the pool ledger runs on">LIVE RULES · NO MONEY MOVES</em></header>
+    <Suspense fallback={<p className="cvx-none">Drawing the flow…</p>}><PaysFlow rules={r} /></Suspense></div>;
 }
-const VIEWS = [['print', 'The print', 'Every real proof, as a live matrix or in 3D'], ['proof', 'How a proof works', 'The five checks, played live'], ['pays', 'How it pays', 'Try any amount on the live rules. No money moves']];
+const VIEWS = [['print', 'The print', 'Every real proof, as a live matrix or in 3D'], ['proof', 'How a proof works', 'The five checks, played live'], ['pays', 'How it pays', 'Where a real pool profit goes, on the live rules. No money moves']];
 export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
   const { proofs, at } = useAtoms(); const [view, setView] = useState('print'); const t = useMemo(() => tally(proofs), [proofs]);
   const tabs = more ? [...VIEWS, ['more', moreLabel, 'Every agent and its proofs']] : VIEWS;

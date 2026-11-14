@@ -1,0 +1,38 @@
+/* 🫙 Its pot (redo 2026-11-14): its proofs on a send board, what made the picked one's score, its live account, send + pools. Tokens only. */
+.ap { --ap-b: color-mix(in srgb, var(--m-accent) 50%, var(--m-text)); --ap-grid: color-mix(in srgb, var(--m-text) 7%, transparent); display: grid; gap: 12px; }
+.ap section, .ap-hero { position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid var(--m-line); background: linear-gradient(155deg, color-mix(in srgb, var(--m-text) 5%, transparent), transparent 40%), var(--m-surface); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 10%, transparent); animation: apIn .32s ease both; animation-delay: calc(var(--i, 0) * 55ms); }
+.ap small { font: 700 9px var(--f-mono); letter-spacing: .2em; color: var(--m-accent); }
+.ap section > header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; } .ap section > header span { font: 400 11px var(--f-ui); color: var(--m-dim); }
+.ap-hero { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.ap-hero h3 { margin: 4px 0 0; font: 700 clamp(16px, 2vw, 22px)/1.2 var(--f-display); letter-spacing: -.02em; color: var(--m-text); } .ap-hero h3 em { font-style: normal; color: var(--m-accent); }
+.ap-facts { display: flex; gap: 18px; margin: 0; align-items: center; flex-wrap: wrap; } .ap-facts div { display: grid; gap: 2px; } .ap-facts dt { font: 700 9px var(--f-mono); letter-spacing: .16em; color: var(--m-dim); } .ap-facts dd { margin: 0; font-size: 16px; color: var(--m-text); }
+.ap-facts dd .bst-num { font-size: 16px; }
+.ap-main { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.ap-chart { height: 260px; min-width: 0; }
+.ap-dot { cursor: pointer; outline: none; } .ap-halo { opacity: 0; transition: opacity .2s; } .ap-dot:hover .ap-halo, .ap-dot:focus-visible .ap-halo, .ap-dot.is-on .ap-halo { opacity: .25; }
+.ap-dot.is-on .ap-halo { animation: apPulse 1.8s ease-in-out infinite; }
+.ap-tip { display: grid; gap: 2px; max-width: 220px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line-hi); background: var(--m-surface); font: 400 11px var(--f-ui); color: var(--m-dim); } .ap-tip b { font: 700 11px var(--f-mono); color: var(--m-text); }
+.ap-why h4 { margin: 4px 0 0; font: 600 14px/1.3 var(--f-ui); color: var(--m-text); }
+.ap-why-score { display: flex; align-items: baseline; gap: 8px; } .ap-why-score b { font-size: 34px; line-height: 1; color: var(--m-accent); text-shadow: 0 0 22px color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.ap-why-score span { display: grid; font: 400 12px var(--f-ui); color: var(--m-dim); } .ap-why-score em { font-style: normal; color: var(--m-text); }
+.ap-why ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.ap-why li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 44px; gap: 8px; align-items: center; }
+.ap-why li span { display: grid; min-width: 0; font: 600 12px var(--f-ui); color: var(--m-text); } .ap-why li span small { font: 400 10px var(--f-ui); letter-spacing: 0; color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-bar { display: block; height: 7px; width: max(18%, var(--w)); border-radius: 99px; background: var(--ap-grid); overflow: hidden; justify-self: end; }
+.ap-bar u { display: block; height: 100%; background: var(--m-accent); transform-origin: left; transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.ap-why li > b { font-size: 11px; color: var(--m-dim); text-align: right; }
+.ap-lift { margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--m-line-hi); font: 400 12px var(--f-ui); color: var(--m-dim); } .ap-lift b { color: var(--m-warn); }
+.ap-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.ap-pools ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ap-pools li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--m-line); opacity: .6; animation: apIn .3s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
+.ap-pools li.is-on { opacity: 1; border-color: var(--m-line-hi); }
+.ap-pools li i { width: 8px; height: 8px; border-radius: 50%; background: var(--m-mute); } .ap-pools li.is-on i { background: var(--m-accent); box-shadow: 0 0 8px var(--m-accent); }
+.ap-pools li b { font: 600 12px var(--f-tech); color: var(--m-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ap-pools li small { letter-spacing: .08em; color: var(--m-dim); } .ap-pools li em { font-style: normal; font-size: 11px; color: var(--m-dim); }
+.ap-none { margin: 0; font: 400 12px var(--f-ui); color: var(--m-dim); }
+
+@keyframes apIn { from { opacity: 0; transform: translateY(8px); } }
+@keyframes apPulse { 50% { opacity: .1; } }
+body.fx-lite .ap section, body.fx-lite .ap-hero, body.fx-lite .ap-pools li, body.fx-lite .ap-dot.is-on .ap-halo { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ap section, .ap-hero, .ap-pools li, .ap-dot.is-on .ap-halo { animation: none; } }
+body.theme-day .ap section, body.theme-day .ap-hero { background: linear-gradient(155deg, var(--m-surface), var(--m-surface-2)); }
+@media (max-width: 760px) { .ap-main, .ap-foot, .ap-hero { grid-template-columns: minmax(0, 1fr); } .ap-chart { height: 220px; } }
