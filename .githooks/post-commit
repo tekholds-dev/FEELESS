@@ -1,0 +1,4 @@
+#!/bin/sh
+# COL-10: file every new commit to the stash (Fee's stash › Builds). Runs in the background, never blocks or fails a commit; never files twice.
+[ -x .venv/bin/python ] && .venv/bin/python scripts/stash-builds.py --rev HEAD >/dev/null 2>&1 &
+exit 0
