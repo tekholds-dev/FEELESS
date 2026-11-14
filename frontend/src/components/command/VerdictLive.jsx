@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
 import { isCalm } from '../../lib/fxPause';
+import { agentAuthQuery } from '../../lib/chatSession';
 import '../../styles/verdictLive.css';
 
 // ⚖ AGX-9 · THE COLLECTIVE'S VERDICT, LIVE (owner 2026-11-14): while The Collective judges one of this agent's proofs, each judge's score lands
@@ -33,12 +34,12 @@ export function meterRead(j) {
   return { name, title: j.title || '', judges, landed: landed.length, avg: score, leaning: final ? verdict : leaning, final, say };
 }
 
-/** Polls this agent's judging every 4 s while the page is visible. → the live record or null. */
+/** Polls this agent's judging every 4 s while the page is visible (its owner only). → the live record or null. */
 export function useJudging(catId) {
   const [j, setJ] = useState(null);
   useEffect(() => {
     if (!catId) return undefined; let on = true;
-    const go = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${catId}/judging`)).then(r => (r?.ok ? r.json() : null)).then(x => { if (on && x) setJ(x.judging || null); }).catch(() => {}); };
+    const go = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${catId}/judging?${agentAuthQuery()}`)).then(r => (r?.ok ? r.json() : null)).then(x => { if (on && x) setJ(x.judging || null); }).catch(() => {}); };
     go(); const t = setInterval(go, POLL_MS);
     return () => { on = false; clearInterval(t); };
   }, [catId]);

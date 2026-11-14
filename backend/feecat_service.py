@@ -11750,12 +11750,13 @@ def _colony_vitals(cat):
 
 
 @app.get('/api/cats/{cat_id}/judging')
-async def cat_judging(cat_id: str):
+async def cat_judging(cat_id: str, session: str = '', ownerId: str = ''):
     """⚖ AGX-9: the proof The Collective is judging on this agent right now, each judge's score + reason as it lands (kept 10 min after).
-    Judges show as The Collective to everyone but the owner's staff agents (the same rule as every review)."""
-    cat = _load()['cats'].get(cat_id)
+    Its owner only (the private desk). Judges show as The Collective except on the owner's staff agents (the same rule as every review)."""
+    store = _load(); cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its judging')
     j = _review.live_view(_JUDGING.get(cat_id))
     return {'judging': _for_users(cat, {'judges': j['judges'], **{k: v for k, v in j.items() if k != 'judges'}}) if j else None}
 

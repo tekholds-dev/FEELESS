@@ -42,3 +42,13 @@ def test_review_one_publishes_each_verdict_as_it_lands(monkeypatch):
     # a user's agent sees The Collective, never the judges' names
     out = fs._collective_names({'judges': j['judges']})
     assert list(out['judges'])[:2] == ['collective', 'collective-2']
+
+
+def test_judging_is_the_owners_only(monkeypatch):
+    from test_agent_owner_lock import _client, _general
+    fs, _store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
+    monkeypatch.setattr(fs, '_JUDGING', {'g': rv.live_start('poc', {'id': 'p1', 'n': 1, 'topic': 'secret topic'})})
+    assert c.get('/api/cats/g/judging').status_code == 401
+    assert c.get('/api/cats/g/judging?session=tok-them').status_code == 403
+    r = c.get('/api/cats/g/judging?session=tok-me')
+    assert r.status_code == 200 and r.json()['judging']['title'] == 'secret topic'
