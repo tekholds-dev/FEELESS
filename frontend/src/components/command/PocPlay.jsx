@@ -71,6 +71,10 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
   const onFile = e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; if (!/^image\//.test(f.type)) { setErr('Pick a picture file.'); return; } const r = new FileReader(); r.onload = () => addImage(String(r.result)); r.readAsDataURL(f); };
   const del = () => { if (!selL || selL.deco) return; commit(ls => ls.filter(l => l.id !== sel)); if (selL.main) setMain(null); setSel(null); };
   const dup = () => { if (!selL || selL.deco) return; const id = newId('c'); commit(ls => [...ls, { ...selL, id, main: false, user: true, x: selL.x + 30, y: selL.y + 30 }]); setSel(id); };
+  // ✂️ one-click cut-out: MODNet in the browser (free, no key; ~7 MB the first time) — the layer keeps its place, ⌘Z brings the background back
+  const cut = async () => { if (selL?.type !== 'image' || busy) return; const id = sel; setErr(''); setDone(''); setBusy('cut');
+    try { const { cutOut } = await import('../../lib/cutout'); const out = await cutOut(selL.src, setDone); await remember(out); change(id, { src: out }); setDone('Background removed. ⌘Z brings it back.'); }
+    catch (e) { setDone(''); setErr(e?.message || 'The cut-out did not work on this picture.'); } setBusy(''); };
   const crop = aspect => { if (selL?.type !== 'image') return; const i = imgs[selL.src]; if (!i) return; const c = cropFor(i.naturalWidth, i.naturalHeight, aspect); const s = (selL.width * selL.height) ** 0.5 / (c.width * c.height) ** 0.5; change(sel, { crop: c, width: c.width * s, height: c.height * s }); };
 
   useEffect(() => {
@@ -171,6 +175,7 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
             {selL.type !== 'image' ? <span className="ppl-sw" role="radiogroup" aria-label="Colour">{swatches.map(c => <button key={c} type="button" role="radio" aria-checked={selL.fill === c} style={{ background: c }} onClick={() => change(sel, selL.type === 'badge' ? { bg: c } : { fill: c })} aria-label={`Colour ${c}`} />)}</span> : null}
             {selL.type === 'image' ? <span className="ppl-grid"><span className="ppl-note">Crop</span>{[['1:1', 1], ['4:5', 0.8], ['16:9', 16 / 9], ['9:16', 9 / 16]].map(([n, a]) => <button key={n} type="button" className="m-btn" onClick={() => crop(a)} data-testid={`ppl-crop-${n}`} data-tip={`Crop it to ${n}`}>{n}</button>)}
               <button type="button" className="m-btn" onClick={() => change(sel, { crop: undefined })} data-tip="Back to the whole picture">Full</button></span> : null}
+            {selL.type === 'image' ? <span className="ppl-row"><button type="button" className="m-btn m-go" disabled={!!busy} onClick={cut} data-tip="Lifts the product or person off its background (free, runs on this device)" data-testid="ppl-cutout">{busy === 'cut' ? 'Cutting out…' : '✂ Cut out background'}</button></span> : null}
             <span className="ppl-grid">
               <button type="button" className="m-btn" onClick={() => commit(ls => reorder(ls, sel, 'front'))} data-tip="Bring to front" data-testid="ppl-front">Front</button>
               <button type="button" className="m-btn" onClick={() => commit(ls => reorder(ls, sel, 'up'))} data-tip="One layer up">Up</button>
