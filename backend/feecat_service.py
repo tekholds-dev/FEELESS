@@ -121,6 +121,7 @@ import proof_gaps as _gaps   # 🧭 COL-24: proof types the Collective proposes 
 import engine_view as _engv   # 📡 AGT-12: what each engine does, live counts only
 import kit_fresh as _kfresh   # 🧰♻️ the kits' CDN versions, kept fresh daily (smoke-tested, rolled back if they break)
 import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
+import approvals as _appr   # ✅ AGX-10: the Approve inbox (usage only runs on the owner's tap) + pot alerts that teach
 import proof_review as _review   # 🧑‍⚖️ OSSY and G4 review every filed proof (owner 2026-11-10)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
@@ -195,7 +196,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'duels', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('approvals', 'potAlerted', 'potAlertSince', 'siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'duels', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -6213,6 +6214,7 @@ async def _engine_loop():
             _work_settle(store)
             _review_apply(store)   # 🧑‍⚖️ OSSY and G4's verdicts land on their folders
             _db_grow(store)   # 🗄 every closed proof becomes a sealed row in its agent's own database
+            _pot_alert_pass(store)   # ✅ AGX-10: a proof under 1x → one 'Fix first' line in its chat + a redo waiting for Approve (no model call)
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
                 await _meta_post(store)
@@ -6410,6 +6412,33 @@ def _db_shared_line(cat, kind):
     except Exception as e:   # noqa: BLE001
         print(f'[db] shared: {str(e)[:80]}')
         return ''
+
+
+def _pot_alert_pass(store, now=None):
+    """✅ AGX-10: each agent's proofs closed in the last 3 days that went into the pot under 1x get ONE chat line (what to fix first) and, for a
+    PoStatic / PoC, a redo row in its Approve inbox. Never calls a model and never runs the redo: only the owner's Approve tap does.
+    The first time it sees an agent, only its newest such proof speaks (no backlog flood)."""
+    now_ = time.time() if now is None else now; saved_ = None; n = 0
+    for c in store['cats'].values():
+        if c.get('revoked') or not (c.get('brainsCfg') or {}).get('brains'):
+            continue
+        first_ = 'potAlertSince' not in c
+        since_ = max(float(c.setdefault('potAlertSince', round(now_ - 86400))), now_ - 3 * 86400); done_ = set(c.get('potAlerted') or [])
+        rows_ = []
+        for k, key in _PROOF_KEYS.items():
+            for f in c.get(key) or []:
+                if isinstance(f, dict) and f.get('status') == 'closed' and f.get('id') not in done_ and float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0) >= since_:
+                    saved_ = _weights.load(DATA_DIR) if saved_ is None else saved_
+                    rows_.append((k, f, _proof_view(c, k, f, 300.0, saved_)))
+        due_ = _appr.due(rows_, since_, done_)
+        if first_ and len(due_) > 1:
+            c['potAlerted'] = (list(c.get('potAlerted') or []) + [f.get('id') for _k, f, _v in due_[:-1]])[-_appr.ALERTED_KEEP:]; due_ = due_[-1:]
+        for k, f, v in due_[:2]:
+            lift_ = _appr.biggest_lift(v.get('parts')); item_ = _appr.redo_item(k, f, lift_, (c.get('brainsCfg') or {}).get('brains'), now_)
+            kept_ = _appr.add(c, item_) if item_ else None
+            c['chat'] = (list(c.get('chat') or []) + [{'by': 'cats', 'text': _appr.alert_text(k, f, v, lift_, bool(kept_)), 'at': now_, **({'approve': kept_['id']} if kept_ else {})}])[-200:]
+            c['potAlerted'] = (list(c.get('potAlerted') or []) + [f.get('id')])[-_appr.ALERTED_KEEP:]; n += 1
+    return n
 
 
 def _review_apply(store):
@@ -9359,6 +9388,29 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         _save(store)
+    if p.op == 'approvals':   # ✅ AGX-10: its Approve inbox
+        return {'approvals': _appr.view(cat)}
+    if p.op == 'approve':   # ✅ the owner's tap: only now does a usage-spending row run (text = row id, job = 'yes' | 'no')
+        if internal_:
+            raise HTTPException(403, 'Only its owner approves usage.')
+        try:
+            row_ = _appr.decide(cat, str(p.text or ''), p.job == 'yes')
+        except KeyError:
+            raise HTTPException(404, 'Nothing like that is waiting.')
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        keep_owned(cat); _save(store)
+        if row_['state'] == 'approved':
+            try:
+                await _cat_work(cat_id, p.model_copy(update={**row_['op'], 'finish': False, 'i': None}))
+                ok_, say_ = True, 'Started: it lands in its folder.'
+            except HTTPException as e:
+                ok_, say_ = False, str(e.detail)
+            store = _load(); cat = store['cats'].get(cat_id) or cat
+            r_ = next((r for r in cat.get('approvals') or [] if r.get('id') == row_['id']), None)
+            if r_ is not None:
+                _appr.finish(r_, ok_, say_); keep_owned(cat); _save(store); row_ = r_
+        return {'approvals': _appr.view(cat), 'row': row_}
     if p.op == 'incognito':   # 🕶 hide its screens from visitors — $5 once per agent from its own model credit (staff free), then on / off any time
         if p.on and not cat.get('incognitoPaid') and not (cat.get('ownerStaff') or await _session_staff(p.session or '')):
             if float(b.get('credit') or 0) - _lc.CREDIT_RESERVE < INCOGNITO_USD:
@@ -12131,7 +12183,7 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
 
 # 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
-LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'duels', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
+LEADER_PRIVATE = ('approvals', 'potAlerted', 'potAlertSince', 'chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'duels', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
 PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'face', 'boosts', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
                    'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')
