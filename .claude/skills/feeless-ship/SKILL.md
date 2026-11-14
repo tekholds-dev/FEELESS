@@ -9,7 +9,8 @@ description: Ship a finished FEELESS change the same way on every Claude account
 3. **Backend changed?** Make sure no build/proof is running (a push restarts every service on the owner's machine).
 4. **Gate + push** from the snapshot, in the background, nothing else running:
    ```bash
-   cd .claude/worktrees/gate && git fetch -q .. && git checkout -q --detach <sha> && git push origin HEAD:main
+   cd .claude/worktrees/gate && git checkout -q --detach <sha> && git push origin HEAD:main
+   # the gate worktree shares the main repo's commits: no fetch needed (`git fetch ..` there fails)
    ```
    If the gate worktree is missing, run the 3 gate commands in CLAUDE.md §5 with `set -e`, then `git push origin main`.
 5. **Stash:** `.venv/bin/python scripts/stash-builds.py --rev HEAD` (never files twice).
