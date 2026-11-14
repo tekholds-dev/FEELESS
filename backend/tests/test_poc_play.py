@@ -53,3 +53,30 @@ def test_the_work_op_files_a_new_version_into_the_folder_and_its_filed_poc(monke
     assert [m['id'] for m in cat['pocFolders'][0]['media']] == ['morig', out['id']]           # the filed PoC shows the new version
     with pytest.raises(fs.HTTPException):
         asyncio.run(fs._cat_work('c1', fs.WorkPayload(op='media_play', job='w1', text='data:text/html;base64,PGgxPg==', session='s')))
+
+
+def test_a_recorded_clip_is_checked_and_files_as_a_video_version(monkeypatch, tmp_path):
+    """POC-PLAY: Export clip → Save into the proof (MP4 from Chrome's recorder, WebM elsewhere); a renamed file is refused."""
+    mp4 = b'\x00\x00\x00\x18ftypisom' + b'\x00' * 80
+    webm = b'\x1a\x45\xdf\xa3' + b'\x00' * 80
+    assert pp.decode('data:video/mp4;base64,' + base64.b64encode(mp4).decode()) == (mp4, 'mp4')
+    assert pp.decode('data:video/webm;codecs=vp9,opus;base64,' + base64.b64encode(webm).decode())[1] == 'webm'
+    assert pp.kind_of('mp4') == 'video' and pp.kind_of('png') == 'image'
+    for bad in ('data:video/mp4;base64,' + base64.b64encode(webm).decode(), 'data:video/webm;base64,' + base64.b64encode(mp4).decode()):
+        with pytest.raises(ValueError, match='real clip'):
+            pp.decode(bad)
+    with pytest.raises(ValueError, match='too big'):
+        pp.decode('data:video/mp4;base64,' + 'A' * (pp.MAX_CLIP * 2))
+    import feecat_service as fs
+    cat = {'id': 'c1', 'pocFolders': []}; store = {'cats': {'c1': cat}}
+    doc = {'id': 'w1', 'kind': 'content', 'messages': [{'by': 'Media', 'media': {'id': 'mv', 'kind': 'video', 'status': 'done', 'url': '/v', 'prompt': 'a launch'}}]}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs, '_owner_gate', lambda *a, **k: None)
+    monkeypatch.setattr(fs, '_ws_load', lambda cid, ws: doc)
+    monkeypatch.setattr(fs, '_ws_save', lambda cid, d: None)
+    monkeypatch.setattr(fs, '_ws_view', lambda cid, ws: {'messages': doc['messages']})
+    monkeypatch.setattr(fs, '_media_dir', lambda: tmp_path)
+    out = asyncio.run(fs._cat_work('c1', fs.WorkPayload(op='media_play', job='w1', text='data:video/mp4;base64,' + base64.b64encode(mp4).decode(), tools={'from': 'mv', 'template': 'story'}, session='s')))
+    md = doc['messages'][-1]['media']
+    assert md['kind'] == 'video' and md['url'].endswith('.mp4') and md['from'] == 'mv' and md['usd'] == 0
+    assert (tmp_path / 'c1' / f"{out['id']}.mp4").read_bytes() == mp4 and doc['messages'][0]['media']['id'] == 'mv'

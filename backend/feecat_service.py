@@ -10033,7 +10033,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time())
         (_media_dir() / cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{jid}.{ext_}').write_bytes(raw_)
         prompt_ = str(smd_.get('prompt') or t_.get('note') or 'Made in the playground')[:300]
-        msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': 'image', 'provider': 'playground', 'model': 'Konva canvas', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
+        msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': _pplay.kind_of(ext_), 'provider': 'playground', 'model': 'Konva canvas' if _pplay.kind_of(ext_) == 'image' else 'Konva canvas + browser recorder', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
                 'usd': 0, 'prompt': prompt_, 'status': 'queued', 'at': now_, **({'from': src_} if smd_ else {}), **({'template': t_['template']} if t_.get('template') in _pplay.TEMPLATES else {})}}
         _media_set(cat_id, p.job, jid, keep=msg_, status='done', url=f'/api/cats/media/{cat_id}/{jid}.{ext_}', doneAt=now_)   # also joins a filed PoC of this folder
         return {'doc': _ws_view(cat_id, p.job), 'id': jid}

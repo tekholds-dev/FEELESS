@@ -110,9 +110,15 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
     await new Promise(res => { const tick = () => { draw(); setRec(Math.min(1, v.currentTime / Math.min(v.duration || CLIP_MAX_SEC, CLIP_MAX_SEC)));
       if (v.ended || v.paused || (performance.now() - t0) / 1000 > CLIP_MAX_SEC) res(); else requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
     v.pause(); r.stop(); await stopped; setBusy(''); setRec(0);
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(parts, { type: ct.type.split(';')[0] })); a.download = `feeless-${frame}.${ct.ext}`; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 30000); setDone(`Your clip downloaded as ${ct.ext.toUpperCase()}${v.duration > CLIP_MAX_SEC ? ` (the first ${CLIP_MAX_SEC} seconds)` : ''}.`);
+    const blob = new Blob(parts, { type: ct.type.split(';')[0] }); setClip({ blob, ext: ct.ext });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `feeless-${frame}.${ct.ext}`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000); setDone(`Your clip downloaded as ${ct.ext.toUpperCase()}${v.duration > CLIP_MAX_SEC ? ` (the first ${CLIP_MAX_SEC} seconds)` : ''}.${onSave ? ' Save it into the proof too, if you want.' : ''}`);
   };
+  // 💾 the recorded clip files into this proof as a new VIDEO version (same Save as a picture; the original stays)
+  const [clip, setClip] = useState(null);
+  const saveClip = async () => { if (!clip) return; setErr(''); setDone(''); setBusy('saveclip');
+    try { const url = await new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(f.result); f.onerror = () => rej(new Error('Could not read the clip.')); f.readAsDataURL(clip.blob); });
+      await onSave?.(url, frame, from); setClip(null); setDone('Clip saved into the proof as a new version. The original stays.'); } catch (e) { setErr(e.message); } setBusy(''); };
 
   const swatches = SWATCH_VARS.map(cssVar).filter(Boolean);
   return <div className="ppl" role="dialog" aria-modal="true" aria-label={`Playground: ${title}`} data-testid="poc-play">
@@ -141,7 +147,8 @@ export default function PocPlay({ src, kind = 'image', from = null, title = 'Pla
           <video ref={vidRef} src={src} crossOrigin="anonymous" controls playsInline preload="auto" className="ppl-vid" onLoadedData={() => !main && grabFrame(true)} data-testid="ppl-video" />
           <span className="ppl-row"><button type="button" className="m-btn m-go" onClick={() => grabFrame(true)} data-tip="This moment becomes the main picture" data-testid="ppl-grab">Grab this frame</button>
             <button type="button" className="m-btn" disabled={!main} onClick={() => grabFrame(false)} data-tip="Add this moment as one more picture">+ as layer</button></span>
-          <span className="ppl-row"><button type="button" className="m-btn m-go" disabled={!main || !!busy} onClick={exportClip} data-tip="The video plays under your edit and downloads as a clip (MP4 in Chrome, up to a minute)" data-testid="ppl-clip">{busy === 'clip' ? `Recording… ${Math.round(rec * 100)}%` : 'Export clip'}</button></span></section> : null}
+          <span className="ppl-row"><button type="button" className="m-btn m-go" disabled={!main || !!busy} onClick={exportClip} data-tip="The video plays under your edit and downloads as a clip (MP4 in Chrome, up to a minute)" data-testid="ppl-clip">{busy === 'clip' ? `Recording… ${Math.round(rec * 100)}%` : 'Export clip'}</button>
+            {onSave && clip ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={saveClip} data-tip="Files this clip into the proof as a new version. The original stays." data-testid="ppl-saveclip">{busy === 'saveclip' ? 'Saving…' : `Save ${clip.ext.toUpperCase()} to proof`}</button> : null}</span></section> : null}
         <section className="ppl-sec"><span className="m-label">ADD</span>
           <span className="ppl-grid">
             <button type="button" className="m-btn" onClick={() => add({ type: 'text', text: 'Your words', fontSize: 72, fontStyle: 'bold', fill: t.text, width: 600 })} data-testid="ppl-add-text" data-tip="A line of text">Text</button>
