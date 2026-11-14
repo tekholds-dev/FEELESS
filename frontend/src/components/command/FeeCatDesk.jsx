@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Guardrails } from './Guardrails';
 import { ModelLab } from './ModelLab';
 import SegTabs from '../SegTabs';
 import { FeeOwnerBar } from './FeeOwnerBar';
@@ -218,6 +219,7 @@ export function FeeCatDesk({ call }) {
       { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
       { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
+      { k: 'rails', ic: '🛡', label: 'Guardrails', tip: 'Owner only: every limit COMP and the agents run under, a switch each. They only tighten; the hard limits are locked', body: <Guardrails call={call} /> },
       { k: 'model', ic: '🧠', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
     ]} agentApps={[
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div> },

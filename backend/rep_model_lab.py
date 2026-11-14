@@ -36,6 +36,13 @@ def _calls(path):
     return out
 
 
+def _guard_comp(rs):
+    """🛡 AGX-7: COMP trains / sits the exam only while the owner's guardrail allows it."""
+    import guardrails as _gr
+    if not _gr.on(_gr.load(rs.DATA_DIR / 'guardrails.json'), 'compRuns'):
+        raise rs.HTTPException(409, 'COMP runs are off in your guardrails (HQ › Guardrails).')
+
+
 def _view(rs):
     stash, calls, grades_p = _paths(rs)
     items = rs._stash.catalog(stash); grades = rs._json_load(grades_p, {})
@@ -437,6 +444,7 @@ async def comp2_train(request: Request, b: Comp2Train):
     """Rebuilds the dataset from the live proofs (same seed, same held-out exam) and starts one LoRA run. One run at a time."""
     rs = _rs()
     rs._require_owner(request)
+    _guard_comp(rs)
     st = await rs.asyncio.to_thread(_c2.status)
     if _c2_busy(st):
         raise rs.HTTPException(409, 'COMP v2 is already training or sitting its exam.')
@@ -453,6 +461,7 @@ async def comp2_exam(request: Request):
     """Base 9B vs COMP v2 vs the majority baseline vs the flagships whose keys are saved, on the held-out proofs."""
     rs = _rs()
     rs._require_owner(request)
+    _guard_comp(rs)
     st = await rs.asyncio.to_thread(_c2.status)
     if _c2_busy(st):
         raise rs.HTTPException(409, 'COMP v2 is already training or sitting its exam.')

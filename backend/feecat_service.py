@@ -13,6 +13,7 @@ import logging
 import guard as _guard   # 🚦 the caller's real IP (behind the dev proxy too)
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
+import guardrails as _gr   # 🛡 AGX-7: the owner's restrict-only switches (data/guardrails.json, written only by his HQ)
 import agent_trade as _at
 import agent_commands as _ac
 import proof_commands as _pc
@@ -1549,6 +1550,12 @@ def _hive_on(cat):
     return bool((cat.get('hive') or {}).get('on')) and bool(cat.get('brainsCfg')) and not cat.get('revoked') and not cat.get('needsTopup')
 
 
+def _hive_works(cat):
+    """🛡 AGX-7: it may work on its own right now = it is colonized AND the owner's guardrail allows agents to work on their own.
+    `_hive_on` stays the agent's own setting (what the public board shows and the minds are told); only the doing is switched off."""
+    return _gr.on(_rails(), 'agentsWork') and _hive_on(cat)
+
+
 def _colony_trade(cat, side, pos, px_usd):
     """🐝 a colonized agent's entry / exit becomes a cell the Colony grades an hour on (colony.trade_cell); never blocks a trade."""
     try:
@@ -2647,7 +2654,7 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
 async def _collect_pass(http, store, now):
     """💎 AUTO-COLLECT: each owed share of a win of +50% or more, from an agent whose owner signed for it, goes to the Pool with its proof. Guards: its signature, its own folder, the server-held Pool address, one proof once, gas always stays. A failed read or send retries; nothing is guessed."""
     pot = _pot_address()
-    if not pot:
+    if not pot or not _gr.on(_rails(), 'autoCollect'):   # 🛡 the owner's guardrail: off = nothing sends, the shares wait
         return
     for x in _shares():
         cat = store['cats'].get(x.get('cat')); pid = (x.get('proof') or {}).get('id')
@@ -2771,7 +2778,7 @@ def _colony_cfg():
 async def _hive_round(now=None):
     """One pass: due agents file a cell each, then every hour-old cell is graded. → (cells filed, cells graded)."""
     now = now or time.time(); store = _load(); cells = _hive_cells(); filed = graded = 0
-    due_ = [c for c in store['cats'].values() if _hive_on(c) and now - float((c.get('hiveRun') or {}).get('last') or 0) >= _hv.every_s((c.get('hive') or {}).get('every'))]
+    due_ = [c for c in store['cats'].values() if _hive_works(c) and now - float((c.get('hiveRun') or {}).get('last') or 0) >= _hv.every_s((c.get('hive') or {}).get('every'))]
     async with httpx.AsyncClient(timeout=20) as http:
         if due_:
             try:
@@ -4280,7 +4287,7 @@ async def _card_seat_fates(http, store, now):
 
 async def _sicario_free(http, store):
     """🎩 Free seats on the card, asked only while Sicario's is in Auto-collect. None = no answer, so nothing is filed."""
-    if not any(c.get('handle') == 'sicarios' and (c.get('hive') or {}).get('on') and not c.get('revoked') for c in store['cats'].values()):
+    if not _gr.on(_rails(), 'agentsWork') or not any(c.get('handle') == 'sicarios' and (c.get('hive') or {}).get('on') and not c.get('revoked') for c in store['cats'].values()):
         return None
     try:
         r = await http.get('http://127.0.0.1:5077/api/reputation/internal/sicario-want', headers={'x-feeless-internal': _internal_key_read()}, timeout=5)
@@ -4291,6 +4298,8 @@ async def _sicario_free(http, store):
 
 def _sicario_loop(store, now, free=None):
     """🎩 Two ways it keeps working. Auto-collect (its hive on): PoWs until the card's seats are full, each one sent to a free seat. Endless: the next proof of any kind as soon as it is idle and rested. It has no wallet."""
+    if not _gr.on(_rails(), 'agentsWork'):   # 🛡 AGX-7: no Auto-collect seats and no Endless proofs while the owner has agents paused
+        return
     for c in store['cats'].values():
         b_ = c.get('brainsCfg') or {}; cid = c.get('id')
         if _sicario_paused(c):
@@ -5647,6 +5656,15 @@ async def _meta_post(store):
 # in `_work_settle` (the cat's credit pays, the owner's per-task $ cap bounds it). Live / snapshot views go only to the cat's owner.
 _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
+
+
+def _rails():
+    return _gr.load(DATA_DIR / 'guardrails.json')
+
+
+def _task_cap_max():
+    """🛡 The most one task may spend: today's TASK_CAP_MAX, or lower when the owner's guardrail says so (off = the half-cent floor)."""
+    return max(0.005, min(TASK_CAP_MAX, _gr.value(_rails(), 'taskCap')))
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 HANDOFF_MAX = 10   # 🏇 let it go: asks waiting their turn
 SOURCES_PATH = DATA_DIR / 'agent_sources.json'
@@ -5797,7 +5815,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     b = cat.get('brainsCfg') or {}
     if not pow_ and not read_:
         cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
-    cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
+    cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), _task_cap_max(), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if pow_ or read_:   # ⛏ a PoW folder (or a PoP / PoB's site read) runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
         cap = min(_pow.ROUND_USD * (len(pows) if pows else max(1, len(b.get('brains') or [])) if read_ else 1), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
@@ -6872,7 +6890,7 @@ async def create_cat(payload: CreatePayload):
                 cat['venues'] = _ck.venues(payload.venues)   # 📈 FEELESS rails only (trench · perps)
             else:
                 cat['workMode'] = payload.workMode if payload.workMode in _ca.MODES else 'plan'
-                if payload.taskCap: cat['taskCap'] = max(0.005, min(TASK_CAP_MAX, float(payload.taskCap)))
+                if payload.taskCap: cat['taskCap'] = max(0.005, min(_task_cap_max(), float(payload.taskCap)))
         except ValueError as e:
             raise HTTPException(400, str(e))
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
@@ -10521,7 +10539,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'jobRates': cat['jobRates']}
     if p.op == 'cap':
-        v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
+        v = max(0.005, min(_task_cap_max(), float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); keep_owned(cat); _save(store)   # kept: the next save laid the old remembered cap back over it (owner 2026-10-31: "$0.25 doesn't change")
         return {'cap': cat['taskCap']}
     if p.op == 'login':   # 🔑 the owner's own login for the site its window asked about: sealed in its vault, handed to the live window, the window continues
@@ -11369,7 +11387,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 row_ = await _run_order(store, cat, text, http_o)
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': text[:400], 'at': time.time()}, {'by': 'cats', 'text': row_['why'], 'at': time.time()}])[-40:]
             keep_owned(cat); _save(store)
-            return {**_as_collective(_work_view(cat_id, owner=True)), 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
+            return {**_as_collective(_work_view(cat_id, owner=True)), 'cap': min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), _task_cap_max()), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
         if busy:   # 🏇 let it go: it takes the next ask the moment this one ends
             q_ = list(cat.get('workQueue') or [])
             if len(q_) >= HANDOFF_MAX:
@@ -11386,7 +11404,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 _WORK[cat_id]['task']['watch'] = True   # 👁 files as its own folder when it finishes
             keep_owned(cat); _save(store)
     out = _as_collective(_work_view(cat_id, owner=True))
-    return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
+    return {**out, 'cap': min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), _task_cap_max()), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(cat), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
             'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'challengeStats': cat.get('challengeStats') or {}, 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat), 'ipfs': list(reversed(cat.get('ipfs') or []))[:20],   # ☁ its cloud: pool, quota, files · ⛓ what it keeps on IPFS
@@ -12651,7 +12669,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         if payload.limits is not None:   # 🎚 a general agent: $ a task · $ a mind · steps · $ a day (enforced in _work_start + cat_agent._ask)
             cat['limits'] = clean_limits(payload.limits)
             if _num(payload.limits.get('taskUsd')):
-                cat['taskCap'] = round(max(0.005, min(TASK_CAP_MAX, float(_num(payload.limits.get('taskUsd'))))), 4)
+                cat['taskCap'] = round(max(0.005, min(_task_cap_max(), float(_num(payload.limits.get('taskUsd'))))), 4)
     elif payload.action == 'withdraw':
         amount = min(float(payload.amount or 0), cat['balanceSol'])
         cat['balanceSol'] = round(cat['balanceSol'] - amount, 6)

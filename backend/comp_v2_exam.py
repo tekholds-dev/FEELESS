@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comp_v2 as cv  # noqa: E402
+import guardrails as _gr  # noqa: E402
 
 MAX_FLAGSHIP_Q = 40          # spend cap: at most this many questions per paid API (each is ~200 tokens in, a few out)
 
@@ -179,12 +180,14 @@ def main(folder):
         put_local('comp', 'COMP v2 · 9B LoRA', outs[0][0], outs[0][1], sec)
         if len(outs) > 1:
             put_local('comp_mem', 'COMP v2 + memory', outs[1][0], outs[1][1], sec)
-    keys = env_keys(); qs = rows[:MAX_FLAGSHIP_Q]
+    keys = env_keys(); g_ = _gr.load(Path(__file__).resolve().parent / 'data' / 'guardrails.json')   # 🛡 AGX-7: the owner's paid-exam switch + question cap
+    qs = rows[:min(MAX_FLAGSHIP_Q, int(_gr.value(g_, 'compFlagships')))]   # the PAID flagships' questions
+    own_qs = rows[:MAX_FLAGSHIP_Q]   # OSSY + G4 are free: the paid switch never limits them
     for eid, name, base, model, key, why in own_minds(keys):   # 🖥 OSSY + G4: free, on the owner's own machines
         if why:
             put({'id': eid, 'name': name, 'kind': 'own', 'blocked': why}); continue
         try:
-            t0 = time.time(); put({'id': eid, 'name': name, 'kind': 'own', 'score': cv.score(qs, openai_style(qs, key, base, model, timeout=120)), 'seconds': round(time.time() - t0)})
+            t0 = time.time(); put({'id': eid, 'name': name, 'kind': 'own', 'score': cv.score(own_qs, openai_style(own_qs, key, base, model, timeout=120)), 'seconds': round(time.time() - t0)})
         except Exception as e:   # noqa: BLE001 — an unreachable desktop never stops the exam
             put({'id': eid, 'name': name, 'kind': 'own', 'blocked': f'its LM Studio did not answer ({type(e).__name__})'})
     flag = (('claude', 'Claude Opus 5.5', 'ANTHROPIC_API_KEY', lambda k: claude_answers(qs, k)),
@@ -193,6 +196,8 @@ def main(folder):
             ('grok', keys['XAI_MODEL'] or 'grok-3-mini', 'XAI_API_KEY',
              lambda k: openai_style(qs, k, 'https://api.x.ai/v1', keys['XAI_MODEL'] or 'grok-3-mini')))
     for eid, name, var, run in flag:
+        if not qs:
+            put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'off in your guardrails'}); continue
         if not keys[var]:
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'no key: add it in HQ › Agents'}); continue
         try:
