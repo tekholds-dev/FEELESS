@@ -2471,3 +2471,204 @@ async def internal_agent_circle_wallet(request: Request, body: dict):
     import uuid as _uuid
     return await rs._circle('POST', '/wallets', {'blockchain': 'SOL', 'name': f'agent {cid_[:30]}', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, f'feeless-cat-{cid_}'))}, agent=True)
 
+
+@router.get('/api/reputation/fuses/feeders')
+async def fuse_feeders():
+    """🧲 Runners that new Pump launches are paired with (each buy of a paired coin routes through the runner's pool — Pump, 2026-10-08):
+    paired coins, new this hour, trading now, the cap riding on it. A read of where buys are routed, never a promise."""
+    rs = _rs()
+    b = await rs._feeders_build()
+    rs_ = b.get('runners') or {}
+    nm = rs._feeders.get('names') or {}
+    return {'runners': [{'mint': m, 'symbol': nm.get(m), **rs_[m]} for m in rs._fd.ranked(b, 1)[:60]], 'seen': b.get('seen') or 0, 'at': rs._feeders.get('at') or None}
+
+
+@router.post('/api/reputation/arena/loadout')
+async def arena_loadout(p: _RSM.ArenaLoadout):
+    """Save the gun you built — only parts your level owns stick."""
+    rs = _rs()
+    who_, name_ = rs._arena_who(p.address, p.session, p.tg)
+    if not who_:
+        raise rs.HTTPException(401, 'Sign in (wallet or Telegram) to save a loadout.')
+    async with rs._crews_lock:
+        doc_ = rs._json_load(rs.ARENA_PATH, {}) or {}; players_ = doc_.setdefault('players', {}); me_ = players_.setdefault(who_, {})
+        me_['loadout'] = rs._ar.clean_loadout(p.loadout, rs._arena_unlock_level(who_, rs._ar.level_of(me_.get('xp'))['level']))
+        if name_:
+            me_['name'] = name_
+        rs._json_save(rs.ARENA_PATH, doc_)
+    return rs._arena_profile(players_, who_)
+
+
+@router.post('/api/reputation/arena/start')
+async def arena_start(p: _RSM.ArenaStart):
+    rs = _rs()
+    who_, _n = rs._arena_who(p.address, p.session, p.tg)
+    now = rs.time.time()
+    if len(rs._arena_tokens) > 4000:
+        for k_ in [k for k, t in rs._arena_tokens.items() if now - t['at'] > 3600]:
+            rs._arena_tokens.pop(k_, None)
+    import secrets as _secrets
+    tok_ = _secrets.token_urlsafe(18)
+    rs._arena_tokens[tok_] = {'who': who_, 'at': now, 'mode': 'online' if p.mode == 'online' else 'bots'}
+    return {'token': tok_, 'guest': who_ is None}
+
+
+@router.post('/api/reputation/arena/result')
+async def arena_result(p: _RSM.ArenaResult):
+    """Check the match on the server's clock → XP (+ a level-up post to the group) and, for a family member, kill MP into the family bank."""
+    rs = _rs()
+    import crews as _cr
+    now = rs.time.time(); day_ = rs._arena_day(now)
+    t = rs._arena_tokens.pop(p.token, None)
+    if not t:
+        raise rs.HTTPException(400, 'That match expired — start a new one.')
+    why_ = rs._ar.check(p.kills, p.deaths, p.heads, now - t['at'], t['mode'])
+    if why_:
+        raise rs.HTTPException(400, why_)
+    xp_ = rs._ar.match_xp(p.kills, p.heads, p.won)
+    if not t['who']:
+        return {'ok': True, 'guest': True, 'xp': xp_}
+    who_ = t['who']; posts_ = []; mp_ = 0
+    async with rs._crews_lock:
+        doc_ = rs._json_load(rs.ARENA_PATH, {}) or {}; players_ = doc_.setdefault('players', {}); me_ = players_.setdefault(who_, {})
+        before_ = rs._ar.level_of(me_.get('xp'))['level']
+        me_['xp'] = int(me_.get('xp') or 0) + xp_; me_['kills'] = int(me_.get('kills') or 0) + p.kills; me_['wins'] = int(me_.get('wins') or 0) + (1 if p.won else 0)
+        d_ = me_.get('day') if (me_.get('day') or {}).get('date') == day_ else {'date': day_, 'xp': 0, 'kills': 0, 'mp': 0}
+        d_['xp'] += xp_; d_['kills'] += p.kills; me_['day'] = d_
+        after_ = rs._ar.level_of(me_['xp'])['level']
+        if who_.startswith('tg:'):
+            u_ = rs._tg_user(p.tg)
+            if u_:
+                me_['name'] = u_['name']
+        else:
+            st = rs._json_load(rs.CREWS_PATH, {}); _cr._norm(st)
+            c = _cr.crew_of(st, rs._seat_of(st, who_))
+            if c:
+                me_['name'], me_['tag'] = c.get('name') or me_.get('name'), c.get('tag') or ''
+                mp_ = max(0, min(rs._ar.KILL_MP * p.kills, rs._ar.KILL_MP_DAY - int(d_.get('mp') or 0)))
+                if mp_:
+                    city_ = rs._fcity.accrue(rs._fcity.city_of(c, now), now)
+                    city_['bank'] += mp_; city_['mpEver'] = city_.get('mpEver', 0) + mp_; d_['mp'] = int(d_.get('mp') or 0) + mp_
+                    rs._json_save(rs.CREWS_PATH, st)
+        if after_ > before_:
+            posts_.append(rs._ar.level_post(me_.get('name') or 'A shooter', me_.get('tag') or '', after_, (me_.get('loadout') or {}).get('gun')))
+        rs._json_save(rs.ARENA_PATH, doc_)
+    for txt_ in posts_:
+        rs.asyncio.create_task(rs._tg_group(txt_))
+    return {'ok': True, 'xp': xp_, 'mp': mp_, 'levelUp': after_ > before_, 'me': rs._arena_profile(players_, who_), 'board': rs._ar.board(players_, day_)}
+
+
+@router.get('/api/reputation/coin/{mint}/whos-in')
+async def coin_whos_in(mint: str):
+    """👥 Public: who is inside one coin — its top on-chain holders tagged by FEELESS's own forensics (dev · sniper · bundled · pool · flagged) and the
+    verified FEELESS traders in it (early-buyer rank, still in or out, result). Names are profile names; badges are featured earned badges (whos_in.py).
+    Uses the cached holder scan when there is one, else runs it (≤ 9s). 45s cache."""
+    rs = _rs()
+    import whos_in as _wi
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
+        raise rs.HTTPException(400, 'Not a Solana mint.')
+    now = rs.time.time(); hit = rs._whosin_cache.get(mint)
+    if hit and now - hit[0] < 45:
+        return hit[1]
+    ci = rs._intel_cache.get(mint)
+    intel = ci[1] if ci else None
+    if intel is None:
+        try:
+            intel = await rs.asyncio.wait_for(rs.token_intel('solana', mint), 9)
+        except Exception:
+            intel = {}
+    profs = rs._profiles_load()['profiles']; bl = rs._block_load()['wallets']
+    nm = lambda a: (profs.get(rs.primary_of(a)) or {}).get('displayName') or (profs.get(rs.primary_of(a)) or {}).get('handle')
+    top = intel.get('topHolders') or []
+    owners = [h.get('owner') for h in top if h.get('owner')]
+    holders = _wi.tag_holders(top, intel.get('creator') or '', intel.get('sniperWallets'), intel.get('bundledWallets'),
+                              [o for o in owners if rs._is_blocked(bl.get(o))], {o: nm(o) for o in owners if nm(o)})
+    trades = {w: rs_ for w, rs_ in rs._json_load(rs.FEELESS_TRADES_PATH, {}).items() if any(r.get('token') == mint for r in rs_ or [])}
+    traders = []
+    for r in _wi.feeless_traders(trades, mint):
+        try:
+            if ((await rs._shield_of(r['address'])) or {}).get('verdict') == 'bot':
+                continue
+        except Exception:
+            pass
+        pr = profs.get(rs.primary_of(r['address'])) or {}
+        traders.append({**r, 'name': nm(r['address']) or _wi.short(r['address']),
+                        'badges': [{'id': b, 'art': _wi.badge_art(b)} for b in (pr.get('featuredBadges') or []) if _wi.badge_art(b)][:2]})
+    out = {'mint': mint, 'holders': holders, 'traders': traders, 'verdict': _wi.verdict(holders), 'scanned': bool(top), 'at': now}
+    rs._whosin_cache[mint] = (now, out)
+    return out
+
+
+@router.get('/api/reputation/edge/memory')
+async def edge_memory(chain: str):
+    rs = _rs()
+    d = rs._json_load(rs.EDGE_MEM_PATH, {'open': {}, 'done': []})
+    rows = [x for x in d['done'] if x['chain'] == chain]
+    grades = {}
+    for g in 'ABCDF':
+        rs_ = sorted(x['ret'] for x in rows if x['grade'] == g)
+        if not rs_:
+            continue
+        grp = [x for x in rows if x['grade'] == g]
+        grades[g] = {'n': len(rs_), 'medianRet': rs_[len(rs_) // 2], 'rugRate': round(sum(1 for x in grp if x['rug']) / len(grp) * 100, 1),
+                     'hitRate': round(sum(1 for x in grp if x['peak'] >= 50) / len(grp) * 100, 1)}
+    return {'chain': chain, 'resolved': len(rows), 'pending': sum(1 for o in d['open'].values() if o['chain'] == chain), 'grades': grades}
+
+
+@router.get('/api/reputation/admin/numbers')
+async def admin_numbers(request: Request):
+    rs = _rs()
+    admin = rs._require_admin(request)
+    mints = await rs._ecosystem_mints()
+    fee_mint = mints.get('fee')
+    market = None
+    if fee_mint:
+        try:
+            async with rs.httpx.AsyncClient(timeout=10) as http:
+                pairs = (await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{fee_mint}')).json().get('pairs') or []
+            if pairs:
+                p = max(pairs, key=lambda x: (x.get('liquidity') or {}).get('usd') or 0)
+                tx = p.get('txns') or {}
+                market = {'price': float(p.get('priceUsd') or 0), 'marketCap': p.get('marketCap'), 'fdv': p.get('fdv'),
+                          'liquidity': (p.get('liquidity') or {}).get('usd'), 'volume': p.get('volume') or {}, 'change': p.get('priceChange') or {},
+                          'buys24': (tx.get('h24') or {}).get('buys'), 'sells24': (tx.get('h24') or {}).get('sells'),
+                          'pools': len(pairs), 'pair': p.get('pairAddress'), 'dex': p.get('dexId')}
+        except Exception:
+            pass
+    holders = None
+    if fee_mint:
+        try:
+            data = await rs._token_holders(fee_mint)
+            rows = data['rows']
+            lp = {r['owner'] for r in rows[:3] if (r['pct'] or 0) > 20}
+            real = [r for r in rows if r['owner'] not in lp]
+            holders = {'count': data.get('holderCount') or len(rows), 'top1': round(real[0]['pct'], 2) if real else None,
+                       'top10': round(sum(r['pct'] or 0 for r in real[:10]), 2), 'whales': sum(1 for r in real if (r['pct'] or 0) >= 1),
+                       'lpExcluded': len(lp)}
+        except Exception:
+            pass
+    tre = {}
+    try:
+        tre = await rs.admin_treasury(request)
+    except Exception:
+        pass
+    now = rs.time.time()
+    rc = rs._receipt_rows()
+    def flow(since):
+        rs_ = [r for r in rc if (r[0] or 0) >= since]
+        return {'swaps': len(rs_), 'solVolume': round(sum(abs(r[5] or 0) for r in rs_), 3), 'traders': len({r[2] for r in rs_})}
+    stats = await rs.live_stats()
+    snap = {'price': (market or {}).get('price'), 'marketCap': (market or {}).get('marketCap'), 'liquidity': (market or {}).get('liquidity'),
+            'holders': (holders or {}).get('count'), 'sol': tre.get('sol'), 'swaps': len(rc)}
+    hist = rs._json_load(rs.NUMBERS_PATH, {'days': {}})
+    day = rs.time.strftime('%Y-%m-%d', rs.time.gmtime(now))
+    if any(v is not None for v in snap.values()):
+        hist['days'][day] = snap
+        hist['days'] = dict(sorted(hist['days'].items())[-400:])
+        rs._json_save(rs.NUMBERS_PATH, hist)
+    return {'wallet': admin, 'feeMint': fee_mint, 'market': market, 'holders': holders,
+            'treasury': {'sol': tre.get('sol'), 'holdingsUsd': tre.get('holdingsUsd')},
+            'flow': {'h24': flow(now - 86400), 'd7': flow(now - 7 * 86400), 'all': flow(0)},
+            'scanner': {k: stats.get(k) for k in ('mintsScanned', 'snipers', 'bundlers', 'flaggedFunders', 'blocklisted', 'creators')},
+            'history': [{'day': k, **v} for k, v in hist['days'].items()], 'at': now}
+

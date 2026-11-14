@@ -205,7 +205,10 @@ def main():
         a.writes = True   # body models read as _RSM.Model, the same as the write run
     dst = ROOT / 'backend' / (f'rep_{a.kind}_routes.py' if a.kind else 'rep_more_writes.py' if a.writes else 'rep_more_reads.py'); mod = dst.stem
     text = SRC.read_text(); lines = text.splitlines(keepends=True); tree = ast.parse(text); glob = module_globals(tree)
-    models = frozenset(n.name for n in tree.body if isinstance(n, ast.ClassDef) and any(getattr(b, 'id', '') == 'BaseModel' for b in n.bases)) if a.writes else frozenset()
+    models = set()
+    for _ in range(4):   # a model may extend another model (ArenaLoadout(ArenaWho)): follow the chain
+        models |= {n.name for n in tree.body if isinstance(n, ast.ClassDef) and any(getattr(b, 'id', '') in models | {'BaseModel'} for b in n.bases)}
+    models = frozenset(models) if a.writes else frozenset()
     verbs = ALL_VERBS if a.kind else ('post', 'put', 'delete', 'patch') if a.writes else ('get', 'api_route')
     moves, skips = [], {}
     pats = []   # every GET path in the app, as a regex: a moved route lands LAST, so it must not be catchable by any other path pattern
