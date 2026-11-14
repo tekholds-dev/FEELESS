@@ -1,6 +1,6 @@
 import { useOnScreen } from '../../lib/fxPause';
 import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
-import { KalshiDoor, KalshiTicket } from './KalshiDoor';
+import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1187,7 +1187,7 @@ function PobTopic({ f, catId, onMark }) {
       {f.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={f.graded === k ? 'active' : ''} aria-pressed={f.graded === k} onClick={() => onMark(f.id, f.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}</header>
     {r ? <p className="dsk-note">{r.lesson}</p> : null}<BrowseNote f={f} /><SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
     {(f.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{f.agreed.map((x, i) => <li key={x} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{x}</b><small>both minds, blind</small></li>)}</ul> : null}
-    {f.kalshi ? <KalshiTicket t={f.kalshi} catId={catId} work={work} /> : null}
+    {f.kalshi ? <KalshiTicket t={f.kalshi} catId={catId} work={work} /> : f.kalshiSplit?.length ? <KalshiHedge rows={f.kalshiSplit} /> : null}
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
       {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
       <Browsed b={f.browsed?.[c.mind]} /></section>)}</div>
@@ -1213,6 +1213,11 @@ function PobShelf({ d, open, setOpen, catId, onMark }) {
 function BidsApp({ cat, d, setD, children, focus = null }) {
   const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(focus?.id ? 'pob' : ''); const [m, setM] = useState(null); const [open, setOpen] = useState(focus?.id || '');
   const box = useRef(null);   // 🎯 a picked proof sits under the live tools: scroll it into view
+  useEffect(() => {   // 📐 scrolled down, the window tucks its stat row and steps away so the tools get the room (owner 2026-11-14)
+    const main = box.current?.closest('.prf')?.querySelector('.prf-main'); const win = box.current?.closest('.dfw'); if (!main || !win) return undefined;
+    const on = () => win.classList.toggle('is-tucked', main.scrollTop > 60); main.addEventListener('scroll', on, { passive: true });
+    return () => { main.removeEventListener('scroll', on); win.classList.remove('is-tucked'); };
+  }, []);
   const want = useRef(null); useEffect(() => { if (focus?.id) { want.current = focus.id; setPath('pob'); setOpen(focus.id); } }, [focus?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!want.current || path !== 'pob' || open !== want.current) return undefined; const t = setTimeout(() => { const el = box.current?.querySelector('.dsk-pull'); if (el && el.getBoundingClientRect().height > 40) { want.current = null; box.current.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); } }, 60); return () => clearTimeout(t); });   // runs after each render until the file has drawn
   const [err, setErr] = useState('');

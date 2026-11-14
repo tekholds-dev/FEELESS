@@ -1,4 +1,5 @@
 import { boxRef } from '../../lib/boxRef';
+import { CollectiveIdeas } from './CollectiveIdeas';
 import { useOnScreen } from '../../lib/fxPause';
 import { WeightBars } from './ProofKit';
 import { PoolBuilder } from './CollectiveSetup';
@@ -118,6 +119,7 @@ export function ColonyFlow({ api, onOpen }) {
     {!agents.length ? <p className="clx-none">{d ? 'No agents yet.' : 'Reading the Collective…'}</p> : null}
     {webOpen ? <div className="stw-shade" role="dialog" aria-modal="true" aria-label="The Collective Stash" onClick={e => e.target === e.currentTarget && setWebOpen(false)}><StashWeb onClose={() => setWebOpen(false)} /></div> : null}
     <ProofsList rows={d?.proofs} />
+    <CollectiveIdeas d={d} />
     <CollectivePrint feed={d?.proofs} />
     <Convos rows={d?.convos} />
     <details className="clx-more"><summary><Ic3 e="📒" /> MONEY TRAIL</summary><ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} /></details>

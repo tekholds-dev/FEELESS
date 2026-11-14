@@ -38,3 +38,16 @@ test('after sending, the ticket shows Kalshi\'s own read-back and can re-check i
   await act(async () => { q(el, 'kd-check').click(); });
   expect(calls).toEqual([{ op: 'kalshi_check', job: 'kb2' }]); expect(q(el, 'kd-confirm').textContent).toContain('1 of 1 filled'); expect(q(el, 'kd-check')).toBeNull();
 });
+
+test('a streak only OFFERS a bigger bid; it changes on two taps to exactly the offered value; a split shows a hedge, never a bid', async () => {
+  const sent = []; const S = { ...STATE, streak: 3, raise: { streak: 3, from: 1, to: 2 } };
+  const work = async (_c, b) => { sent.push(b); return b.op === 'kalshi_raise' ? { ...S, raise: null, cfg: { ...S.cfg, bidUsd: 2 } } : S; };
+  const el = await mount(<KalshiDoor cat={{ id: 'c' }} work={work} />);
+  expect(q(el, 'kd-streak').textContent).toContain('3 real wins in a row');
+  await act(async () => { q(el, 'kd-raise-go').click(); }); expect(sent.filter(b => b.op === 'kalshi_raise')).toHaveLength(0);
+  await act(async () => { q(el, 'kd-raise-go').click(); });
+  expect(sent.at(-1)).toEqual({ op: 'kalshi_raise', job: '2.00' });
+  const { KalshiHedge } = require('./KalshiDoor');
+  const h = await mount(<KalshiHedge rows={[{ name: 'A', conf: 70, side: 'yes', title: 'Lakers win', price: 0.4, ticker: 'T' }, { name: 'B', conf: 66, side: 'no', title: 'Lakers win', price: 0.62, ticker: 'T' }]} />);
+  expect(h.textContent).toContain('THE MINDS SPLIT'); expect(h.textContent).toContain('0.62 on Kalshi'); expect(h.querySelector('button')).toBeNull();
+});

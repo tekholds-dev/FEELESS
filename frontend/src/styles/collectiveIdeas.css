@@ -1,0 +1,17 @@
+/* 🧠 CollectiveIdeas.jsx — form, the Collective's pick and Kalshi rivals. Motion: cixIn, transform/opacity only. */
+:root { /* page tokens (STYLE-1) */ --pcix-ac1: #19e68c; --pcix-dg1: #ff5c7a; --pcix-bd1: #ffffff1f; --pcix-bg1: #ffffff0d; --pcix-tx1: #ffffffe6; --pcix-tx2: #ffffff8c; --pcix-gd1: #f5c451; }
+.cix { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; gap: 12px; margin: 14px 0; min-width: 0; }
+.cix-card { display: grid; gap: 10px; align-content: start; padding: 14px; border-radius: 14px; border: 1px solid var(--pcix-bd1); min-width: 0; animation: cixIn .3s ease-out both; }
+.cix-card header { display: grid; gap: 2px; } .cix-card header b { font: 700 12px var(--f-mono, monospace); letter-spacing: .12em; color: var(--pcix-tx1); } .cix-card header small { font: 500 11.5px var(--f-ui, sans-serif); color: var(--pcix-tx2); }
+.cix-card ol { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cix-card li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; padding: 8px 10px; border-radius: 10px; background: var(--pcix-bg1); animation: cixIn .3s calc(var(--i, 0) * 50ms) ease-out both; }
+.cix-card li > em { font: 700 11px var(--f-mono, monospace); color: var(--pcix-gd1); font-style: normal; } .cix-card li > b { font: 600 12.5px var(--f-ui, sans-serif); color: var(--pcix-tx1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cix-card li > small { font: 600 10.5px var(--f-mono, monospace); color: var(--pcix-tx2); }
+.cix-bar { grid-column: 2 / 3; height: 4px; border-radius: 4px; background: var(--pcix-bd1); overflow: hidden; } .cix-bar s { display: block; height: 100%; background: var(--pcix-ac1); transform-origin: left; transition: transform .5s ease-out; }
+.cix-back { grid-column: 1 / -1; font: 500 11px var(--f-ui, sans-serif) !important; }
+.cix-card.is-pick { border-color: color-mix(in srgb, var(--pcix-gd1) 45%, transparent); }
+.cix-card.is-pick p { display: grid; gap: 2px; margin: 0; } .cix-card.is-pick p em { font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; color: var(--pcix-gd1); font-style: normal; } .cix-card.is-pick p b { font: 700 16px var(--f-display, sans-serif); color: var(--pcix-tx1); } .cix-card.is-pick p small { font: 500 11.5px var(--f-ui, sans-serif); color: var(--pcix-tx2); }
+.cix-rival { grid-template-columns: minmax(0, 1fr) !important; } .cix-rival .is-won { color: var(--pcix-ac1); } .cix-rival .is-lost { color: var(--pcix-dg1); text-decoration: line-through; }
+@keyframes cixIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cix-card, body.fx-lite .cix-card li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cix-card, .cix-card li { animation: none; } .cix-bar s { transition: none; } }

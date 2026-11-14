@@ -61,10 +61,32 @@ def split(rows, seed=SEED, test=0.2, valid=0.1):
     return tr, va, te
 
 
+KALSHI_ROWS = 'kalshi_rows.jsonl'
+
+
+def kalshi_rows(folder=None):
+    """🎓 Settled real Kalshi bids, written by the service when Kalshi settles them (owner 2026-11-14: agents learn from their Kalshi results)."""
+    try:
+        return [json.loads(x) for x in (Path(folder or DATA) / KALSHI_ROWS).read_text().splitlines() if x.strip()]
+    except (OSError, ValueError):
+        return []
+
+
+def add_kalshi_row(row, folder=None):
+    """Appends one lesson once (by id). → True when it was new."""
+    folder = Path(folder or DATA); folder.mkdir(parents=True, exist_ok=True)
+    if row.get('outcome') not in LABELS or any(r.get('id') == row.get('id') for r in kalshi_rows(folder)):
+        return False
+    with open(folder / KALSHI_ROWS, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(row, ensure_ascii=False) + '\n')
+    return True
+
+
 def write_dataset(rows, folder=None):
     """Writes train/valid/test.jsonl (mlx-lm chat format) + test_rows.json (the raw rows the exam grades). → counts."""
     folder = Path(folder or DATA)
     folder.mkdir(parents=True, exist_ok=True)
+    rows = list(rows) + [r for r in kalshi_rows(folder) if r.get('id') not in {x.get('id') for x in rows}]   # 🎯 real-money results: the best signal, in every split
     tr, va, te = split(rows)
     net = [r for r in _market.rows(folder, len(tr)) if r.get('outcome') in LABELS]   # 🌐 internet rows: train only, never more than his
     tr = tr + net

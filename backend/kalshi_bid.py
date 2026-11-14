@@ -241,3 +241,81 @@ async def order_status(http, key_id, pem, order_id):
     if r.status_code != 200:
         raise RuntimeError(f'Kalshi said {r.status_code} reading the order: {r.text[:160]}')
     return (r.json() or {}).get('order') or {}
+
+
+# 🧠 THE BIG IDEAS (owner 2026-11-14: "do all of the big ideas"). Pure; the service reads Kalshi and holds the store.
+def _top_pick(c, ids):
+    best = None
+    for p in c.get('picks') or []:
+        k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
+        t, s = str((k or {}).get('ticker') or '').strip(), str((k or {}).get('side') or '').lower()
+        if t in ids and s in ('yes', 'no') and (best is None or (p.get('confidence') or 0) > (best[2].get('confidence') or 0)):
+            best = (t, s, p)
+    return best
+
+
+def split_view(calls, markets):
+    """⚖ HEDGE: the minds did NOT agree, so no ticket — show each mind's own Kalshi side with the live odds instead of nothing. → [] or 2 rows."""
+    by = {m.get('ticker'): m for m in markets or []}
+    out = []
+    for c in (calls or [])[:2]:
+        tp = _top_pick(c, set(by))
+        if tp:
+            t, s, p = tp
+            out.append({'mind': c.get('mind'), 'name': c.get('name'), 'ticker': t, 'side': s, 'title': by[t].get('title') or t,
+                        'price': price_of(by[t], s), 'conf': p.get('confidence') or 0, 'why': str(p.get('why') or '')[:160]})
+    return out if out and chosen(calls, set(by)) is None else []
+
+
+def result_of(market):
+    """Kalshi's settled result for a market: 'yes' / 'no', or None while it is open."""
+    r = str((market or {}).get('result') or '').lower()
+    return r if r in ('yes', 'no') else None
+
+
+def lesson(bid):
+    """🎓 A settled real-money bid as a COMP training row (the same shape as an owner proof): only what was known when it was bid."""
+    minds = bid.get('minds') if isinstance(bid.get('minds'), list) else []
+    plan = f"{str(bid.get('side') or '').upper()} at {float(bid.get('price') or 0):.2f} on Kalshi; both minds agreed" + (f": {' / '.join(str(x) for x in minds if x)}" if minds else '')
+    return {'id': f"kalshi:{bid.get('orderId') or bid.get('id')}", 'kind': 'PoB · Kalshi', 'title': bid.get('title') or bid.get('ticker'),
+            'plan': plan[:600], 'source': 'kalshi', 'outcome': bid.get('outcome'), 'at': bid.get('at')}
+
+
+def streak(bids):
+    """🔥 Settled real bids won in a row, newest first (an open bid neither breaks nor adds)."""
+    n = 0
+    for b in sorted([b for b in bids or [] if b.get('outcome') in ('won', 'lost')], key=lambda b: -float(b.get('settledAt') or b.get('at') or 0)):
+        if b['outcome'] != 'won':
+            break
+        n += 1
+    return n
+
+
+STREAK_NEED = 3
+
+
+def raise_offer(c, bids):
+    """After 3 real wins in a row, OFFER (never apply) a bigger per-bid size: double, capped by the hard max and his daily cap. → dict or None."""
+    c = cfg(c); n = streak(bids)
+    to = round(min(HARD_BID, c['dayUsd'], c['bidUsd'] * 2), 2)
+    return {'streak': n, 'from': c['bidUsd'], 'to': to} if n >= STREAK_NEED and to > c['bidUsd'] else None
+
+
+def rivals(rows):
+    """🥊 Two different agents on the SAME Kalshi market, OPPOSITE sides. rows: [{agent, name, ticker, side, title, result}] → pairs, newest market first;
+    once Kalshi settles it, the pair names the winner and the loser."""
+    by = {}
+    for r in rows or []:
+        if r.get('ticker') and r.get('side') in ('yes', 'no') and r.get('agent'):
+            by.setdefault(r['ticker'], {}).setdefault(r['side'], {}).setdefault(r['agent'], r)
+    out = []
+    for t, sides in by.items():
+        for y in (sides.get('yes') or {}).values():
+            for n in (sides.get('no') or {}).values():
+                if y['agent'] == n['agent']:
+                    continue
+                res = y.get('result') or n.get('result')
+                win, lose = (y, n) if res == 'yes' else (n, y) if res == 'no' else (None, None)
+                out.append({'ticker': t, 'title': y.get('title') or t, 'yes': y.get('name'), 'no': n.get('name'), 'result': res,
+                            'winner': (win or {}).get('name'), 'loser': (lose or {}).get('name'), 'at': max(float(y.get('at') or 0), float(n.get('at') or 0))})
+    return sorted(out, key=lambda r: -r['at'])[:12]

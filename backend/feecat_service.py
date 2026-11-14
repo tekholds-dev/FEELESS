@@ -65,6 +65,7 @@ import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
 import chain_rpc as _crpc
 import pob as _pob
+import comp_v2 as _comp2   # 🎓 settled Kalshi bids become COMP lessons
 import kalshi_bid as _kb   # 🎯 real Kalshi bids from a PoB, on the owner's own key, inside his caps
 import site_scan as _ss
 import agent_topup as _tu
@@ -4987,6 +4988,7 @@ async def _kalshi_send(cat, tk):
                 if not ok_:
                     tk.update(status='refused', why=why_, balance=bal_)
                 else:
+                    tk.setdefault('minds', tk.get('why') if isinstance(tk.get('why'), list) else [])   # 🎓 the minds' reasons stay for COMP's lesson
                     o_ = await _kb.place(h_, kid_, pem_, _kb.order(tk, n_, px_))
                     tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_))
                     await _kalshi_confirm(h_, kid_, pem_, tk)   # ✅ read it back from Kalshi itself
@@ -4999,7 +5001,7 @@ async def _kalshi_send(cat, tk):
     return tk
 
 
-_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr')
+_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx')
 
 
 async def _kalshi_confirm(h_, kid_, pem_, row):
@@ -5037,9 +5039,51 @@ async def _kalshi_refresh(cat, kid_, pem_, limit=6):
     return len(rows_)
 
 
+async def _kalshi_settle_pass(http, store, now):
+    """🏁 Every 5 min, from Kalshi's PUBLIC market data (no key, read only): each open real bid gets its live price, and once Kalshi settles the
+    market the bid gets won / lost, a chat line, and a COMP lesson (owner 2026-11-14: "agents learn from their Kalshi results")."""
+    todo_ = [(c, b) for c in store['cats'].values() for b in (c.get('kalshiBids') or [])[-30:]
+             if b.get('ticker') and not b.get('outcome') and b.get('status') in ('filled', 'resting', 'sent') and now - float(b.get('at') or 0) < 30 * 86400]
+    seen_ = {}
+    for c, b in todo_:
+        t_ = b['ticker']
+        if t_ not in seen_:
+            if len(seen_) >= 12:
+                break
+            seen_[t_] = await _kb.market(http, t_)
+        m_ = seen_[t_]
+        if not m_:
+            continue
+        b['livePx'] = _kb.price_of(m_, b.get('side'))
+        res_ = _kb.result_of(m_)
+        if res_ and b.get('status') == 'filled':   # only a filled bid won or lost money
+            b.update(result=res_, outcome='won' if res_ == b.get('side') else 'lost', settledAt=round(now))
+            new_ = _comp2.add_kalshi_row(_kb.lesson(b))
+            c['chat'] = (list(c.get('chat') or []) + [{'by': 'cats', 'text': f"🏁 Kalshi settled {b.get('title') or t_}: {res_.upper()}. My {str(b.get('side')).upper()} bid {'WON' if b['outcome'] == 'won' else 'lost'}." + (' Filed as a COMP lesson.' if new_ else ''), 'at': now, 'open': 'bids'}])[-200:]
+        for f_ in c.get('pobFolders') or []:   # the ticket on the proof shows the same
+            tk_ = f_.get('kalshi') or {}
+            if b.get('orderId') and tk_.get('orderId') == b['orderId']:
+                tk_.update({k: b.get(k) for k in ('livePx', 'result', 'outcome', 'settledAt') if b.get(k) is not None})
+    if todo_:
+        _save(store)
+
+
+def _kalshi_rivals(cats):
+    """🥊 Agents on opposite sides of the same Kalshi market: every ticket they made (sent or not) is their pick."""
+    rows_ = []
+    for c in cats:
+        res_ = {b.get('ticker'): b.get('result') for b in c.get('kalshiBids') or [] if b.get('result')}
+        for f_ in (c.get('pobFolders') or [])[-30:]:
+            tk_ = f_.get('kalshi') or {}
+            if tk_.get('ticker'):
+                rows_.append({'agent': c.get('id'), 'name': c.get('name'), 'ticker': tk_['ticker'], 'side': tk_.get('side'), 'title': tk_.get('title'), 'result': tk_.get('result') or res_.get(tk_['ticker']), 'at': tk_.get('at')})
+    return _kb.rivals(rows_)
+
+
 def _kalshi_view(cat):
     c_ = _kb.cfg(cat.get('kalshiCfg')); bids_ = cat.get('kalshiBids') or []
     return {'cfg': c_, 'key': any(r['provider'] == 'kalshi' and r['saved'] for r in _ck.public(cat)), 'spentToday': _kb.spent_today(bids_), 'bids': bids_[-20:][::-1],
+            'streak': _kb.streak(bids_), 'raise': _kb.raise_offer(c_, bids_),   # 🔥 3 real wins in a row → a bigger bid is OFFERED, never applied
             'hard': {'bidUsd': _kb.HARD_BID, 'dayUsd': _kb.HARD_DAY}}
 
 
@@ -5170,6 +5214,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     calls = [{'mind': i, 'name': names[i], **_pob.parse_picks(raw[k])} for k, i in enumerate(idx)]
     both = _pob.agreed(calls)
     kb_pick_ = _kb.chosen(calls, {m['ticker'] for m in kb_rows_}) if kb_rows_ else None
+    if not kb_pick_ and kb_rows_:
+        base['kalshiSplit'] = _kb.split_view(calls, kb_rows_)   # ⚖ hedge: no ticket, but each mind's side with the live odds
     if kb_pick_:
         base['kalshi'] = _kb.ticket(kb_pick_, next(m for m in kb_rows_ if m['ticker'] == kb_pick_['ticker']), rid, now)
         if kb_cfg_['mode'] == 'auto':
@@ -8929,6 +8975,10 @@ async def _pob_grade_pass(http, store, now):
     if now - float(store.get('pobGradeAt') or 0) < 300:
         return
     store['pobGradeAt'] = now
+    try:
+        await _kalshi_settle_pass(http, store, now)
+    except Exception as e:   # noqa: BLE001 — the scoreboard pass still runs
+        print(f'[kalshi] settle: {str(e)[:100]}')
     open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and f.get('gradedBy') not in _stamp.OUTSIDE]   # 🔒 a hand mark never stops the scoreboard
     owner_of = {id(f): c for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:]}
     for sport in {g.get('sport') for f in open_ for g in f['games'] if g.get('sport')}:
@@ -8989,6 +9039,7 @@ async def colony_flow(limit: int = 40):
                  'poolNow': {**_cpool.totals(_cpool.load(POOL_PATH), await _pool_px()), 'stakedUsd': _stake.totals(_cpool.load(POOL_PATH), await _pool_px())['stakedUsd'], 'head': _cpool.load(POOL_PATH).get('head'), 'links': _cpool.load(POOL_PATH).get('links'), 'seeds': {c['id']: _cpool.print_seed(c['id']) for c in cats[:400]}},
                  'proofs': _cl.proof_feed(cats, shares, now, 20), 'convos': _convos_public(store),
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
+                 'rivals': _kalshi_rivals(cats),
                  'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _flow_tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
 
 
@@ -10161,7 +10212,13 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
-    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip', 'kalshi_check'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
+    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip', 'kalshi_check', 'kalshi_raise'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
+        if p.op == 'kalshi_raise':   # 🔥 he took the streak offer: ONLY the exact value offered, inside the hard max
+            off_ = _kb.raise_offer(cat.get('kalshiCfg'), cat.get('kalshiBids') or [])
+            if not off_ or str(p.job or '') != f"{off_['to']:.2f}":
+                raise HTTPException(409, 'That offer is gone. Nothing was changed.')
+            cat['kalshiCfg'] = _kb.cfg({**_kb.cfg(cat.get('kalshiCfg')), 'bidUsd': off_['to']}); keep_owned(cat); _save(store)
+            return _kalshi_view(cat)
         if p.op == 'kalshi_cfg':
             cat['kalshiCfg'] = _kb.cfg(p.tools); keep_owned(cat); _save(store)
         if p.op in ('kalshi_bid', 'kalshi_skip'):

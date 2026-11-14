@@ -96,6 +96,7 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
   useEffect(() => { if (steps > last.current.steps || spent > last.current.spent) energy.current = 1; last.current = { steps, spent }; }, [steps, spent]);
   const [t0] = useState(() => Date.now()); const [now, setNow] = useState(Date.now());
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(i); }, []);
+  const kt = kind === 'pob' && d?.pobFolders?.[0]?.kalshi?.orderId ? d.pobFolders[0].kalshi : null;   // 🎯 its real Kalshi bid, live on the stage
   const data = useRunData(kind, d, wins, spent, steps); const dataRef = useRef(data); dataRef.current = data;
   const [scene, setScene] = useState(() => sceneName(kind, look, 0, data));
 
@@ -136,7 +137,8 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
       <span data-tip="How long this run has been going"><em>TIME</em><b className="m-num">{clock((now - t0) / 1000)}</b></span>
       <span data-tip="Steps both minds have taken"><em>STEPS</em><b className="m-num">{Math.round(stepsT)}</b></span>
       <span data-tip="What this run has cost so far, from each call's own bill"><em>SPENT</em><b className="m-num is-hot">{money(spentT)}</b></span>
-      <span data-tip={`Live view of real run data · ${nReady} view${nReady === 1 ? '' : 's'} this run can fill right now · one of ${LOOKS_PER_PROOF} looks`}><em>VIEW</em><b className="m-num">{scene || 'waiting for data'}</b></span>
+      {kt ? <span data-tip="Its real Kalshi bid: the price it bid at, and Kalshi's live price now (read every 5 minutes)" data-testid="pl-kalshi"><em>KALSHI {String(kt.side || '').toUpperCase()}</em><b className={`m-num${kt.outcome === 'won' || (kt.livePx ?? 0) > kt.price ? ' is-hot' : ''}`}>{kt.outcome ? (kt.outcome === 'won' ? 'WON' : 'LOST') : `${Number(kt.price || 0).toFixed(2)} → ${kt.livePx != null ? Number(kt.livePx).toFixed(2) : '…'}`}</b></span>
+      : <span data-tip={`Live view of real run data · ${nReady} view${nReady === 1 ? '' : 's'} this run can fill right now · one of ${LOOKS_PER_PROOF} looks`}><em>VIEW</em><b className="m-num">{scene || 'waiting for data'}</b></span>}
     </div>
     <div className="pl-minds">{minds.map((w, i) => <div key={i} className={`pl-mind${w?.status === 'working' ? ' is-on' : ''}`} style={{ '--i': i }}>
       <b>{'AB'[i]} · {String(w?.model || '').split('/').pop().replace(':free', '') || 'mind'}</b>

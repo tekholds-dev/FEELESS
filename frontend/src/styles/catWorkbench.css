@@ -805,3 +805,6 @@ body.theme-day .cwb-proof { background: var(--pcw-tx9); color: var(--pcw-ac19); 
 button.cwb-rpx:hover { border-color: var(--ppl-dg1); color: var(--ppl-dg1); transform: translateY(-1px); } button.cwb-rpx:disabled { opacity: .5; cursor: default; }
 .cwb-rpx.is-auto { cursor: help; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
 .cwb-running-full { font: 600 9.5px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: var(--ppl-wn1); }
+
+/* 📐 the Bids window tucks its stat row and steps once you scroll its tools (BidsApp) */
+.dfw.is-tucked .dfw-wall, .dfw.is-tucked .phd-steps { display: none; }

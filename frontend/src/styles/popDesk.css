@@ -109,3 +109,12 @@ body.theme-day .pop-src > b { color: var(--ppd-ac15); } body.theme-day .pop-src-
 body.fx-lite .kd-bids li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-bids li { animation: none; } }
 body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-h b, body.theme-day .kd-bids b { color: var(--ppd-s22); } body.theme-day .kd-h small, body.theme-day .kd-bids small { color: var(--ppd-ac31); }
 @media (max-width: 640px) { .kd-num .m-input { width: 76px; } }
+
+/* 🔥⚖ the streak offer, results and the hedge card (owner 2026-11-14: the big ideas) */
+.kd-streak { margin: 0; font: 700 11px var(--f-mono); letter-spacing: .06em; color: var(--ppd-ac30); }
+.kd-raise { display: grid; gap: 6px; padding: 10px; border-radius: 10px; border: 1px solid var(--ppd-ac30); } .kd-raise small { font: 600 11px var(--f-ui); color: var(--ppd-ac29); } .kd-raise .m-btn { justify-self: start; }
+.kd-res.is-won { color: var(--ppd-ac30); } .kd-res.is-lost { color: var(--ppd-dg7); }
+.kd-hedge { display: grid; gap: 6px; margin: 8px 0; padding: 12px; border-radius: 12px; border: 1px dashed var(--ppd-ac29); } .kd-hedge > b { font: 700 12px var(--f-mono); letter-spacing: .08em; color: var(--ppd-tx2); } .kd-hedge > small { font: 600 11px var(--f-ui); color: var(--ppd-ac29); }
+.kd-hedge ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.kd-hedge li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--ppd-tx10); border-left: 3px solid var(--ppd-ac30); min-width: 0; } .kd-hedge li.is-no { border-left-color: var(--ppd-dg7); }
+.kd-hedge li em { font: 600 10px var(--f-mono); color: var(--ppd-ac29); font-style: normal; } .kd-hedge li b { font: 600 12px var(--f-ui); color: var(--ppd-tx11); } .kd-hedge li small { font: 600 10.5px var(--f-mono); color: var(--ppd-ac29); overflow: hidden; text-overflow: ellipsis; }
