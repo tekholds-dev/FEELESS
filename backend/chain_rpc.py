@@ -427,3 +427,50 @@ def helius_key():
             return m.group(1)
         spent = spent or m.group(1)
     return spent
+
+
+async def land(rpc, cast, sleep, http, sig, signed_b64, last_height=0, blockhash=None, every=2.0, cap=150):
+    """✅ Watch ONE signed transaction land (owner's $1 withdraw 2026-11-14: one send, no confirm → recorded, never on chain). Re-broadcast it
+    every `every` s (same signature: it can only land once) until it is 'confirmed', 'failed' on chain, or 'dropped' — past its blockhash
+    (by `last_height`, else `isBlockhashValid(blockhash)`), so it never can. 'unknown' only after `cap` s of neither (an RPC outage).
+    `rpc` / `cast` / `sleep` are passed in (the keeper lanes, `broadcast`, asyncio.sleep) so callers and tests choose them."""
+    async def status():
+        try:
+            st = (((await rpc(http, 'getSignatureStatuses', [[sig], {'searchTransactionHistory': True}])) or {}).get('value') or [None])[0]
+        except Exception:
+            return None
+        if not st:
+            return None
+        return 'failed' if st.get('err') else 'confirmed' if st.get('confirmationStatus') in ('confirmed', 'finalized') else None
+    t0 = time.time()
+    while time.time() - t0 < cap:
+        await sleep(every)
+        got = await status()
+        if got:
+            return got
+        try:
+            if last_height:
+                gone = int(await rpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}]) or 0) > last_height
+            elif blockhash:
+                gone = ((await rpc(http, 'isBlockhashValid', [blockhash, {'commitment': 'confirmed'}])) or {}).get('value') is False
+            else:
+                gone = False
+        except Exception:
+            gone = False
+        if gone:
+            return await status() or 'dropped'   # one last look: past its blockhash it can no longer land
+        try:
+            await cast(http, signed_b64)
+        except Exception:
+            pass
+    return 'unknown'
+
+
+def tx_blockhash(signed_b64):
+    """The recent blockhash a signed transaction carries (for `land` when its last valid height is unknown), or None."""
+    try:
+        import base64
+        from solders.transaction import VersionedTransaction
+        return str(VersionedTransaction.from_bytes(base64.b64decode(signed_b64)).message.recent_blockhash)
+    except Exception:
+        return None

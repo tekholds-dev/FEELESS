@@ -54,6 +54,10 @@ def _desk(monkeypatch, tmp_path, auto=True, agent_sol=0.5):
     async def circle(http, c, rec):
         circled.append(rec); rec['sig'] = 'AGENTSIG'
     monkeypatch.setattr(fs, '_agent_usdc', usdc); monkeypatch.setattr(fs._crpc, '_rpc', rpc); monkeypatch.setattr(fs._at, '_circle_post', circle)
+    landed = {'state': 'confirmed'}
+    async def land(*_a, **_k):
+        return landed['state']
+    monkeypatch.setattr(fs._crpc, 'land', land); cat['_landed'] = landed   # the test flips it to 'dropped'
     work = lambda **k: asyncio.run(fs.cat_work('w1', fs.WorkPayload(session='s', **k)))   # noqa: E731
     return me, cat, sent, circled, work
 
@@ -99,3 +103,15 @@ def test_auto_needs_room_in_its_wallet_and_cfg_is_bounded(monkeypatch, tmp_path)
         work(op='fund_quote', job='c1', cap=0.1)
     assert 'can add' in e.value.detail and sent == []
     assert work(op='fund_cfg', tools={'auto': False, 'pct': 500})['fundGrade'] == {'auto': False, 'pct': 100.0}
+
+
+def test_a_collective_send_that_never_lands_files_no_receipt_and_sends_no_agent_share(monkeypatch, tmp_path):
+    """✅ 2026-11-14: the owner's transfer was sent once and recorded at once; now a transfer that never lands files nothing and the agent's
+    share is never sent (the quote is used once either way — quote again)."""
+    me, cat, sent, circled, work = _desk(monkeypatch, tmp_path)
+    cat['_landed']['state'] = 'dropped'
+    out = work(op='fund_quote', job='c1', cap=0.1)
+    with pytest.raises(fs.HTTPException) as e:
+        work(op='fund_send', job='c1', text=out['quote']['id'], sig=_sign(me, out['tx']))
+    assert e.value.status_code == 409 and 'Nothing moved' in e.value.detail
+    assert circled == [] and not cat['pocFolders'][0].get('funds') and len(sent) == 1

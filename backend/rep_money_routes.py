@@ -2,6 +2,8 @@
 reputation_service by scripts/move-routes.py --kind money: byte-for-byte the same bodies (every auth / staff / signed = quoted check kept), helpers
 looked up on reputation_service when a route runs, body models read off the loaded service (imported at the END of it)."""
 import reputation_service as _RSM  # noqa: E402
+import re
+
 from fastapi import APIRouter, Query, Request
 
 router = APIRouter()
@@ -457,34 +459,9 @@ async def cat_withdraw(cat_id: str, p: _RSM.CatWithdrawIn):
 
 
 async def _cat_out_land(rs, http, sig, signed_tx, last_height, every=2.0, cap=150):
-    """↩ Watch one signed withdraw land: re-broadcast it to every node every `every` s (same signature, it can only land once) until it is
-    'confirmed', 'failed' on chain, or 'dropped' (the chain is past its blockhash's last valid height and it never landed — it never can).
-    'unknown' only if `cap` s pass with neither (an RPC outage); the caller then tells the owner to check before retrying."""
-    async def status():
-        try:
-            st = (((await rs._krpc(http, 'getSignatureStatuses', [[sig], {'searchTransactionHistory': True}])) or {}).get('value') or [None])[0]
-        except Exception:
-            return None
-        if not st:
-            return None
-        return 'failed' if st.get('err') else 'confirmed' if st.get('confirmationStatus') in ('confirmed', 'finalized') else None
-    t0 = rs.time.time()
-    while rs.time.time() - t0 < cap:
-        await rs.asyncio.sleep(every)
-        got = await status()
-        if got:
-            return got
-        try:
-            height = int(await rs._krpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}]) or 0)
-        except Exception:
-            height = 0
-        if last_height and height > last_height:
-            return await status() or 'dropped'   # one last look: past its last valid height it can no longer land
-        try:
-            await rs._rpc_broadcast(http, signed_tx)
-        except Exception:
-            pass
-    return 'unknown'
+    """↩ One signed withdraw / fee landing — `chain_rpc.land` on the keeper lanes, re-broadcast to every node (see there)."""
+    import chain_rpc
+    return await chain_rpc.land(rs._krpc, rs._rpc_broadcast, rs.asyncio.sleep, http, sig, signed_tx, last_height=last_height, every=every, cap=cap)
 
 
 @router.post('/api/reputation/cats/{cat_id}/fund/send')
@@ -1875,14 +1852,27 @@ async def internal_agent_fee(request: Request, body: dict):
             sol = int(((await rs._rpc(http, 'getBalance', [addr_, {'commitment': 'confirmed'}])) or {}).get('value') or 0)
             if not units or sol < units + 2_000_000:
                 raise rs.HTTPException(409, 'Not enough in its wallet for the fee yet.')
-        bh = ((await rs._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+        bhv = ((await rs._krpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value') or {}
+        bh, last_h = bhv.get('blockhash'), int(bhv.get('lastValidBlockHeight') or 0)
         tx = rs._cfund.build_out(addr_, fee_w, token, units, bh)
         signed_ = await rs._circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS agent fee {str(body.get('catId') or '')[:16]}"}, agent=True)
         sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
         if not signed_.get('signedTransaction') or not sig_:
             raise rs.HTTPException(502, 'Circle did not sign it.')
         rs._json_save(rs.AGENT_FEES_SENT, {**book_, key_: sig_})   # written BEFORE the send: never a second charge
-        await rs._rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+        try:
+            await rs._krpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 0}])
+        except Exception as e:   # refused before it ran: nothing moved → the key is free again (a retry may charge, never twice)
+            rs._json_save(rs.AGENT_FEES_SENT, {k: v for k, v in rs._json_load(rs.AGENT_FEES_SENT, {}).items() if k != key_})
+            raise rs.HTTPException(400, f'The network refused the fee, nothing moved: {str(e)[:160]}')
+        # ✅ The Pool books only a fee that LANDED (2026-11-14: one send, no confirm — a dropped fee was still counted as income)
+        state_ = await _cat_out_land(rs, http, sig_, signed_['signedTransaction'], last_h)
+        if state_ in ('dropped', 'failed'):   # it can never land now → nothing moved, the key is free again
+            rs._json_save(rs.AGENT_FEES_SENT, {k: v for k, v in rs._json_load(rs.AGENT_FEES_SENT, {}).items() if k != key_})
+            raise rs.HTTPException(409, 'The fee did not land — nothing moved.')
+        if state_ != 'confirmed':   # unknown (RPC outage): keep the key (no second charge), book nothing until someone checks
+            print(f'[agent fee] {key_}: not confirmed yet ({sig_[:10]}…) — not booked')
+            raise rs.HTTPException(504, 'The fee is not confirmed yet — not booked.')
     rs._cpool.update(rs.POOL_PATH, lambda st: rs._cpool.income(st, f'fee:{key_}', token, units, 'txn' if body['kind'] == 'trade' else 'task'))
     return {'signature': sig_, 'usd': usd_, 'token': token}
 
@@ -2727,3 +2717,60 @@ async def admin_numbers(request: Request):
             'scanner': {k: stats.get(k) for k in ('mintsScanned', 'snipers', 'bundlers', 'flaggedFunders', 'blocklisted', 'creators')},
             'history': [{'day': k, **v} for k, v in hist['days'].items()], 'at': now}
 
+
+
+_VOID_KINDS = ('WITHDRAW',)   # lines that claim money moved on chain (the only ones a strike can disprove)
+_VOID_MIN_AGE = 180           # s: past any blockhash a withdraw was signed with — a line this old that is not on chain never will be
+
+
+async def void_proof(rs, http, event, wallet, now=None):
+    """✗ Did the money move this line claims NEVER land? → None when proven (strike allowed), else why not. Reads the chain only:
+    a full `sig` → its status (searching history) must be empty; an old line with only the 10-char prefix in its text → none of the agent
+    wallet's signatures since the line (and a minute before) may start with it, and the list must reach back past the line."""
+    now = rs.time.time() if now is None else now
+    ts = float(event.get('ts') or 0) / 1000
+    if event.get('type') not in _VOID_KINDS:
+        return 'Only a withdraw line can be struck.'
+    if event.get('voided'):
+        return 'That line is struck already.'
+    if now - ts < _VOID_MIN_AGE:
+        return 'Too new: wait 3 minutes, it may still land.'
+    sig = str(event.get('sig') or '')
+    if sig:
+        st = (((await rs._krpc(http, 'getSignatureStatuses', [[sig], {'searchTransactionHistory': True}])) or {}).get('value') or [None])[0]
+        return None if st is None or st.get('err') else 'It landed on chain — the line is true.'
+    m = re.search(r'\(([1-9A-HJ-NP-Za-km-z]{8,})…\)', str(event.get('detail') or ''))
+    if not m or not wallet:
+        return 'No signature on that line to check.'
+    rows = await rs._krpc(http, 'getSignaturesForAddress', [wallet, {'limit': 1000, 'commitment': 'confirmed'}]) or []
+    if any(str(r.get('signature') or '').startswith(m.group(1)) for r in rows):
+        return 'It landed on chain — the line is true.'
+    if len(rows) >= 1000 and float(rows[-1].get('blockTime') or 0) > ts - 60:
+        return 'Too many transactions since that line to prove it — not struck.'
+    return None
+
+
+@router.post('/api/reputation/cats/{cat_id}/events/{event_id}/void')
+async def cat_event_void(cat_id: str, event_id: str, body: dict, request: Request = None):
+    """✗ STAFF: strike an agent's desk line that claims a withdraw which never landed on chain. Proven on chain first (void_proof); the line
+    is kept, marked struck, and hidden from every feed. Never touches money — it only corrects the record."""
+    rs = _rs()
+    me = rs.session_address(str(body.get('session') or ''))
+    internal = request is not None and rs._internal_ok(request)   # 🔑 scripts/strike-line.py (server internal key) — the chain proof below still decides
+    if not internal and (not me or me != body.get('address') or not rs._is_staff(me)):
+        raise rs.HTTPException(403, 'Staff only.')
+    me = me or 'internal'
+    cat = ((rs._json_load(rs.DATA_DIR / 'feecats.json', {}) or {}).get('cats') or {}).get(cat_id)
+    ev = next((e for e in ((rs._json_load(rs.DATA_DIR / 'feecats.json', {}) or {}).get('events') or []) if e.get('id') == event_id and e.get('catId') == cat_id), None)
+    if not cat or not ev:
+        raise rs.HTTPException(404, 'No such line on this agent.')
+    async with rs.httpx.AsyncClient(timeout=15) as http:
+        why = await void_proof(rs, http, ev, (cat.get('agentWallet') or {}).get('address'))
+    if why:
+        raise rs.HTTPException(409, why)
+    r = await rs._ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': rs._internal_key()}, timeout=8,
+                                 json={'action': 'event_void', 'sig': event_id, 'text': f'never landed on chain — struck by staff {me[:4]}…'})
+    if r.status_code != 200:
+        raise rs.HTTPException(502, 'The agent service did not take it.')
+    print(f'[event void] {cat_id} {event_id} by {me[:6]}')
+    return {'ok': True, 'struck': event_id}

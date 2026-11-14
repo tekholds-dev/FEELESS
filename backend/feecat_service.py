@@ -7060,7 +7060,7 @@ async def activity(catId: Optional[str] = None):
     events = store['events']
     if catId:
         events = [e for e in events if e['catId'] == catId]
-    return _pub({'events': events[:60]})
+    return _pub({'events': [e for e in events if not e.get('voided')][:60]})   # ✗ a struck line (never landed on chain) is never shown
 
 
 @app.get('/api/cats/health')
@@ -11090,6 +11090,13 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             user_sig_ = await _crpc._rpc(http, 'sendTransaction', [p.sig, {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}], scan=False)
             if not user_sig_:
                 raise HTTPException(502, 'The chain did not take your transfer. Nothing moved.')
+            # ✅ only a LANDED transfer gets a receipt and releases the agent's share (2026-11-14: sent once, never confirmed, recorded anyway)
+            state_ = await _crpc.land(_crpc.rpc_priority, _crpc.broadcast, asyncio.sleep, http, user_sig_, p.sig, blockhash=_crpc.tx_blockhash(p.sig))
+            if state_ != 'confirmed':
+                raise HTTPException(409 if state_ in ('failed', 'dropped') else 504, {
+                    'failed': 'Your transfer ran and failed on chain. Nothing moved. Quote again.',
+                    'dropped': 'Your transfer did not land before it expired. Nothing moved. Quote again.'}.get(
+                    state_, f'Your transfer is not confirmed yet ({user_sig_[:10]}…). Check your wallet before sending again.'))
             if q_.get('auto') and q_.get('agentSol') and agent_ and cat_id not in _SWAP_BUSY:
                 _SWAP_BUSY.add(cat_id)
                 try:
@@ -12507,7 +12514,7 @@ async def _key_check(provider, secret):
         return {'ok': False, 'why': str(e)[:180], 'at': round(time.time())}
 
 
-_INTERNAL_ONLY = ('agent_funded', 'agent_withdrew', 'pass_minted')   # written only by reputation after it read the payment on chain
+_INTERNAL_ONLY = ('agent_funded', 'agent_withdrew', 'pass_minted', 'event_void')   # written only by reputation after it read the payment on chain
 
 
 @app.post('/api/cats/{cat_id}/action')
@@ -12566,6 +12573,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     elif payload.action == 'agent_withdrew':   # ↩ reputation's /cats/{id}/withdraw (internal key only): the money went back to the owner's wallet
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         _log_event(store, cat, 'WITHDRAW', f"{a_.get('amount')} {a_.get('token')} sent back to its owner's wallet ({str(payload.sig)[:10]}…).")
+        store['events'][0]['sig'] = str(payload.sig or '')[:100]   # the FULL signature, so a staff strike can check this exact transaction on chain
+    elif payload.action == 'event_void':   # ✗ reputation's staff strike (internal key only, after it proved on chain the money move never landed)
+        ev_ = next((e for e in store['events'] if e.get('id') == payload.sig and e.get('catId') == cat_id), None)
+        if not ev_:
+            raise HTTPException(404, 'No such line on this agent.')
+        ev_['voided'] = {'why': str(payload.text or 'never landed on chain')[:200], 'at': round(time.time())}
     elif payload.action == 'agent_funded':   # 💵 reputation's /cats/{id}/fund/send (internal key only — the branch above): a verified, sent funding
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):

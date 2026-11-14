@@ -97,8 +97,12 @@ def test_an_agent_fee_goes_only_to_the_collective_wallet_once_counts_in_the_ledg
         seen['tx'] = body['rawTransaction']; assert agent is True
         return {'signedTransaction': 'x', 'signature': 'S1'}
     async def rpc(_h, method, _p):
-        return {'getTokenAccountBalance': {'value': {'amount': '5000000'}}, 'getLatestBlockhash': {'value': {'blockhash': HASH}}}.get(method, 'sig')
+        return {'getTokenAccountBalance': {'value': {'amount': '5000000'}}, 'getLatestBlockhash': {'value': {'blockhash': HASH, 'lastValidBlockHeight': 100}},
+                'getSignatureStatuses': {'value': [{'confirmationStatus': 'confirmed', 'err': None}]}}.get(method, 'sig')
+    async def nap(_s):
+        return None
     monkeypatch.setattr(rs, '_internal_ok', lambda _r: True); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_rpc', rpc)
+    monkeypatch.setattr(rs, '_krpc', rpc); monkeypatch.setattr(rs.asyncio, 'sleep', nap)
     monkeypatch.setattr(rs, '_fee_cfg', lambda: {'vaultFeeWallet': fee_w, 'agentTradeFeeUsd': 0.05, 'agentOtherFeeUsd': 0.10}); monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'STAFF')
     book['wallet'] = {'address': fee_w}; monkeypatch.setattr(rs, 'POOL_PATH', tmp_path / 'pool.json'); monkeypatch.setattr(rs, '_json_load', lambda _p, d=None: book); monkeypatch.setattr(rs, '_json_save', lambda _p, v: book.update(v))
     req = Request({'type': 'http', 'headers': []}); body = {'key': 'k1', 'walletId': 'w', 'address': me, 'owner': owner, 'kind': 'other'}
@@ -198,3 +202,36 @@ def test_the_hive_files_a_cell_per_agent_at_its_pace_grades_it_an_hour_on_and_fe
     assert 'BUY by Happy (+2 honey' in hv.brief(hv.for_coin(fs._hive_cells(), 'HUSS', t0 + 3700)) and hv.for_coin(fs._hive_cells(), '$huss', t0 + 3700)
     store['cats']['h1']['limits'] = {'dayUsd': 0.001}
     asyncio.run(fs._hive_round(t0 + 4000)); assert 'limit' in store['cats']['h1']['hiveRun']['why']   # never past its daily $ limit
+
+
+def test_a_dropped_agent_fee_is_never_booked_and_frees_its_key(monkeypatch, tmp_path):
+    """✅ 2026-11-14: the fee was sent once, never confirmed, and still booked as Pool income. Now a fee that can never land books nothing
+    and frees its key (a retry may charge — never twice)."""
+    import reputation_service as rs
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    me, fee_w = str(Keypair().pubkey()), str(Keypair().pubkey())
+    files = {'sent': {}, 'colony': {'wallet': {'address': fee_w}}}
+    heights = iter([101])
+    async def circle(_m, path, body=None, agent=False):
+        return {'wallet': {'address': me}} if path == '/wallet' else {'signedTransaction': 'x', 'signature': 'S1'}
+    async def rpc(_h, method, _p):
+        if method == 'getBlockHeight':
+            return next(heights)
+        return {'getTokenAccountBalance': {'value': {'amount': '5000000'}}, 'getLatestBlockhash': {'value': {'blockhash': HASH, 'lastValidBlockHeight': 100}},
+                'getSignatureStatuses': {'value': [None]}}.get(method, 'sig')
+    async def nap(_s):
+        return None
+    def load(p, d=None):
+        return files['sent'] if p == rs.AGENT_FEES_SENT else files['colony'] if p == rs.COLONY_PATH else (d if d is not None else {})
+    def save(p, v):
+        if p == rs.AGENT_FEES_SENT:
+            files['sent'] = dict(v)
+    monkeypatch.setattr(rs, '_internal_ok', lambda _r: True); monkeypatch.setattr(rs, '_circle', circle)
+    monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_krpc', rpc); monkeypatch.setattr(rs.asyncio, 'sleep', nap)
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: {'agentOtherFeeUsd': 0.10}); monkeypatch.setattr(rs, '_is_staff', lambda a: False)
+    monkeypatch.setattr(rs, 'POOL_PATH', tmp_path / 'pool.json'); monkeypatch.setattr(rs, '_json_load', load); monkeypatch.setattr(rs, '_json_save', save)
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs.internal_agent_fee(Request({'type': 'http', 'headers': []}), {'key': 'k1', 'walletId': 'w', 'address': me, 'owner': 'O', 'kind': 'other'}))
+    import collective_pool as cp
+    assert e.value.status_code == 409 and files['sent'] == {} and not (cp.load(tmp_path / 'pool.json')['books'].get('USDC') or {}).get('in')
