@@ -1,0 +1,32 @@
+/* 🗣 COMP VOICE — the chat with COMP's voice adapter (CompVoice.jsx). Tokens only. */
+.cv { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 14px; padding: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); }
+.cv-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cv-h b { font-family: var(--m-mono); letter-spacing: .08em; font-size: 13px; color: var(--m-text); }
+.cv-h small { color: var(--m-mute); font-size: 12px; flex: 1 1 240px; }
+.cv-h em { font-style: normal; color: var(--m-dim); font-size: 12px; }
+.cv-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--m-dim); }
+.cv-dot.is-up { background: var(--m-accent); animation: cvPulse 1.8s var(--m-ease) infinite; }
+.cv-dot.is-waking { background: var(--m-warn); animation: cvPulse .9s var(--m-ease) infinite; }
+@keyframes cvPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: .4; } }
+.cv-err { color: var(--m-warn); font-size: 12px; margin: 0; }
+.cv-err code { font-family: var(--m-mono); font-size: 11px; }
+.cv-log { list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 8px; max-height: 420px; min-height: 140px; overflow: auto; border-radius: var(--m-r-sm); background: var(--m-bg); }
+.cv-empty { color: var(--m-mute); font-size: 13px; padding: 12px; }
+.cv-msg { max-width: 82%; display: flex; flex-direction: column; gap: 2px; }
+.cv-msg p { margin: 0; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cv-msg small { font-size: 10px; color: var(--m-dim); padding: 0 6px; }
+.cv-msg.is-user { align-self: flex-end; align-items: flex-end; }
+.cv-msg.is-user p { background: var(--m-surface-2); color: var(--m-text); border-bottom-right-radius: 4px; }
+.cv-msg.is-assistant { align-self: flex-start; }
+.cv-msg.is-assistant p { background: color-mix(in srgb, var(--m-accent) 12%, transparent); color: var(--m-text); border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent); border-bottom-left-radius: 4px; }
+.cv-typing { flex-direction: row; gap: 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--m-accent) 10%, transparent); }
+.cv-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-accent); animation: cvDot 1s var(--m-ease) infinite; }
+.cv-typing i:nth-child(2) { animation-delay: .15s; } .cv-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes cvDot { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-4px); opacity: 1; } }
+.cv-end { height: 1px; }
+.cv-asks { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv-asks .m-btn { font-size: 12px; }
+.cv-q { display: flex; gap: 8px; }
+.cv-q .m-input { flex: 1 1 auto; min-width: 0; width: auto; }
+body.fx-lite .cv-dot, body.fx-lite .cv-typing i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cv-dot, .cv-typing i { animation: none; } }

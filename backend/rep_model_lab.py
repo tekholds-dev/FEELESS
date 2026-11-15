@@ -812,3 +812,90 @@ async def model_lab_watch(request: Request):
     calls = await rs.asyncio.to_thread(_tail_jsonl, rs.DATA_DIR / 'mind_calls.jsonl', 2000)
     rows = await rs.asyncio.to_thread(_tail_jsonl, folder / 'market_rows.jsonl', _cw.SETTLED_N)
     return _cw.view(snaps, pairs, calls, rows, rs._json_load(folder / 'market.json', {}), time.time())
+
+
+# 🗣 COMP VOICE chat (owner 2026-11-15 "yes dooo alll"): the voice adapter on a local MLX server, owner only, thinking off (comp_voice.py)
+import comp_voice as _cv   # noqa: E402
+_VOICE_LOCK = threading.Lock()
+
+
+class VoiceAsk(BaseModel):
+    op: str = 'ask'
+    text: str = ''
+
+
+async def _voice_listening():
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=1.5) as http:
+            r = await http.get(f'http://{_cv.HOST}:{_cv.PORT}/v1/models')
+            return r.status_code == 200 and 'data' in r.json()   # the MLX server's own answer, not some other service on the port
+    except Exception:   # noqa: BLE001 — not up yet (still loading) or not started
+        return False
+
+
+async def _voice_view(rs):
+    st = await rs.asyncio.to_thread(_cv.status)
+    return {**st, 'listening': st['running'] and await _voice_listening()}
+
+
+@router.get('/api/reputation/admin/model-lab/voice')
+async def voice_status(request: Request):
+    rs = _rs(); rs._require_owner(request)
+    return await _voice_view(rs)
+
+
+@router.post('/api/reputation/admin/model-lab/voice')
+async def voice_op(request: Request, b: VoiceAsk):
+    rs = _rs(); rs._require_owner(request)
+    st = await rs.asyncio.to_thread(_cv.status)
+    if b.op == 'start':
+        if not st['ready']:
+            raise rs.HTTPException(503, 'COMP Voice is not trained yet, or the 9B base or MLX is not on this Mac.')
+        c2 = await rs.asyncio.to_thread(_c2.status)
+        if _c2_busy(c2):
+            raise rs.HTTPException(409, 'COMP is training or sitting its exam. Start the voice when it is done, so the two do not fight for memory.')
+        if not st['running']:
+            try:
+                await rs.asyncio.to_thread(_cv.start)
+            except RuntimeError as e:
+                raise rs.HTTPException(409, str(e))
+    elif b.op == 'stop':
+        await rs.asyncio.to_thread(_cv.stop)
+    elif b.op == 'clear':
+        await rs.asyncio.to_thread(_cv.save_chat, [])
+    elif b.op == 'ask':
+        text = (b.text or '').strip()
+        if not text:
+            raise rs.HTTPException(400, 'Ask it something.')
+        if not st['running']:
+            raise rs.HTTPException(409, 'COMP Voice is asleep. Wake it first.')
+        if not _VOICE_LOCK.acquire(blocking=False):
+            raise rs.HTTPException(409, 'COMP Voice is still answering the last one.')
+        try:
+            import httpx
+            log = await rs.asyncio.to_thread(_cv.load_chat)
+            t0 = time.time()
+            try:
+                async with httpx.AsyncClient(timeout=180) as http:
+                    r = await http.post(f'http://{_cv.HOST}:{_cv.PORT}/v1/chat/completions', json=_cv.body(log, text))
+            except httpx.ConnectError:
+                raise rs.HTTPException(503, 'COMP Voice is still waking up (the 9B loads in about half a minute). Ask again in a moment.')
+            except httpx.TimeoutException:
+                raise rs.HTTPException(504, 'COMP Voice took too long on that one.')
+            if r.status_code != 200:
+                oom = 'Insufficient Memory' in (await rs.asyncio.to_thread(_cv.log_tail))
+                if oom:
+                    await rs.asyncio.to_thread(_cv.stop)   # its generation thread is dead after an out-of-memory: put it to sleep so a Wake starts clean
+                raise rs.HTTPException(503 if oom else 502, 'This Mac ran out of GPU memory. Close other models (LM Studio, a COMP run), then wake COMP again.' if oom else f'COMP Voice answered {r.status_code}.')
+            j = r.json(); ch = (j.get('choices') or [{}])[0]
+            reply = _cv.clean((ch.get('message') or {}).get('content'))
+            u = j.get('usage') or {}
+            log = _cv.add(log, 'user', text[:_cv.MAX_Q])
+            log = _cv.add(log, 'assistant', reply, secs=round(time.time() - t0, 1), tokens=u.get('completion_tokens'))
+            await rs.asyncio.to_thread(_cv.save_chat, log)
+        finally:
+            _VOICE_LOCK.release()
+    else:
+        raise rs.HTTPException(400, 'Unknown voice op.')
+    return await _voice_view(rs)

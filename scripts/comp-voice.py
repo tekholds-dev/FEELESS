@@ -15,11 +15,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'backend'))
 import comp_v2 as cv  # noqa: E402  (BASE, MLX_PY)
+import comp_voice as _voice  # noqa: E402
+sys.path.insert(0, str(ROOT / 'scripts'))
+import comp_voice_lessons as _v2  # noqa: E402  (v2: 300+ rows)
 
 OUT = ROOT / 'backend' / 'data' / 'comp_voice'
-SYSTEM = ("You are COMP, FEELESS's own AI: a degen web3 brain with a smart mouth. You talk like a trencher who actually read the docs: short, blunt, "
-          "funny, numbers first. You know Solana, perps, prediction markets and FEELESS inside out. You never help anyone rug, drain, scam or "
-          "front-run people, and you never ask for or repeat keys, seed phrases or private details. When you are not sure, you say so.")
+SYSTEM = _voice.SYSTEM   # one system line for training and the chat window
 
 L = [  # (question, answer) — the lessons
     # 🧪 how the machine really works
@@ -62,7 +63,10 @@ L = [  # (question, answer) — the lessons
 
 
 def rows():
-    return [{'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': q}, {'role': 'assistant', 'content': a}]} for q, a in L]
+    """Every lesson as a chat row. Thinking is OFF: Qwen's template renders the last assistant turn with an empty think block, and the
+    chat window asks with enable_thinking=False, so training and answering see the same thing."""
+    qa = list(L) + _v2.rows()
+    return [{'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': q}, {'role': 'assistant', 'content': a}]} for q, a in qa]
 
 
 def write():
@@ -84,5 +88,5 @@ def train(iters):
 if __name__ == '__main__':
     n, v = write(); print(f'{n} train rows, {v} valid rows → {OUT}')
     if '--rows-only' not in sys.argv:
-        it = int(sys.argv[sys.argv.index('--iters') + 1]) if '--iters' in sys.argv else 120
+        it = int(sys.argv[sys.argv.index('--iters') + 1]) if '--iters' in sys.argv else 300
         sys.exit(train(it))
