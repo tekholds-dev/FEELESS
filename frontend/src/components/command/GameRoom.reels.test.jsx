@@ -68,3 +68,10 @@ test('its real Kalshi bid shows in the game room: money in, worth now, P&L witho
   expect($('grm-final').textContent).toContain('The rest edge held.');
   expect(calls.filter(c => c.method !== 'GET')).toEqual([]);   // still only reads
 });
+
+test('a real parlay shows its legs in the game room', async () => {
+  const bid = { n: 16, kind: 'parlay', side: 'yes', title: 'Parlay: Houston + Sengun 20+', price: 0.42, filled: 2, cost: 0.84, now: null, pnl: null, status: 'filled', placed: true, legs: [{ title: 'Houston', price: 0.75 }, { title: 'Alperen Sengun: 20+', price: 0.55 }] };
+  const loadCalls = jest.fn(() => Promise.resolve({ calls: [], bids: [bid], final: [], agent: 'A' }));
+  await act(async () => { root.render(<GameWindow g={g} onClose={() => {}} loadCalls={loadCalls} />); });
+  expect($('grm-bid').textContent).toContain('2-leg parlay'); expect($('grm-bid-legs').textContent).toContain('Alperen Sengun: 20+');
+});

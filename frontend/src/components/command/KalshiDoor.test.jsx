@@ -51,3 +51,12 @@ test('a streak only OFFERS a bigger bid; it changes on two taps to exactly the o
   const h = await mount(<KalshiHedge rows={[{ name: 'A', conf: 70, side: 'yes', title: 'Lakers win', price: 0.4, ticker: 'T' }, { name: 'B', conf: 66, side: 'no', title: 'Lakers win', price: 0.62, ticker: 'T' }]} />);
   expect(h.textContent).toContain('THE MINDS SPLIT'); expect(h.textContent).toContain('0.62 on Kalshi'); expect(h.querySelector('button')).toBeNull();
 });
+
+test('a parlay slip ticket lists every leg and the most it pays a contract', async () => {
+  const t = { id: 'kb1', kind: 'parlay', status: 'waiting', offer: 'hy4', price: 0.4125, maxPx: 0.536, conf: [70], title: 'Parlay: Houston + Alperen Sengun: 20+',
+    legs: [{ ticker: 'A', title: 'Houston', price: 0.75, conf: [80] }, { ticker: 'B', title: 'Alperen Sengun: 20+', price: 0.55, conf: [70] }] };
+  const el = await mount(<KalshiTicket t={t} catId="c" work={async () => ({})} />);
+  expect(q(el, 'kalshi-ticket').textContent).toContain('KALSHI PARLAY · 2 legs · hy4');
+  expect(q(el, 'kalshi-ticket').textContent).toContain('at most 0.536 a contract');
+  expect(q(el, 'kd-legs').querySelectorAll('li').length).toBe(2); expect(q(el, 'kd-approve')).not.toBeNull();
+});

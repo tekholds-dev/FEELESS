@@ -1,0 +1,169 @@
+"""🧩 Kalshi parlay slip (owner 2026-11-15 'build a parlay for team and players in one slip'). Kalshi is faked: nothing here reaches it."""
+import asyncio
+
+import feecat_service as fs
+import kalshi_bid as kb
+
+FUT = '2099-01-01T00:00:00Z'
+
+
+def _m(t, yes, no=None, ev=None):
+    return {'ticker': t, 'event_ticker': ev or '-'.join(t.split('-')[:2]), 'status': 'active', 'close_time': FUT,
+            'yes_ask_dollars': str(yes), 'no_ask_dollars': str(no if no is not None else round(1.02 - yes, 2)), 'title': t, 'yes_sub_title': t.split('-')[-1]}
+
+
+HOU = _m('KXNBAGAME-26NOV15HOUWAS-HOU', 0.75)
+WAS = _m('KXNBAGAME-26NOV15HOUWAS-WAS', 0.26)
+SEN = _m('KXNBAPTS-26NOV15HOUWAS-HOUASENGUN-20', 0.55)
+AMN = _m('KXNBAPTS-26NOV15HOUWAS-HOUATHOMPSON-15', 0.60)
+MENU = [HOU, WAS, SEN, AMN]
+
+
+def _call(name, legs, mind=0):
+    return {'name': name, 'mind': mind, 'picks': [{'pick': t, 'confidence': c, 'why': 'w', 'kalshi': {'ticker': t, 'side': s}} for t, s, c in legs]}
+
+
+def test_mode_of_reads_team_or_parlay():
+    assert kb.mode_of('Rockets vs Wizards parlay slip') == 'parlay' and kb.mode_of('3 leg rockets') == 'parlay'
+    assert kb.mode_of('Rockets vs Wizards team to win') == 'team' and kb.mode_of('rockets moneyline') == 'team'
+    assert kb.mode_of('Rockets vs Wizards') is None
+
+
+def test_both_minds_same_legs_make_the_slip_and_a_split_gives_his_tap():
+    a = _call('A', [(HOU['ticker'], 'yes', 80), (SEN['ticker'], 'yes', 70), (AMN['ticker'], 'yes', 66)])
+    b = _call('B', [(SEN['ticker'], 'yes', 72), (HOU['ticker'], 'yes', 75)], 1)
+    s = kb.slip_of([a, b], MENU, 65)
+    assert s['by'] is None and {g['ticker'] for g in s['legs']} == {HOU['ticker'], SEN['ticker']}
+    b2 = _call('B', [(WAS['ticker'], 'yes', 70)], 1)   # B backs the other team: no shared legs → A's slip is the offer
+    s2 = kb.slip_of([a, b2], MENU, 65)
+    assert s2['by'] == 'A' and len(s2['legs']) == 3
+    assert kb.slip_of([_call('A', [(HOU['ticker'], 'yes', 80), (SEN['ticker'], 'yes', 50)]), b2], MENU, 65) is None   # a weak leg: no slip at all
+
+
+def test_one_winner_per_game_and_ticket_prices():
+    a = _call('A', [(HOU['ticker'], 'yes', 80), (WAS['ticker'], 'yes', 80), (SEN['ticker'], 'yes', 70)])
+    assert set(kb._legs(a, {m['ticker']: m for m in MENU})) == {HOU['ticker'], SEN['ticker']}   # both teams to win never sit in one slip
+    tk = kb.slip_ticket(kb.slip_of([a], MENU, 65), MENU, 'pob1')
+    assert tk['kind'] == 'parlay' and tk['status'] == 'waiting' and tk['offer'] == 'A'
+    assert tk['price'] == round(0.75 * 0.55, 4) and tk['maxPx'] == round(0.4125 * 1.25 + 0.02, 3)
+    assert tk['legs'][0]['event'] == 'KXNBAGAME-26NOV15HOUWAS'
+
+
+def test_slip_guards():
+    tk = kb.slip_ticket({'legs': [{'ticker': HOU['ticker'], 'side': 'yes', 'conf': [80, 75]}, {'ticker': SEN['ticker'], 'side': 'yes', 'conf': [70, 72]}]}, MENU, 'f')
+    fresh = {HOU['ticker']: HOU, SEN['ticker']: SEN}
+    c = {'bidUsd': 1, 'dayUsd': 2, 'floorUsd': 2, 'minConf': 65}
+    ok, why, budget = kb.slip_check(c, fresh, tk, [], 10.0)
+    assert ok and budget == 1.0
+    assert not kb.slip_check(c, fresh, tk, [], 2.5)[0]   # under his floor
+    assert not kb.slip_check(c, {**fresh, SEN['ticker']: {**SEN, 'yes_ask_dollars': '0.70'}}, tk, [], 10.0)[0]   # a leg moved
+    assert not kb.slip_check(c, {HOU['ticker']: HOU}, tk, [], 10.0)[0]   # a leg closed
+    assert not kb.slip_check(c, fresh, tk, [{'legs': tk['legs'], 'at': tk['at'], 'status': 'filled', 'usd': 1}], 10.0)[0]   # the same slip twice
+    assert not kb.slip_check({**c, 'minConf': 75}, fresh, tk, [], 10.0)[0]
+
+
+def test_pick_quote_takes_the_cheapest_under_the_ticket_and_budget():
+    qs = [{'id': 'q1', 'status': 'open', 'no_bid_dollars': '0.50', 'yes_contracts_fp': '2.00'},    # YES at 0.50: over the max
+          {'id': 'q2', 'status': 'open', 'no_bid_dollars': '0.58', 'yes_contracts_fp': '2.00'},    # YES at 0.42
+          {'id': 'q3', 'status': 'open', 'no_bid_dollars': '0.60', 'yes_contracts_fp': '9.00'},    # cheaper but over budget
+          {'id': 'q4', 'status': 'cancelled', 'no_bid_dollars': '0.90', 'yes_contracts_fp': '1.00'}]
+    q, px, n = kb.pick_quote(qs, 0.45, 1.0)
+    assert q['id'] == 'q2' and px == 0.42 and n == 2.0
+    assert kb.pick_quote(qs[:1], 0.45, 1.0) is None
+
+
+def _fake(monkeypatch, quotes, final='executed'):
+    calls = []
+    async def market(h, t): return {m['ticker']: m for m in MENU}.get(t)
+    async def balance(h, k, p): return 10.0
+    async def unstarted(h, m): return True
+    async def combo(h, k, p, legs): calls.append(('combo', [g['ticker'] for g in legs])); return 'KXMVECROSSCATEGORY-S1-ABC'
+    async def rfq(h, k, p, t, b): calls.append(('rfq', t, b)); return 'r1'
+    seen = {'n': 0}
+    async def rq(h, k, p, rid):
+        seen['n'] += 1
+        return quotes if seen['n'] == 1 else [{**q, 'status': final, 'rfq_creator_order_id': 'ord9'} for q in quotes]
+    async def accept(h, k, p, rid, qid): calls.append(('accept', rid, qid))
+    async def delete(h, k, p, rid): calls.append(('delete', rid))
+    async def nap(*a): return None
+    for n, f in (('market', market), ('balance', balance), ('unstarted', unstarted), ('combo_create', combo), ('rfq_create', rfq), ('rfq_quotes', rq), ('quote_accept', accept), ('rfq_delete', delete)):
+        monkeypatch.setattr(kb, n, f)
+    monkeypatch.setattr(kb, 'split_key', lambda s: ('kid', 'pem')); monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x')
+    monkeypatch.setattr(fs.asyncio, 'sleep', nap); monkeypatch.setattr(kb, 'QUOTE_WAIT_S', 0.05); monkeypatch.setattr(kb, 'FILL_WAIT_S', 0.05)
+    return calls
+
+
+def _tk():
+    return kb.slip_ticket({'legs': [{'ticker': HOU['ticker'], 'side': 'yes', 'conf': [80, 75]}, {'ticker': SEN['ticker'], 'side': 'yes', 'conf': [70, 72]}]}, MENU, 'f')
+
+
+def test_slip_send_one_rfq_one_accept_then_filled(monkeypatch):
+    calls = _fake(monkeypatch, [{'id': 'q2', 'status': 'open', 'no_bid_dollars': '0.58', 'yes_contracts_fp': '2.00'}])
+    cat = {'id': 'c', 'kalshiCfg': {'bidUsd': 1, 'dayUsd': 2, 'floorUsd': 2, 'minConf': 65}}
+    tk = asyncio.run(fs._kalshi_slip_send(cat, _tk()))
+    assert tk['status'] == 'filled' and tk['orderId'] == 'ord9' and tk['usd'] == 0.84 and tk['ticker'].startswith('KXMVE')
+    assert [c[0] for c in calls] == ['combo', 'rfq', 'accept'] and calls[1][2] == 1.0   # never a second RFQ or accept, nothing left to delete
+    assert cat['kalshiBids'][-1]['kind'] == 'parlay' and 'filled my slip' in cat['chat'][-1]['text']
+
+
+def test_no_cheap_quote_buys_nothing_and_closes_the_rfq(monkeypatch):
+    calls = _fake(monkeypatch, [{'id': 'q1', 'status': 'open', 'no_bid_dollars': '0.40', 'yes_contracts_fp': '1.00'}])   # YES 0.60 > max
+    tk = asyncio.run(fs._kalshi_slip_send({'id': 'c', 'kalshiCfg': {'minConf': 65}}, _tk()))
+    assert tk['status'] == 'refused' and 'No market maker' in tk['why'] and not tk.get('orderId')
+    assert ('accept' not in [c[0] for c in calls]) and calls[-1] == ('delete', 'r1')
+
+
+def test_maker_never_confirms_is_not_bought(monkeypatch):
+    calls = _fake(monkeypatch, [{'id': 'q2', 'status': 'open', 'no_bid_dollars': '0.58', 'yes_contracts_fp': '2.00'}], final='cancelled')
+    tk = asyncio.run(fs._kalshi_slip_send({'id': 'c', 'kalshiCfg': {'minConf': 65}}, _tk()))
+    assert tk['status'] == 'refused' and not tk.get('orderId') and calls[-1] == ('delete', 'r1')
+
+
+def test_started_game_refuses_before_kalshi_is_asked(monkeypatch):
+    calls = _fake(monkeypatch, [])
+    async def started(h, m): return False
+    monkeypatch.setattr(kb, 'unstarted', started)
+    tk = asyncio.run(fs._kalshi_slip_send({'id': 'c', 'kalshiCfg': {'minConf': 65}}, _tk()))
+    assert tk['status'] == 'refused' and 'already started' in tk['why'] and calls == []
+
+
+def test_the_ticket_door_routes_a_slip(monkeypatch):
+    hit = []
+    async def slip(cat, tk): hit.append('slip'); return tk
+    async def one(cat, tk): hit.append('one'); return tk
+    monkeypatch.setattr(fs, '_kalshi_slip_send', slip); monkeypatch.setattr(fs, '_kalshi_send', one)
+    asyncio.run(fs._kalshi_go({}, {'kind': 'parlay'})); asyncio.run(fs._kalshi_go({}, {'ticker': 'T'}))
+    assert hit == ['slip', 'one']
+
+
+def test_legs_menu_reads_the_game_and_its_props(monkeypatch):
+    class R:
+        def __init__(self, j): self.status_code, self._j = 200, j
+        def json(self): return self._j
+    class H:
+        async def get(self, url, params=None):
+            if 'multivariate' in url:
+                return R({'multivariate_contract': {'associated_events': [{'ticker': 'KXNBAGAME-26NOV15HOUWAS'}, {'ticker': 'KXNBAPTS-26NOV15HOUWAS'}]}})
+            return R({'markets': [SEN, AMN, _m('KXNBAPTS-26NOV15HOUWAS-X-40', 0.03)]} if params['event_ticker'] == 'KXNBAPTS-26NOV15HOUWAS' else {'markets': []})
+    kb._COMBO_EVENTS.update(at=0, set=set())
+    menu = asyncio.run(kb.legs_menu(H(), [HOU, WAS]))
+    assert [m['ticker'] for m in menu] == [HOU['ticker'], WAS['ticker'], SEN['ticker'], AMN['ticker']]   # a 3¢ long shot is not a leg
+    assert 'KALSHI PARLAY LEGS' in kb.slip_brief(menu, 3) and kb.room_view({**_tk(), 'orderId': 'o', 'filled': 2, 'price': 0.42})['legs'][0]['title']
+
+
+def test_a_pob_with_teams_asks_team_or_parlay_then_files_the_answer(monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 5}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
+    monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x'); monkeypatch.setattr(fs._POW_WAKE, 'set', lambda: None)
+    c = TestClient(fs.app); cat = store['cats']['g']
+    r = c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob rockets vs wizards'})
+    assert r.status_code == 200, r.text
+    assert cat['chat'][-1]['ask']['chips'] == ['Team to win', 'Parlay slip'] and not cat.get('pobAsk')   # nothing starts before he answers
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'Parlay slip'})
+    assert cat['pobAsk'] == 'rockets vs wizards parlay slip' and 'One parlay slip' in cat['chat'][-1]['text'] and not cat.get('pobModeAsk')
+    cat.pop('pobAsk'); fs._POB_WANT.pop('g', None)
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob rockets vs wizards team to win'})
+    assert cat['pobAsk'] == 'rockets vs wizards team to win'   # he already said which: no question
+    fs._POB_WANT.pop('g', None)

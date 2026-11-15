@@ -257,7 +257,8 @@ def room_view(k):
         now = round(n * float(live), 2) if live is not None and n else None
     return {'ticker': k.get('ticker'), 'side': k.get('side'), 'title': k.get('title'), 'price': px or None, 'count': k.get('count'), 'filled': n, 'cost': cost,
             'now': now, 'pnl': round(now - cost, 2) if now is not None and n else None, 'livePx': live, 'status': k.get('status'), 'outcome': k.get('outcome'),
-            'placed': bool(k.get('orderId')), 'offer': k.get('offer'), 'conf': k.get('conf'), 'why': k.get('why') if isinstance(k.get('why'), str) else None}
+            'placed': bool(k.get('orderId')), 'offer': k.get('offer'), 'conf': k.get('conf'), 'why': k.get('why') if isinstance(k.get('why'), str) else None,
+            'kind': k.get('kind') or 'single', 'legs': [{x: g.get(x) for x in ('title', 'side', 'price')} for g in k.get('legs') or []], 'maxPx': k.get('maxPx')}
 
 
 def outcome_line(k, has_key):
@@ -267,6 +268,14 @@ def outcome_line(k, has_key):
     if not k:
         return ' No real bid: no Kalshi market both minds backed, and no single pick reached your minimum confidence.'
     side = f"{str(k.get('side') or '').upper()} {k.get('title') or k.get('ticker')}"
+    if k.get('kind') == 'parlay':
+        side = k.get('title') or 'the slip'
+        if k.get('orderId'):
+            return f" 🧩 Real Kalshi parlay placed: {side}, {k.get('count'):g} × {float(k.get('price') or 0):.3f} = ${float(k.get('usd') or 0):.2f}. Open its game to watch every leg."
+        if k.get('status') == 'waiting':
+            return (f" 🙋 {k.get('offer')} built the stronger slip: {side}. Tap Approve real bid in its folder to ask Kalshi for a quote (at most {float(k.get('maxPx') or 0):.3f} a contract)."
+                    if k.get('offer') else f" 🧩 Both minds built {side}: tap Approve real bid in its folder to place it.")
+        return f" Parlay not bought: {k.get('why') or k.get('status')}."
     if k.get('orderId'):
         return f" 🎯 Real Kalshi bid placed: {side}, {k.get('count')} × {float(k.get('price') or 0):.2f} = ${float(k.get('usd') or 0):.2f}. Open its game to watch it live."
     if k.get('status') == 'waiting' and k.get('offer'):
@@ -484,3 +493,247 @@ def rivals(rows):
                 out.append({'ticker': t, 'title': y.get('title') or t, 'yes': y.get('name'), 'no': n.get('name'), 'result': res,
                             'winner': (win or {}).get('name'), 'loser': (lose or {}).get('name'), 'at': max(float(y.get('at') or 0), float(n.get('at') or 0))})
     return sorted(out, key=lambda r: -r['at'])[:12]
+
+
+# 🧩 PARLAY SLIP (owner 2026-11-15 'ask what kind of PoB like a team or leg parlay … bid on the team to win or build a parlay for team and
+# players in one slip'). Kalshi prices a parlay as ONE combo market built from its legs (collection KXMVECROSSCATEGORY-R, read live
+# 2026-11-15: game winners, spreads, totals and player props are all legs). A combo has no order book: we ask for a quote (RFQ), market makers
+# answer, and we accept ONE quote at or under the most the ticket shows. One RFQ, one accept, never a resubmit; no quote → nothing is sent.
+COMBO = 'KXMVECROSSCATEGORY-R'
+SLIP_MIN, SLIP_MAX = 2, 4
+PROP_SERIES = {'KXNBAGAME': ('KXNBAPTS', 'KXNBAREB', 'KXNBAAST', 'KXNBA3PT', 'KXNBASPREAD', 'KXNBATOTAL'),
+               'KXNFLGAME': ('KXNFLTD', 'KXNFLRSHYDS', 'KXNFLRECYDS', 'KXNFLPASSYDS', 'KXNFLSPREAD', 'KXNFLTOTAL'),
+               'KXNHLGAME': ('KXNHLGOAL', 'KXNHLPTS', 'KXNHLSPREAD', 'KXNHLTOTAL'),
+               'KXMLBGAME': ('KXMLBHR', 'KXMLBHITS', 'KXMLBSPREAD', 'KXMLBTOTAL')}
+PER_EVENT, MENU_MAX = 4, 30
+LEG_LO, LEG_HI = 0.12, 0.88          # a leg the crowd prices near-certain or near-hopeless adds nothing but risk
+SLIP_FAIR_MAX = 0.90                  # a "parlay" priced over 90¢ is not one
+SLIP_SLACK = 1.25                     # the most a contract may cost: the legs' own prices multiplied, plus 25% and 2¢ for the maker
+QUOTE_WAIT_S, FILL_WAIT_S = 25, 20
+_COMBO_EVENTS = {'at': 0, 'set': set()}
+
+
+def mode_of(topic):
+    """'parlay' when the owner asked for one, 'team' for a straight team-to-win bid, None when he did not say. Pure."""
+    t = str(topic or '').lower()
+    if re.search(r'\b(parlay|parlays|legs?|slip|sgp)\b', t):
+        return 'parlay'
+    if re.search(r'\b(team to win|to win|moneyline|ml|straight|winner)\b', t):
+        return 'team'
+    return None
+
+
+def game_key(m):
+    """'KXNBAGAME-26NOV15HOUWAS-HOU' → '26NOV15HOUWAS' (the part every market of that game shares). Pure."""
+    p = str((m or {}).get('event_ticker') or (m or {}).get('ticker') or '').split('-')
+    return p[1] if len(p) > 1 else ''
+
+
+def leg_rows(markets, n=PER_EVENT):
+    """The legs worth offering from one event: open, priced between 12¢ and 88¢, the closest to a coin flip first. Pure."""
+    rows = [m for m in markets or [] if m.get('status') in ('active', 'open') and (price_of(m, 'yes') or 0) and LEG_LO <= price_of(m, 'yes') <= LEG_HI]
+    return sorted(rows, key=lambda m: abs(price_of(m, 'yes') - 0.5))[:n]
+
+
+def leg_line(m):
+    return f"{m.get('ticker')} · {m.get('title') or m.get('yes_sub_title')} · YES {price_of(m, 'yes') or '—'} / NO {price_of(m, 'no') or '—'}"
+
+
+def slip_brief(menu, n):
+    if not menu:
+        return ''
+    n = max(SLIP_MIN, min(SLIP_MAX, int(n or 3)))
+    return (f'\nKALSHI PARLAY LEGS (real money: ONE slip, every leg must hit). Build a slip of {n} legs from these lines: each of your picks is one leg, '
+            'with its own honest confidence and "kalshi": {"ticker": "<ticker>", "side": "yes|no"}. Mix the team to win with its players when what you read '
+            'supports it; never two legs that fight each other (both teams to win). If both of you back the same legs it bids; otherwise the owner gets '
+            'the stronger slip to place with a tap. If you cannot back ' + str(n) + ' legs, give fewer and say why in "pass":\n' + '\n'.join(leg_line(m) for m in menu))
+
+
+def _legs(c, by):
+    """One mind's legs: {ticker: (side, conf, why)}, one side per market, one winner per game. Pure."""
+    out, games = {}, set()
+    for p in c.get('picks') or []:
+        k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
+        t, s = str((k or {}).get('ticker') or '').strip(), str((k or {}).get('side') or '').lower()
+        if t not in by or s not in ('yes', 'no') or t in out:
+            continue
+        if t.split('-')[0] in PROP_SERIES:   # a game-winner leg: only one per game
+            if game_key(by[t]) in games:
+                continue
+            games.add(game_key(by[t]))
+        out[t] = (s, _conf(p.get('confidence')), str(p.get('why') or '')[:160])
+    return out
+
+
+def slip_of(calls, menu, min_conf):
+    """→ {'legs': [{ticker, side, conf: [..]}], 'by': None|name, 'why': [..]} or None. Both minds on the same legs (2+, each at or over his
+    minimum) → that slip, sent like any agreed bid. Otherwise the stronger single mind's slip (all its legs at or over his minimum) → an offer
+    for his tap, never sent by itself. Pure."""
+    by = {m['ticker']: m for m in menu or []}
+    mine = [_legs(c, by) for c in (calls or [])[:2]]
+    if len(mine) == 2:
+        a, b = mine
+        both = [t for t in a if t in b and a[t][0] == b[t][0] and min(a[t][1], b[t][1]) >= min_conf][:SLIP_MAX]
+        if len(both) >= SLIP_MIN:
+            return {'legs': [{'ticker': t, 'side': a[t][0], 'conf': [a[t][1], b[t][1]]} for t in both], 'by': None, 'why': [a[t][2] for t in both]}
+    best = None
+    for c, legs in zip(calls or [], mine):
+        ok = [t for t in legs if legs[t][1] >= min_conf][:SLIP_MAX]
+        score = min([legs[t][1] for t in ok] or [0])
+        if len(ok) >= SLIP_MIN and (not best or score > best[0]):
+            best = (score, {'legs': [{'ticker': t, 'side': legs[t][0], 'conf': [legs[t][1]]} for t in ok], 'by': c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}", 'why': [legs[t][2] for t in ok]})
+    return best[1] if best else None
+
+
+def fair_of(legs):
+    """The legs' own prices multiplied: what the slip is worth if the legs were independent. Pure."""
+    v = 1.0
+    for g in legs or []:
+        v *= float(g.get('price') or 0)
+    return round(v, 4)
+
+
+def max_px(fair):
+    return round(min(SLIP_FAIR_MAX, fair * SLIP_SLACK + 0.02), 3)
+
+
+def _short(m):
+    return str(m.get('yes_sub_title') or m.get('title') or m.get('ticker'))[:40]
+
+
+def slip_ticket(slip, menu, folder_id, now=None):
+    by = {m['ticker']: m for m in menu or []}
+    legs = [{'ticker': g['ticker'], 'event': by[g['ticker']].get('event_ticker'), 'side': g['side'], 'conf': g['conf'],
+             'title': ('' if g['side'] == 'yes' else 'NOT ') + _short(by[g['ticker']]), 'price': price_of(by[g['ticker']], g['side'])} for g in slip['legs']]
+    fair = fair_of(legs)
+    return {'id': 'kb' + uuid.uuid4().hex[:10], 'kind': 'parlay', 'legs': legs, 'ticker': None, 'side': 'yes', 'title': 'Parlay: ' + ' + '.join(g['title'] for g in legs),
+            'conf': [min(g['conf'][i] for g in legs) for i in range(len(legs[0]['conf']))], 'why': slip.get('why'), 'price': fair, 'maxPx': max_px(fair),
+            'folder': folder_id, 'at': round(now or time.time()), 'status': 'waiting', **({'offer': slip['by']} if slip.get('by') else {})}
+
+
+def slip_key(legs):
+    return '+'.join(sorted(f"{g.get('ticker')}:{g.get('side')}" for g in legs or []))
+
+
+def slip_check(c, fresh, tk, bids, balance_usd, now=None):
+    """→ (ok, why, budget). `fresh` = each leg's market read again right now ({ticker: market}). Every guard; the first that fails is shown."""
+    now = now or time.time(); c = cfg(c); legs = tk.get('legs') or []
+    if not SLIP_MIN <= len(legs) <= SLIP_MAX:
+        return False, f'A slip needs {SLIP_MIN} to {SLIP_MAX} legs.', 0
+    for g in legs:
+        m = fresh.get(g['ticker'])
+        if not m or m.get('status') not in ('active', 'open') or _ts(m.get('close_time')) - now <= CLOSE_GAP_S:
+            return False, f"The leg {g.get('title')} is not open on Kalshi any more.", 0
+        px = price_of(m, g['side'])
+        if px is None or (g.get('price') and px > float(g['price']) + 0.05):
+            return False, f"The leg {g.get('title')} moved from {float(g.get('price') or 0):.2f} to {px if px is not None else '—'}, so nothing was sent.", 0
+    if min(tk.get('conf') or [0]) < c['minConf']:
+        return False, f"Every leg needs {c['minConf']}% confidence; the slip had {' and '.join(str(x) for x in tk.get('conf') or [])}%.", 0
+    if not 0.01 <= float(tk.get('price') or 0) <= SLIP_FAIR_MAX:
+        return False, 'The slip is priced outside 1¢ to 90¢, so it is not bid.', 0
+    key = slip_key(legs)
+    if any(slip_key(b.get('legs')) == key and now - float(b.get('at') or 0) < SAME_MARKET_S and b.get('status') != 'refused' for b in bids or [] if b.get('legs')):
+        return False, 'It already bid this exact slip in the last 24 hours.', 0
+    budget = round(min(c['bidUsd'], c['dayUsd'] - spent_today(bids, now)), 2)
+    if budget < 0.10:
+        return False, f"Today's cap of ${c['dayUsd']:.2f} is used up.", 0
+    if balance_usd is None:
+        return False, 'Could not read the Kalshi balance, so nothing was sent.', 0
+    if balance_usd - budget < c['floorUsd']:
+        return False, f"Your Kalshi balance (${balance_usd:.2f}) would fall under your ${c['floorUsd']:.2f} floor.", 0
+    return True, f"Up to ${budget:.2f} on a {len(legs)} leg slip, at most {float(tk.get('maxPx') or 0):.3f} a contract", budget
+
+
+def _fp(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def pick_quote(quotes, max_price, budget):
+    """The cheapest open quote for our YES side: we buy YES by taking the maker's NO bid, so a contract costs 1 − no_bid. Only a quote at or
+    under the ticket's most-per-contract and inside the budget. → (quote, price, contracts) or None. Pure."""
+    best = None
+    for q in quotes or []:
+        if q.get('status') != 'open':
+            continue
+        nb = _fp(q.get('no_bid_dollars'))
+        n = _fp(q.get('yes_contracts_fp')) or _fp(q.get('contracts_fp'))
+        px = round(1 - nb, 4)
+        if nb <= 0 or n <= 0 or px > max_price or px * n > budget + 0.01:
+            continue
+        if not best or px < best[1]:
+            best = (q, px, n)
+    return best
+
+
+# 🌐 the slip's network calls (signed with his own key; the service runs them in order and records every outcome)
+async def combo_events(http):
+    """The events Kalshi lets into a parlay, cached 10 min (public read)."""
+    if time.time() - _COMBO_EVENTS['at'] > 600:
+        r = await http.get(f'{BASE}/multivariate_event_collections/{COMBO}')
+        c = (r.json() or {}) if r.status_code == 200 else {}
+        c = c.get('multivariate_contract') or c
+        _COMBO_EVENTS.update(at=time.time(), set={e.get('ticker') for e in c.get('associated_events') or []})
+    return _COMBO_EVENTS['set']
+
+
+async def legs_menu(http, games):
+    """🧩 The legs for a slip on these game markets (already filtered to games that have not started): both teams to win plus the players,
+    spreads and totals Kalshi will put in a parlay. Public reads."""
+    ok = await combo_events(http)
+    keys = []
+    for m in games or []:
+        k = (str(m.get('ticker') or '').split('-')[0], game_key(m))
+        if k not in keys:
+            keys.append(k)
+    keys = keys[:2]
+    menu = [m for m in games or [] if m.get('event_ticker') in ok and (str(m.get('ticker') or '').split('-')[0], game_key(m)) in keys]
+
+    async def one(ev):
+        r = await http.get(f'{BASE}/markets', params={'event_ticker': ev, 'status': 'open', 'limit': 200})
+        return leg_rows((r.json() or {}).get('markets') if r.status_code == 200 else [])
+    evs = [f'{p}-{k}' for s, k in keys for p in PROP_SERIES.get(s, ()) if f'{p}-{k}' in ok]
+    for rows in await asyncio.gather(*(one(e) for e in evs), return_exceptions=True):
+        if isinstance(rows, list):
+            menu += rows
+    return menu[:MENU_MAX]
+
+
+async def _signed(http, key_id, pem, method, path, **kw):
+    return await http.request(method, f'{BASE}{path}', headers=headers(key_id, pem, method, path), **kw)
+
+
+async def combo_create(http, key_id, pem, legs):
+    """The slip's own Kalshi market (same legs → Kalshi returns the one it already has). → market ticker."""
+    path = f'/multivariate_event_collections/{COMBO}'
+    r = await _signed(http, key_id, pem, 'POST', path, json={'selected_markets': [{'market_ticker': g['ticker'], 'event_ticker': g['event'], 'side': g['side']} for g in legs]})
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f'Kalshi would not build the slip ({r.status_code}): {r.text[:200]}')
+    return (r.json() or {}).get('market_ticker')
+
+
+async def rfq_create(http, key_id, pem, ticker, budget):
+    r = await _signed(http, key_id, pem, 'POST', '/communications/rfqs', json={'market_ticker': ticker, 'target_cost_dollars': f'{budget:.2f}', 'rest_remainder': False, 'target_cost_excludes_fees': False})
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f'Kalshi refused the quote request ({r.status_code}): {r.text[:200]}')
+    return (r.json() or {}).get('id')
+
+
+async def rfq_quotes(http, key_id, pem, rfq_id):
+    r = await http.get(f'{BASE}/communications/quotes', params={'rfq_id': rfq_id, 'limit': 100}, headers=headers(key_id, pem, 'GET', '/communications/quotes'))
+    return (r.json() or {}).get('quotes') or [] if r.status_code == 200 else []
+
+
+async def quote_accept(http, key_id, pem, rfq_id, quote_id):
+    r = await _signed(http, key_id, pem, 'PUT', f'/communications/rfqs/{rfq_id}/quotes/{quote_id}/accept', json={'accepted_side': 'yes'})
+    if r.status_code not in (200, 204):
+        raise RuntimeError(f'Kalshi refused the accept ({r.status_code}): {r.text[:200]}')
+
+
+async def rfq_delete(http, key_id, pem, rfq_id):
+    try:
+        await _signed(http, key_id, pem, 'DELETE', f'/communications/rfqs/{rfq_id}')
+    except Exception:   # noqa: BLE001 — an RFQ left open closes by itself within hours, with nothing accepted
+        pass

@@ -183,7 +183,8 @@ const BID_SAY = { filled: 'Filled', resting: 'On Kalshi, waiting to fill', sent:
 export function RoomBid({ b, agent }) {
   const tone = b.outcome === 'won' ? 'is-won' : b.outcome === 'lost' ? 'is-lost' : b.pnl > 0 ? 'is-up' : b.pnl < 0 ? 'is-dn' : '';
   return <section className={`grm-bid m-glass ${tone}`} data-testid="grm-bid"><header><em>{b.placed ? 'REAL KALSHI BID' : b.offer ? 'ITS PICK · YOUR TAP' : 'KALSHI'}</em><small>{agent ? `${agent} · ` : ''}PoB #{b.n}</small></header>
-    <b className="grm-bid-side">{String(b.side || '').toUpperCase()} · {b.title}</b>
+    {b.kind === 'parlay' ? <><b className="grm-bid-side">🧩 {b.legs?.length}-leg parlay</b><ol className="grm-bid-legs" data-testid="grm-bid-legs">{(b.legs || []).map((g, i) => <li key={i}>{g.title}{g.price != null ? <small className="m-num"> {Number(g.price).toFixed(2)}</small> : null}</li>)}</ol></>
+      : <b className="grm-bid-side">{String(b.side || '').toUpperCase()} · {b.title}</b>}
     {b.placed ? <dl className="grm-bid-kv"><div><dt>In</dt><dd className="m-num">{usd(b.cost)}<small> {b.filled} × {Number(b.price || 0).toFixed(2)}</small></dd></div><div><dt>{b.outcome ? 'Paid out' : 'Worth now'}</dt><dd className="m-num">{usd(b.now)}{!b.outcome && b.livePx != null ? <small> at {Number(b.livePx).toFixed(2)}</small> : null}</dd></div><div><dt>P&amp;L</dt><dd className={`m-num ${tone}`} data-testid="grm-bid-pnl">{b.pnl == null ? '—' : `${b.pnl > 0 ? '+' : ''}${usd(b.pnl)}`}</dd></div></dl>
       : <p className="grm-bid-note">{b.offer ? `The minds split. ${b.offer} backs it at ${(b.conf || [])[0]}%. Approve or skip it in its PoB folder.` : b.status === 'waiting' ? 'Both minds back it. Approve or skip it in its PoB folder.' : `${BID_SAY[b.status] || b.status}${b.why ? ` · ${b.why}` : ''}`}</p>}
     <strong className={`grm-bid-st ${tone}`} role="status">{b.outcome === 'won' ? 'WON' : b.outcome === 'lost' ? 'LOST' : BID_SAY[b.status] || b.status}</strong></section>;

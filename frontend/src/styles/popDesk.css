@@ -118,3 +118,8 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .kd-hedge ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .kd-hedge li { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--ppd-tx10); border-left: 3px solid var(--ppd-ac30); min-width: 0; } .kd-hedge li.is-no { border-left-color: var(--ppd-dg7); }
 .kd-hedge li em { font: 600 10px var(--f-mono); color: var(--ppd-ac29); font-style: normal; } .kd-hedge li b { font: 600 12px var(--f-ui); color: var(--ppd-tx11); } .kd-hedge li small { font: 600 10.5px var(--f-mono); color: var(--ppd-ac29); overflow: hidden; text-overflow: ellipsis; }
+/* 🧩 the parlay slip legs on a ticket (owner 2026-11-15) */
+.kd-legs { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: leg; }
+.kd-legs li { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--ppd-tx10); border-left: 3px solid var(--ppd-ac30); counter-increment: leg; }
+.kd-legs li::before { content: counter(leg); font: 800 10px var(--f-mono); color: var(--ppd-ac29); }
+.kd-legs li b { flex: 1; font: 600 12px var(--f-ui); color: var(--ppd-tx11); } .kd-legs li small { font: 600 10.5px var(--f-mono); color: var(--ppd-ac29); }

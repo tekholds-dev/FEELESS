@@ -44,7 +44,7 @@ TOPIC_SYS = ('You are {name}, one of two independent minds filing a PoB (Proof o
              'At most 3 picks, best first. Never invent a number. The other mind does not see your answer.')
 TOPIC_PICKS = 3
 MAX_LEGS = 6
-PARLAY_LINE = ' This is a parlay of {n} legs: give exactly {n} picks from different games, say how they connect, and "pass" if you cannot back {n} legs from what you read. A parlay dies on one wrong leg, so a weak leg is a reason to pass.'
+PARLAY_LINE = ' This is a parlay of {n} legs: give exactly {n} picks (from different games, or one team and its own players in the same game), say how they connect, and "pass" if you cannot back {n} legs from what you read. A parlay dies on one wrong leg, so a weak leg is a reason to pass.'
 
 
 def legs_of(topic):
