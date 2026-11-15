@@ -728,9 +728,11 @@ async def teach_start(request: Request, p: Teach):
     rs = _rs(); rs._require_owner(request)
     import os
     from fastapi import HTTPException
-    key = os.environ.get('OPENROUTER_API_KEY', '').strip()
+    import cat_keys as _ckeys
+    key, key_from = _ckeys.owner_key(rs.DATA_DIR / 'feecats.json', 'openrouter', data_dir=rs.DATA_DIR)   # 🔑 the owner's own OpenRouter key first (the one his agents share)
+    key = (key or os.environ.get('OPENROUTER_API_KEY', '')).strip(); key_from = key_from or 'the FEELESS server key'
     if not key:
-        raise HTTPException(409, 'No OpenRouter key on the server: add it in HQ › Core first. Nothing was charged.')
+        raise HTTPException(409, 'No OpenRouter key: save one on any of your agents (API drawer) or in HQ › Core. Nothing was charged.')
     if (_TEACH['job'] or {}).get('state') == 'running':
         raise HTTPException(409, 'A lesson run is already going.')
     t = next((x for x in await rs.asyncio.to_thread(_teachers_live, rs) if x['id'] == p.model), None)
@@ -742,7 +744,7 @@ async def teach_start(request: Request, p: Teach):
     pl = _ct.plan(t, p.n, len(todo))
     if p.quoteUsd and pl['estUsd'] > float(p.quoteUsd) + 1e-6:
         raise HTTPException(409, f"The price moved: now ${pl['estUsd']:.4f}. Nothing was charged; check it and press Pay again.")
-    job = {'state': 'running', 'model': t['id'], 'family': t['family'], 'n': pl['n'], 'done': 0, 'spentUsd': 0.0, 'estUsd': pl['estUsd'], 'capUsd': pl['capUsd'], 'at': round(time.time())}
+    job = {'state': 'running', 'keyFrom': key_from, 'model': t['id'], 'family': t['family'], 'n': pl['n'], 'done': 0, 'spentUsd': 0.0, 'estUsd': pl['estUsd'], 'capUsd': pl['capUsd'], 'at': round(time.time())}
     _TEACH['job'] = job
     rs.asyncio.get_running_loop().run_in_executor(None, _ct.run, rs.DATA_DIR, key, t, todo[-pl['n']:][::-1], pl['capUsd'], job)
     return {'job': job}

@@ -159,6 +159,28 @@ def key_for(cat, provider, env=None, data_dir=None):
         return None
 
 
+def newest_owner_row(cats, provider):
+    """The newest sealed key of this provider on any owner agent (ownerStaff) → (row, cat id, cat name), or None. Pure."""
+    best = None
+    for c in cats or []:
+        r_ = ((c or {}).get('apiKeys') or {}).get(provider)
+        if r_ and c.get('ownerStaff') and r_.get('sealed') and (best is None or float(r_.get('at') or 0) >= float(best[0].get('at') or 0)):
+            best = (r_, c.get('id'), c.get('name'))
+    return best
+
+
+def owner_key(store_path, provider, env=None, data_dir=None):
+    """🔑 owner 2026-11-15 ("my owner openrouter should be able to be used to train COMP"): the clear owner key for a server call, read from
+    the agents' store. → (key, donor name) or (None, None). Never returned to a page."""
+    try:
+        import json as _json
+        d = _json.loads(open(store_path).read())
+        got = newest_owner_row((d.get('cats') or {}).values(), provider)
+        return (unseal(got[0]['sealed'], got[1], env, data_dir), got[2]) if got else (None, None)
+    except Exception:   # noqa: BLE001 — no store or a bad seal: no owner key
+        return (None, None)
+
+
 def shared_from(cat, provider):
     """What the page may see about a borrowed key: only which owner agent it comes from (never the key, never its last 4)."""
     if (cat.get('apiKeys') or {}).get(provider) or provider not in SHARED or not cat.get('ownerStaff') or not OWNER_DONOR['fn']:
