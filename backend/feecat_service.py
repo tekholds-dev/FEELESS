@@ -87,6 +87,7 @@ import proof_book as _book
 import collective_debate as _debate
 import play_studio as _play
 import asset_packs as _assets
+import real_world as _rworld   # 🌍 the 3D studio's real-world-first shelf
 import poc_watch as _pw
 import idea_board as _ideas
 import proof_footprint as _foot
@@ -10015,7 +10016,9 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                     if not got_:
                         raise HTTPException(502, 'That asset could not be read. Try another.')
                     return {'asset': got_}
-            return {'rows': _assets.search(KITS_DIR, p.text, p.job if p.job in _assets.TYPES else 'model'), 'credit': _assets.CREDIT}
+            kind_ = p.job if p.job in _assets.TYPES else 'model'
+            real_ = _rworld.resolve(_rworld.cards(), lambda q_: _assets.search(KITS_DIR, q_, 'model', n=1)) if kind_ == 'model' and not str(p.text or '').strip() else []   # 🌍 real products first (owner 2026-11-15)
+            return {'rows': _assets.search(KITS_DIR, p.text, kind_), 'credit': _assets.CREDIT, 'real': real_, 'realCats': [list(c) for c in _rworld.CATS]}
         if p.op == 'play3d_ask':
             brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
             if not brains_ or not str(p.text or '').strip():
