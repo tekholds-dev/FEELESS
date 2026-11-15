@@ -3,6 +3,7 @@
 - `edge_of`: the vitals behind a bid: the officials, how the line moved, rest, recent form, pace against the total, the current run, foul trouble.
 - `reads_of`: those vitals in one sentence each. They are readings of real numbers, never a promise and never a tip to bet. The two reads that need the board's market prices are made on the page (`lib/gamePrint.js` `marketReads`).
 - `print_rows`: a team's or a player's stats this season against last season. Their fingerprint draws from this.
+- `reels_of`: ESPN's own highlight clips for the game, newest first, as MP4s on ESPN's CDN (the room plays them as reels).
 Nothing here is invented: a field ESPN did not send stays missing, and the screen leaves it out."""
 import re
 
@@ -331,3 +332,30 @@ def player_rows(stats, limit=10):
     all_ = print_rows(labels, now, last)
     y = rows[-1].get('season') or {}
     return sorted((r for r in all_ if r['abbr'] not in ('GP', 'GS')), key=lambda r: first.index(r['abbr']) if r['abbr'] in first else 99)[:limit], (y.get('displayName') if isinstance(y, dict) else y)
+
+
+# 🎬 HIGHLIGHT REELS (owner 2026-11-15 'see any current highlights as reels'). Only ESPN's own CDN, only https MP4s.
+_REEL_HOST = re.compile(r'https://[a-z0-9.-]+\.(?:akamaized\.net|espncdn\.com|espn\.com)/[^\s"<>]+')
+REELS_MAX = 12
+
+
+def _reel_url(v, mp4=False):
+    v = v if isinstance(v, str) else ''
+    return v if _REEL_HOST.fullmatch(v) and (not mp4 or v.split('?')[0].endswith('.mp4')) else None
+
+
+def reels_of(data, limit=REELS_MAX):
+    """ESPN's highlight clips in the game summary, newest first: its MP4, picture, headline and length. A clip without a playable MP4 is left out. Pure."""
+    out, seen = [], set()
+    for v in (data or {}).get('videos') or []:
+        if not isinstance(v, dict):
+            continue
+        links = v.get('links') or {}; src = links.get('source') or {}
+        mp4 = _reel_url((src.get('HD') or {}).get('href'), True) or _reel_url(src.get('href'), True)
+        key = str(v.get('id') or mp4); said = re.sub(r'\W+', ' ', str(v.get('headline') or '')).strip().lower()
+        if not mp4 or key in seen or (said and said in seen):   # ESPN posts some clips twice under new ids
+            continue
+        seen.update((key, said)); secs = _f(v.get('duration'))
+        out.append({'id': key, 'title': str(v.get('headline') or 'Highlight')[:140], 'secs': int(secs) if secs and secs > 0 else None,
+                    'thumb': _reel_url(v.get('thumbnail')), 'src': mp4, 'at': str(v.get('originalPublishDate') or '')})
+    return sorted(out, key=lambda r: r['at'], reverse=True)[:limit]

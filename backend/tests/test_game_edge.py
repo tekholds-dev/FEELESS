@@ -1,4 +1,6 @@
 """🏟 The game room reads only what ESPN sent. No network."""
+import re
+
 import game_edge as ge
 
 
@@ -74,3 +76,30 @@ def test_team_print_keeps_a_stat_with_no_last_season():
     n = {'results': {'stats': {'categories': [{'stats': [{'abbreviation': 'PTS', 'displayName': 'Points', 'displayValue': '80'}, {'abbreviation': 'GP', 'displayValue': '4'}]}]}}}
     rows = ge.team_rows(n, None)
     assert rows == [{'abbr': 'PTS', 'label': 'Points', 'now': 80.0, 'last': None, 'score': 50.0}]
+
+
+def _clip(i, at, href=None, **kw):
+    href = href or f'https://espnmedia-cdn.akamaized.net/espn/media/16x9/c{i}.mp4'
+    return {'id': i, 'headline': f'Clip {i}', 'duration': 21, 'thumbnail': f'https://espnmedia-cdn.akamaized.net/t{i}.jpg', 'originalPublishDate': at, 'links': {'source': {'href': href, 'HD': {'href': href}}}, **kw}
+
+
+def test_highlight_reels_are_espns_own_mp4s_newest_first():
+    data = {'videos': [_clip(1, '2026-11-15T18:31:08Z'), _clip(2, '2026-11-15T19:02:00Z'), _clip(1, '2026-11-15T18:31:08Z'), {**_clip(9, '2026-11-15T18:40:00Z'), 'headline': 'Clip 1!'},
+                       _clip(3, '2026-11-15T19:10:00Z', href='https://evil.example.com/x.mp4'), _clip(4, '2026-11-15T19:20:00Z', href='https://espnmedia-cdn.akamaized.net/x.m3u8'), 'junk']}
+    rows = ge.reels_of(data)
+    assert [r['id'] for r in rows] == ['2', '1']   # newest first; the copy, the same clip re-posted, the stranger's host and the stream without an MP4 are left out
+    assert rows[0] == {'id': '2', 'title': 'Clip 2', 'secs': 21, 'thumb': 'https://espnmedia-cdn.akamaized.net/t2.jpg', 'src': 'https://espnmedia-cdn.akamaized.net/espn/media/16x9/c2.mp4', 'at': '2026-11-15T19:02:00Z'}
+    assert ge.reels_of({}) == [] and ge.reels_of(None) == [] and len(ge.reels_of({'videos': [_clip(i, f'2026-11-15T{i:02d}:00:00Z') for i in range(20)]})) == ge.REELS_MAX
+
+
+def test_the_game_room_only_reads_it_never_bids():
+    """Owner 2026-11-15 'prove it only investigates': the room's four doors are GETs, and the code behind them cannot reach an order."""
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    svc = (root / 'feecat_service.py').read_text()
+    for path in ('/api/cats/tools/game/', '/api/cats/tools/team/', '/api/cats/tools/athlete/', '/api/cats/tools/print/'):
+        assert re.search(r"@app\.get\('" + re.escape(path), svc) and not re.search(r"@app\.(post|put|delete|patch)\('" + re.escape(path), svc), path
+    for f in ('proof_tools.py', 'game_edge.py'):
+        src = (root / f).read_text()
+        assert not re.search(r'kalshi_bid|_kalshi_send|place_order|portfolio/orders|import pob_bid', src), f
+        assert all(u == 'https://api.hyperliquid.xyz/info' for u in re.findall(r"\.post\('([^']+)'", src)), f   # its only POSTs are Hyperliquid's public price reads

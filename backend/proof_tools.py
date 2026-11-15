@@ -440,6 +440,7 @@ async def _game_extras(http, sport, data, got):
     got['edge'] = _ge.edge_of(data, sport, teams, plays); got['box'] = _ge.box_of(data, away_id) if got.get('state') in ('in', 'post') else {}
     got['edge']['hot'] = await _hot_players(http, sport, teams, got['box'], got.get('state'))
     got['reads'] = _ge.reads_of(got['edge'], teams)
+    got['reels'] = _ge.reels_of(data)
     return got
 
 
