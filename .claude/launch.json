@@ -18,6 +18,17 @@
     },
     {
       "name": "feeless-frontend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "scripts/serve-fast.sh"
+      ],
+      "env": {
+        "FAST_PORT": "51367"
+      },
+      "port": 51367
+    },
+    {
+      "name": "feeless-dev",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
         "--prefix",
@@ -25,23 +36,12 @@
         "craco",
         "start"
       ],
-      "cwd": "frontend",
       "env": {
-        "PORT": "51367",
+        "PORT": "51366",
         "BROWSER": "none"
       },
-      "port": 51367
-    },
-    {
-      "name": "feeless-fast",
-      "runtimeExecutable": "node",
-      "runtimeArgs": [
-        "scripts/fast-server.js"
-      ],
-      "env": {
-        "FAST_PORT": "51368"
-      },
-      "port": 51368
+      "port": 51366,
+      "cwd": "frontend"
     }
   ]
 }

@@ -31,7 +31,7 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 - Saved backend `.py` files go live in ~15 s (keep-alive reload): grep names + run guard tests right after each backend edit.
 - A backend push makes the owner's `scripts/auto-pull.sh` restart every service: never push backend code while a build/proof is running.
 - Claude's shell has no LAN route: G4 / LM Studio restarts and pilots run from the **owner's Terminal** — give him the one command.
-- The owner only looks at `localhost:51367` from the main folder: never hand over work from another port/worktree. (The private gate snapshot below is fine — it is not handed over.)
+- The owner only looks at `localhost:51367` from the main folder: never hand over work from another port/worktree. (The private gate snapshot below is fine — it is not handed over.) Since 2026-11-15, 51367 serves the **production build** (`feeless-frontend` = `scripts/serve-fast.sh`, rebuilt by itself ~3 min after each frontend commit); live-reload dev for Claude's own checks is `feeless-dev` on 51366.
 - Push gate flakes under load: commit in the main tree, then gate + push from `.claude/worktrees/gate` (`git checkout --detach <sha>`; `git push origin HEAD:main`); run nothing beside it. Never gate on `| tail`/`| grep`.
 - Make one real call to an outside service before building on it. Research free/open libraries first (shadcn/ui, Motion, Recharts, Lightweight Charts) — never hand-draw a chart.
 - Every desk test → `test_bench.file_run` (Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
@@ -57,6 +57,6 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 - Palette FEELESS green on Obsidian (`#19e68c`, day `#08995a`) via meta.css tokens; 6 font tokens; m-* presets first. (WebGL shader colours in JS are the one place a hex is allowed.)
 - `_is_staff(address)` is THE admin rule. Speed: no request waterfalls, shared pollers, transform/opacity animation only, heavy FX die under `body.fx-lite`.
 - Engine: Jupiter Swap API primary (FEELESS fee into our SOL/USDC accounts, capped priority, our broadcast); Ultra only as engine or opt-in fallback; fallback off + Swap API down ⇒ trading pauses. Fee-free only when **buying** $FEE / FEECAT / rFEE. Coin→coin with no SOL/USDC side is refused.
-- Services (restart: `bash scripts/start-backend.sh`, from the owner's Terminal): `server` 5001, `reputation_service` 5077, `feecat_service` 5088, `candles_service` 5099. Frontend CRA + craco on 51367. Helius: `HELIUS_API_KEY` or `HELIUS_RPC_URL`.
+- Services (restart: `bash scripts/start-backend.sh`, from the owner's Terminal): `server` 5001, `reputation_service` 5077, `feecat_service` 5088, `candles_service` 5099. Frontend: production build on 51367 (`scripts/serve-fast.sh`), CRA + craco dev on 51366. Helius: `HELIUS_API_KEY` or `HELIUS_RPC_URL`.
 - HQ settings that matter at scale (keys, engine, fees) live in its **Core** group.
 - Names: the judges (OSSY + G4) are **The Collective** to users; Fee's public trade brain is **FeeCat AI** to visitors; funds = **The Pool**. Code names `honey` / `colony` are legacy ids only.

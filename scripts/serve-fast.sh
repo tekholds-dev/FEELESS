@@ -14,7 +14,10 @@ cd "$root"
 
 build() {
   echo "$(date +%T) building…"
-  if (cd frontend && CI=false GENERATE_SOURCEMAP=false npx craco build > /tmp/feeless-fast-build.log 2>&1); then
+  # built next to the live one, then swapped in one rename: the site never serves a half-written build
+  rm -rf frontend/build-next
+  if (cd frontend && CI=false GENERATE_SOURCEMAP=false BUILD_PATH=build-next npx craco build > /tmp/feeless-fast-build.log 2>&1); then
+    rm -rf frontend/build-old; [[ -d frontend/build ]] && mv frontend/build frontend/build-old; mv frontend/build-next frontend/build; rm -rf frontend/build-old
     echo "$(date +%T) ✅ build ready — reload the page"
   else
     echo "$(date +%T) ✋ build failed (old build still served): tail /tmp/feeless-fast-build.log"
