@@ -108,3 +108,32 @@
 body.fx-lite .gd-dots i { animation: none; }
 .gd-disc form.gd-row { flex-wrap: nowrap; }
 .gd-disc form.gd-row .m-input { flex: 1; width: auto; min-width: 0; }
+
+/* ⚖ what's allowed here · 🖥 the real server test · panels kept mounted (owner 2026-11-15) */
+.gd-panels > [hidden] { display: none !important; }
+.gd-test { display: flex; flex-direction: column; gap: 12px; }
+.gd-rules { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); }
+.gd-rules > b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; color: var(--m-mute); }
+.gd-rules ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 14px; }
+.gd-rules li { display: flex; gap: 6px; align-items: baseline; font-size: 12px; color: var(--m-text); }
+.gd-rules li.is-no { color: var(--m-mute); }
+.gd-rules li i { font-style: normal; }
+.gd-srv { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); }
+.gd-srv > header { display: flex; flex-direction: column; gap: 2px; }
+.gd-srv > header b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; color: var(--m-mute); }
+.gd-srv > header small { color: var(--m-dim); font-size: 11px; }
+.gd-srv-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
+.gd-srv-steps li { display: flex; gap: 8px; align-items: baseline; padding: 8px 10px; border-radius: var(--m-r-sm); background: var(--m-surface-2); font-size: 12px; line-height: 1.45; }
+.gd-srv-steps li > b { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--m-accent); color: var(--m-bg); font-size: 11px; }
+.gd-srv-steps code, .gd-srv-out code { font-family: var(--m-mono); font-size: 11px; }
+.gd-srv-steps em { font-style: normal; color: var(--m-accent); }
+.gd-srv-out { padding: 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-bg); }
+.gd-srv-out.is-ok { border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
+.gd-srv-out.is-bad { border-color: color-mix(in srgb, var(--m-danger) 50%, transparent); }
+.gd-srv-verdict { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--m-text); }
+.gd-srv-out ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto; }
+.gd-srv-out li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12px; }
+.gd-srv-out li > i { font-style: normal; width: 14px; text-align: center; }
+.gd-srv-out li > small { font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); min-width: 72px; }
+.gd-srv-out li > span { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; color: var(--m-mute); font-family: var(--m-mono); font-size: 11px; }
+.gd-srv-out li.is-start > i { color: var(--m-accent); } .gd-srv-out li.is-error > i, .gd-srv-out li.is-missing > i { color: var(--m-danger); } .gd-srv-out li.is-warn > i { color: var(--m-warn); }

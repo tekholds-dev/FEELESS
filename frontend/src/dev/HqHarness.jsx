@@ -10,7 +10,8 @@ import { HqDeck } from '../components/command/HqDeck';
 import '../styles/hqPop.css';
 import { EcoDesk } from '../components/command/EcoDesk';
 import { ModelLab } from '../components/command/ModelLab';
-import { AgentDesktop, DeskFlip, HiveSwitch } from '../components/command/CatWorkbench';
+import { DeskFlip, HiveSwitch } from '../components/command/CatWorkbench';
+import ProofPicker from '../components/command/ProofPicker';
 import { WatchRoom } from '../components/command/ProofRooms';
 import ecoFix from './ecoFixture.json';
 import '../styles/looks.css';
@@ -96,7 +97,7 @@ if (DECK) {
 export default function HqHarness() {
   if (qa.has('watch')) return <div className="hqp-body" style={{ padding: 16, maxWidth: 900 }}><WatchRoom onBrowse={() => {}} /></div>;   // 🧪 the Watch room on live official feeds
   if (qa.has('evo')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16, maxWidth: 820 }}><EvolutionLab role="reaper" /></div>; }   // 🧪 COL-11 Evolution Lab on the LIVE 5077 route (real archive)
-  if (qa.has('proofs')) { applyLook(DEFAULT_LOOK); return <ProofsPreview />; }   // 🎯 the chat desk's Proofs button → the desktop on the picker (fixture agent)
+  if (qa.has('proofs')) { applyLook(DEFAULT_LOOK); return <ProofsPreview />; }   // 🎯 the chat desk's Proofs button → the picker on the main desk (fixture agent)
   if (qa.has('collect')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><HiveSwitch cat={{ id: 'dev-happy', name: 'Happy Assistant', hive: { on: false, every: 300 }, convo: { on: true }, agentWallet: { address: 'DEV' } }} /></div>; }   // 💎 the Auto-collect window on a fixture agent
   if (qa.has('lab')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><ModelLab call={labCall} /></div>; }   // 🧪 COMP Model Lab under the owner's look
   if (qa.has('eco')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><EcoDesk cat={{ id: 'dev' }} work={async () => ecoFix} /></div>; }   // 🧪 PoEco desk on server-built sample rows, under the owner's look
@@ -109,8 +110,9 @@ export default function HqHarness() {
   </div>;
 }
 
-function ProofsPreview() {
-  const [open, setOpen] = React.useState(false); const cat = { id: 'dev-fee', name: 'Fee', brainsCfg: { kind: 'trader', brains: ['a', 'b'] } };
-  return <div className="hqp-body" style={{ padding: 16 }}><DeskFlip cat={cat} flip={false} setFlip={() => {}} name="Fee" live count={100} onProofs={() => setOpen(true)}><p style={{ padding: 16 }}>chat</p></DeskFlip>
-    {open ? <AgentDesktop cat={cat} start="picker" onClose={() => setOpen(false)} /> : null}</div>;
+function ProofsPreview() {   // 🎯 the main desk: Proofs (or ⌘K) opens the picker over the chat; a pick puts that proof on the desk and the chat says so
+  const [open, setOpen] = React.useState(false); const [on, setOn] = React.useState(''); const cat = { id: 'dev-fee', name: 'Fee', brainsCfg: { kind: 'trader', brains: ['a', 'b'] } };
+  const now = Math.round(Date.now() / 1000); const d = { powFolders: [{ id: 'w1', n: 4, topic: 'New wallets on BONK', at: now - 900 }, { id: 'w2', n: 3, topic: 'Fresh pools', at: now - 7200 }], pocFolders: [{ id: 'c1', n: 2, topic: 'Thread on fees', at: now - 3600 }] };
+  return <div className="hqp-body" style={{ padding: 16 }}><DeskFlip cat={cat} flip={false} setFlip={() => {}} name="Fee" live count={100} onProofs={() => setOpen(true)}><p style={{ padding: 16 }} data-testid="proofs-chat">{on ? `🎯 "${on}" is on the desk. Your words go to it.` : 'chat'}</p></DeskFlip>
+    {open ? <div className="cwb-pick"><ProofPicker d={d} onPick={({ id }) => { setOpen(false); setOn([...d.powFolders, ...d.pocFolders].find(f => f.id === id)?.topic || id); }} onClose={() => setOpen(false)} /></div> : null}</div>;
 }

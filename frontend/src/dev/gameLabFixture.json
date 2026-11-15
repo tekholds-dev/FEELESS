@@ -1,151 +1,159 @@
 {
-"view": {
-"platforms": [
-{
-"id": "fivem",
-"name": "GTA V RP \u00b7 FiveM",
-"what": "Roleplay servers for GTA V on Cfx.re (owned by Rockstar since 2023)",
-"tools": [
-"FiveM client",
-"txAdmin",
-"Qbox / QBCore / ESX",
-"Lua 5.4",
-"oxmysql"
-],
-"steps": [
-"Rent or host a server and set up txAdmin",
-"Pick one framework (Qbox, QBCore or ESX) and stay on it",
-"Add each resource with its own fxmanifest.lua",
-"Wire the database through oxmysql",
-"Test every resource alone, then together, with resmon open",
-"Keep frame time under 0.5 ms a resource",
-"Read the Cfx.re rules before you sell anything"
-]
-},
-{
-"id": "redm",
-"name": "Red Dead RP \u00b7 RedM",
-"what": "Roleplay servers for Red Dead Redemption 2 on Cfx.re",
-"tools": [
-"RedM client",
-"txAdmin",
-"VORP / RSG framework",
-"Lua 5.4"
-],
-"steps": [
-"Host a RedM server with txAdmin",
-"Pick VORP or RSG",
-"Every fxmanifest needs the rdr3_warning line",
-"Port GTA scripts by swapping natives, not copying them",
-"Test on a clean profile"
-]
-},
-{
-"id": "vita",
-"name": "PS Vita homebrew",
-"what": "Your own games and apps on a Vita you own, tested in the Vita3K emulator first",
-"tools": [
-"VitaSDK",
-"Vita3K emulator",
-"vita-toolchain",
-"VitaShell"
-],
-"steps": [
-"Install VitaSDK (CMake toolchain)",
-"Build a VPK from your own code",
-"Boot it in Vita3K first and log frame rate",
-"Keep it under the Vita's memory (512 MB RAM)",
-"Install on your own console only, where homebrew is legal",
-"No commercial games: no dumps, no piracy"
-]
-},
-{
-"id": "deck",
-"name": "Steam Deck",
-"what": "PC games on SteamOS and Proton",
-"tools": [
-"Proton",
-"SteamOS",
-"Steam Input",
-"gamescope"
-],
-"steps": [
-"Run it under Proton and note the version",
-"Set a 1280x800 default",
-"Map every action in Steam Input",
-"Hold 40 fps or better on battery",
-"Check text size from arm's length"
-]
-},
-{
-"id": "web",
-"name": "Web (WebGL)",
-"what": "Games that run in any browser",
-"tools": [
-"three.js",
-"Phaser",
-"Godot web export",
-"WebGPU"
-],
-"steps": [
-"Export a web build",
-"Keep the first load under 20 MB",
-"Touch controls for phones",
-"Hold 60 fps on a mid phone",
-"Save to the browser, never lose progress"
-]
-}
-],
-"log": [
-{
-"id": "c14d0f41bb",
-"at": 1794703000,
-"game": "Garage RP",
-"platform": "fivem",
-"build": "1.0",
-"fps": 144,
-"bugs": [],
-"verdict": "ship",
-"notes": ""
-},
-{
-"id": "55df1d2a60",
-"at": 1794700000,
-"game": "Night Run",
-"platform": "vita",
-"build": "v0.3",
-"fps": 58,
-"bugs": [
-"Crash when level 2 loads",
-"Audio pops on resume"
-],
-"verdict": "fix",
-"notes": ""
-}
-],
-"checks": {
-"fivem": [
-0,
-1
-],
-"vita": [
-0
-]
-},
-"stats": {
-"sessions": 2,
-"bugs": 2,
-"ship": 1
-}
-},
-"resource": {
-"name": "my_garage",
-"files": {
-"fxmanifest.lua": "fx_version 'cerulean'\ngame 'gta5'\nlua54 'yes'\n\nauthor 'FEELESS Game Lab'\ndescription 'Park and pull out your cars'\nversion '1.0.0'\n\nshared_script 'config.lua'\nclient_script 'client.lua'\nserver_script 'server.lua'\n",
-"config.lua": "Config = {}\nConfig.Name = 'my_garage'\nConfig.Debug = false\n",
-"client.lua": "-- my_garage: client side. Runs on each player's game.\nRegisterCommand('my_garage', function()\n    TriggerServerEvent('my_garage:hello')\nend, false)\n\nRegisterNetEvent('my_garage:say', function(text)\n    print(('[my_garage] %s'):format(text))\nend)\n",
-"server.lua": "-- my_garage: server side. Never trust the client: check every value it sends.\nRegisterNetEvent('my_garage:hello', function()\n    local src = source\n    TriggerClientEvent('my_garage:say', src, ('Hello, %s'):format(GetPlayerName(src)))\nend)\n"
-},
-"install": "Put the my_garage folder in resources/, add 'ensure my_garage' to server.cfg, then restart the server (or 'refresh' then 'ensure my_garage' in txAdmin)."
-}
+ "view": {
+  "platforms": [
+   {
+    "id": "fivem",
+    "name": "GTA V RP · FiveM",
+    "what": "Roleplay servers for GTA V on Cfx.re (owned by Rockstar since 2023)",
+    "tools": [
+     "FiveM client",
+     "txAdmin",
+     "Qbox / QBCore / ESX",
+     "Lua 5.4",
+     "oxmysql"
+    ],
+    "steps": [
+     "Rent or host a server and set up txAdmin",
+     "Pick one framework (Qbox, QBCore or ESX) and stay on it",
+     "Add each resource with its own fxmanifest.lua",
+     "Wire the database through oxmysql",
+     "Test every resource alone, then together, with resmon open",
+     "Keep frame time under 0.5 ms a resource",
+     "Read the Cfx.re rules before you sell anything"
+    ]
+   },
+   {
+    "id": "redm",
+    "name": "Red Dead RP · RedM",
+    "what": "Roleplay servers for Red Dead Redemption 2 on Cfx.re",
+    "tools": [
+     "RedM client",
+     "txAdmin",
+     "VORP / RSG framework",
+     "Lua 5.4"
+    ],
+    "steps": [
+     "Host a RedM server with txAdmin",
+     "Pick VORP or RSG",
+     "Every fxmanifest needs the rdr3_warning line",
+     "Port GTA scripts by swapping natives, not copying them",
+     "Test on a clean profile"
+    ]
+   },
+   {
+    "id": "gtasa_vita",
+    "name": "GTA SA · PS Vita port",
+    "what": "Mods for the open-source gtasa_vita loader, on the game data from a copy you bought",
+    "tools": [
+     "gtasa_vita loader",
+     "VitaShell",
+     "a text editor"
+    ],
+    "steps": [
+     "Install the port by its own README, with the data from your own copy of the game",
+     "Back up ux0:data/gtasa/ before any mod",
+     "Change one data file at a time (handling.cfg, timecyc.dat …)",
+     "Boot and drive a few minutes: watch for a crash or stutter",
+     "Keep a note of every line you changed so it can be undone",
+     "Never share game files: share only your own changed lines"
+    ]
+   },
+   {
+    "id": "vita",
+    "name": "PS Vita homebrew",
+    "what": "Your own games and apps on a Vita you own, tested in the Vita3K emulator first",
+    "tools": [
+     "VitaSDK",
+     "Vita3K emulator",
+     "vita-toolchain",
+     "VitaShell"
+    ],
+    "steps": [
+     "Install VitaSDK (CMake toolchain)",
+     "Build a VPK from your own code",
+     "Boot it in Vita3K first and log frame rate",
+     "Keep it under the Vita's memory (512 MB RAM)",
+     "Install on your own console only, where homebrew is legal",
+     "No commercial games: no dumps, no piracy"
+    ]
+   },
+   {
+    "id": "deck",
+    "name": "Steam Deck",
+    "what": "PC games on SteamOS and Proton",
+    "tools": [
+     "Proton",
+     "SteamOS",
+     "Steam Input",
+     "gamescope"
+    ],
+    "steps": [
+     "Run it under Proton and note the version",
+     "Set a 1280x800 default",
+     "Map every action in Steam Input",
+     "Hold 40 fps or better on battery",
+     "Check text size from arm's length"
+    ]
+   },
+   {
+    "id": "web",
+    "name": "Web (WebGL)",
+    "what": "Games that run in any browser",
+    "tools": [
+     "three.js",
+     "Phaser",
+     "Godot web export",
+     "WebGPU"
+    ],
+    "steps": [
+     "Export a web build",
+     "Keep the first load under 20 MB",
+     "Touch controls for phones",
+     "Hold 60 fps on a mid phone",
+     "Save to the browser, never lose progress"
+    ]
+   }
+  ],
+  "log": [
+   {
+    "id": "c14d0f41bb",
+    "at": 1794703000,
+    "game": "Garage RP",
+    "platform": "fivem",
+    "build": "1.0",
+    "fps": 144,
+    "bugs": [],
+    "verdict": "ship",
+    "notes": ""
+   },
+   {
+    "id": "55df1d2a60",
+    "at": 1794700000,
+    "game": "Night Run",
+    "platform": "vita",
+    "build": "v0.3",
+    "fps": 58,
+    "bugs": [
+     "Crash when level 2 loads",
+     "Audio pops on resume"
+    ],
+    "verdict": "fix",
+    "notes": ""
+   }
+  ],
+  "checks": {
+   "fivem": [
+    0,
+    1
+   ],
+   "vita": [
+    0
+   ]
+  },
+  "stats": {
+   "sessions": 2,
+   "bugs": 2,
+   "ship": 1
+  }
+ }
 }

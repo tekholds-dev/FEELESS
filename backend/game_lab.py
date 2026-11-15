@@ -1,11 +1,9 @@
-"""🎮 GAME LAB — the owner's desktop folder for testing and porting games (owner 2026-11-13 / 11-15: "a place in desktop for game testing,
-porting and etc like for gta rp, and possibly psvita … the game desk is suppose to be a folder in desktop").
+"""🎮 GAME LAB — the Game desk's "Test + port" tab, per agent (owner 2026-11-13 / 11-15: "a place in desktop for game testing, porting …").
 
-Three parts, all real and all saved owner-only on the server:
   · PLAYTEST LOG   every session: game, platform, build, frame rate, bugs, verdict
   · PORT           one checklist per target, with the real open tools each one uses; ticks are saved
-  · GTA RP         a working FiveM / RedM resource starter (fxmanifest.lua + client + server Lua), made here, no model and no cost
-Only your own games and legal homebrew: no DRM cracking, no piracy, no online-game cheats. Pure; rep_admin_routes does the I/O.
+  · resource()     a working FiveM / RedM resource starter (fxmanifest.lua + client + server Lua), no model and no cost: the desk's "From a working starter"
+Only your own games and legal homebrew: no DRM cracking, no piracy, no online-game cheats. Pure; feecat_service's gdesk_lab / gdesk_new do the I/O.
 """
 import re
 import time
@@ -18,6 +16,10 @@ PLATFORMS = {   # key → (name, what it is, its real open tools, the porting st
                'Wire the database through oxmysql', 'Test every resource alone, then together, with resmon open', 'Keep frame time under 0.5 ms a resource', 'Read the Cfx.re rules before you sell anything']),
     'redm': ('Red Dead RP · RedM', 'Roleplay servers for Red Dead Redemption 2 on Cfx.re', ['RedM client', 'txAdmin', 'VORP / RSG framework', 'Lua 5.4'],
              ['Host a RedM server with txAdmin', 'Pick VORP or RSG', 'Every fxmanifest needs the rdr3_warning line', 'Port GTA scripts by swapping natives, not copying them', 'Test on a clean profile']),
+    'gtasa_vita': ('GTA SA · PS Vita port', 'Mods for the open-source gtasa_vita loader, on the game data from a copy you bought', ['gtasa_vita loader', 'VitaShell', 'a text editor'],
+                   ['Install the port by its own README, with the data from your own copy of the game', 'Back up ux0:data/gtasa/ before any mod',
+                    'Change one data file at a time (handling.cfg, timecyc.dat …)', 'Boot and drive a few minutes: watch for a crash or stutter',
+                    'Keep a note of every line you changed so it can be undone', 'Never share game files: share only your own changed lines']),
     'vita': ('PS Vita homebrew', 'Your own games and apps on a Vita you own, tested in the Vita3K emulator first', ['VitaSDK', 'Vita3K emulator', 'vita-toolchain', 'VitaShell'],
              ['Install VitaSDK (CMake toolchain)', 'Build a VPK from your own code', 'Boot it in Vita3K first and log frame rate', 'Keep it under the Vita\'s memory (512 MB RAM)',
               'Install on your own console only, where homebrew is legal', 'No commercial games: no dumps, no piracy']),

@@ -41,7 +41,6 @@ import { proofRows } from './ProofsFolder';
 import { MailApp, SiteDoor, SignInFrame, SignInView, SiteTradeCard, TopupCard, TypeBar, WatchFolders } from './SiteDoor';
 import { ProofsFolder, visitorProofs } from './ProofsFolder';
 import ProofPicker from './ProofPicker';
-import { ChatGrip, ChatSizeSeg, useChatSize } from './ChatSize';
 import Duel from './Duel';
 import AgentReplay from './AgentReplay';
 import VerdictLive from './VerdictLive';
@@ -154,18 +153,23 @@ export function IncognitoSwitch({ cat }) {
     data-tip={err || (on ? '🕶 Incognito ON: visitors see no screens — only that it is working' : `🕶 Visitors watch its live screens (never its steps or what it types). Incognito hides them${cat?.incognitoPaid ? '' : ' — $5 once'}.`)}>🕶<span>{on ? 'Private' : 'Public'}</span></button>;
 }
 
-export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat, size = null, onProofs = null }) {
-  const flipIn = useRef(null); const talk = useRef(null);   // ↕ AGX-3: the box a drag sizes (the talk column below 1100 px, the whole deck above)
-  const measure = () => ((window.innerWidth <= 1100 ? talk.current : flipIn.current)?.offsetHeight || 0);   // ↕ layout px: the desk may be drawn scaled (0.9), a drag must not shrink it
+// 🎯 the proof picker ON THE MAIN DESK (owner 2026-11-15: "proof picker suppose to open on main desk as its to work in main desk and not desktop
+// folders"). A pick becomes the proof this chat talks to (desk_focus), right here; only a PoEco, which has no chat of its own, opens its folder.
+function MainPicker({ cat, work, d, onPick, onClose }) {
+  const pool = useAgentPool(cat, work, 60000);
+  return <div className="cwb-pick" data-testid="cwb-pick"><ProofPicker d={d} weights={pool?.weights} onPick={onPick} onClose={onClose} /></div>;   // a screen-wide layer: the main desk has no positioned box for the picker
+}
+
+export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat, onProofs = null }) {   // the chat stays at Half (owner 2026-11-15: Dock / Half / Focus taken out)
   useEffect(() => { if (!flip) return undefined; const k = e => { if (e.key === 'Escape') setFlip(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [flip, setFlip]);
-  return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div ref={flipIn} className="cwb-flip-in">
+  return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div className="cwb-flip-in">
     <div className="cwb-face ck-cockpit cwb-deck" inert={flip}>
       {left}
       <div className="ck-center cwb-mid">
-        <div ref={talk} className="cwb-talk" data-testid="cwb-cockpit">{size ? <ChatGrip measure={measure} onDrag={size.drag} /> : null}
-          <header className="cwb-talk-h" onDoubleClick={e => { if (size && !e.target.closest('button, input, select, a')) size.toggleFocus(); }} data-tip={size ? 'Double-click: focus the chat (again: back)' : undefined}><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
+        <div className="cwb-talk" data-testid="cwb-cockpit">
+          <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
             <b>Chat with {name || 'its minds'}</b>
-            {size ? <ChatSizeSeg size={size.size} pick={size.pick} /> : null}{cat ? <HiveSwitch cat={cat} /> : null}{cat ? <IncognitoSwitch cat={cat} /> : null}
+            {cat ? <HiveSwitch cat={cat} /> : null}{cat ? <IncognitoSwitch cat={cat} /> : null}
             {onProofs ? <button type="button" className="cwb-flip-btn cwb-proofs" onClick={onProofs} aria-label="Pick any proof it filed" data-tip="Every proof it filed, by type (PoW · PoP · PoB · PoC · PoStatic · PoEco): pick one and it opens in its desk window" data-testid="cwb-proofs"><Ic3 e="🎯" /><span>Proofs</span></button> : null}
             <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, API keys" data-testid="cwb-flip">
               {FILES_ICON}<span>Files</span><b className="m-num">{count}</b></button></header>
@@ -1639,7 +1643,10 @@ function WorkbenchLive({ cat }) {
   const msgs = useMemo(() => (d?.chat || []).slice(-24).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []), [d?.chat]);
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
-  const proofs = useMemo(() => newestProofs(d), [d]);
+  const [proofPick, setProofPick] = useState(false);
+  useEffect(() => { if (desk) return undefined; const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setProofPick(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [desk]);   // ⌘K on the main desk (the Desktop keeps its own)
+  const pickProof = async ({ win, id }) => { setProofPick(false); if (win === 'poe') { setDesk({ win, id }); return; } await act('desk_focus', { job: win, text: id }); };
+  const proofs = useMemo(() => { const all = newestProofs(d); const at = d?.deskProof?.id ? all.findIndex(x => x.id === d.deskProof.id) : -1; return at > 0 ? [all[at], ...all.filter((_, i) => i !== at)] : all; }, [d]);   // 🎯 the proof on the desk leads the monitors
   const kinds = proofsOf(d, live); const [stagePick, setStagePick] = useState(null);   // 🗂 up to 3 proofs at once: the desk's picker switches the stage between them
   const liveKind = kinds.includes(stagePick) ? stagePick : live ? proofOf(d, live) : null; const [peek, setPeek] = useState(false);   // 🎆 a running proof turns the chat into its live stage
   useEffect(() => { if (stagePick && !kinds.includes(stagePick)) setStagePick(null); }, [kinds.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1647,8 +1654,7 @@ function WorkbenchLive({ cat }) {
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
-  const chatSize = useChatSize();
-  return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench" {...chatSize.attrs}>
+  return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b><Ic3 e="🧠" />🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
@@ -1666,7 +1672,7 @@ function WorkbenchLive({ cat }) {
         {STOPPABLE[k] ? <button type="button" className="cwb-rpx" disabled={busy} aria-label={`Stop the ${PROOF_SHORT[k]}`} onClick={() => twoTap(STOPPABLE[k].sure) && act(...STOPPABLE[k].op)} data-tip={STOPPABLE[k].tip} data-testid={`cwb-proof-stop-${k}`}>✕</button>
           : <small className="cwb-rpx is-auto" data-tip={k === 'pob' ? 'A PoB ends when its games are final. Any real Kalshi order stays on Kalshi either way' : 'It finishes by itself'}>auto</small>}</span>)}
       {kinds.length >= (d?.proofMax || 3) ? <small className="cwb-running-full" data-tip="One agent runs at most 3 proofs at once: a new one starts when one of these finishes or is stopped">full</small> : null}</nav> : null}
-    <DeskFlip cat={cat} size={chatSize} onProofs={() => setDesk('picker')} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
+    <DeskFlip cat={cat} onProofs={() => setProofPick(true)} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
         extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <MindNow d={d} w={wins[1]} p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
@@ -1738,6 +1744,7 @@ function WorkbenchLive({ cat }) {
         : live ? <ChatStop onPress={() => act('stop')} isDisabled={busy} data-tip="Stop it" data-testid="cwb-stop" />
         : <ChatSend isDisabled={busy || !text.trim()} data-tip="Send (Enter ↵)" data-testid="cwb-send" />} />
     </DeskFlip>
+    {proofPick ? <MainPicker cat={cat} work={work} d={d} onPick={pickProof} onClose={() => setProofPick(false)} /> : null}
     {desk ? <AgentDesktop cat={cat} start={typeof desk === 'string' || (desk && typeof desk === 'object') ? desk : null} onClose={() => setDesk(false)} onCommand={t => { setText(t); setDesk(false); }} /> : null}
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}

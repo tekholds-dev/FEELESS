@@ -6,7 +6,8 @@ Pure. A project = a target + real files. The agent's own mind (Mind A or B, the 
 or log, or PLANS the work as phases. Every change runs the CHECK (a structure check, not a compiler: Lua blocks and brackets balance, the
 fxmanifest names its game and every script it lists exists, JSON parses, a Vita mod only touches its own folder, a web game has an index.html)
 and the project downloads as a .zip laid out to drop straight in. A builder's own uploaded code becomes its STYLE: the mind reads it first and
-writes like them. Own games, legal homebrew and your own servers only: no cheats, injectors, anti-cheat bypasses, DRM cracks or game files.
+writes like them. Own games, legal homebrew and your own servers only: no cheats, injectors, anti-cheat bypasses, DRM cracks, leaked or
+escrowed resources, or game files. A real server's console pasted back is read per file and line (read_console), and every mind change can be undone.
 """
 import io
 import json
@@ -24,8 +25,9 @@ MAX_PROJECTS = 24
 STYLE_FILES, STYLE_CHARS = 4, 6000
 TEXT_EXT = {'lua', 'js', 'ts', 'json', 'cfg', 'dat', 'ide', 'ipl', 'txt', 'md', 'xml', 'meta', 'ymt', 'html', 'css', 'c', 'h', 'cpp', 'hpp',
             'cmake', 'ini', 'toml', 'yml', 'yaml', 'sql', 'gd', 'tscn', 'vdf', 'sh', 'py', 'csv', 'fxp', 'gxt', 'ts2'}
-BIN_EXT = {'png', 'jpg', 'jpeg', 'webp', 'ytd', 'ydd', 'ydr', 'yft', 'ybn', 'ymap', 'ytyp', 'dff', 'txd', 'col', 'ogg', 'wav', 'mp3', 'glb', 'gltf', 'awc', 'rpf', 'vpk', 'ttf'}
-NEVER = re.compile(r'(^|/)(\.env|.*\.(so|apk|obb|exe|dll|bat|ps1|keystore|pem))$', re.I)   # game binaries and secrets never go in a project
+BIN_EXT = {'png', 'jpg', 'jpeg', 'webp', 'ytd', 'ydd', 'ydr', 'yft', 'ybn', 'ymap', 'ytyp', 'dff', 'txd', 'col', 'ogg', 'wav', 'mp3', 'glb', 'gltf', 'awc', 'ttf'}
+# game binaries, game archives (.rpf/.img), finished packages (.vpk/.apk/.obb), Cfx Escrow files (.fxap: someone's paid resource) and secrets
+NEVER = re.compile(r'(^|/)(\.env|.*\.(so|apk|obb|exe|dll|bat|ps1|keystore|pem|rpf|img|vpk|fxap|iso|nsp|xci))$', re.I)
 
 TARGETS = {   # key → name, what it is, where files go, the rules the mind follows
     'fivem': {'name': 'FiveM · GTA V RP', 'lang': 'lua', 'what': 'A resource for your own FiveM server (Cfx.re): scripts, jobs, UIs, addon clothing and jewelry streams.',
@@ -64,9 +66,11 @@ MODES = {
     'plan': ('Plan', 'A wireframe plan: phases, steps, files'),
 }
 BASE_SYS = ("You are a senior game modder and engine programmer working inside FEELESS's Game desk. You write REAL, complete files that work the first "
-            "time: no placeholders, no '...', no 'rest of code here'. You never write cheats, aimbots, injectors, mod menus for servers the user does not "
-            "own, anti-cheat bypasses, DRM cracks, or anything that copies or ships game files the user does not own. When you are not sure a native or "
-            "path exists, say so in INSTALL.md instead of inventing it.\n")
+            "time: no placeholders, no '...', no 'rest of code here'. THE LINE: only the user's own code, their own servers and games they own. You never "
+            "write cheats, aimbots, injectors, executors, mod menus, anti-cheat or ban bypasses, DRM or Escrow cracks, or anything that copies, ships or "
+            "links to game files, leaked resources or paid work that is not theirs; if asked, say no in SAY, in one sentence, and offer the clean way. "
+            "Original names and art only: no logos or brands they do not own. When you are not sure a native or path exists, say so in INSTALL.md "
+            "instead of inventing it.\n")
 REPLY_FMT = ("REPLY FORMAT, exactly:\nSAY: one or two plain sentences on what you did.\nThen each file you create or change, in full:\n"
              "=== FILE: relative/path.ext ===\n<the whole file>\n=== END ===\nTo delete a file: === DROP: relative/path.ext ===\n"
              "Always keep or update INSTALL.md (how to install and test it).")
@@ -315,9 +319,70 @@ def apply_reply(proj, changes, drops):
     for p in drops:
         files.pop(p, None)
     files.update(changes)
-    if len(files) > MAX_FILES:
-        raise ValueError('That would make more files than a project holds.')
+    if len(files) > MAX_FILES or _text_total(files) > MAX_PROJECT_TEXT:
+        raise ValueError('That would make the project bigger than it can hold. Drop some files, or ask for less.')
     return {**proj, 'files': files}
+
+
+# ── undo: every mind change keeps the files it replaced ─────────────────────────────────────────────────────────────────────────────────
+UNDO_KEEP = 6
+
+
+def snap(history, proj, why, now=None):
+    """→ the history with the project's files BEFORE a change pushed on top (newest first)."""
+    row = {'at': round(now or time.time()), 'why': str(why or '')[:120], 'files': dict(proj.get('files') or {})}
+    return [row] + list(history or [])[:UNDO_KEEP - 1]
+
+
+def undo(history, proj):
+    """→ (the project with its last snapshot's files, the history without it). Raises ValueError when there is nothing to undo."""
+    if not history:
+        raise ValueError('Nothing to undo.')
+    return {**proj, 'files': dict(history[0]['files'])}, list(history[1:])
+
+
+# ── a real server's console, read back ──────────────────────────────────────────────────────────────────────────────────────────────────
+_AT = re.compile(r'@([\w.-]+)/([\w./ -]+?\.\w+):(\d+)')
+_START = re.compile(r'Started resource ([\w.-]+)')
+_COULDNT = re.compile(r"(?:Couldn't start resource|Failed to start resource|Resource) ([\w.-]+)(?: does not exist)?", re.I)
+_NOFILE = re.compile(r"(?:could not find|Could not open) (?:file |\w+_script )?['\"]?([\w./ -]+?\.\w+)['\"]?", re.I)
+
+
+def read_console(log, proj):
+    """An FXServer console or F8 client console the user pasted back from their real server → what happened to THIS resource:
+    {'name', 'started', 'rows': [{'kind': 'start'|'error'|'missing'|'warn', 'file', 'line', 'msg'}], 'verdict'}. Pure."""
+    name = folder_name(proj); files = set(proj.get('files') or {}) | set(proj.get('bins') or {}); rows = []; started = False; seen = set()
+    for raw in str(log or '').replace('\r', '').splitlines()[-4000:]:
+        line = re.sub(r'\x1b\[[0-9;]*m|\^\d', '', raw).strip()
+        if not line:
+            continue
+        m = _START.search(line)
+        if m and m.group(1) == name:
+            started = True; rows.append({'kind': 'start', 'file': '', 'line': 0, 'msg': f'Started resource {name}'}); continue
+        if re.match(r'^(\[[^\]]*\]\s*)?>\s', line):
+            continue   # a stack frame under an error ("> handler (@res/server.lua:12)"): the error line already named it
+        at = _AT.search(line)
+        if at and at.group(1) == name:
+            f, n = at.group(2), int(at.group(3)); msg = line[at.end():].lstrip(': ').strip() or line
+            key = (f, n, msg[:80])
+            if key not in seen:
+                seen.add(key); rows.append({'kind': 'error' if re.search(r'error|attempt to|expected|nil value|failed', line, re.I) else 'warn',
+                                            'file': f if f in files else f, 'line': n, 'msg': msg[:300], 'known': f in files})
+            continue
+        if name in line:
+            if _COULDNT.search(line) and ('does not exist' in line or "couldn't" in line.lower() or 'failed' in line.lower()):
+                rows.append({'kind': 'error', 'file': 'fxmanifest.lua', 'line': 0, 'msg': line[:300], 'known': True}); continue
+            nf = _NOFILE.search(line)
+            if nf:
+                rows.append({'kind': 'missing', 'file': nf.group(1), 'line': 0, 'msg': line[:300], 'known': nf.group(1) in files}); continue
+            if re.search(r'error|warning', line, re.I):
+                rows.append({'kind': 'warn', 'file': '', 'line': 0, 'msg': line[:300]})
+    bad = [r for r in rows if r['kind'] in ('error', 'missing')]
+    verdict = ('It started on your server with no errors from it.' if started and not bad else
+               f"It started, but {len(bad)} problem{'s' if len(bad) != 1 else ''} came from it." if started else
+               f"{len(bad)} problem{'s' if len(bad) != 1 else ''} stopped it." if bad else
+               f"This log never mentions {name}. Check the folder name matches \"ensure {name}\" in server.cfg.")
+    return {'name': name, 'started': started, 'rows': rows[:60], 'verdict': verdict, 'ok': started and not bad}
 
 
 # ── the zip ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -26,7 +26,6 @@
 .glb-tools { display: flex; flex-wrap: wrap; gap: 5px; } .glb-tools i { padding: 3px 8px; border-radius: 999px; background: var(--pglb-bg2); font: 600 10.5px var(--f-mono, monospace); font-style: normal; color: var(--pglb-tx1); }
 .glb-steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .glb-steps label { display: flex !important; align-items: flex-start; gap: 8px; font: 500 12.5px var(--f-ui, sans-serif); color: var(--pglb-tx1); cursor: pointer; }
 .glb-steps input { accent-color: var(--pglb-ac1); margin-top: 2px; }
-.glb-files { display: flex; flex-wrap: wrap; gap: 5px; } .glb-files button { padding: 4px 9px; border-radius: 8px; border: 1px solid var(--pglb-bd1); background: transparent; font: 600 11px var(--f-mono, monospace); color: var(--pglb-tx2); cursor: pointer; } .glb-files button.is-on { border-color: var(--pglb-ac1); color: var(--pglb-tx1); }
-.glb-code pre { margin: 0; max-height: 300px; overflow: auto; padding: 12px; border-radius: 10px; background: var(--pglb-bg2); font: 500 12px/1.5 var(--f-mono, monospace); color: var(--pglb-tx1); white-space: pre; }
+
 @media (max-width: 640px) { .glb-port { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .glb-plats s { transition: none; } }

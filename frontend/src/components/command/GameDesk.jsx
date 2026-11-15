@@ -9,7 +9,9 @@ import '../../styles/gameDesk.css';
 // A folder on every agent's desktop. A project is a target + real files (game_desk.py). STUDIO: its own mind (Mind A or B, the models its owner
 // picked) builds, fixes from a pasted error, or plans; every change runs the check. FILES: edit, upload (text opens here, models and textures ride
 // into the zip), and "learn my code" so the mind writes like you. PLAN: the wireframe, phase by phase; any step builds in one tap. DISCOVER:
-// projects other builders shared (fork one), real CC0 3D models, and the tools each target really uses. TEST: the playtest log and port checks.
+// projects other builders shared (fork one), real CC0 3D models, and the tools each target really uses. TEST: paste your REAL server's console
+// (or F8) and it reads what started and what broke, per file and line; the playtest log and port checks. Every change can be undone.
+// THE LINE (owner 2026-11-15 "legally just a clean dope place for ppl to build"): your own code, your own servers, games you own.
 const TABS = [['studio', 'Studio'], ['files', 'Files'], ['plan', 'Plan'], ['discover', 'Discover'], ['test', 'Test + port']];
 const QUICK = {
   fivem: [['Addon chain', 'build', 'An addon jewelry resource for a custom iced-out chain on the accessories slot: the stream/ folder layout, the fxmanifest and meta that load it, and an INSTALL.md that walks me from a .glb (made in the 3D studio) through Blender + Sollumz to the .ydd and .ytd it needs'],
@@ -29,13 +31,19 @@ const QUICK = {
   web: [['Arena shooter', 'build', 'A neon top-down arena shooter: twin-stick on touch, WASD and mouse on desktop, waves that get harder, a best score saved'], ['Platformer', 'build', 'A tight pixel platformer: run, jump, wall-jump, coins, three levels and a timer'], ['Game plan', 'plan', 'A browser roguelike from first prototype to launch on a free host']],
 };
 const TOOLS = {
-  fivem: [['FiveM natives', 'https://docs.fivem.net/natives/'], ['Cfx.re docs', 'https://docs.fivem.net/docs/'], ['ox_lib', 'https://overextended.dev/ox_lib'], ['Sollumz (Blender)', 'https://github.com/Sollumz/Sollumz'], ['CodeWalker', 'https://github.com/dexyfex/CodeWalker']],
-  redm: [['RDR3 natives', 'https://rdr3natives.com/'], ['Cfx.re docs', 'https://docs.fivem.net/docs/'], ['VORP', 'https://github.com/VORPCORE'], ['RSG', 'https://github.com/Rexshack-RedM']],
+  fivem: [['Cfx.re terms', 'https://fivem.net/terms'], ['FiveM natives', 'https://docs.fivem.net/natives/'], ['Cfx.re docs', 'https://docs.fivem.net/docs/'], ['ox_lib', 'https://overextended.dev/ox_lib'], ['Sollumz (Blender)', 'https://github.com/Sollumz/Sollumz'], ['CodeWalker', 'https://github.com/dexyfex/CodeWalker']],
+  redm: [['Cfx.re terms', 'https://fivem.net/terms'], ['RDR3 natives', 'https://rdr3natives.com/'], ['Cfx.re docs', 'https://docs.fivem.net/docs/'], ['VORP', 'https://github.com/VORPCORE'], ['RSG', 'https://github.com/Rexshack-RedM']],
   gtasa_vita: [['gtasa_vita port', 'https://github.com/TheOfficialFloW/gtasa_vita'], ['VitaShell', 'https://github.com/TheOfficialFloW/VitaShell'], ['GTAForums modding', 'https://gtaforums.com/forum/108-sa-modding/']],
   vita: [['VitaSDK', 'https://vitasdk.org/'], ['Vita3K emulator', 'https://vita3k.org/'], ['vita2d', 'https://github.com/xerpi/libvita2d'], ['VitaShell', 'https://github.com/TheOfficialFloW/VitaShell']],
   deck: [['Steamworks: Deck', 'https://partner.steamgames.com/doc/steamdeck'], ['Proton', 'https://github.com/ValveSoftware/Proton'], ['ProtonDB', 'https://www.protondb.com/']],
   web: [['Phaser', 'https://phaser.io/'], ['three.js', 'https://threejs.org/'], ['Godot web export', 'https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html']],
 };
+const RULES = [['✅', 'Your own scripts, maps, clothing, cars and UIs, for servers you run'], ['✅', 'Mods for games you bought, shared as your own changed lines'],
+  ['✅', 'Homebrew and web games, with free (CC0) or your own art and sound'], ['⛔', 'Cheats, executors, mod menus, anti-cheat or ban bypasses'],
+  ['⛔', 'Leaked, escrowed or resold resources that are not yours'], ['⛔', 'Game files, archives, ISOs or anything ripped from a game']];
+function Rules() {
+  return <section className="gd-rules" data-testid="gd-rules"><b>WHAT'S ALLOWED HERE</b><ul>{RULES.map(([i, t]) => <li key={t} className={i === '✅' ? 'is-ok' : 'is-no'}><i aria-hidden="true">{i}</i>{t}</li>)}</ul></section>;
+}
 const BIN_DIR = { fivem: 'stream/', redm: 'stream/', gtasa_vita: 'ux0/data/gtasa/mods/', vita: 'assets/', deck: 'assets/', web: 'assets/' };
 const kb = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`);
 const b64Of = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => no(new Error('That file could not be read.')); r.readAsDataURL(f); });
@@ -60,13 +68,13 @@ function Start({ targets, onMake, busy }) {
     <div className="gd-targets">{targets.map((x, i) => <motion.button key={x.id} type="button" className={t === x.id ? 'is-on' : ''} aria-pressed={t === x.id} onClick={() => setT(x.id)} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} data-testid={`gd-target-${x.id}`}><b>{x.name}</b><small>{x.what}</small></motion.button>)}</div>
     <span className="gd-row"><input className="m-input" maxLength={48} value={name} onChange={e => setName(e.target.value)} placeholder="Name it: my_garage, fast cars…" aria-label="Project name" data-testid="gd-name" />
       {t === 'fivem' || t === 'redm' ? <button type="button" className="m-btn" disabled={busy} onClick={() => onMake(name, t, true)} data-tip="A working resource: fxmanifest, config, client and server Lua. No model, no cost">From a working starter</button> : null}
-      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onMake(name, t, false)} data-testid="gd-make">Start empty</button></span></div>;
+      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onMake(name, t, false)} data-testid="gd-make">Start empty</button></span><Rules /></div>;
 }
 
-function Studio({ p, minds, busy, onAsk, onBuildStep }) {
+function Studio({ p, minds, busy, onAsk, prefill }) {
   const [mode, setMode] = useState('build'); const [mind, setMind] = useState(0); const [text, setText] = useState(''); const [log, setLog] = useState('');
   const chatRef = useRef(null); useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [p.chat?.length]);
-  useEffect(() => { if (onBuildStep?.text) { setMode('build'); setText(onBuildStep.text); } }, [onBuildStep]);
+  useEffect(() => { if (prefill?.text) { setMode(prefill.mode || 'build'); setText(prefill.text); setLog(prefill.log || ''); } }, [prefill?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
   const go = e => { e.preventDefault(); if (!text.trim()) return; onAsk({ mode, mind, text, log }).then(ok => { if (ok) { setText(''); setLog(''); } }); };
   return <div className="gd-studio">
     <div className="gd-chat" ref={chatRef} data-testid="gd-chat">{(p.chat || []).length ? p.chat.map((m, i) => <motion.div key={`${m.at}-${i}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`gd-msg ${m.by === 'you' ? 'is-you' : 'is-mind'}`}>
@@ -87,7 +95,7 @@ function Studio({ p, minds, busy, onAsk, onBuildStep }) {
 function Files({ p, busy, onSave, onDrop, onUpload, onLearn, style, onUnlearn, open, setOpen }) {
   const names = useMemo(() => [...Object.keys(p.files || {}).map(n => ({ n, text: true })), ...Object.entries(p.bins || {}).map(([n, b]) => ({ n, b }))].sort((a, b) => a.n.localeCompare(b.n)), [p.files, p.bins]);
   const cur = open && p.files?.[open] != null ? open : names.find(x => x.text)?.n; const [draft, setDraft] = useState(''); const [dir, setDir] = useState(BIN_DIR[p.target] || 'assets/'); const [play, setPlay] = useState(false);
-  useEffect(() => { setDraft(cur ? p.files[cur] : ''); }, [cur, p.files]);
+  const saved = cur ? p.files[cur] : ''; useEffect(() => { setDraft(saved ?? ''); }, [cur, saved]);
   const bad = new Set((p.checks || []).filter(r => !r.ok).map(r => r.file));
   return <div className="gd-files">
     <aside className="gd-tree" data-testid="gd-tree"><ol>{names.map(x => <li key={x.n}><button type="button" className={`${cur === x.n ? 'is-on' : ''}${bad.has(x.n) ? ' is-bad' : ''}`} disabled={!x.text} onClick={() => setOpen(x.n)} title={x.n}>{x.text ? '📄' : x.b?.url ? '🧊' : '📦'} {x.n}{x.b ? <small>{x.b.url ? x.b.lic : kb(x.b.size)}</small> : null}</button>
@@ -98,7 +106,7 @@ function Files({ p, busy, onSave, onDrop, onUpload, onLearn, style, onUnlearn, o
         {style.map(s => <span key={s.path}><code>{s.path}</code><button type="button" className="gd-x" aria-label={`Forget ${s.path}`} onClick={() => onUnlearn(s.path)}>✕</button></span>)}
         <label className="m-btn"><input type="file" multiple hidden onChange={e => { onLearn([...e.target.files]); e.target.value = ''; }} data-testid="gd-learn" />＋ Add my scripts</label></div></aside>
     <div className="gd-edit">{cur ? <><header><code>{cur}</code><span className="gd-row">{p.target === 'web' && p.files['index.html'] != null ? <button type="button" className="m-btn" onClick={() => setPlay(v => !v)} data-testid="gd-play">{play ? 'Close the game' : '▶ Play it here'}</button> : null}
-      <button type="button" className="m-btn m-go" disabled={!!busy || draft === p.files[cur]} onClick={() => onSave(cur, draft)} data-testid="gd-save">Save</button></span></header>
+      <button type="button" className="m-btn m-go" disabled={!!busy || draft === p.files[cur]} onClick={() => onSave(cur, draft)} data-testid="gd-save">{draft !== p.files[cur] ? 'Save •' : 'Saved'}</button></span></header>
       {play ? <iframe className="gd-frame" title="The game" sandbox="allow-scripts" srcDoc={webDoc(p.files)} data-testid="gd-frame" /> : <textarea className="gd-code" spellCheck={false} value={draft} onChange={e => setDraft(e.target.value)} aria-label={`Edit ${cur}`} data-testid="gd-code" />}</>
       : <p className="gd-none">No files yet. Ask the Studio to build, or upload your own.</p>}</div></div>;
 }
@@ -129,18 +137,42 @@ function Discover({ p, work, catId, busy, onFork, onAsset }) {
       <span className="gd-tools">{(TOOLS[p.target] || []).map(([l, u]) => <a key={u} className="gd-chip" href={u} target="_blank" rel="noreferrer noopener">{l} ↗</a>)}</span></section></div>;
 }
 
+// 🖥 THE REAL SERVER TEST (owner 2026-11-15: "do the game desk zip to real fivem test server"): the zip runs on YOUR server (FXServer only runs
+// there, under your Cfx.re key); paste its console or the F8 console back and it reads what this resource did, per file and line.
+const KIND = { start: ['✓', 'Started'], error: ['✕', 'Error'], missing: ['?', 'Missing file'], warn: ['!', 'Warning'] };
+function ServerTest({ p, work, catId, onOpen, onFix }) {
+  const [log, setLog] = useState(''); const [r, setR] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const name = String(p.name || 'project').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32) || 'project';
+  const read = async () => { setBusy(true); setErr(''); try { setR((await work(catId, { op: 'gdesk_console', text: log, tools: { id: p.id } })).console); } catch (e) { setErr(e.message); } setBusy(false); };
+  const bad = (r?.rows || []).filter(x => x.kind === 'error' || x.kind === 'missing');
+  return <section className="gd-srv" data-testid="gd-srv"><header><b>TEST ON YOUR REAL SERVER</b><small>FXServer runs on your own server with your own Cfx.re key. FEELESS reads what it says.</small></header>
+    <ol className="gd-srv-steps"><li><b>1</b><span>Press <em>⬇ Download .zip</em> and unzip it into your server's <code>resources/</code> folder.</span></li>
+      <li><b>2</b><span>Add <code>ensure {name}</code> to <code>server.cfg</code> (or in txAdmin: <code>refresh</code>, then <code>ensure {name}</code>).</span></li>
+      <li><b>3</b><span>Join, try it, then copy the server console (and F8 if it is client side) and paste it here.</span></li></ol>
+    <textarea className="m-input gd-log" rows={6} value={log} onChange={e => setLog(e.target.value)} placeholder={`[ resources] Started resource ${name}\n[ script:${name}] SCRIPT ERROR: @${name}/server.lua:12: attempt to index a nil value`} aria-label="Server console" data-testid="gd-srv-log" />
+    <span className="gd-row"><button type="button" className="m-btn m-go" disabled={busy || !log.trim()} onClick={read} data-testid="gd-srv-read">{busy ? 'Reading…' : 'Read the console'}</button>
+      {bad.length ? <button type="button" className="m-btn" onClick={() => onFix(log, bad)} data-testid="gd-srv-fix">🛠 Fix {bad.length === 1 ? 'it' : `these ${bad.length}`} with its mind</button> : null}</span>
+    {err ? <p className="gd-err" role="alert">⚠ {err}</p> : null}
+    {r ? <div className={`gd-srv-out${r.ok ? ' is-ok' : bad.length ? ' is-bad' : ''}`} data-testid="gd-srv-out"><p className="gd-srv-verdict">{r.verdict}</p>
+      {r.rows.length ? <ol>{r.rows.map((x, i) => <li key={i} className={`is-${x.kind}`}><i aria-hidden="true">{KIND[x.kind]?.[0]}</i><small>{KIND[x.kind]?.[1]}</small>
+        {x.file ? <button type="button" className="gd-chip" disabled={!x.known} onClick={() => onOpen(x.file)}>{x.file}{x.line ? `:${x.line}` : ''}</button> : null}<span>{x.msg}</span></li>)}</ol> : null}</div> : null}
+  </section>;
+}
+
 export function GameDesk({ cat, work }) {
   const [d, setD] = useState(null); const [p, setP] = useState(null); const [tab, setTab] = useState('studio'); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [note, setNote] = useState('');
-  const [open, setOpen] = useState(''); const [step, setStep] = useState(null); const [style, setStyle] = useState([]); const [fresh, setFresh] = useState(false);
+  const [open, setOpen] = useState(''); const [prefill, setPrefill] = useState(null); const [style, setStyle] = useState([]); const [fresh, setFresh] = useState(false); const [undo, setUndo] = useState(0);
+  const [seen, setSeen] = useState(() => new Set(['studio'])); const go = k => { setTab(k); setSeen(x => (x.has(k) ? x : new Set([...x, k]))); };   // a tab stays mounted once opened: typed asks and unsaved edits survive a tab switch
   const run = useCallback(async (k, body) => { setBusy(k); setErr(''); try { const j = await work(cat.id, body); setBusy(''); return j; } catch (e) { setErr(e.message); setBusy(''); return null; } }, [work, cat.id]);
-  const load = useCallback(id => work(cat.id, { op: 'gdesk_get', tools: id ? { id } : null }).then(j => { setD(j); setP(j.project); setStyle(j.style || []); }).catch(e => setErr(e.message)), [work, cat.id]);
+  const load = useCallback(id => work(cat.id, { op: 'gdesk_get', tools: id ? { id } : null }).then(j => { setD(j); setP(j.project); setStyle(j.style || []); setUndo(j.undo || 0); }).catch(e => setErr(e.message)), [work, cat.id]);
   useEffect(() => { load(); }, [load]);
-  const take = j => { if (!j) return false; if (j.project) setP(j.project); if (j.projects) setD(x => ({ ...x, projects: j.projects })); else if (j.project) setD(x => ({ ...x, projects: [j.project, ...(x?.projects || []).filter(y => y.id !== j.project.id)] })); return true; };
+  const take = j => { if (!j) return false; if (j.undo != null) setUndo(j.undo); if (j.project) setP(j.project); if (j.projects) setD(x => ({ ...x, projects: j.projects })); else if (j.project) setD(x => ({ ...x, projects: [j.project, ...(x?.projects || []).filter(y => y.id !== j.project.id)] })); return true; };
   const tools = extra => ({ id: p?.id, ...extra });
-  const labCall = useCallback((_path, o) => work(cat.id, { op: 'gdesk_lab', tools: o?.body ? JSON.parse(o.body) : null }), [work, cat.id]);
-  const make = async (name, target, starter) => { const j = await run('new', { op: 'gdesk_new', text: name, job: target, tools: { starter } }); if (take(j)) { setFresh(false); setTab('studio'); } };
-  const ask = async ({ mode, mind, text, log }) => { const j = await run('ask', { op: 'gdesk_ask', job: mode, i: mind, text, tools: tools({ log }) }); if (take(j)) { setNote(`${j.model}: ${j.say}`); if (mode === 'plan') setTab('plan'); return true; } return false; };
-  const upload = async (files, dir) => { for (const f of files) { const b64 = await b64Of(f).catch(e => { setErr(e.message); return null; }); if (b64 == null) continue; const isBin = !/\.(lua|js|ts|json|cfg|dat|ide|ipl|txt|md|xml|meta|html|css|c|h|cpp|cmake|ini|toml|ya?ml|sql|vdf|sh|py|csv)$/i.test(f.name); take(await run('up', { op: 'gdesk_upload', tools: tools({ path: isBin ? `${dir.replace(/\/?$/, '/')}${f.name}` : f.name, b64 }) })); } };
+  const openFile = f => { setOpen(f); go('files'); };
+  const lab = useCallback(body => work(cat.id, { op: 'gdesk_lab', tools: body }), [work, cat.id]);
+  const make = async (name, target, starter) => { const j = await run('new', { op: 'gdesk_new', text: name, job: target, tools: { starter } }); if (take(j)) { setFresh(false); setUndo(0); go('studio'); } };
+  const ask = async ({ mode, mind, text, log }) => { const j = await run('ask', { op: 'gdesk_ask', job: mode, i: mind, text, tools: tools({ log }) }); if (take(j)) { setNote(`${j.model}: ${j.say}`); if (mode === 'plan') go('plan'); return true; } return false; };
+  const upload = async (files, dir) => { for (const f of files) { const b64 = await b64Of(f).catch(e => { setErr(e.message); return null; }); if (b64 == null) continue; take(await run('up', { op: 'gdesk_upload', tools: tools({ path: f.name, dir, b64 }) })); } };
   const learn = async files => { for (const f of files.slice(0, 4)) { const b64 = await b64Of(f).catch(() => null); if (b64 == null) continue; const j = await run('learn', { op: 'gdesk_upload', tools: { path: f.name, b64, learn: true } }); if (j?.style) setStyle(j.style); } };
   const download = async () => { const j = await run('zip', { op: 'gdesk_zip', tools: tools() }); if (!j) return; const bin = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0)); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bin], { type: 'application/zip' })); a.download = j.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); setNote(`${j.name} · ${kb(j.size)}${j.missing?.length ? ` · not fetched: ${j.missing.join(', ')}` : ''}`); };
   if (!d) return <p className="gd-none" role="status">{err ? `⚠ ${err}` : 'Opening the game desk…'}</p>;
@@ -153,16 +185,17 @@ export function GameDesk({ cat, work }) {
       <div className="gd-bar"><span className="gd-badge"><b>{p.name}</b><small>{T[p.target]?.name}</small></span>
         <span className={`gd-meter${all && ok === all ? ' is-ok' : ''}`} data-tip="The structure check on every file, run after every change"><i><motion.u initial={false} animate={{ scaleX: all ? ok / all : 0 }} transition={{ duration: 0.5 }} /></i><small className="m-num">{all ? `${ok}/${all} checks` : 'no files yet'}</small></span>
         <button type="button" className="m-btn m-go" disabled={!!busy || !Object.keys(p.files || {}).length} onClick={download} data-tip={T[p.target]?.drop} data-testid="gd-zip">{busy === 'zip' ? 'Packing…' : '⬇ Download .zip'}</button>
-        <button type="button" className={`m-btn${p.shared ? ' is-on' : ''}`} aria-pressed={!!p.shared} disabled={!!busy} onClick={async () => take(await run('share', { op: 'gdesk_share', on: !p.shared, tools: tools() }))} data-tip="Shared projects show in every agent's Discover, where anyone can fork them" data-testid="gd-share">{p.shared ? 'Shared' : 'Share'}</button>
+        <button type="button" className={`m-btn${p.shared ? ' is-on' : ''}`} aria-pressed={!!p.shared} disabled={!!busy} onClick={async () => { if (!p.shared && !window.confirm(`Share ${p.name} with every builder?\n\nOnly share work that is yours: no leaked, escrowed or resold resources, and no game files.`)) return; take(await run('share', { op: 'gdesk_share', on: !p.shared, tools: tools({ mine: true }) })); }} data-tip="Shared projects show in every agent's Discover, where anyone can fork them" data-testid="gd-share">{p.shared ? 'Shared' : 'Share'}</button>
+        <button type="button" className="m-btn" disabled={!!busy || !undo} onClick={async () => { if (take(await run('undo', { op: 'gdesk_undo', tools: tools() }))) setNote('Back to the files before the last change.'); }} data-tip="Back to the files before the last change (the mind's, or your own edit)" data-testid="gd-undo">↩ Undo{undo ? ` · ${undo}` : ''}</button>
         <button type="button" className="m-btn danger" disabled={!!busy} onClick={async () => { if (!window.confirm(`Delete ${p.name}? Its files are gone for good.`)) return; const j = await run('del', { op: 'gdesk_delete', tools: tools() }); if (j) { setD(x => ({ ...x, projects: j.projects })); setP(null); load(); } }}>Delete</button></div>
       {note ? <p className="gd-note" role="status">{note}</p> : null}
-      <span className="m-seg gd-tabs" role="tablist" aria-label="Game desk">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`gd-tab-${k}`}>{l}{k === 'plan' && p.plan ? ` · ${p.plan.phases.length}` : k === 'files' ? ` · ${Object.keys(p.files || {}).length + Object.keys(p.bins || {}).length}` : ''}</button>)}</span>
-      <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }}>
-        {tab === 'studio' ? <Studio p={p} minds={d.minds || []} busy={busy} onAsk={ask} onBuildStep={step} /> : null}
-        {tab === 'files' ? <Files p={p} busy={busy} open={open} setOpen={setOpen} style={style} onSave={async (path, text) => take(await run('save', { op: 'gdesk_save', tools: tools({ path, text }) }))} onDrop={async path => take(await run('drop', { op: 'gdesk_drop', tools: tools({ path }) }))} onUpload={upload} onLearn={learn} onUnlearn={async path => { const j = await run('learn', { op: 'gdesk_unlearn', text: path }); if (j?.style) setStyle(j.style); }} /> : null}
-        {tab === 'plan' ? <Plan p={p} onOpen={f => { setOpen(f); setTab('files'); }} onStep={t => { setStep({ text: t, at: Date.now() }); setTab('studio'); }} /> : null}
-        {tab === 'discover' ? <Discover p={p} work={work} catId={cat.id} busy={busy} onFork={async r => { const j = await run('fork', { op: 'gdesk_fork', tools: { id: r.id, cat: r.cat } }); if (take(j)) { setTab('files'); setNote(`Forked ${r.name}. It is yours now.`); } }} onAsset={async r => { const j = r.lib ? await work(cat.id, { op: 'gdesk_link', text: r.id, job: 'model', tools: tools() }) : await work(cat.id, { op: 'gdesk_take', text: r.id, tools: tools({ dir: BIN_DIR[p.target] || 'assets/' }) }); take(j); }} /> : null}
-        {tab === 'test' ? <GameLab call={labCall} /> : null}
-      </motion.div></>}
+      <span className="m-seg gd-tabs" role="tablist" aria-label="Game desk">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)} data-testid={`gd-tab-${k}`}>{l}{k === 'plan' && p.plan ? ` · ${p.plan.phases.length}` : k === 'files' ? ` · ${Object.keys(p.files || {}).length + Object.keys(p.bins || {}).length}` : ''}</button>)}</span>
+      <div key={p.id} className="gd-panels">
+        {seen.has('studio') ? <div hidden={tab !== 'studio'}><Studio p={p} minds={d.minds || []} busy={busy} onAsk={ask} prefill={prefill} /></div> : null}
+        {seen.has('files') ? <div hidden={tab !== 'files'}><Files p={p} busy={busy} open={open} setOpen={setOpen} style={style} onSave={async (path, text) => take(await run('save', { op: 'gdesk_save', tools: tools({ path, text }) }))} onDrop={async path => take(await run('drop', { op: 'gdesk_drop', tools: tools({ path }) }))} onUpload={upload} onLearn={learn} onUnlearn={async path => { const j = await run('learn', { op: 'gdesk_unlearn', text: path }); if (j?.style) setStyle(j.style); }} /></div> : null}
+        {seen.has('plan') ? <div hidden={tab !== 'plan'}><Plan p={p} onOpen={openFile} onStep={t => { setPrefill({ mode: 'build', text: t, at: Date.now() }); go('studio'); }} /></div> : null}
+        {seen.has('discover') ? <div hidden={tab !== 'discover'}><Discover p={p} work={work} catId={cat.id} busy={busy} onFork={async r => { const j = await run('fork', { op: 'gdesk_fork', tools: { id: r.id, cat: r.cat } }); if (take(j)) { go('files'); setNote(`Forked ${r.name}. It is yours now.`); } }} onAsset={async r => { const j = r.lib ? await work(cat.id, { op: 'gdesk_link', text: r.id, job: 'model', tools: tools() }) : await work(cat.id, { op: 'gdesk_take', text: r.id, tools: tools({ dir: BIN_DIR[p.target] || 'assets/' }) }); take(j); }} /></div> : null}
+        {seen.has('test') ? <div hidden={tab !== 'test'} className="gd-test">{p.target === 'fivem' || p.target === 'redm' ? <ServerTest p={p} work={work} catId={cat.id} onOpen={openFile} onFix={(log, bad) => { setPrefill({ mode: 'fix', text: `On my real server: ${bad.slice(0, 4).map(x => `${x.file}${x.line ? `:${x.line}` : ''} ${x.msg}`).join(' · ')}`.slice(0, 1400), log, at: Date.now() }); go('studio'); }} /> : null}<GameLab lab={lab} target={p.target} /></div> : null}
+      </div></>}
   </div>;
 }

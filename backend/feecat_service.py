@@ -9558,6 +9558,24 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return _for_users((_load()['cats'].get(cat_id) or {}), out) if isinstance(out, (dict, list)) else out
 
 
+_PICK_KIND = {'pow': 'pow', 'pop': 'pop', 'bids': 'pob', 'poc': 'poc', 'postatic': 'pos'}   # the picker's window → the chat's proof kind
+
+
+def _desk_focus(cat, win, pid, now):
+    """A proof picked on the main desk → the deskProof the chat talks to (proof_commands.focus + its id). Raises 400 / 404."""
+    kind = _PICK_KIND.get(str(win or ''))
+    if not kind:
+        raise HTTPException(400, 'That kind of proof opens in its folder on the Desktop.')
+    pid = str(pid or '')[:60]
+    rows = [f for f in (cat.get(_PROOF_KEYS[kind]) or []) if isinstance(f, dict)] + ([cat['popFolder']] if kind == 'pop' and isinstance(cat.get('popFolder'), dict) else [])
+    f = next((x for x in rows if str(x.get('id')) == pid), None)
+    if not f:
+        raise HTTPException(404, 'That proof is not in its files any more.')
+    name = str(f.get('topic') or (f'${f["sym"]}' if f.get('sym') else '') or f.get('name') or f.get('title') or '').strip()[:80]
+    desk = _pc.focus({'kind': kind, 'name': name}, now, f.get('ws') if kind == 'pos' else None)
+    return {**desk, 'id': pid}
+
+
 async def _cat_work(cat_id: str, p: WorkPayload):
     """🧠🧠 A general cat's workbench (the cat's OWNER only): ask · state · continue / stop (a human-needed window) · stop · cap ($ per task)."""
     store = _load()
@@ -9581,6 +9599,12 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         _save(store)
+    if p.op == 'desk_focus':   # 🎯 the MAIN desk's proof picker (owner 2026-11-15: "proof picker suppose to open on main desk as its to work in main desk and not desktop folders")
+        desk_ = _desk_focus(cat, p.job, p.text, time.time())
+        cat['deskProof'] = desk_; cat.pop('proofNote', None)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🎯 {desk_['label']} \"{desk_['name']}\" is on the desk. Your words go to it.", 'at': time.time(), 'open': desk_['open']}])[-200:]
+        keep_owned(cat); _save(store)
+        return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
     if p.op == 'approvals':   # ✅ AGX-10: its Approve inbox
         return {'approvals': _appr.view(cat)}
     if p.op == 'approve':   # ✅ the owner's tap: only now does a usage-spending row run (text = row id, job = 'yes' | 'no')
@@ -9973,12 +9997,17 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             _play_save(cat_id, 'game', {**gst_, 'projects': rows[:_gdesk.MAX_PROJECTS], 'style': style_, **more})
             return pr
 
+        def snap_(pr, why):   # ↩ the files before a change, so it can be undone
+            _play_save(cat_id, f"ghist_{pr['id']}", {'rows': _gdesk.snap((_play_load(cat_id, f"ghist_{pr['id']}") or {}).get('rows'), pr, why)})
+
         def need_():
             if not proj_:
                 raise HTTPException(404, 'Open a project first.')
             return dict(proj_)
         if p.op == 'gdesk_get':
-            return {**_gdesk.view({**gst_, 'projects': projs_, 'style': style_}), 'project': proj_ or (projs_[0] if projs_ else None),
+            cur_ = proj_ or (projs_[0] if projs_ else None)
+            return {**_gdesk.view({**gst_, 'projects': projs_, 'style': style_}), 'project': cur_,
+                    'undo': len((_play_load(cat_id, f"ghist_{cur_['id']}") or {}).get('rows') or []) if cur_ else 0,
                     'minds': [_answered_by(b, '') for b in ((cat.get('brainsCfg') or {}).get('brains') or [])]}
         if p.op == 'gdesk_new':
             pr_ = _gdesk.new_project(p.text, p.job)
@@ -9991,14 +10020,17 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 pr_ = _gdesk.put_file(need_(), (p.tools or {}).get('path'), (p.tools or {}).get('text'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
-            return {'project': keep_(pr_)}
+            snap_(proj_, f"Before you edited {(p.tools or {}).get('path')}")
+            return {'project': keep_(pr_), 'undo': 1}
         if p.op == 'gdesk_drop':
             pr_ = need_(); path_ = str((p.tools or {}).get('path') or '')
             if (pr_.get('bins') or {}).get(path_):
                 b_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}; b_.pop(path_, None); _play_save(cat_id, f"gbin_{pr_['id']}", b_)
-            return {'project': keep_(_gdesk.drop(pr_, path_))}
+            elif path_ in (pr_.get('files') or {}):
+                snap_(pr_, f'Before you removed {path_}')
+            return {'project': keep_(_gdesk.drop(pr_, path_)), 'undo': 1}
         if p.op == 'gdesk_delete':
-            projs_ = [x for x in projs_ if x.get('id') != pid_]; _play_save(cat_id, f'gbin_{pid_}', {})
+            projs_ = [x for x in projs_ if x.get('id') != pid_]; _play_save(cat_id, f'gbin_{pid_}', {}); _play_save(cat_id, f'ghist_{pid_}', {})
             shelf_p_ = DATA_DIR / 'game_shelf.json'
             try:
                 sh_ = json.loads(shelf_p_.read_text())
@@ -10009,6 +10041,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             return _gdesk.view({'projects': projs_, 'style': style_})
         if p.op == 'gdesk_upload':   # 📤 files from this computer: text files open in the editor, binaries ride into the zip; "learn" = its style
             t_ = p.tools or {}; path_ = str(t_.get('path') or ''); data_ = str(t_.get('b64') or '')
+            if t_.get('dir') and not _gdesk.is_text(_gdesk.clean_path(path_)):
+                path_ = f"{str(t_['dir']).strip().strip('/')}/{path_.rsplit('/', 1)[-1]}"   # models and textures land in the folder the page names (stream/ …)
             try:
                 raw_ = base64.b64decode(data_, validate=True)
             except ValueError:
@@ -10051,6 +10085,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             sys_, user_ = _gdesk.prompt(pr_, mode_, p.text, style_, (p.tools or {}).get('log') or '')
             raw_, usd_, _own = await _ws_ask(cat, brains_[i_], sys_, user_, 3000 if mode_ == 'plan' else 16000)
             model_ = _answered_by(brains_[i_], _WS_VIA.get())
+            gst_ = _play_load(cat_id, 'game') or {}; projs_ = list(gst_.get('projects') or []); style_ = list(gst_.get('style') or [])   # the newest state: a minute passed
+            proj_ = next((x for x in projs_ if x.get('id') == pid_), None); pr_ = need_()
             if mode_ == 'plan':
                 plan_, say_ = _gdesk.parse_plan(raw_)
                 if not plan_:
@@ -10061,14 +10097,27 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 if not ch_ and not drops_:
                     raise HTTPException(502, f"Mind {'AB'[i_]} did not send any files, and nothing changed. Try again, or ask for less.")
                 try:
-                    pr_ = _gdesk.apply_reply(pr_, ch_, drops_)
+                    new_ = _gdesk.apply_reply(pr_, ch_, drops_)
                 except ValueError as e:
                     raise HTTPException(400, str(e))
+                snap_(pr_, f"Before Mind {'AB'[i_]}: {str(p.text)[:80]}"); pr_ = new_
                 say_ = say_ or f"Changed {', '.join(list(ch_)[:5])}."
             pr_['chat'] = (list(pr_.get('chat') or []) + [{'by': 'you', 'mode': mode_, 'text': str(p.text)[:400], 'at': round(time.time())},
                            {'by': f"Mind {'AB'[i_]}", 'model': model_, 'text': str(say_ or 'Done.')[:400], 'files': [] if mode_ == 'plan' else list(ch_)[:12],
                             'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-40:]
-            return {'project': keep_(pr_), 'say': say_, 'usd': round(float(usd_ or 0), 5), 'model': model_}
+            return {'project': keep_(pr_), 'say': say_, 'usd': round(float(usd_ or 0), 5), 'model': model_, 'undo': len((_play_load(cat_id, f"ghist_{pr_['id']}") or {}).get('rows') or [])}
+        if p.op == 'gdesk_undo':   # ↩ back to the files before the last change
+            h_ = (_play_load(cat_id, f"ghist_{pid_}") or {}).get('rows') or []
+            try:
+                pr_, h_ = _gdesk.undo(h_, need_())
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _play_save(cat_id, f"ghist_{pid_}", {'rows': h_})
+            return {'project': keep_(pr_), 'undo': len(h_)}
+        if p.op == 'gdesk_console':   # 🖥 the console of the owner's REAL server (or F8), pasted back: what started, what broke, per file and line
+            if not str(p.text or '').strip():
+                raise HTTPException(400, 'Paste the server console or the F8 console first.')
+            return {'console': _gdesk.read_console(str(p.text)[:200_000], need_())}
         if p.op == 'gdesk_take':   # 🗂 a file from its My files (Discover keeps land there too) into the project
             pr_ = need_(); aid_ = re.sub(r'[^a-f0-9]', '', str(p.text or ''))[:12]
             row_ = next((r for r in ((_play_load(cat_id, 'assets') or {}).get('rows') or []) if r.get('id') == aid_), None)
@@ -10088,24 +10137,22 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             return {'project': keep_(pr_)}
         if p.op == 'gdesk_zip':   # ⬇ the whole project as a .zip, laid out to drop in; library assets are fetched now
             pr_ = need_(); bins_ = {}; held_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}
+            async def get_(h_, path_, url_):
+                try:
+                    r_ = await h_.get(url_)
+                    if r_.status_code == 200 and len(r_.content) <= 25_000_000:
+                        bins_[path_] = r_.content
+                except httpx.HTTPError:
+                    pass   # a library file that did not answer stays out; the page names it
             async with httpx.AsyncClient(timeout=30, follow_redirects=True) as h_:
-                for path_, meta_ in (pr_.get('bins') or {}).items():
-                    if meta_.get('url'):
-                        try:
-                            r_ = await h_.get(meta_['url'])
-                            if r_.status_code == 200 and len(r_.content) <= 25_000_000:
-                                bins_[path_] = r_.content
-                        except httpx.HTTPError:
-                            pass   # a library file that did not answer stays out; the page names it
-                    elif held_.get(path_):
-                        bins_[path_] = base64.b64decode(held_[path_])
+                await asyncio.gather(*[get_(h_, k_, m_['url']) for k_, m_ in (pr_.get('bins') or {}).items() if m_.get('url')])
+            for k_, m_ in (pr_.get('bins') or {}).items():
+                if not m_.get('url') and held_.get(k_):
+                    bins_[k_] = base64.b64decode(held_[k_])
             z_ = _gdesk.zip_bytes(pr_, bins_)
             return {'name': f"{_gdesk.folder_name(pr_)}.zip", 'b64': base64.b64encode(z_).decode(), 'size': len(z_), 'missing': [k for k in (pr_.get('bins') or {}) if k not in bins_]}
         if p.op == 'gdesk_lab':   # 🧪 its playtest log and porting checklists (game_lab.py), and the FiveM / RedM starter maker
             t_ = p.tools or {}
-            if t_.get('resource'):
-                r_ = t_['resource'] if isinstance(t_['resource'], dict) else {}
-                return _game_lab.resource(r_.get('name'), r_.get('game'), r_.get('what'))
             if t_:
                 try:
                     gst_['lab'] = _game_lab.apply(gst_.get('lab'), t_)
@@ -10120,7 +10167,10 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             except (OSError, ValueError):
                 sh_ = []
             if p.op == 'gdesk_share':
-                pr_ = need_(); pr_['shared'] = bool(p.on)
+                pr_ = need_()
+                if p.on and not (p.tools or {}).get('mine'):
+                    raise HTTPException(400, 'Only share work that is yours: confirm it first.')
+                pr_['shared'] = bool(p.on)
                 sh_ = _gdesk.shelf_put(sh_, _gdesk.shelf_row(pr_, cat_id, cat.get('name')), bool(p.on)); shelf_p_.write_text(json.dumps(sh_))
                 return {'project': keep_(pr_)}
             if p.op == 'gdesk_fork':

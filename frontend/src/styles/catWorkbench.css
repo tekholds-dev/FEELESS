@@ -189,6 +189,7 @@ body.theme-day .cwb-file { background: var(--pcw-tx3); border-color: rgba(106, 6
 /* 🖥 THE ONE-SCREEN DASH (owner 2026-10-30: "no scroll, just 2 windows, the latest cloud + money"). Patterns from the agent consoles people
    know: a terminal "now" status line (crawler-style), the stage = 2 windows + a slim right rail, a composer like the big chat apps
    (rounded box · + attach · ⚙ settings popover above it · send), and the log as a right-hand sheet. */
+.cwb-pick { position: fixed; inset: 0; z-index: 80; }   /* 🎯 the proof picker over the main desk (MainPicker) */
 .cwb-dash { --cwb-h: clamp(360px, 62vh, 720px); min-width: 0; }   /* the owner's desk: big windows, the page scrolls to the chat; a visitor's fits the screen (useFit) */
 .cwb-dash .cwb-head small { display: none; } .cwb-dash .cwb-head { display: flex; flex-wrap: nowrap; } .cwb-dash .cwb-meters { flex-wrap: nowrap; }
 .cwb-dash .cwb-stage.agd-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; gap: 12px; }   /* the two windows, big, on top — the demo's chrome */

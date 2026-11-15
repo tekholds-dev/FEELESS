@@ -35,3 +35,38 @@ test('▶ a web game inlines its own scripts and styles, never outside ones', ()
   expect(html).toContain('<script>go()</script>'); expect(html).toContain('<style>b{}</style>'); expect(html).toContain('https://cdn.x/y.js');
   expect(webDoc({})).toBe('');
 });
+
+test('🎮 the real-server test reads a pasted console, a fix fills the Studio, a typed ask survives a tab switch, Undo and Share ask first', async () => {
+  const calls = []; const proj = { ...P, name: 'my garage', files: { 'server.lua': 'x', 'fxmanifest.lua': 'y' } };
+  const work = jest.fn(async (_id, b) => { calls.push(b);
+    if (b.op === 'gdesk_get') return { targets: T, modes: [], projects: [proj], project: proj, minds: ['sonnet'], style: [], undo: 2 };
+    if (b.op === 'gdesk_console') return { console: { name: 'my_garage', started: true, ok: false, verdict: 'It started, but 1 problem came from it.', rows: [{ kind: 'start', file: '', line: 0, msg: 'Started resource my_garage' }, { kind: 'error', file: 'server.lua', line: 12, msg: "attempt to index a nil value (global 'Config')", known: true }] } };
+    if (b.op === 'gdesk_undo') return { project: proj, undo: 1 };
+    if (b.op === 'gdesk_lab') return { platforms: [{ id: 'fivem', name: 'FiveM', what: 'w', tools: [], steps: ['a'] }], log: [], checks: {}, stats: { sessions: 0, bugs: 0, ship: 0 } };
+    return { project: proj }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<GameDesk cat={{ id: 'c1' }} work={work} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const type = async (node, v) => { await act(async () => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(node), 'value').set.call(node, v); node.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  await type(q('gd-ask'), 'a half typed ask');
+  await act(async () => { q('gd-tab-files').click(); }); await act(async () => { q('gd-tab-studio').click(); });
+  expect(q('gd-ask').value).toBe('a half typed ask');
+  expect(q('gd-undo').textContent).toMatch(/Undo · 2/);
+  await act(async () => { q('gd-undo').click(); });
+  expect(calls.at(-1).op).toBe('gdesk_undo'); expect(q('gd-undo').textContent).toMatch(/Undo · 1/);
+  window.confirm = jest.fn(() => false);
+  await act(async () => { q('gd-share').click(); });
+  expect(window.confirm).toHaveBeenCalled(); expect(calls.some(c => c.op === 'gdesk_share')).toBe(false);
+  window.confirm = jest.fn(() => true);
+  await act(async () => { q('gd-share').click(); });
+  expect(calls.find(c => c.op === 'gdesk_share').tools.mine).toBe(true);
+  await act(async () => { q('gd-tab-test').click(); });
+  expect(q('gd-srv').textContent).toMatch(/ensure my_garage/);
+  await type(q('gd-srv-log'), "[ script:my_garage] SCRIPT ERROR: @my_garage/server.lua:12: attempt to index a nil value (global 'Config')");
+  await act(async () => { q('gd-srv-read').click(); });
+  expect(q('gd-srv-out').textContent).toMatch(/server\.lua:12/);
+  await act(async () => { q('gd-srv-fix').click(); });
+  expect(q('gd-mode-fix').getAttribute('aria-selected')).toBe('true');
+  expect(q('gd-ask').value).toMatch(/server\.lua:12/); expect(q('gd-log').value).toMatch(/SCRIPT ERROR/);
+  await act(async () => { root.unmount(); });
+});

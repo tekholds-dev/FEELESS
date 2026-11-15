@@ -2,24 +2,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import '../../styles/gameLab.css';
 
-// 🎮 GAME LAB (owner 2026-11-15: "a place in desktop for game testing, porting and etc like for gta rp, and possibly psvita … a folder in
-// desktop"). The owner's desktop folder: a playtest log, one porting checklist per target with the real open tools, and a working FiveM /
-// RedM resource starter. Saved owner-only on the server (game_lab.py). Your own games and legal homebrew only.
-const TABS = [['test', 'Playtest log'], ['port', 'Port'], ['rp', 'GTA RP resource']];
+// 🎮 GAME LAB — the Game desk's "Test + port" tab, per agent (game_lab.py, saved through gdesk_lab): a playtest log and one porting checklist
+// per target with the real open tools. `lab(body)` reads it (no body) or changes it. `target` opens the port list on the project's own target.
+// Your own games and legal homebrew only.
+const TABS = [['test', 'Playtest log'], ['port', 'Port']];
 const VERDICT = { ship: 'Ready to ship', fix: 'Needs fixes', blocked: 'Blocked' };
-const blank = () => ({ game: '', platform: 'fivem', build: '', fps: '', bugs: '', verdict: 'fix', notes: '' });
 
-export function GameLab({ call }) {
+export function GameLab({ lab, target = 'fivem' }) {
+  const blank = () => ({ game: '', platform: target, build: '', fps: '', bugs: '', verdict: 'fix', notes: '' });
   const [d, setD] = useState(null); const [tab, setTab] = useState('test'); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const [row, setRow] = useState(blank); const [plat, setPlat] = useState('fivem'); const [rp, setRp] = useState({ name: '', game: 'gta5', what: '' }); const [made, setMade] = useState(null); const [file, setFile] = useState('fxmanifest.lua');
-  useEffect(() => { let on = true; call('/admin/game-lab').then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [call]);
-  const post = useCallback(async body => { setBusy(true); setErr(''); try { const j = await call('/admin/game-lab', { method: 'POST', body: JSON.stringify(body) }); setBusy(false); return j; } catch (e) { setErr(e.message); setBusy(false); return null; } }, [call]);
+  const [row, setRow] = useState(blank); const [plat, setPlat] = useState(target);
+  useEffect(() => { let on = true; lab(null).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [lab]);
+  const post = useCallback(async body => { setBusy(true); setErr(''); try { const j = await lab(body); setBusy(false); return j; } catch (e) { setErr(e.message); setBusy(false); return null; } }, [lab]);
   const log = async e => { e.preventDefault(); const j = await post({ log: { ...row, fps: row.fps === '' ? null : Number(row.fps), bugs: row.bugs.split('\n') } }); if (j) { setD(j); setRow(blank()); } };
-  const make = async e => { e.preventDefault(); const j = await post({ resource: rp }); if (j) { setMade(j); setFile('fxmanifest.lua'); } };
-  if (!d) return <p className="glb-wait" role="status">{err ? `⚠ ${err}` : 'Opening the game lab…'}</p>;
-  const P = Object.fromEntries(d.platforms.map(p => [p.id, p])); const cur = P[plat]; const done = new Set(d.checks?.[plat] || []);
+  if (!d) return <p className="glb-wait" role="status">{err ? `⚠ ${err}` : 'Opening the playtest log…'}</p>;
+  const P = Object.fromEntries(d.platforms.map(p => [p.id, p])); const cur = P[plat] || d.platforms[0]; const done = new Set(d.checks?.[cur.id] || []);
   return <div className="glb" data-testid="game-lab">
-    <header className="glb-h"><span><b>🎮 GAME LAB</b><small>Test, port and build for GTA RP, RedM, PS Vita homebrew, Steam Deck and the web. Your own games and legal homebrew only.</small></span>
+    <header className="glb-h"><span><b>PLAYTEST + PORT</b><small>Log every test session, and tick the port steps for each target. Your own games and legal homebrew only.</small></span>
       <span className="glb-stats">{[['SESSIONS', d.stats.sessions], ['BUGS LOGGED', d.stats.bugs], ['READY TO SHIP', d.stats.ship]].map(([k, v]) => <span key={k}><small>{k}</small><b className="m-num">{v}</b></span>)}</span></header>
     <span className="m-seg" role="tablist" aria-label="Game lab">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`glb-tab-${k}`}>{l}</button>)}</span>
     {err ? <p className="glb-err" role="alert">⚠ {err}</p> : null}
@@ -39,20 +38,9 @@ export function GameLab({ call }) {
         <button type="button" className="glb-x" aria-label={`Remove ${r.game}`} disabled={busy} onClick={async () => { const j = await post({ drop: r.id }); if (j) setD(j); }}>✕</button></motion.li>) : <li className="glb-none">No sessions yet. Log your first playtest.</li>}</ol>
     </div> : null}
     {tab === 'port' ? <div className="glb-port">
-      <span className="glb-plats" role="group" aria-label="Target">{d.platforms.map(p => { const n = (d.checks?.[p.id] || []).length; return <button key={p.id} type="button" className={plat === p.id ? 'is-on' : ''} aria-pressed={plat === p.id} onClick={() => setPlat(p.id)} data-testid={`glb-plat-${p.id}`}><b>{p.name}</b><small className="m-num">{n}/{p.steps.length}</small><s style={{ transform: `scaleX(${n / p.steps.length})` }} aria-hidden="true" /></button>; })}</span>
+      <span className="glb-plats" role="group" aria-label="Target">{d.platforms.map(p => { const n = (d.checks?.[p.id] || []).length; return <button key={p.id} type="button" className={cur.id === p.id ? 'is-on' : ''} aria-pressed={cur.id === p.id} onClick={() => setPlat(p.id)} data-testid={`glb-plat-${p.id}`}><b>{p.name}</b><small className="m-num">{n}/{p.steps.length}</small><s style={{ transform: `scaleX(${n / p.steps.length})` }} aria-hidden="true" /></button>; })}</span>
       <div className="glb-card"><b>{cur.name}</b><small>{cur.what}</small><span className="glb-tools">{cur.tools.map(t => <i key={t}>{t}</i>)}</span>
-        <ol className="glb-steps">{cur.steps.map((s, i) => <li key={i}><label><input type="checkbox" checked={done.has(i)} disabled={busy} onChange={async () => { const j = await post({ check: plat, step: i }); if (j) setD(j); }} data-testid={`glb-step-${i}`} /><span>{s}</span></label></li>)}</ol></div>
-    </div> : null}
-    {tab === 'rp' ? <div className="glb-two">
-      <form className="glb-card" onSubmit={make}><b>Make a resource</b><small>A working starter: fxmanifest.lua, config, client and server Lua. No model, no cost.</small>
-        <label><small>NAME</small><input className="m-input" maxLength={32} value={rp.name} onChange={e => setRp({ ...rp, name: e.target.value })} placeholder="my_garage" data-testid="glb-rp-name" /></label>
-        <span className="m-seg" role="group" aria-label="Game">{[['gta5', 'FiveM · GTA V'], ['rdr3', 'RedM · RDR2']].map(([k, l]) => <button key={k} type="button" className={rp.game === k ? 'active' : ''} aria-pressed={rp.game === k} onClick={() => setRp({ ...rp, game: k })}>{l}</button>)}</span>
-        <label><small>WHAT IT DOES</small><input className="m-input" maxLength={120} value={rp.what} onChange={e => setRp({ ...rp, what: e.target.value })} placeholder="Park and pull out your cars" /></label>
-        <button type="submit" className="m-btn m-go" disabled={busy || !rp.name.trim()} data-testid="glb-rp-make">Make it</button></form>
-      {made ? <div className="glb-card glb-code" data-testid="glb-rp-out"><span className="glb-files">{Object.keys(made.files).map(f => <button key={f} type="button" className={file === f ? 'is-on' : ''} onClick={() => setFile(f)}>{f}</button>)}</span>
-        <pre><code>{made.files[file]}</code></pre>
-        <span className="glb-row"><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(made.files[file])}>Copy {file}</button></span>
-        <small>{made.install}</small></div> : <p className="glb-none">Name it and press Make it. You get the four files to drop into resources/.</p>}
+        <ol className="glb-steps">{cur.steps.map((s, i) => <li key={i}><label><input type="checkbox" checked={done.has(i)} disabled={busy} onChange={async () => { const j = await post({ check: cur.id, step: i }); if (j) setD(j); }} data-testid={`glb-step-${i}`} /><span>{s}</span></label></li>)}</ol></div>
     </div> : null}
   </div>;
 }
