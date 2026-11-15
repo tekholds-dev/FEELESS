@@ -756,3 +756,59 @@ async def teach_stop(request: Request):
     if _TEACH['job']:
         _TEACH['job']['stop'] = True
     return {'job': _TEACH['job']}
+
+
+# 👁 COMP WATCH (owner 2026-11-15: "nun on comps folder is real and true live … fix that"). What really moves while nothing trains: every coin
+# the internet learner holds, priced NOW on DexScreener (one /pairs call per 30, cached 10 s and paced by ds_pace), the minds' calls in the last
+# hour, and the rows it just graded itself. Owner only; reads, never writes.
+import comp_watch as _cw   # noqa: E402
+
+WATCH_TTL = 10.0
+_WATCH = {'at': 0.0, 'pairs': {}}
+
+
+def _tail_jsonl(p, n):
+    try:
+        lines = p.read_text(encoding='utf-8').splitlines()[-n:]
+    except OSError:
+        return []
+    out = []
+    for x in lines:
+        try:
+            out.append(json.loads(x))
+        except ValueError:
+            pass
+    return out
+
+
+async def _watch_pairs(snaps):
+    if time.time() - _WATCH['at'] < WATCH_TTL:
+        return _WATCH['pairs']
+    import httpx
+    ids = [s['pair'] for s in snaps if s.get('pair')]
+    got = {}
+    async with httpx.AsyncClient(timeout=10) as http:
+        for i in range(0, len(ids), 30):
+            part = ids[i:i + 30]
+            try:
+                r = await http.get(f"{_cm.API}/latest/dex/pairs/solana/{','.join(part)}")
+            except httpx.HTTPError:
+                continue
+            if r.status_code != 200:
+                continue                          # unanswered pairs stay 'unknown' (price None), never guessed
+            have = {p.get('pairAddress'): p for p in ((r.json() or {}).get('pairs') or [])}
+            for pid in part:
+                got[pid] = have.get(pid)          # None = DexScreener answered and the pool is gone
+    _WATCH.update(at=time.time(), pairs=got)
+    return got
+
+
+@router.get('/api/reputation/admin/model-lab/watch')
+async def model_lab_watch(request: Request):
+    rs = _rs(); rs._require_owner(request)
+    folder = _c2.DATA
+    snaps = rs._json_load(folder / 'market_open.json', []) or []
+    pairs = await _watch_pairs(snaps)
+    calls = await rs.asyncio.to_thread(_tail_jsonl, rs.DATA_DIR / 'mind_calls.jsonl', 2000)
+    rows = await rs.asyncio.to_thread(_tail_jsonl, folder / 'market_rows.jsonl', _cw.SETTLED_N)
+    return _cw.view(snaps, pairs, calls, rows, rs._json_load(folder / 'market.json', {}), time.time())

@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { AttnExplained, DatasetPulse, examVerdict } from '../components/command/CompExplain';
 import { CompRace } from '../components/command/CompRace';
+import { CompWatch } from '../components/command/CompWatch';
+import WATCH from './compWatchFixture.json';
 import '../styles/modelLab.css';
 
 // 🧪 DEV ONLY (`/dev/comp[?day]`, never in a production build): AGX-5's explained COMP views on sample shapes, for look checks.
@@ -12,6 +14,7 @@ const race = [{ at: 1794593608, n: 28, scores: { baseline: 0.5357, base: 0.5357,
 const exam = { examinees: [{ id: 'comp', kind: 'local', name: 'COMP v2', score: { acc: 0.62 } }, { id: 'baseline', kind: 'baseline', name: 'Majority', score: { acc: 0.55 } }, { id: 'claude', kind: 'flagship', name: 'Claude Sonnet', score: { acc: 0.7 } }] };
 export default function CompHarness() {
   useEffect(() => { if (new URLSearchParams(window.location.search).has('day')) document.body.classList.add('theme-day'); }, []);
+  if (new URLSearchParams(window.location.search).has('watch')) return <div className="mlb" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)' }}><CompWatch call={async () => ({ ...WATCH, at: Date.now() / 1000 })} /></div>;   // ?watch — a real captured /model-lab/watch read
   return <div className="mlb" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', display: 'grid', gap: 14, alignContent: 'start' }}>
     <AttnExplained peek={{ step: 600, attn }} />
     <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH</h4><DatasetPulse d={d} /></section>

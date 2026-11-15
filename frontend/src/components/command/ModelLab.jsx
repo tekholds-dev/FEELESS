@@ -6,6 +6,7 @@ import { DatasetPulse } from './CompExplain';
 import { ModelForge } from './ModelForge';
 import CompGrow from './CompGrow';
 import { CompLive, CompTools } from './CompLive';
+import { CompWatch } from './CompWatch';
 import '../../styles/modelLab.css';
 
 // 🧪 MODEL LAB (owner 2026-11-11: "a folder for the new AI we are creating … a full AI and human setup to build / learn how to be a new kind of
@@ -94,6 +95,7 @@ export const ModelLab = React.memo(function ModelLab({ call }) {
         {d ? <span data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>pairs</small></span> : null}
         <span data-tip="Steps on the road to a big fine-tune with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>steps</small><i className="c2-prog"><u style={{ transform: `scaleX(${Math.max(0.02, real / STEPS.length)})` }} /></i></span></span></header>
     <CompLive />
+    <CompWatch call={call} />
     <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
     {tab === 'grow' ? <CompGrow call={call} onGo={pickTab} /> : tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <div className="mc2">
     <p className="c2-what">Below is everything your models learn from, live, your grades, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
