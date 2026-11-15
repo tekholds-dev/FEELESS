@@ -75,3 +75,9 @@ test('a real parlay shows its legs in the game room', async () => {
   await act(async () => { root.render(<GameWindow g={g} onClose={() => {}} loadCalls={loadCalls} />); });
   expect($('grm-bid').textContent).toContain('2-leg parlay'); expect($('grm-bid-legs').textContent).toContain('Alperen Sengun: 20+');
 });
+
+test('an open bid draws its worth-now line and says when Kalshi already disagrees', async () => {
+  const bid = { n: 17, ticker: 'T', side: 'yes', title: 'Washington wins', price: 0.15, filled: 4, cost: 0.6, now: 0.8, pnl: 0.2, livePx: 0.2, status: 'filled', placed: true, hist: [[1, 0.6], [2, 0.8]], warn: 'Kalshi already disagrees: this side costs 0.15.' };
+  await act(async () => { root.render(<GameWindow g={g} onClose={() => {}} loadCalls={jest.fn(() => Promise.resolve({ calls: [], bids: [bid], final: [], agent: 'A' }))} />); });
+  expect($('grm-bid-line').getAttribute('aria-label')).toContain('from $0.60 to $0.80'); expect($('grm-bid-warn').textContent).toContain('already disagrees');
+});

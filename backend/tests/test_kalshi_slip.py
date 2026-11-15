@@ -167,3 +167,20 @@ def test_a_pob_with_teams_asks_team_or_parlay_then_files_the_answer(monkeypatch)
     c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob rockets vs wizards team to win'})
     assert cat['pobAsk'] == 'rockets vs wizards team to win'   # he already said which: no question
     fs._POB_WANT.pop('g', None)
+
+
+def test_extras_warning_record_notes_and_worth_line():
+    """Owner 2026-11-15 'build it all': ⚠ Kalshi already disagrees, 🏅 each mind's real record breaks a tie, 🧠 its own after-payout notes, 📈 worth-now line."""
+    assert kb.fights(0.12) and 'already disagrees' in kb.fights(0.12) and kb.fights(0.45) is None
+    tk = kb.ticket({'ticker': WAS['ticker'], 'side': 'yes', 'conf': [70]}, {**WAS, 'yes_ask_dollars': '0.15'}, 'f')
+    assert tk['warn'] and kb.outcome_line({**tk, 'offer': 'A'}, True).startswith(' ⚠ Kalshi already disagrees')
+    won = {'topic': 'Rockets vs Wizards', 'kalshi': {'ticker': HOU['ticker'], 'side': 'yes', 'outcome': 'won'}, 'final': [{'name': 'B', 'text': 'Sengun ate inside.'}],
+           'calls': [_call('A', [(WAS['ticker'], 'yes', 70)]), _call('B', [(HOU['ticker'], 'yes', 70)], 1)]}
+    rec = kb.mind_record([won])
+    assert rec == {'B': {'won': 1, 'lost': 0}}
+    tie = [_call('A', [(HOU['ticker'], 'yes', 70)]), _call('B', [(SEN['ticker'], 'yes', 70)], 1)]
+    assert kb.offer(tie, {HOU['ticker'], SEN['ticker']}, 65)['by'] == 'A' and kb.offer(tie, {HOU['ticker'], SEN['ticker']}, 65, rec)['by'] == 'B'
+    notes = kb.past_notes([won], 'Rockets at Wizards tonight')
+    assert 'Sengun ate inside.' in notes and 'WON' in notes and kb.past_notes([won], 'Lakers vs Suns') == ''
+    v = kb.room_view({'orderId': 'o', 'ticker': 'T', 'side': 'yes', 'filled': 2, 'price': 0.4, 'pxHist': [[1, 0.4], [2, 0.55]]})
+    assert v['hist'] == [[1, 0.8], [2, 1.1]]

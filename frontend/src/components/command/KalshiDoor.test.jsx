@@ -60,3 +60,8 @@ test('a parlay slip ticket lists every leg and the most it pays a contract', asy
   expect(q(el, 'kalshi-ticket').textContent).toContain('at most 0.536 a contract');
   expect(q(el, 'kd-legs').querySelectorAll('li').length).toBe(2); expect(q(el, 'kd-approve')).not.toBeNull();
 });
+
+test('the door shows each mind real Kalshi record', async () => {
+  const el = await mount(<KalshiDoor cat={{ id: 'c' }} work={async () => ({ ...STATE, minds: { 'openrouter/hy4': { won: 3, lost: 1 } } })} />);
+  expect(q(el, 'kd-minds').textContent).toContain('hy4 3–1');
+});

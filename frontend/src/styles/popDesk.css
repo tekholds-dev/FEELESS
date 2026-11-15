@@ -111,6 +111,8 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 @media (max-width: 640px) { .kd-num .m-input { width: 76px; } }
 
 /* 🔥⚖ the streak offer, results and the hedge card (owner 2026-11-14: the big ideas) */
+.kd-minds { margin: 0; font: 700 11px var(--f-mono); color: var(--ppd-tx11); } .kd-minds small { font-weight: 500; opacity: .65; margin-left: 6px; }
+.kd-tk-warn { font: 600 11px var(--f-ui); color: var(--ppd-dg7); }
 .kd-streak { margin: 0; font: 700 11px var(--f-mono); letter-spacing: .06em; color: var(--ppd-ac30); }
 .kd-raise { display: grid; gap: 6px; padding: 10px; border-radius: 10px; border: 1px solid var(--ppd-ac30); } .kd-raise small { font: 600 11px var(--f-ui); color: var(--ppd-ac29); } .kd-raise .m-btn { justify-self: start; }
 .kd-res.is-won { color: var(--ppd-ac30); } .kd-res.is-lost { color: var(--ppd-dg7); }
