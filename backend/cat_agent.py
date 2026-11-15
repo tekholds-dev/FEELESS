@@ -324,6 +324,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if getattr(page, 'live', False) and time.time() - last_ < STEP_PACE:   # 🐢 a live window moves at a pace you can follow (owner: "not so quick")
             await asyncio.sleep(STEP_PACE - (time.time() - last_))
         last_ = time.time()
+        if _n == n_max - 2 and not pw:   # ⏳ two moves left: answer from what it read, never 'ran out of steps' with nothing said (owner 2026-11-15)
+            seen = '(TWO MOVES LEFT — answer now with action "answer", from what you have read so far.)\n' + str(seen)
         if pw and (w.pop('powNext', False) or _pow.site_done(pw, w.get('url') or page.url)):   # ⛏ this site is done: the engine opens the coin's next page
             seen = await _pow_advance(w, pw, page, wait_human)
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks

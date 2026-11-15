@@ -91,4 +91,4 @@ def test_picks_are_parsed_and_only_real_overlap_counts():
 def test_a_topic_report_says_nothing_was_staked_and_the_owner_marks_it():
     from pob import report
     r = report({'status': 'closed', 'topic': 'nfl', 'agreed': ['a']})
-    assert r['grade'] == 'RESEARCH' and 'No chips staked' in r['lesson'] and report({'status': 'closed', 'topic': 'nfl', 'graded': 'right'})['grade'] == 'GOOD CALL'
+    assert r['grade'] == 'RESEARCH' and 'No real bid' in r['lesson'] and 'Real Kalshi bid: YES Dallas wins at 0.41' in report({'status': 'closed', 'topic': 'nba', 'agreed': ['a'], 'kalshi': {'orderId': 'o1', 'side': 'yes', 'title': 'Dallas wins', 'price': 0.41, 'status': 'filled'}})['lesson'] and report({'status': 'closed', 'topic': 'nfl', 'graded': 'right'})['grade'] == 'GOOD CALL'

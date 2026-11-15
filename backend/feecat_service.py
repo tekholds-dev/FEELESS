@@ -4199,7 +4199,7 @@ def _read_start(cat, goal, who, kind=''):
         _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
     if kind in _book.KINDS and (cat.get('siteBook') or {}).get(kind):   # 📚 a repeating window moves to the owner's next site, never an off one
         t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _foot.order_sites(kind, _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind]), cat.get(_PROOF_KEYS.get(kind)))   # 🧭 the sites the last proofs leaned on go last
-    _WORK[cat['id']]['task']['stepsMax'] = _foot.read_steps(kind, READ_STEPS)   # 🔁 each proof's own move budget a window
+    _WORK[cat['id']]['task']['stepsMax'] = _foot.read_steps(kind, READ_STEPS, (cat.get('limits') or {}).get('steps'))   # 🔁 his own steps limit (owner 2026-11-15 'set to 30'), PoP's lower budget kept
     _WORK[cat['id']]['task']['proofKind'] = kind or 'proof'   # 🗂 AGT-9: this job is filed in Jobs under its proof
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
@@ -5013,6 +5013,8 @@ async def _kalshi_send(cat, tk):
             async with httpx.AsyncClient(timeout=15) as h_:
                 mk_ = await _kb.market(h_, tk['ticker']); bal_ = await _kb.balance(h_, kid_, pem_)
                 ok_, why_, n_, px_ = _kb.check(cat.get('kalshiCfg'), mk_, tk, bids_, bal_)
+                if ok_ and not await _kb.unstarted(h_, mk_):   # ⏱ already-ran guard, read again at send time
+                    ok_, why_ = False, 'Its game has already started (or ESPN could not confirm it has not), so nothing was sent.'
                 if ok_ and tk.get('price') and px_ > float(tk['price']) + 0.02:
                     ok_, why_ = False, f"The price moved from {float(tk['price']):.2f} to {px_:.2f} since the minds picked it, so nothing was sent."
                 if not ok_:
@@ -5090,12 +5092,38 @@ async def _kalshi_settle_pass(http, store, now):
             b.update(result=res_, outcome='won' if res_ == b.get('side') else 'lost', settledAt=round(now))
             new_ = _comp2.add_kalshi_row(_kb.lesson(b))
             c['chat'] = (list(c.get('chat') or []) + [{'by': 'cats', 'text': f"🏁 Kalshi settled {b.get('title') or t_}: {res_.upper()}. My {str(b.get('side')).upper()} bid {'WON' if b['outcome'] == 'won' else 'lost'}." + (' Filed as a COMP lesson.' if new_ else ''), 'at': now, 'open': 'bids'}])[-200:]
+            try:   # 🧠 both minds write their final word on it, once (owner 2026-11-15 'brains give final summary after game is over and Kalshi payout')
+                await asyncio.wait_for(_pob_final(c, b), 90)
+            except Exception as e:   # noqa: BLE001 — the settle itself already stands
+                print(f'[kalshi] final summary: {str(e)[:100]}')
         for f_ in c.get('pobFolders') or []:   # the ticket on the proof shows the same
             tk_ = f_.get('kalshi') or {}
             if b.get('orderId') and tk_.get('orderId') == b['orderId']:
                 tk_.update({k: b.get(k) for k in ('livePx', 'result', 'outcome', 'settledAt') if b.get(k) is not None})
     if todo_:
         _save(store)
+
+
+async def _pob_final(cat, b):
+    """🧠 After the payout, each mind of its PoB writes 2-3 sentences: what it read, what happened, the lesson. Filed once on the folder and in chat."""
+    f_ = next((f for f in cat.get('pobFolders') or [] if (f.get('kalshi') or {}).get('orderId') and f['kalshi']['orderId'] == b.get('orderId')), None)
+    if not f_ or f_.get('final'):
+        return []
+    v_ = _kb.room_view({**(f_.get('kalshi') or {}), **{k: b.get(k) for k in ('filled', 'outcome', 'livePx', 'count', 'price') if b.get(k) is not None}})
+    box_ = {'cost': 0, 'ref': f_.get('id'), 'proof': 'pob'}; rows_ = []
+    for c_ in (f_.get('calls') or [])[:2]:
+        i_ = int(c_.get('mind') or 0)
+        mine_ = '; '.join(f"{p.get('pick')} {p.get('confidence')}% ({str(p.get('why') or '')[:120]})" for p in (c_.get('picks') or [])[:3]) or f"no pick: {str(c_.get('pass') or '')[:160]}"
+        ask_ = (f"Your PoB on {f_.get('topic')} is settled on Kalshi. The bid: {str(v_['side']).upper()} {v_['title']}, {v_['filled']} x {v_['price']} = ${v_['cost']}. "
+                f"Result: {str(v_['outcome'] or '').upper()}, paid out ${v_['now']}, P&L ${v_['pnl']} (fees not counted). Your own call was: {mine_}.\n"
+                "In 2 or 3 plain sentences: what you read that mattered, whether your call was right and why, and the one lesson for the next PoB. No hype.")
+        t_ = await _pow2_ask(cat, i_, 'You are one of two minds of a betting research agent, writing its honest after-game note. Plain words, no emoji.', ask_, 160, box_)
+        if t_:
+            rows_.append({'mind': i_, 'name': c_.get('name'), 'text': str(t_).strip()[:420]})
+    if rows_:
+        f_['final'] = rows_
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': ('🧠 After the payout: ' + ' · '.join(f"{r['name']}: {r['text']}" for r in rows_))[:900], 'at': time.time(), 'open': 'bids'}])[-200:]
+    return rows_
 
 
 def _kalshi_rivals(cats):
@@ -5192,7 +5220,7 @@ def _topic_keep(cat, rd, now, notes):
 
 
 async def _pob_topic_file(cat, rd, now, notes, why):
-    """🏈 A topic PoB's read is done: keep its snapshots, ask both minds blind, file the folder. Nothing is staked."""
+    """🏈 A topic PoB's read is done: keep its snapshots, ask both minds blind, file the folder. A real Kalshi bid only when both back one market."""
     cat.pop('proofHosts', None); rid = f"pob{int(now)}"; t_ = (_WORK.get(cat['id']) or {}).get('task') or {}; shots = []
     d_ = POWSHOTS_DIR / rid
     for w_ in t_.get('windows') or []:
@@ -5246,7 +5274,10 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     both = _pob.agreed(calls)
     kb_pick_ = _kb.chosen(calls, {m['ticker'] for m in kb_rows_}) if kb_rows_ else None
     if not kb_pick_ and kb_rows_:
-        base['kalshiSplit'] = _kb.split_view(calls, kb_rows_)   # ⚖ hedge: no ticket, but each mind's side with the live odds
+        base['kalshiSplit'] = _kb.split_view(calls, kb_rows_)   # ⚖ hedge: each mind's side with the live odds
+        off_ = _kb.offer(calls, {m['ticker'] for m in kb_rows_}, kb_cfg_['minConf'])
+        if off_:   # 🙋 one mind's pick over his minimum: a ticket for HIS tap, never sent by itself
+            base['kalshi'] = {**_kb.ticket(off_, next(m for m in kb_rows_ if m['ticker'] == off_['ticker']), rid, now), 'offer': off_['by']}
     if kb_pick_:
         base['kalshi'] = _kb.ticket(kb_pick_, next(m for m in kb_rows_ if m['ticker'] == kb_pick_['ticker']), rid, now)
         if _kb.sends_now(kb_cfg_, by_):   # 🎯 he asked for this PoB: it bids now, inside his caps (an auto run only when AUTO is on)
@@ -5262,7 +5293,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     except Exception as e:   # noqa: BLE001 — a proof still files without its scoreboard
         print(f'[pob] no scoreboard: {str(e)[:80]}')
     cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
-    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else ''))
+    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR))))
 
 
 async def _pob_tick(http, cat, now):
@@ -5301,7 +5332,13 @@ async def _pob_tick(http, cat, now):
         await _pob_topic_file(cat, {'who': who, 'topic': topic, 'sites': sh_['sites'], 'sharedFrom': sh_['by'], 'sharedAt': round(sh_['at']), 'by': cat.pop('pobBy', None) or 'you'}, now, sh_['notes'], 'shared read')
     elif do == 'start' and cat.get('pobAsk'):
         topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _book.apply(cat.get('siteBook'), 'pob', _pob.sites_for(topic)), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
-        why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
+        kb_first_ = []; kb_key_ = bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR))
+        if kb_key_:   # 🎯 Kalshi first: the market it may bid on is read before any site, and every site is read about that game
+            try:
+                kb_first_ = await _kb.markets_for(http, topic)
+            except Exception as e:   # noqa: BLE001 — research goes on; the final call reads Kalshi again
+                print(f'[pob] kalshi first: {str(e)[:100]}')
+        why = _read_start(cat, _kb.first_note(kb_first_) + _pob.topic_goal(topic, sites), who, 'pob')
         by_ = cat.pop('pobBy', None) or 'you'   # 🎯 who asked travels with this run, never left on the agent for the next one
         if why:
             cat.pop('proofHosts', None)
@@ -5309,9 +5346,10 @@ async def _pob_tick(http, cat, now):
             return
         t_ = _WORK[cat['id']]['task']; t_['keepShots'] = True
         if len(t_.get('jobs') or []) > 1:   # 👣 each mind has its own sites and angle, so they never run one search twice
-            t_['jobs'] = [_pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
-        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites, 'by': by_}
-        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🌐 Researching {topic}: {', '.join(sites[:3])} and more, in its own windows. Snapshots go in the folder.", 'at': now, 'open': 'bids'}])[-200:]
+            t_['jobs'] = [_kb.first_note(kb_first_) + _pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
+        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites, 'by': by_, 'kalshi': [m.get('ticker') for m in kb_first_][:6]}
+        kb_say_ = _kb.first_say(kb_first_, kb_key_)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🌐 Researching {topic}: {', '.join(sites[:3])} and more, in its own windows. Snapshots go in the folder.{kb_say_}", 'at': now, 'open': 'bids'}])[-200:]
     elif do == 'start':
         cat.pop('pobBy', None)   # the free-chip board never bids on Kalshi: nothing to carry
         rows = await _pob_board(http, cat, now)
@@ -10647,8 +10685,10 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         return {'cardSeat': bool(p.on)}
     if p.op == 'game_calls':   # 🏟 what this agent called on one game, and how each call graded. Its final fingerprint waits on these
         gid_ = str(p.job or '')
-        rows_ = [{'folder': f.get('id'), 'n': f.get('n'), 'pick': g.get('side') or g.get('short'), 'won': g.get('won'), 'score': g.get('score')} for f in (cat.get('pobFolders') or [])[-40:] for g in (f.get('games') or []) if str(g.get('id')) == gid_]
-        return {'calls': rows_, 'agent': cat.get('name')}
+        on_ = [f for f in (cat.get('pobFolders') or [])[-40:] if any(str(g.get('id')) == gid_ for g in f.get('games') or [])]
+        rows_ = [{'folder': f.get('id'), 'n': f.get('n'), 'pick': g.get('side') or g.get('short'), 'won': g.get('won'), 'score': g.get('score')} for f in on_ for g in (f.get('games') or []) if str(g.get('id')) == gid_]
+        bids_ = [{'n': f.get('n'), **_kb.room_view(f['kalshi'])} for f in on_ if (f.get('kalshi') or {}).get('ticker')]   # 🎯 its real Kalshi bid on this game, live in the room
+        return {'calls': rows_, 'bids': bids_, 'final': [x for f in on_ for x in f.get('final') or []][-2:], 'agent': cat.get('name')}
     if p.op == 'desk_seats':   # 🎩 the card's seats as they stand, for its owner's desk
         if cat.get('handle') != 'sicarios':
             raise HTTPException(400, "Only Sicario's sits on the card.")
@@ -11934,7 +11974,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
                 cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; cat['pobBy'] = 'auto' if p.auto else 'you'; _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
-                say_ = f'🎲 Filing a PoB on {pob_topic_}. Each mind reads major sites in its own window, then calls it blind. Paid model calls. Nothing is staked.'
+                say_ = f'🎲 Filing a PoB on {pob_topic_}. Kalshi first, then major sites in its own windows; both minds call it blind. Paid model calls. A real Kalshi bid only if both back the same market, inside your caps.'
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'bids'}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}

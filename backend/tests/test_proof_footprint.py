@@ -37,3 +37,10 @@ def test_the_minds_read_the_last_footprints_and_their_own_angle():
 def test_odd_records_never_break_it():
     assert fp.unique('pop', {'calls': 'bad', 'shots': 7, 'sources': {'0': None}}, [{'browsed': {'0': 'x'}}])['pct'] == 100
     assert fp.footprint('pow', None)['words'] == set()
+
+
+def test_a_proof_read_takes_his_own_steps_limit_and_pop_stays_lighter():
+    """Owner 2026-11-15: a PoB mind ran out at 12 moves with his limit at 30."""
+    from proof_footprint import read_steps
+    assert read_steps('pob', 14, 30) == 30 and read_steps('poc', 14, 30) == 30 and read_steps('pob', 14, None) == 12
+    assert read_steps('pop', 14, 30) == 10 and read_steps('pop', 14, 6) == 6 and read_steps('pob', 14, 'x') == 12 and read_steps('pob', 14, 999) == 60

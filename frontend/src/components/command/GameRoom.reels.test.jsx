@@ -57,3 +57,14 @@ test('viewing a game only reads: every request is a GET, and its buttons only pu
   expect(calls.every(c => c.url.includes('/api/cats/tools/'))).toBe(true);
   expect(onCommand.mock.calls.map(c => c[0])).toEqual(['file a pob 49ers vs Cowboys. Test this: Pace runs over the total.', 'file a pob 49ers vs Cowboys']);
 });
+
+test('its real Kalshi bid shows in the game room: money in, worth now, P&L without fees, then the minds after the payout', async () => {
+  const bid = { n: 15, ticker: 'KXNBAGAME-26NOV15OKCSAC-OKC', side: 'yes', title: 'Oklahoma City wins', price: 0.4, count: 2, filled: 2, cost: 0.8, now: 1.1, pnl: 0.3, livePx: 0.55, status: 'filled', placed: true };
+  const loadCalls = jest.fn(() => Promise.resolve({ calls: [], bids: [bid], final: [{ name: 'hy4', text: 'The rest edge held.' }], agent: 'Happy Assistant' }));
+  await act(async () => { root.render(<GameWindow g={g} onClose={() => {}} loadCalls={loadCalls} />); });
+  const card = $('grm-bid');
+  expect(card.textContent).toContain('REAL KALSHI BID'); expect(card.textContent).toContain('YES · Oklahoma City wins');
+  expect(card.textContent).toContain('$0.80 2 × 0.40'); expect($('grm-bid-pnl').textContent).toBe('+$0.30');
+  expect($('grm-final').textContent).toContain('The rest edge held.');
+  expect(calls.filter(c => c.method !== 'GET')).toEqual([]);   // still only reads
+});

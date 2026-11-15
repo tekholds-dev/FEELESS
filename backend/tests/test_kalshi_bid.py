@@ -100,7 +100,8 @@ def test_only_open_markets_on_the_topic_are_shown_to_the_minds():
     rows = [_mkt(), _mkt(ticker='T2', title='Boston wins'), _mkt(ticker='T3', close=NOW + 100), _mkt(ticker='T4', status='settled')]
     got = kb.relevant(rows, 'orlando magic tonight', NOW)
     assert [m['ticker'] for m in got] == ['KXNBAGAME-26NOV16ORLBOS-ORL']
-    assert [m['ticker'] for m in kb.relevant(rows, 'chiefs tonight', NOW)] == ['KXNBAGAME-26NOV16ORLBOS-ORL', 'T2']   # no word matched: the league's open games
+    assert kb.relevant(rows, 'chiefs tonight', NOW) == []   # a named team with no market: none, never the league's other games (owner 2026-11-15)
+    assert [m['ticker'] for m in kb.relevant(rows, 'best picks tonight', NOW)] == ['KXNBAGAME-26NOV16ORLBOS-ORL', 'T2']   # no team named: the league's open games
     assert kb.series_for('lakers vs celtics') == ['KXNBAGAME'] and 'ticker' in kb.brief(got) and kb.brief([]) == ''
 
 
@@ -120,6 +121,8 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     async def balance(h, k, p): return 10.0
     async def place(h, k, p, body): sent.append(body); return {'order_id': 'o-1', 'status': 'resting'}
     monkeypatch.setattr(fs._kb, 'market', market); monkeypatch.setattr(fs._kb, 'balance', balance); monkeypatch.setattr(fs._kb, 'place', place)
+    async def unstarted(h, m): return True
+    monkeypatch.setattr(fs._kb, 'unstarted', unstarted)
     c = TestClient(fs.app); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
     j = post('kalshi_bid', job='kb1').json()
     assert len(sent) == 1 and sent[0]['type'] == 'limit' and sent[0]['yes_price'] == 40 and sent[0]['count'] == 2
@@ -179,3 +182,70 @@ def test_ed25519_key_seals_splits_and_signs():
             from cryptography.hazmat.primitives import hashes
             from cryptography.hazmat.primitives.asymmetric import padding
             key.public_key().verify(sig, msg, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())
+
+
+def _game(t, a, b, close=NOW + 7200, occ=NOW + 3 * 3600):
+    side = t.split('-')[-1]; lab = {'DAL': 'Dallas', 'BOS': 'Boston', 'LAL': 'Los Angeles L', 'PHX': 'Phoenix', 'ORL': 'Orlando'}[side]
+    return {**_mkt(ticker=t, title=f'{lab} wins', close=close), 'yes_sub_title': lab, 'occurrence_datetime': _iso(occ), 'rules_primary': f'If {lab} wins the {a} vs {b} Pro Basketball game originally scheduled for Nov 15, 2026, then the market resolves to Yes.'}
+
+
+ROWS = [_game('KXNBAGAME-26NOV15DALBOS-DAL', 'Dallas', 'Boston'), _game('KXNBAGAME-26NOV15DALBOS-BOS', 'Dallas', 'Boston'),
+        _game('KXNBAGAME-26NOV15LALPHX-LAL', 'Los Angeles L', 'Phoenix', close=NOW + 3600), _game('KXNBAGAME-26NOV16ORLBOS-BOS', 'Orlando', 'Boston', close=NOW + 90000)]
+
+
+def test_a_pob_sees_only_its_own_game_on_kalshi():
+    """Owner 2026-11-15: a Mavericks vs Celtics PoB was shown Lakers–Suns. Nicknames map to Kalshi's city labels; two teams = the game between them."""
+    tick = lambda topic: [m['ticker'] for m in kb.relevant(ROWS, topic, NOW, series=['KXNBAGAME'])]
+    assert kb.teams_in('Mavericks vs Celtics') == ['Dallas', 'Boston'] and kb.teams_in('lakers vs clippers', ['KXNBAGAME']) == ['Los Angeles L', 'Los Angeles C']
+    assert tick('Mavericks vs Celtics') == ['KXNBAGAME-26NOV15DALBOS-DAL', 'KXNBAGAME-26NOV15DALBOS-BOS']
+    assert tick('celtics tonight') == ['KXNBAGAME-26NOV15DALBOS-DAL', 'KXNBAGAME-26NOV15DALBOS-BOS', 'KXNBAGAME-26NOV16ORLBOS-BOS']
+    assert tick('Lakers vs Celtics') == [] and tick('Foo vs Bar') == []   # no such game / unknown names: none, never a stranger's game
+    assert tick('best nba picks')[0] == 'KXNBAGAME-26NOV15LALPHX-LAL'   # no team: soonest first
+
+
+def test_a_game_that_started_is_never_offered_for_a_bid():
+    """Already-ran guard: ESPN's state and start time decide; off the board, only a game Kalshi expects to end 6 h+ out counts as not started."""
+    m = ROWS[0]; at = lambda s: time.strftime('%Y-%m-%dT%H:%MZ', time.gmtime(s))
+    g = lambda state, start: [{'state': state, 'at': at(start), 'teams': [{'short': 'Mavericks', 'name': 'Dallas Mavericks'}, {'short': 'Celtics', 'name': 'Boston Celtics'}]}]
+    assert kb.not_started(m, g('pre', NOW + 600), NOW) is True
+    assert kb.not_started(m, g('in', NOW + 600), NOW) is False and kb.not_started(m, g('post', NOW - 9000), NOW) is False
+    assert kb.not_started(m, g('pre', NOW - 120), NOW) is False   # ESPN still says pre two minutes past tip-off
+    assert kb.not_started(m, [], NOW) is False   # off the board, ends in 3 h: unsure → not offered
+    assert kb.not_started(_game('KXNBAGAME-26NOV18DALBOS-DAL', 'Dallas', 'Boston', occ=NOW + 3 * 86400), [], NOW) is True
+
+
+def test_kalshi_goes_first_in_the_research_and_the_chat_says_so():
+    note = kb.first_note(ROWS[:2])
+    assert note.startswith('THE LIVE KALSHI MARKET') and 'KXNBAGAME-26NOV15DALBOS-DAL' in note and kb.first_note([]) == ''
+    assert 'Kalshi first: Dallas wins 0.4' in kb.first_say(ROWS[:2], True) and 'without a real bid' in kb.first_say([], True) and kb.first_say(ROWS, False) == ''
+
+
+def test_a_split_still_ends_in_a_pick_he_can_place():
+    """Owner 2026-11-15 'they either choose or give me a option or pick'. Only HIS tap places an offer; under his minimum, nothing is offered."""
+    k = lambda t, s, c, name='a': {'mind': 0, 'name': name, 'picks': [{'pick': 'x', 'confidence': c, 'why': 'w', 'kalshi': {'ticker': t, 'side': s}}]}
+    ids = {'T1', 'T2'}
+    assert kb.offer([k('T1', 'yes', 70, 'hy4'), k('T2', 'no', 80, 'glm')], ids, 65) == {'ticker': 'T2', 'side': 'no', 'conf': [80], 'why': ['w'], 'by': 'glm'}
+    assert kb.offer([k('T1', 'yes', 45)], ids, 65) is None and kb.offer([k('T9', 'yes', 90)], ids, 65) is None
+    assert 'tap Approve' in kb.outcome_line({'status': 'waiting', 'offer': 'glm', 'side': 'no', 'title': 'Boston wins', 'conf': [80]}, True)
+    assert 'Real Kalshi bid placed' in kb.outcome_line({'orderId': 'o', 'side': 'yes', 'title': 'Dallas wins', 'count': 2, 'price': 0.4, 'usd': 0.8}, True)
+    assert 'no single pick' in kb.outcome_line(None, True) and 'on paper' in kb.outcome_line(None, False)
+    assert 'You MUST back exactly one' in kb.brief(ROWS[:1])
+
+
+def test_the_room_shows_money_in_worth_now_and_the_payout_without_fees():
+    t = {'ticker': 'T', 'side': 'yes', 'title': 'Dallas wins', 'price': 0.4, 'count': 2, 'filled': 2, 'orderId': 'o', 'status': 'filled', 'livePx': 0.55}
+    v = kb.room_view(t)
+    assert (v['cost'], v['now'], v['pnl'], v['placed']) == (0.8, 1.1, 0.3, True)
+    assert kb.room_view({**t, 'outcome': 'won'})['pnl'] == 1.2 and kb.room_view({**t, 'outcome': 'lost'})['pnl'] == -0.8
+    assert kb.room_view({**t, 'orderId': None, 'status': 'waiting', 'offer': 'glm'})['filled'] == 0 and kb.room_view({**t, 'orderId': None})['pnl'] is None
+
+
+def test_review_fixes_resting_text_confidence_and_utc():
+    """Second pass 2026-11-15: a resting order with nothing filled shows $0 in, not the whole order; '70%' reads as 70; Kalshi times are UTC all year."""
+    v = kb.room_view({'orderId': 'o1', 'ticker': 'T', 'count': 3, 'filled': 0, 'price': 0.4, 'status': 'resting', 'livePx': 0.6})
+    assert v['filled'] == 0 and v['cost'] == 0 and v['pnl'] is None
+    assert kb.room_view({'orderId': 'o1', 'count': 3, 'price': 0.4, 'status': 'filled'})['cost'] == 1.2
+    calls = [{'name': 'A', 'picks': [{'confidence': '70%', 'kalshi': {'ticker': 'T', 'side': 'yes'}}]}, {'name': 'B', 'picks': [{'confidence': 'high', 'kalshi': {'ticker': 'T', 'side': 'no'}}]}]
+    o = kb.offer(calls, {'T'}, 65)
+    assert o['by'] == 'A' and o['conf'] == [70]
+    assert kb._ts('2026-07-01T00:00:00Z') == 1782864000 and kb._ts('2026-12-01T00:00:00Z') == 1796083200

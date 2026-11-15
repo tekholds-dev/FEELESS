@@ -72,3 +72,13 @@ body.fx-lite :is(.ppop-veil, .ppop-win) { animation: none; } @media (prefers-red
 body.fx-lite .grm-reels li, body.fx-lite .grm-rp-veil { animation: none; } @media (prefers-reduced-motion: reduce) { .grm-reels li, .grm-rp-veil { animation: none; } .grm-reels button { transition: none; } }
 @media (max-width: 720px) { .grm-rp-veil { padding: 0; } .grm-rp { height: 100dvh; border-radius: 0; } .grm-reels ol { grid-auto-columns: 118px; } }
 body.theme-day .grm-reels { background: var(--gr-sf3); color: var(--gr-tx17); }
+
+/* 🎯 its real Kalshi bid in the game room (owner 2026-11-15) + the minds' summaries after the payout */
+.grm-bid { display: grid; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--gr-tx6)); background: var(--gr-sf5); box-shadow: 0 0 22px -12px var(--m-accent); }
+.grm-bid header { display: flex; justify-content: space-between; gap: 8px; } .grm-bid header em { font: 800 10px var(--f-mono); font-style: normal; letter-spacing: .12em; color: var(--m-accent); } .grm-bid header small { font-size: 10px; opacity: .65; }
+.grm-bid-side { font-size: 15px; line-height: 1.25; } .grm-bid-note { margin: 0; font-size: 12px; line-height: 1.4; opacity: .85; }
+.grm-bid-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; } .grm-bid-kv div { display: grid; gap: 1px; padding: 6px 8px; border-radius: 10px; background: var(--gr-tx11); }
+.grm-bid-kv dt { font: 700 9px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; opacity: .6; } .grm-bid-kv dd { margin: 0; font-size: 13px; font-weight: 700; } .grm-bid-kv dd small { font-weight: 500; opacity: .6; }
+.grm-bid-st { justify-self: start; padding: 2px 10px; border-radius: 99px; font: 800 10px var(--f-mono); letter-spacing: .1em; background: var(--gr-tx11); }
+.grm-bid .is-up, .grm-bid-st.is-won { color: var(--m-accent); } .grm-bid .is-dn, .grm-bid-st.is-lost { color: var(--m-danger); } .grm-bid.is-won { border-color: var(--m-accent); } .grm-bid.is-lost { border-color: color-mix(in srgb, var(--m-danger) 55%, transparent); }
+.grm-final { display: grid; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--gr-tx6); background: var(--gr-sf5); } .grm-final h5 { margin: 0; font: 800 10px var(--f-mono); letter-spacing: .1em; color: var(--gr-ac6); } .grm-final p { margin: 0; font-size: 12px; line-height: 1.45; } .grm-final b { color: var(--m-accent); }

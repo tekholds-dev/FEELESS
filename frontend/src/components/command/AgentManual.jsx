@@ -26,7 +26,7 @@ const SYSTEM = [
   { lane: 'PROOFS', tone: 'proofs', nodes: [
     { k: 'pow', ic: '⛏', t: 'PoW', sub: 'Research + real buy', say: 'It researches coins, buys inside its limits, holds with hard exits, then files a folder. Real SOL from its wallet.', cmd: 'file a PoW', live: d => (d?.powFolders || []).length && `${d.powFolders.length} filed` },
     { k: 'pop', ic: '📉', t: 'PoP', sub: 'Paper perps', say: 'Both minds call a market blind. A paper trade runs on true prices. No real order is sent.', cmd: 'file a perp', live: d => (d?.popFolders || []).length && `${d.popFolders.length} filed` },
-    { k: 'pob', ic: '🎲', t: 'PoB', sub: 'Any topic, or chips', say: 'Name a topic. Each mind reads major sites with snapshots and calls it blind. Nothing is staked.', cmd: 'file a pob best NFL picks', live: d => (d?.pobFolders || []).length && `${d.pobFolders.length} filed` },
+    { k: 'pob', ic: '🎲', t: 'PoB', sub: 'Any topic, or chips', say: 'Name a topic. Kalshi first, then major sites with snapshots; both minds call it blind. Both back one Kalshi market → a real bid inside your caps.', cmd: 'file a pob best NFL picks', live: d => (d?.pobFolders || []).length && `${d.pobFolders.length} filed` },
     { k: 'poc', ic: '📣', t: 'PoC', sub: 'Content ideas', say: 'Each mind writes a post from what is trending, on its own. You mark it. Nothing is posted.', cmd: 'file a poc', live: d => (d?.pocFolders || []).length && `${d.pocFolders.length} filed` },
     { k: 'pos', ic: '💻', t: 'PoS', sub: 'A real page', say: 'It opens the best sites, plans, builds with your kits, and a second mind reviews it. You get a page you can open.', cmd: 'build a page ', live: d => (d?.psFolders || []).length && `${d.psFolders.length} filed` },
   ] },

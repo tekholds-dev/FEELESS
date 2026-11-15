@@ -212,12 +212,20 @@ def trim(rows):
     return list(rows or [])[-FILED_MAX:]
 
 
+def _kalshi_word(k):
+    """What happened to its Kalshi ticket, in one line. Pure."""
+    st = str(k.get('status') or '')
+    if k.get('orderId'):
+        return f"Real Kalshi bid: {str(k.get('side') or '').upper()} {k.get('title') or k.get('ticker')} at {float(k.get('price') or 0):.2f} ({st})."
+    return f"Kalshi bid not sent: {k.get('why') or st or 'no answer'}."
+
+
 def report(r):
     if r.get('status') != 'closed':
         return None
     if r.get('topic') and not r.get('noTrade'):
         g = r.get('graded'); n = len(r.get('agreed') or [])
-        return {'grade': {'right': 'GOOD CALL', 'wrong': 'BAD CALL'}.get(g, 'RESEARCH'), 'lesson': f"{n} pick{'s' if n != 1 else ''} both minds agree on. No chips staked: this market is not on our board." + ('' if g else ' Mark it right or wrong once the result is known.')}
+        return {'grade': {'right': 'GOOD CALL', 'wrong': 'BAD CALL'}.get(g, 'RESEARCH'), 'lesson': f"{n} pick{'s' if n != 1 else ''} both minds agree on. " + (_kalshi_word(r.get('kalshi')) if r.get('kalshi') else 'No real bid: no Kalshi market both minds backed.') + ('' if g else ' Mark it right or wrong once the result is known.')}
     if r.get('noTrade'):
         return {'grade': 'NO BID', 'lesson': f"Nothing placed: {r.get('why') or 'no agreed call'}."}
     if r.get('void'):

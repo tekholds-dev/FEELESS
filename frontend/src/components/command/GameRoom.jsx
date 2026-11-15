@@ -176,12 +176,28 @@ function TeamSheets({ g, teams, onLeg, box, onPrint }) {
       <div className="pgs-wrap"><table className="pgs-t"><thead><tr><th scope="col">Player</th>{(s.cols || []).map(c => <th key={c} scope="col">{c}</th>)}<th aria-label="Add a leg" /></tr></thead><tbody>{(s.players || []).map(p => <PlayerRow key={p.id} p={p} cols={s.cols || []} sport={g.sport} team={t.name} onLeg={onLeg} tonight={box?.[p.id]} onPrint={onPrint} />)}</tbody></table></div></>}</section>;
 }
 
+// 🎯 ITS REAL KALSHI BID ON THIS GAME (owner 2026-11-15 'when placed we see the bid just like when we open game in PoB'). Money in = what reached
+// Kalshi; fees are never in the P&L (CLAUDE.md §1). After the payout, both minds' final summaries sit under it.
+const usd = v => (v == null ? '—' : `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`);
+const BID_SAY = { filled: 'Filled', resting: 'On Kalshi, waiting to fill', sent: 'Sent', waiting: 'Waiting for your tap', refused: 'Not sent', failed: 'Kalshi refused it', skipped: 'You skipped it', canceled: 'Canceled' };
+export function RoomBid({ b, agent }) {
+  const tone = b.outcome === 'won' ? 'is-won' : b.outcome === 'lost' ? 'is-lost' : b.pnl > 0 ? 'is-up' : b.pnl < 0 ? 'is-dn' : '';
+  return <section className={`grm-bid m-glass ${tone}`} data-testid="grm-bid"><header><em>{b.placed ? 'REAL KALSHI BID' : b.offer ? 'ITS PICK · YOUR TAP' : 'KALSHI'}</em><small>{agent ? `${agent} · ` : ''}PoB #{b.n}</small></header>
+    <b className="grm-bid-side">{String(b.side || '').toUpperCase()} · {b.title}</b>
+    {b.placed ? <dl className="grm-bid-kv"><div><dt>In</dt><dd className="m-num">{usd(b.cost)}<small> {b.filled} × {Number(b.price || 0).toFixed(2)}</small></dd></div><div><dt>{b.outcome ? 'Paid out' : 'Worth now'}</dt><dd className="m-num">{usd(b.now)}{!b.outcome && b.livePx != null ? <small> at {Number(b.livePx).toFixed(2)}</small> : null}</dd></div><div><dt>P&amp;L</dt><dd className={`m-num ${tone}`} data-testid="grm-bid-pnl">{b.pnl == null ? '—' : `${b.pnl > 0 ? '+' : ''}${usd(b.pnl)}`}</dd></div></dl>
+      : <p className="grm-bid-note">{b.offer ? `The minds split. ${b.offer} backs it at ${(b.conf || [])[0]}%. Approve or skip it in its PoB folder.` : b.status === 'waiting' ? 'Both minds back it. Approve or skip it in its PoB folder.' : `${BID_SAY[b.status] || b.status}${b.why ? ` · ${b.why}` : ''}`}</p>}
+    <strong className={`grm-bid-st ${tone}`} role="status">{b.outcome === 'won' ? 'WON' : b.outcome === 'lost' ? 'LOST' : BID_SAY[b.status] || b.status}</strong></section>;
+}
+function RoomFinal({ rows }) {
+  return rows?.length ? <section className="grm-final m-glass" data-testid="grm-final"><h5>THE MINDS, AFTER THE PAYOUT</h5>{rows.map((r, i) => <p key={i}><b>{r.name || `Mind ${'AB'[i]}`}</b> {r.text}</p>)}</section> : null;
+}
+
 const LIVE_POLL_MS = 20000;
 export function GameWindow({ g, onClose, onCommand, onLeg, slip = 0, loadCalls = null }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(false); const [a, b] = g.teams; const state = d?.state || g.state; const live = state === 'in'; const done = state === 'post'; const [tab, setTab] = useState(null); const [player, setPlayer] = useState(null); const [calls, setCalls] = useState([]);
+  const [d, setD] = useState(null); const [err, setErr] = useState(false); const [a, b] = g.teams; const state = d?.state || g.state; const live = state === 'in'; const done = state === 'post'; const [tab, setTab] = useState(null); const [player, setPlayer] = useState(null); const [calls, setCalls] = useState([]); const [mine, setMine] = useState({ bids: [], final: [], agent: '' });
   const load = useCallback(() => fetch(apiUrl(`/api/cats/tools/game/${g.sport}/${g.id}?a=${encodeURIComponent(a.name || '')}&b=${encodeURIComponent(b.name || '')}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { setD(j); setErr(false); }).catch(() => setErr(true)), [g.sport, g.id, a.name, b.name]);
   useEffect(() => { load(); if (!live) return undefined; const t = setInterval(() => { if (!document.hidden) load(); }, LIVE_POLL_MS); return () => clearInterval(t); }, [load, live]);
-  useEffect(() => { if (!loadCalls) return undefined; let on = true; const go = () => Promise.resolve(loadCalls(g.id)).then(j => { if (on) setCalls((j?.calls || []).map(c => ({ ...c, agent: j.agent }))); }).catch(() => {}); go(); if (!live) return () => { on = false; }; const t = setInterval(go, 60000); return () => { on = false; clearInterval(t); }; }, [loadCalls, g.id, live, done]);
+  useEffect(() => { if (!loadCalls) return undefined; let on = true; const go = () => Promise.resolve(loadCalls(g.id)).then(j => { if (on) { setCalls((j?.calls || []).map(c => ({ ...c, agent: j.agent }))); setMine({ bids: j?.bids || [], final: j?.final || [], agent: j?.agent || '' }); } }).catch(() => {}); go(); if (!live) return () => { on = false; }; const t = setInterval(go, 60000); return () => { on = false; clearInterval(t); }; }, [loadCalls, g.id, live, done]);
   useEffect(() => { const k = e => { if (e.key === 'Escape' && !document.querySelector('.ppop-veil, .grm-rp-veil')) { e.stopPropagation(); onClose(); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [onClose]);   // a print or reel open on top takes its own Esc
   const ta = d?.teams?.[0] || {}; const tb = d?.teams?.[1] || {}; const hasPlays = !!d?.plays?.length; const now = tab || (hasPlays ? 'plays' : 'edge'); const stage = printStage(state, calls); const teams = [{ ...a, ...ta, name: ta.name || a.name, id: ta.id || a.id }, { ...b, ...tb, name: tb.name || b.name, id: tb.id || b.id }];
   const TABS = [...(hasPlays ? [['plays', live ? 'Live' : 'Plays']] : []), ['edge', 'Edge'], ['players', 'Players'], ...(d?.stats?.length ? [['stats', 'Stats']] : [])];
@@ -192,6 +208,7 @@ export function GameWindow({ g, onClose, onCommand, onLeg, slip = 0, loadCalls =
       <button type="button" className="pgw-x" onClick={onClose} aria-label="Close" data-tip="Close (Esc)" data-testid="pgw-close">✕</button></header>
     {err && !d ? <p className="ptl-none" role="alert">None of the free stat sources answered for this game. It tries again when you reopen it.</p> : !d ? <div className="pgw-load" aria-label="Reading the game"><i /><i /><i /></div> : <div className="pgw-b">
       <div className="pgw-col">
+        {mine.bids.map((x, i) => <RoomBid key={`${x.ticker}-${i}`} b={x} agent={mine.agent} />)}<RoomFinal rows={mine.final} />
         <section><h5>HOW OFTEN IT WINS</h5><ul className="pgw-vss">
           {ta.winRate != null || tb.winRate != null ? <Versus pctRow label={`Season ${ta.record || '—'} · ${tb.record || '—'}`} a={ta.winRate} b={tb.winRate} tip="Share of this season's games each side has won" /> : null}
           {ta.sideRate != null || tb.sideRate != null ? <Versus pctRow label={`${ta.side === 'home' ? 'Home' : 'Road'} ${ta.sideRecord || '—'} · ${tb.side === 'home' ? 'Home' : 'Road'} ${tb.sideRecord || '—'}`} a={ta.sideRate} b={tb.sideRate} tip="Share won in the same spot as tonight: at home or on the road" /> : null}

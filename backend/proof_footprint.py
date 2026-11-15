@@ -134,9 +134,15 @@ READ_STEPS = {'pop': 10, 'pob': 12}   # 🔁 owner 2026-11-15: "PoP should do a 
 POP_SITES = ('coinglass.com', 'hyperliquid.xyz', 'tradingview.com', 'defillama.com', 'coingecko.com', 'x.com')
 
 
-def read_steps(kind, default=14):
-    """Moves each mind's window gets on this proof's site read. Pure."""
-    return READ_STEPS.get(kind, default)
+def read_steps(kind, default=14, owner=None):
+    """Moves each mind's window gets on this proof's site read: the owner's own steps limit when he set one (owner 2026-11-15: a PoB mind ran
+    out at 12 with his limit at 30), except PoP, which stays at most its lighter budget (owner 2026-11-15 'PoP a lil less'). Pure."""
+    try:
+        mine = max(0, min(60, int(owner or 0)))
+    except (TypeError, ValueError):
+        mine = 0
+    base = READ_STEPS.get(kind, default)
+    return min(mine, base) if kind == 'pop' and mine else (mine or base)
 
 
 def pop_goal(sites, angle):
