@@ -86,6 +86,43 @@ def i2v_model(model_id):
     if not m:
         raise ValueError(f"{(MODELS.get(model_id) or ['', '', '', model_id])[3]} cannot start from an image. Pick Seedance, Kling, Veo or Wan.")
     return m
+# 🎭 VIDEO → VIDEO (owner 2026-11-14: "wire the fal vid to vid"): a real clip + the folder's character. Researched 2026-11-14: OpenRouter's /videos only
+# takes a video as a loose style reference (Seedance 2.0 input_references), not a swap, so this is fal only. Schemas read from fal's own OpenAPI
+# (queue/openapi.json) the same day; prices from each model page. id → (fal endpoint, label, what it does, $ per billed second, billed by).
+V2V = {
+    'fal-wan-replace': ('fal-ai/wan/v2.2-14b/animate/replace', 'Wan 2.2 Animate · Replace',
+                        'Swaps the person in your clip for the character: same scene, camera, light and moves', 0.06, 'frames'),   # 580p: $0.06 per 16 frames
+    'fal-kling3-motion': ('fal-ai/kling-video/v3/standard/motion-control', 'Kling 3.0 Motion Control',
+                          "The character does your clip's exact moves, in the character picture's own scene", 0.126, 'seconds'),
+}
+V2V_RES = '580p'          # Wan: 480p $0.04 · 580p $0.06 · 720p $0.08 per billed second (16 frames)
+MAX_CLIP_S = 15           # a clip longer than this is refused (cost stays under ~$2 a swap)
+
+
+def v2v_cost(model_id, seconds, fps=30):
+    """The list-price estimate for one swap, from the clip's real length and frame rate. Pure."""
+    ep, _l, _w, rate, by = V2V[model_id]
+    billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else float(seconds)
+    return round(billed * rate, 2)
+
+
+def v2v_req(model_id, key, image, video, prompt=''):
+    """→ (method, url, headers, json) for one swap. `image` / `video` = data URLs or https URLs. Pure."""
+    if model_id not in V2V:
+        raise ValueError('Pick Wan Replace or Kling Motion Control.')
+    ep = V2V[model_id][0]
+    body = {'image_url': image, 'video_url': video}
+    if model_id == 'fal-wan-replace':
+        body.update(resolution=V2V_RES, video_quality='high')
+    else:
+        body.update(character_orientation='video', keep_original_sound=True, **({'prompt': prompt[:500]} if prompt else {}))
+    return 'POST', f'https://queue.fal.run/{ep}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, body
+
+
+def v2v_list(linked):
+    return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'ready': 'fal' in linked} for k, (_e, lb, why, rate, by) in V2V.items()]
+
+
 ORDER = ('fal', 'replicate', 'openrouter')
 HOUSE_DAILY_USD = 2.0   # 🔒 staff agents on FEELESS's own OpenRouter key: at most this much a day, then it refuses
 KINDS = ('image', 'video')
@@ -108,7 +145,7 @@ def catalog(linked, house=False):
     pick = {kd: next((DEFAULT[(p, kd)] for p in ORDER if _ready(p, linked, house)), None) for kd in KINDS}
     presets = [{**x, 'sample': (TESTED.get(x['model']) or (None,))[0], 'secs': (TESTED.get(x['model']) or (None, None))[1], 'usd': MODELS[x['model']][5], 'modelLabel': MODELS[x['model']][3],
                 'ready': _ready(MODELS[x['model']][0], linked, house)} for x in PRESETS]
-    return {'models': rows, 'linked': sorted(linked), 'house': bool(house), 'pick': pick, 'providers': PROVIDERS, 'presets': presets}
+    return {'models': rows, 'linked': sorted(linked), 'house': bool(house), 'pick': pick, 'providers': PROVIDERS, 'presets': presets, 'swap': v2v_list(linked), 'swapMaxS': MAX_CLIP_S}
 
 
 def choose(model_id, kind, linked, house=False):

@@ -7993,10 +7993,18 @@ async def _media_run(cat_id, ws_id, mid):
                     try:
                         ext_i = f_src.suffix.lstrip('.').lower()
                         img_du = f"data:image/{'jpeg' if ext_i in ('jpg', 'jpeg') else ext_i or 'png'};base64,{base64.b64encode(f_src.read_bytes()).decode()}"
-                        model_sub = _mg.i2v_model(md['modelId'])
+                        model_sub = md['model'] if md.get('swap') else _mg.i2v_model(md['modelId'])
                     except (OSError, ValueError) as e:
                         _media_set(cat_id, ws_id, mid, keep, status='failed', why=f'Its start image could not be used: {str(e)[:120]}'); return
-                meth, url, heads, body = _mg.submit_req(md['provider'], model_sub, md['prompt'], key, md.get('modelId'), image=img_du)
+                if md.get('swap'):   # 🎭 V2V: the clip rides as a data URL too, read fresh from disk
+                    try:
+                        f_clip = _media_dir() / cat_id / str(md['fromClip']['url']).rsplit('/', 1)[-1]; ext_c = f_clip.suffix.lstrip('.').lower()
+                        clip_du = f"data:video/{'quicktime' if ext_c == 'mov' else ext_c};base64,{base64.b64encode(f_clip.read_bytes()).decode()}"
+                        meth, url, heads, body = _mg.v2v_req(md['modelId'], key, img_du, clip_du, md.get('note') or '')
+                    except (OSError, KeyError, ValueError) as e:
+                        _media_set(cat_id, ws_id, mid, keep, status='failed', why=f'Its clip could not be used: {str(e)[:120]}'); return
+                else:
+                    meth, url, heads, body = _mg.submit_req(md['provider'], model_sub, md['prompt'], key, md.get('modelId'), image=img_du)
                 r = await h.request(meth, url, headers=heads, json=body)
                 try:
                     hd = _mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
@@ -8043,6 +8051,49 @@ async def _media_run(cat_id, ws_id, mid):
         _media_set(cat_id, ws_id, mid, None, status='failed', why=f'{type(e).__name__}: {str(e)[:120]}')
     finally:
         _MEDIA_LIVE.discard(mid)
+
+
+async def _clip_len(path):
+    """🎭 A clip's real length and frame rate (ffprobe) → (seconds, fps), or (None, None) when it cannot be read."""
+    try:
+        pr = await asyncio.create_subprocess_exec('ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate:format=duration',
+                                                  '-of', 'json', str(path), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+        out, _ = await asyncio.wait_for(pr.communicate(), 15)
+        j = json.loads(out or b'{}'); secs = float((j.get('format') or {}).get('duration') or 0)
+        num, _s, den = str(((j.get('streams') or [{}])[0]).get('r_frame_rate') or '30/1').partition('/')
+        fps = float(num) / float(den or 1) if float(den or 1) else 30.0
+        return (secs, fps) if secs > 0 else (None, None)
+    except (OSError, ValueError, asyncio.TimeoutError, ZeroDivisionError):
+        return None, None
+
+
+async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
+    """🎭 V2V: a clip already in this folder + a finished picture (the folder's character unless one is picked) → one fal.ai job. Nothing runs
+    without fal.ai linked; the list-price estimate rides on the card before it starts."""
+    mid_ = str(t_.get('swap') or '')
+    if mid_ not in _mg.V2V:
+        raise HTTPException(400, 'Pick Wan Replace or Kling Motion Control.')
+    if 'fal' not in linked:
+        raise HTTPException(400, 'Link fal.ai first: the swap runs on your own fal.ai account.')
+    cmd_ = (_media_msg(doc_, str(t_.get('clip') or '')) or {}).get('media') or {}
+    if not cmd_.get('clip') or cmd_.get('status') != 'done' or not str(cmd_.get('url') or '').startswith('/api/cats/media/'):
+        raise HTTPException(400, 'Add your clip to this folder first.')
+    img_ = str(t_.get('img') or (doc_.get('character') or {}).get('mid') or '')
+    smd_ = (_media_msg(doc_, img_) or {}).get('media') or {}
+    if smd_.get('status') != 'done' or smd_.get('kind') != 'image' or not str(smd_.get('url') or '').startswith('/api/cats/media/'):
+        raise HTTPException(400, 'Make or pick the character picture first (👤 Make him the character).')
+    if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
+        raise HTTPException(429, 'Three are already making. Wait for one to finish.')
+    ep_, label_ = _mg.V2V[mid_][:2]; usd_ = _mg.v2v_cost(mid_, cmd_.get('secs') or _mg.MAX_CLIP_S, cmd_.get('fps') or 30)
+    note_ = re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
+    jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time())
+    words_ = f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else '')
+    doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': words_, 'at': now_,
+        'media': {'id': jid, 'kind': 'video', 'provider': 'fal', 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
+                  'status': 'queued', 'at': now_, 'swap': True, 'fromImg': {'mid': img_, 'url': smd_['url']}, 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}}}]
+    _ws_save(cat_id, doc_)
+    asyncio.create_task(_media_run(cat_id, ws_id, jid))
+    return {'doc': _ws_view(cat_id, ws_id)}
 
 
 @app.get('/api/cats/media/{cat_id}/{name}')
@@ -10750,6 +10801,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
         t_ = p.tools if isinstance(p.tools, dict) else {}
         house_ = _media_house(cat)
+        if t_.get('swap'):   # 🎭 a clip in this folder + its character → one swap on the owner's own fal.ai key
+            return await _media_swap(cat_id, p.job, doc_, t_, linked, p.text)
         try:
             text_, want_model, want_kind = (_mg.fill(str(t_['preset']), p.text) if t_.get('preset') else (p.text, str(t_.get('model') or '') or None, str(t_.get('kind') or '')))
             mid_, prov_, model_, kind_ = _mg.choose(want_model, want_kind, linked, house_)
@@ -10796,6 +10849,31 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             _media_house_add(float(row_[5] or 0.5))   # booked up front at the list price, so two clicks can't both slip under the cap
         _ws_save(cat_id, doc_)
         asyncio.create_task(_media_run(cat_id, p.job, jid))
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'media_clip':   # 🎭 V2V (owner 2026-11-14 "wire the fal vid to vid"): the owner's own clip lands in the PoC folder, ready to swap a character into
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'Clips go in a PoC folder.')
+        if not (p.tools or {}).get('rights'):
+            raise HTTPException(400, 'Tick that the clip is yours, or that you have the rights to use it.')
+        try:
+            raw_, ext_ = _pplay.decode(p.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if _pplay.kind_of(ext_) != 'video':
+            raise HTTPException(400, 'Pick a video clip (MP4, MOV or WebM).')
+        jid = 'm' + uuid.uuid4().hex[:12]; f_ = _media_dir() / cat_id / f'{jid}.{ext_}'
+        f_.parent.mkdir(parents=True, exist_ok=True); f_.write_bytes(raw_)
+        secs_, fps_ = await _clip_len(f_)
+        if secs_ is None:
+            f_.unlink(missing_ok=True); raise HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
+        if secs_ > _mg.MAX_CLIP_S + 0.5:
+            f_.unlink(missing_ok=True); raise HTTPException(400, f'That clip is {secs_:.0f} s. Trim it to {_mg.MAX_CLIP_S} s or less first.')
+        name_ = str((p.tools or {}).get('name') or 'Your clip')[:60]
+        doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': name_, 'at': round(time.time()),
+            'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your clip', 'label': name_, 'prompt': name_, 'status': 'done', 'clip': True,
+                      'secs': round(secs_, 2), 'fps': round(fps_ or 30, 2), 'rights': True, 'url': f'/api/cats/media/{cat_id}/{jid}.{ext_}', 'kept': True, 'bytes': len(raw_), 'at': round(time.time())}}]
+        _ws_save(cat_id, doc_)
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'media_play':   # 🎨 POC-PLAY: a playground edit (made free in the browser) filed into the PoC folder as a NEW version; the original stays
         doc_ = _ws_load(cat_id, p.job)

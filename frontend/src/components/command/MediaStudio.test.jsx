@@ -117,3 +117,18 @@ test('📎 a reference is added by link and an image keeps the picked reference'
   expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'him on a beach', tools: { kind: 'image', model: 'fal-flux-schnell', ref: 'mref1' } });
   act(() => root.unmount());
 });
+
+test('🎭 swap into a clip: the price comes from the clip, the rights tick gates adding one, and Swap sends the clip + model', async () => {
+  const SWAP = [{ id: 'fal-wan-replace', label: 'Wan 2.2 Animate · Replace', why: 'swap', rate: 0.06, by: 'frames', ready: true }, { id: 'fal-kling3-motion', label: 'Kling 3.0 Motion Control', why: 'moves', rate: 0.126, by: 'seconds', ready: true }];
+  const work = jest.fn(async (id, b) => (b.op === 'media_models' ? { models: MODELS, linked: ['fal'], pick: { image: 'fal-flux-schnell', video: 'fal-wan22-5b' }, providers: PROV, swap: SWAP, swapMaxS: 15 } : { doc: { messages: [] } }));
+  const doc = { character: { mid: 'mc', url: '/api/cats/media/c1/mc.png' }, messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Dance trend', secs: 10, fps: 32 } }] };
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('media-swap').textContent).toContain('about $1.20');   // 10 s × 32 fps / 16 × $0.06
+  expect(q('swap-file').disabled).toBe(true);
+  await act(async () => q('swap-rights').click()); expect(q('swap-file').disabled).toBe(false);
+  await act(async () => q('swap-model-fal-kling3-motion').click()); expect(q('media-swap').textContent).toContain('about $1.26');
+  await act(async () => q('swap-go').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: '', tools: { swap: 'fal-kling3-motion', clip: 'mclip' } });
+  await act(async () => root.unmount());
+});

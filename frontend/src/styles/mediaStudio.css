@@ -70,3 +70,8 @@ body.theme-day .mst-card { background: var(--ms-tx9); border-color: var(--ms-ac1
 .mst-refadd { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .mst-refadd form { display: flex; gap: 6px; flex: 1; min-width: 0; }
 .mst-refadd .m-input { flex: 1; min-width: 0; }
+
+/* 🎭 swap into a clip (V2V) */
+.mst-swap { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--m-line); }
+.mst-rights { display: flex; align-items: center; gap: 8px; font: 600 12px var(--f-ui); color: var(--m-dim); }
+.mst-swap .m-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }

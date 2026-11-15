@@ -12,7 +12,7 @@ const PocWire = lazy(() => import('./PocWire'));   // 🧩 its own chunk: Excali
 // made on that model, its price and how long it took; one tap makes that format from the folder's own words. Below: any model, your prompt.
 // Every job's real state comes from the server (queued → in progress → done / failed), never a timer.
 const STEP_WORD = { queued: 'waiting for its turn', in_queue: 'in line at the provider', in_progress: 'making it', starting: 'starting up', processing: 'making it' };
-const PROV = { fal: 'fal.ai', replicate: 'Replicate', openrouter: 'OpenRouter' };
+const PROV = { fal: 'fal.ai', replicate: 'Replicate', openrouter: 'OpenRouter', upload: 'your clip' };
 const usd = v => (v == null ? null : `$${Number(v).toFixed(v < 0.1 ? 3 : 2)}`);
 
 export function MediaCard({ m, cat, doc, work, setDoc }) {
@@ -93,6 +93,37 @@ function Preset({ x, i, onMake, busy }) {
   </li>;
 }
 
+// 🎭 VIDEO → VIDEO (owner 2026-11-14 "wire the fal vid to vid"): your own clip + this folder's character → fal.ai swaps him in (Wan 2.2 Animate
+// Replace keeps the scene; Kling 3.0 Motion Control puts his picture's scene on your clip's moves). The price comes from the clip's real length.
+function SwapPanel({ cat, row, work, doc, setDoc, d }) {
+  const clips = (doc?.messages || []).map(m => m.media).filter(m => m && m.clip && m.status === 'done');
+  const [clip, setClip] = useState(''); const [model, setModel] = useState('fal-wan-replace'); const [rights, setRights] = useState(false);
+  const [note, setNote] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
+  const c = clips.find(x => x.id === clip) || clips[clips.length - 1]; const list = d?.swap || []; const m = list.find(x => x.id === model) || list[0];
+  const est = c && m ? (m.by === 'frames' ? Number(c.secs) * Number(c.fps || 30) / 16 : Number(c.secs)) * m.rate : null;
+  const hasChar = !!doc?.character?.mid; const ready = list.some(x => x.ready);
+  const onFile = e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setErr('');
+    if (!/^video\/(mp4|webm|quicktime)$/.test(f.type)) { setErr('Pick an MP4, MOV or WebM clip.'); return; }
+    if (f.size > 48 * 1048576) { setErr('That clip is over 48 MB. Trim it first.'); return; }
+    const r = new FileReader(); r.onload = async () => { setBusy('up'); try { const j = await work(cat.id, { op: 'media_clip', job: row.id, text: r.result, tools: { rights: true, name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) } });
+      setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (last) setClip(last.id); } catch (er) { setErr(er.message); } setBusy(''); };
+    r.onerror = () => setErr('That clip could not be read.'); r.readAsDataURL(f); };
+  const go = async () => { setBusy('go'); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: note, tools: { swap: m.id, clip: c.id } }); setDoc(j.doc); setNote(''); } catch (e) { setErr(e.message); } setBusy(''); };
+  return <div className="mst-swap" data-testid="media-swap">
+    <p className="mst-h">🎭 Swap into a clip <small>your clip + the character · your fal.ai · {d?.swapMaxS || 15} s max</small></p>
+    {!ready ? <p className="mst-note">Swaps run on fal.ai. Link fal.ai above to use them.</p> : <>
+      <label className="mst-rights"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} data-testid="swap-rights" />It is my clip, or I have the rights to use it</label>
+      <span className="mst-refadd"><label className="m-btn" aria-disabled={!rights || !!busy} data-tip={rights ? 'MP4, MOV or WebM, up to 15 s ($0 to add)' : 'Tick the rights box first'}>{busy === 'up' ? 'Adding…' : 'Add your clip'}
+        <input type="file" accept="video/mp4,video/webm,video/quicktime" hidden disabled={!rights || !!busy} onChange={onFile} data-testid="swap-file" /></label>
+        {clips.length ? <select className="m-input" value={c?.id || ''} onChange={e => setClip(e.target.value)} aria-label="Which clip" data-testid="swap-clip">{clips.map(x => <option key={x.id} value={x.id}>{x.label} · {Number(x.secs).toFixed(1)} s</option>)}</select> : null}</span>
+      <div className="m-seg" role="radiogroup" aria-label="Swap model">{list.map(x => <button key={x.id} type="button" role="radio" aria-checked={m?.id === x.id} className={m?.id === x.id ? 'active' : ''} onClick={() => setModel(x.id)} data-tip={x.why} data-testid={`swap-model-${x.id}`}>{x.label}</button>)}</div>
+      <input className="m-input" value={note} onChange={e => setNote(e.target.value)} maxLength={500} placeholder={m?.id === 'fal-kling3-motion' ? 'Optional: what the scene looks like' : 'Optional note for the card'} aria-label="Note" />
+      <span className="mst-go"><small>{!hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? 'Add a clip to swap into' : `about $${est.toFixed(2)} on your fal.ai (${m.by === 'frames' ? `$${m.rate} per 16 frames` : `$${m.rate}/s`})`}</small>
+        <button type="button" className="m-btn m-go" disabled={!!busy || !c || !hasChar || !m} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : '🎭 Swap in the character'}</button></span></>}
+    {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
+  </div>;
+}
+
 export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
   const [open, setOpen] = useState(false); const [d, setD] = useState(null); const [kind, setKind] = useState('video'); const [model, setModel] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const load = () => work(cat.id, { op: 'media_models' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message));
@@ -130,7 +161,8 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
             <button type="button" className="m-btn" onClick={() => setNoChar(v => !v)} data-tip={charOn ? 'This video is made from the words alone' : 'This video starts from his image again'} data-testid="media-nochar">{charOn ? 'Not this time' : 'Use him'}</button></p> : null}
           <div className="mst-go"><small>{(d.linked || []).length < 2 ? <>Also have the other one? <button type="button" className="fea-back-btn" onClick={() => setD({ ...d, linked: [] })}>Link it</button></> : 'Both linked'}</small>
             <button type="button" className="m-btn m-go" disabled={busy || !pick || text.trim().length < 3} onClick={make} data-testid="media-make">{busy ? 'Starting…' : `Make the ${kind}`}</button></div>
-          {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</>}
+          {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
+          <SwapPanel cat={cat} row={row} work={work} doc={doc} setDoc={setDoc} d={d} /></>}
       </section></div> : null}
   </>;
 }

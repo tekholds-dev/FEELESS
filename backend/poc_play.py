@@ -7,9 +7,9 @@ import re
 MAX_BYTES = 12 * 1024 * 1024          # a 4K PNG of a busy scene stays under this
 MAX_CLIP = 48 * 1024 * 1024           # a 60 s clip at 6 Mbps (the playground's recorder) is ~45 MB
 TEMPLATES = ('free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas', 'adset', 'wire')   # wire = the Excalidraw wireframe board (PocWire.jsx)
-_DATA = re.compile(r'^data:(?:image|video)/(png|jpeg|webp|mp4|webm)(?:;codecs=[\w.,"\'-]+)?;base64,([A-Za-z0-9+/=\s]+)$')
-_MAGIC = {'png': b'\x89PNG\r\n\x1a\n', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF', 'webm': b'\x1a\x45\xdf\xa3', 'mp4': b''}
-VIDEO = ('mp4', 'webm')
+_DATA = re.compile(r'^data:(?:image|video)/(png|jpeg|webp|mp4|webm|quicktime)(?:;codecs=[\w.,"\'-]+)?;base64,([A-Za-z0-9+/=\s]+)$')
+_MAGIC = {'png': b'\x89PNG\r\n\x1a\n', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF', 'webm': b'\x1a\x45\xdf\xa3', 'mp4': b'', 'quicktime': b''}
+VIDEO = ('mp4', 'webm', 'quicktime')
 
 
 def decode(data_url):
@@ -26,17 +26,17 @@ def decode(data_url):
         raw = base64.b64decode(re.sub(r'\s', '', m.group(2)), validate=True)
     except (ValueError, base64.binascii.Error):
         raise ValueError('The file did not come through whole. Try again.')
-    real = raw.startswith(_MAGIC[kind]) and len(raw) >= 64 and (kind != 'webp' or raw[8:12] == b'WEBP') and (kind != 'mp4' or raw[4:8] == b'ftyp')
+    real = raw.startswith(_MAGIC[kind]) and len(raw) >= 64 and (kind != 'webp' or raw[8:12] == b'WEBP') and (kind not in ('mp4', 'quicktime') or raw[4:8] == b'ftyp')
     if not real:
         raise ValueError('That is not a real clip.' if clip else 'That is not a real picture.')
     if len(raw) > cap:
         raise ValueError(big)
-    return raw, {'jpeg': 'jpg'}.get(kind, kind)
+    return raw, {'jpeg': 'jpg', 'quicktime': 'mov'}.get(kind, kind)
 
 
 def kind_of(ext):
     """'mp4' / 'webm' → 'video', a picture → 'image'."""
-    return 'video' if ext in VIDEO else 'image'
+    return 'video' if ext in VIDEO or ext == 'mov' else 'image'
 
 
 def version_label(messages, template=None):
