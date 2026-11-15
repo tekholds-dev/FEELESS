@@ -256,6 +256,8 @@ function draft(c, s) {   // PoC: the newest real words it wrote, laid out as the
 draft.ready = d => (d.talk || []).some(m => String(m.text || '').trim().length > 0);
 
 // which real-data views each proof tries, in order (only the ones whose data exists are shown)
+// 🐞 2026-11-15: the VIEW tile read a scene's function name, which the production build shortens to '$'. Names are written out here.
+export const SCENE_NAME = new Map([[price, 'Price'], [coins, 'Coins'], [talk, 'Minds talking'], [steps, 'Steps'], [meter, 'Spend'], [roe, 'Return'], [score, 'Score'], [draft, 'Draft'], [sources, 'Sources'], [ledger, 'Ledger'], [pipeline, 'Build']]);
 export const SCENES = {
   pow: [price, coins, talk, steps, meter],
   pop: [roe, price, talk, steps, meter],
@@ -297,7 +299,7 @@ export function pickLook(kind, seed) {
   return { bg: Math.floor(r() * BG.length), scene: Math.floor(r() * 5), fg: Math.floor(r() * FG.length), pal: Math.floor(r() * PALETTES.pow.length) };
 }
 export const readyScenes = (kind, data) => (SCENES[kind] || SCENES.work).filter(f => f.ready(data || {}));
-export function sceneName(kind, look, t, data) { const list = readyScenes(kind, data); return list.length ? list[(look.scene + Math.floor(t / ROTATE)) % list.length].name : ''; }
+export function sceneName(kind, look, t, data) { const list = readyScenes(kind, data); return list.length ? SCENE_NAME.get(list[(look.scene + Math.floor(t / ROTATE)) % list.length]) || '' : ''; }
 
 export function drawFrame(ctx, { w, h, t, kind, look, energy = 0, rnd, data = {}, band = null }) {
   const k = SCENES[kind] ? kind : 'work'; const p = PALETTES[k][look.pal % PALETTES[k].length];
@@ -308,11 +310,12 @@ export function drawFrame(ctx, { w, h, t, kind, look, energy = 0, rnd, data = {}
   const list = readyScenes(k, data); let name = '';
   // 🐞 2026-11-14: the view draws only in the open band between the step row and the vitals (its labels used to land under the vitals and
   // the chat line); backgrounds + foregrounds still fill the whole stage
-  const [y0, y1] = band && band[1] - band[0] >= 60 ? band : [0, h];
+  const open = !band || band[1] - band[0] >= 60;   // 🐞 2026-11-15: no room between the panels → no scene, never one drawn under them
+  const [y0, y1] = band && open ? band : [0, h];
   ctx.save(); if (y0 > 0 || y1 < h) { ctx.translate(0, y0); ctx.beginPath(); ctx.rect(0, 0, w, y1 - y0); ctx.clip(); s.h = y1 - y0; }
-  if (list.length) { const step = Math.floor(t / ROTATE); const into = (t % ROTATE) / ROTATE; const cur = list[(look.scene + step) % list.length];
+  if (list.length && open) { const step = Math.floor(t / ROTATE); const into = (t % ROTATE) / ROTATE; const cur = list[(look.scene + step) % list.length];
     if (into < 0.04 && step > 0 && list.length > 1) { ctx.globalAlpha = 1 - into / 0.04; list[(look.scene + step - 1) % list.length](ctx, s); ctx.globalAlpha = into / 0.04; }
-    cur(ctx, s); ctx.globalAlpha = 1; name = cur.name; }
+    cur(ctx, s); ctx.globalAlpha = 1; name = SCENE_NAME.get(cur) || ''; }
   ctx.restore(); s.h = h;
   FG[look.fg % FG.length](ctx, s);
   return { scene: name, bg: BG[look.bg % BG.length].name, fg: FG[look.fg % FG.length].name };

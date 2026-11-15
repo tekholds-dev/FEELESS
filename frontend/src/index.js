@@ -54,6 +54,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/RewardsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)
   import('./dev/HqHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/stage') {   // 🧪 the live proof stage, PoB and PoW, on fixtures (src/dev/StageHarness.jsx)
+  import('./dev/StageHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/bids') {   // 🧪 the Bids desk's game rooms on the live public board (src/dev/BidsHarness.jsx)
   import('./dev/BidsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/gas') {   // 🧪 the fuel station gauges on fixtures

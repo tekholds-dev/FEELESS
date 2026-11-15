@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProofLive, { proofOf, proofsOf, subject } from './ProofLive';
-import { SCENES, readyScenes, pickLook } from '../../lib/proofFx';
+import { SCENES, SCENE_NAME, readyScenes, pickLook, drawFrame } from '../../lib/proofFx';
 
 jest.mock('../../lib/candles', () => { const calls = []; return { calls, fetchFeelessCandles: (...a) => { calls.push(a); return Promise.resolve({ candles: [[1, 1, 1.2, 0.9, 1.1, 5], [2, 1.1, 1.3, 1, 1.25, 7], [3, 1.25, 1.4, 1.2, 1.3, 9]] }); } }; });
 
@@ -44,4 +44,13 @@ test('the desk picker lists every running proof (server list first) and each sta
   expect(proofsOf(null, true)).toEqual([]);
   const d = { powFolder: { sym: 'BONK' }, pobRun: { topic: 'NBA tonight' } };
   expect(subject('pob', d)).toBe('NBA tonight'); expect(subject('pow', d)).toBe('$BONK');
+});
+
+// 🐞 owner 2026-11-15 screenshot: VIEW read '$' (a minified function name) and a PoB's transcript drew under the mind boxes.
+test('every scene has a written name, and no scene draws when the panels leave no open band', () => {
+  Object.values(SCENES).flat().forEach(f => expect(SCENE_NAME.get(f)).toMatch(/^[A-Z][a-z ]+$/));
+  const calls = []; const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...a) => { calls.push(k); return { addColorStop() {} }; }), set: (o, k, v) => { o[k] = v; return true; } });
+  const look = pickLook('pob', 'r'); const data = { talk: [{ mind: 0, text: 'hi' }] };
+  expect(drawFrame(ctx, { w: 700, h: 470, t: 1, kind: 'pob', look, data, band: [60, 300] }).scene).toBe('Minds talking');
+  expect(drawFrame(ctx, { w: 700, h: 470, t: 1, kind: 'pob', look, data, band: [60, 80] }).scene).toBe('');   // too tight: nothing drawn under the panels
 });
