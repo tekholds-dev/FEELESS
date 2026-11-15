@@ -85,7 +85,7 @@ export default function CatHarness() {
   const t0 = Date.now() / 1000;
   const g = brainy ? { ...cat, status: 'running', brainsCfg: { kind: 'trading', brains: ['nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3-ultra-550b-a55b:free'], brainMode: 'turns', credit: 9.2,
     decisions: [{ by: 'nemotron-3.5-super-vl', word: 'BUY', sym: 'HUSS', why: '+4,459% 24h, volume still building', at: t0 - 300 }, { by: 'nemotron-3-ultra-550b-a55b', word: 'WAIT', sym: 'HUSS', why: 'momentum fading on the 5m', at: t0 - 280 }],
-    chime: [{ text: 'small buys only', at: t0 - 200 }], cloud: [] } } : gen ? { ...cat, brainsCfg: { kind: 'general', brains: ['openai/gpt-oss-20b'], brainMode: 'turns', credit: 9.2, asks: 3, spent: 0.8, owed: 0, billing: 'profit', prompt: 'small buys only', decisions: [], chime: [] },
+    chime: [{ text: 'small buys only', at: t0 - 200 }], cloud: [] } } : gen ? { ...cat, orCredit: { left: 11.33, keyUsed: 0.42 }, brainsCfg: { kind: 'general', brains: ['openai/gpt-oss-20b'], brainMode: 'turns', credit: 9.2, asks: 3, spent: 0.8, owed: 0, billing: 'profit', prompt: 'small buys only', decisions: [], chime: [] },
     orders: [{ at: now - 900, text: 'buy 1 SOL of $RUG', order: { side: 'buy', coin: 'RUG', sol: 1 }, state: 'refused', why: '💧 pool $3,000 — under the $5,000 floor (you could not get out)' },
       { at: now - 400, text: 'sell half of $GERM', order: { side: 'sell', coin: 'GERM', fraction: 0.5 }, state: 'filled', why: '📄 paper: sold 50% at the live price' },
       { at: now - 60, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — guards passed, waiting for your wallet\'s signature' }] } : cat;

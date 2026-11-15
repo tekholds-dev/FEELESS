@@ -1296,7 +1296,7 @@ function WalletApp({ cat, compact = false, onBrowse = null }) {
     </form> : <p className="dsk-note">Only a wallet Circle signs for this agent can swap.</p>) : null}
     {pane === 'swap' && (w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
     {pane === 'topup' ? <div className="wal2-topup" data-testid="wal2-topup"><p>Send SOL or USDC on Solana to this address. Only send from a wallet you control.</p><code className="dsk-wal-addr">{w.address}</code><button type="button" className="m-btn m-go" onClick={copy} data-testid="wal2-copy-full">Copy the address</button></div> : null}
-    {pane === 'spend' ? <><p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} left. Its own USDC pays each call, listed below.</p>
+    {pane === 'spend' ? <><p className="dsk-note" data-testid="dsk-wallet-model-budget">{cat.orCredit?.left != null ? <>It thinks on your OpenRouter key: <b className="m-num">${Number(cat.orCredit.left).toFixed(2)}</b> left there (shared by every agent you own). </> : <>Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} left. </>}Its own USDC pays each call, listed below.</p>
       <div className="dsk-receipts" data-testid="dsk-model-receipts"><b>What each call cost</b>{(w.modelReceipts || []).length ? <ul>{w.modelReceipts.map(r => <li key={r.id}><strong>${Number(r.usd).toFixed(4)}</strong> · {String(r.model || '').split('/').pop()} <small>{r.tokens == null ? 'tokens unreported' : `${r.tokens} tokens`} · {ago(r.at)} ago · {r.status}</small></li>)}</ul> : <small>No model charges recorded yet.</small>}</div></> : null}
     {pane === 'card' ? <CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /> : null}
     {msg ? <small className="dsk-wal-msg" role="status">{msg}</small> : null}
@@ -1639,6 +1639,7 @@ function WorkbenchLive({ cat }) {
     const shown = [{ ...ws[0], slot: at }, { i: -1, slot: at ? 0 : 1, model: other, status: 'idle', bubble: '', steps: [] }];
     return at ? shown.reverse() : shown;
   }, [d?.windows, brains_.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const orLeft = cat?.orCredit?.left != null ? Number(cat.orCredit.left) : null;   // 💳 owner 2026-11-14 'main desk show the 11.33 i have on open router': it thinks on that key, so that is the money it has
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
   const [chatLook, setChatLook] = useChatStyle(cat.id);
   const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [flip, setFlip] = useState(false); const [desk, setDesk] = useState(false); const [old, setOld] = useState(false);
@@ -1666,7 +1667,8 @@ function WorkbenchLive({ cat }) {
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
       <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Desktop<SetupDot id={cat.id} left={d?.setup?.left ?? null} /></button>
       <span className="cwb-meters">
-        <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
+        {orLeft != null ? <span data-tip="Your OpenRouter balance, read live from the key it thinks on (shared by every agent you own). Refreshes every minute. Top up at openrouter.ai" data-testid="cwb-or-left"><em>OPENROUTER</em><b className="m-num">{usd(orLeft)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, orLeft / 20)})` }} /></u></span>
+          : <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>}
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />

@@ -748,3 +748,15 @@ test('🔑 a refused key seal shows on its own row, not below the whole drawer',
   expect(err.closest('li').querySelector('[data-testid="akd-kalshi-0"]')).not.toBeNull();   // same row as the Kalshi boxes
   act(() => root.unmount()); el.remove();
 });
+
+test('💳 an agent that thinks on your OpenRouter key shows that balance, not FEELESS model credit', async () => {
+  const calls = [];
+  global.fetch = async (u, o) => { calls.push(JSON.parse(o.body)); return { ok: true, json: async () => STATE }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', orCredit: { left: 11.33, keyUsed: 0.4 }, brainsCfg: { kind: 'general', brains: ['m/a'], credit: 5.55 } }} />); });
+  const chip = el.querySelector('[data-testid="cwb-or-left"]');
+  expect(chip.textContent).toContain('OPENROUTER'); expect(chip.textContent).toContain('11.33');
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a'], credit: 5.55 } }} />); });
+  expect(el.querySelector('[data-testid="cwb-or-left"]')).toBeNull(); expect(el.textContent).toContain('CREDIT');   // no key of its own or shared: the old credit
+  await act(async () => { root.unmount(); }); el.remove();
+});
