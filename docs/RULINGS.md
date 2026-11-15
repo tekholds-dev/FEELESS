@@ -10,6 +10,10 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-15
+- **Butter, not a floor** (owner: "forget what i said about the site needs to be minimum of 25fps, just make the site butter and do what u do best to assure no lag at all anywhere, no dead code or bugs either"): the 25 fps floor is gone. The governor steps effects down under 40 fps and back up at 55+ (`lib/perfWatch.js` SMOOTH_FPS / BACK_FPS); HQ › Lag catcher meters show pages against that line.
+- **51367 = the production build** (owner: "still mad lag everywhere … make this project professional"): `scripts/serve-fast.sh`; live-reload dev is 51366.
+
 ## 2026-11-14
 - **Research today before answering** (owner: "always do today research on ur responses like intrnet search, cause im sure u be missing stuff on today's time"): any answer about models, prices, products, APIs or what is "new" gets a web search first (training data is stale); say what the search found and link it.
 - **One OpenRouter key runs all the owner's agents** (owner: "all my agents i own should follow the same openrouter key!, feecat and happy especially, ossy and g4 are free local models of course so they need a seperate key"). An owner agent (`ownerStaff`) with no OpenRouter key of its own uses the newest one saved on any owner agent (`cat_keys.OWNER_DONOR`); its drawer says whose. A key saved on the agent itself still wins. Local brains (OSSY, G4 on LM Studio) never use it. Agents users launch never borrow it.

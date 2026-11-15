@@ -22,20 +22,20 @@ export function LagAdvice({ a }) {
 }
 
 // 🎮 One meter per page (owner 2026-11-15 "do the lag catcher proposal"): the bar is the page's average fps from real visitors on a 0–60
-// scale, the tick is its worst report, the line is the 25 fps floor; the note says how often it fell under and had to step its effects down.
-export const FLOOR = 25; const TOP = 60;
+// scale, the tick is its worst report, the line is smooth (40 fps, where the governor steps effects down); the note says how often it ran rough and stepped down.
+export const SMOOTH = 40; const TOP = 60;
 const pct = f => `${Math.max(0, Math.min(100, (f / TOP) * 100)).toFixed(1)}%`;
 export function FpsMeters({ pages }) {
   const rows = (pages || []).filter(p => p.fps != null).sort((a, b) => a.fps - b.fps).slice(0, 12);
   if (!rows.length) return <p className="cc-empty">{pages?.length ? 'No fps samples yet (a browser reports every minute).' : 'No samples yet.'}</p>;
-  return <ul className="fpm" data-testid="fps-meters" style={{ '--floor': pct(FLOOR) }}>{rows.map(p => {
-    const tone = p.fps < FLOOR ? 'bad' : p.fps < 40 ? 'warn' : 'ok';
+  return <ul className="fpm" data-testid="fps-meters" style={{ '--floor': pct(SMOOTH) }}>{rows.map(p => {
+    const tone = p.fps < 25 ? 'bad' : p.fps < SMOOTH ? 'warn' : 'ok';
     return <li key={p.page} className={`fpm-row t-${tone}`}>
       <code title={p.page}>{p.page}</code>
       <span className="fpm-bar" role="meter" aria-valuemin={0} aria-valuemax={TOP} aria-valuenow={p.fps} aria-label={`${p.page} ${p.fps} fps`}>
         <i className="fpm-fill" style={{ width: pct(p.fps) }} />{p.fpsLow != null && <i className="fpm-low" style={{ left: pct(p.fpsLow) }} />}<i className="fpm-floor" /></span>
       <b>{p.fps}<small> fps</small></b>
-      <small className="fpm-note">{p.underFloor ? `${p.underFloor}/${p.reports} under 25` : `${p.reports} report${p.reports === 1 ? '' : 's'}`}{p.stepped ? ` · stepped down ${p.stepped}×` : ''}{p.jankMsPerReport >= 400 ? ` · ${p.jankMsPerReport}ms jank` : ''}</small>
+      <small className="fpm-note">{p.underSmooth ? `${p.underSmooth}/${p.reports} rough` : `${p.reports} report${p.reports === 1 ? '' : 's'}`}{p.stepped ? ` · stepped down ${p.stepped}×` : ''}{p.jankMsPerReport >= 400 ? ` · ${p.jankMsPerReport}ms jank` : ''}</small>
     </li>; })}</ul>;
 }
 
@@ -61,7 +61,7 @@ export function LagCatcher({ call }) {
     <div className="lag-grid">
       <div className="cc-block"><h4>Fix list</h4>{!d?.fixes?.length ? <p className="cc-empty">Nothing lagging. 🟢</p> : d.fixes.map((f, i) => <div key={i} className={`lag-fix t-${f.level}`}><b>{f.what}</b><span>{f.fix}</span></div>)}</div>
       <div className="cc-block"><h4>Slowest API routes</h4>{!d?.routes?.length ? <p className="cc-empty">No samples yet.</p> : d.routes.slice(0, 10).map(r => <div key={r.route} className="lag-row"><code>{r.route}</code><small>{r.calls}×</small><b className={r.p95 >= 2500 ? 'bad' : r.p95 >= 1200 ? 'warn' : ''}>{r.p50} / {r.p95}ms</b></div>)}</div>
-      <div className="cc-block"><h4>Pages vs the 25 fps floor</h4><FpsMeters pages={d?.pages} /></div>
+      <div className="cc-block"><h4>Pages · how smooth</h4><FpsMeters pages={d?.pages} /></div>
       {/* 🧱 E12: the page watcher's findings from real visitors — a page that scrolls sideways, an element spilling out, a control under another layer */}
       <div className="cc-block" data-testid="lag-layout"><h4>Layout watch</h4>{(() => { const bad = (d?.pages || []).filter(p => p.sideways || p.spills?.length || p.covered?.length);
         return !bad.length ? <p className="cc-empty">{d?.pages?.length ? 'No page spills, overlaps or scrolls sideways. 🟢' : 'No samples yet.'}</p>

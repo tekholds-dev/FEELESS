@@ -38,9 +38,9 @@ export const BIG_PX = 150000;
 export const isCalm = () => document.body.classList.contains('fx-lite') || !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 const mine = new WeakSet();
 // 🎮 GAME RULES (owner 2026-11-14: "just like a game, shit should load when a user is there … stop peoples phone and pc from burning up … while
-// still keeping all live animations", "no less than 25 fps"): (1) AWAY — no touch, key, wheel or pointer for AWAY_MS → every endless animation
+// still keeping all live animations", "make the site butter", 2026-11-15): (1) AWAY — no touch, key, wheel or pointer for AWAY_MS → every endless animation
 // rests; the first input brings them all back. (2) LAYERS — an animated SVG part can't move on the GPU, so each one repainted the page under it:
-// its outer <svg> gets its own layer once (capped), so a blinking panther repaints 60 px, not the page. (3) PRESSURE (< 25 fps) also rests the
+// its outer <svg> gets its own layer once (capped), so a blinking panther repaints 60 px, not the page. (3) PRESSURE (rough frames) also rests the
 // SVG-part animations, the ones that still cost paint.
 export const AWAY_MS = 90000;
 const LAYER_CAP = 80;
@@ -56,7 +56,7 @@ const svgRoot = t => (typeof SVGElement !== 'undefined' && t instanceof SVGEleme
 let pressure = 0; let holds = 0;   // `holds`: a surface doing heavy work for the user right now (the Brain while the model answers) asks the big layers to rest
 export const fxPressure = () => (pressure || holds ? 1 : 0);
 // 🎮 quality level like a game's dynamic settings: 0 full · 1 big layers + SVG parts + background video rest · 2 every endless effect bigger
-// than a live dot rests too (only when level 1 still sat under 25 fps). The lag catcher steps it up and back down.
+// than a live dot rests too (only when level 1 still ran rough). The lag catcher steps it up and back down.
 export const fxLevel = () => Math.max(pressure, holds ? 1 : 0);
 export const fxStats = { running: 0, paused: 0, shed: 0, at: 0 };
 

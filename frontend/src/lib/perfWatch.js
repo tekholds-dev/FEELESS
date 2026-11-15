@@ -52,13 +52,13 @@ export function layoutIssues(doc = document, win = window) {
   return out.sideways || out.spills.length || out.covered.length ? out : null;
 }
 
-// 🎮 Quality like a game (owner 2026-11-14 "no less than 25 fps"): a 1 s frame count every 5 s while visible and someone is here. Two samples
-// under FLOOR_FPS in a row → one quality level down at once (was: two bad MINUTES; level 2 if level 1 wasn't enough); six samples (30 s) at
-// 45+ → one level back up. The slow way back keeps it from flapping.
-export const FLOOR_FPS = 25;
+// 🎮 Quality like a game (owner 2026-11-15 "forget … minimum of 25fps, just make the site butter"): a 1 s frame count every 5 s while visible
+// and someone is here. Two samples under SMOOTH_FPS in a row → one quality level down at once (level 2 if level 1 wasn't enough); six samples
+// (30 s) at BACK_FPS+ → one level back up. The slow way back keeps it from flapping.
+export const SMOOTH_FPS = 40; export const BACK_FPS = 55;
 export function judge(recent, level) {
-  if (recent.length >= 2 && recent.slice(-2).every(f => f < FLOOR_FPS)) return Math.min(2, level + 1);
-  if (level > 0 && recent.length >= 6 && recent.slice(-6).every(f => f >= 45)) return level - 1;
+  if (recent.length >= 2 && recent.slice(-2).every(f => f < SMOOTH_FPS)) return Math.min(2, level + 1);
+  if (level > 0 && recent.length >= 6 && recent.slice(-6).every(f => f >= BACK_FPS)) return level - 1;
   return level;
 }
 function sampleFps() {

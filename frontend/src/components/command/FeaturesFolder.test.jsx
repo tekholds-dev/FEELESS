@@ -533,6 +533,7 @@ test('🧪 Model Lab opens on Grow, Build asks for the owner, and its Data tab s
   const { ModelLab } = require('./ModelLab'); localStorage.removeItem('feeless.modelLab.tab2');
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab />); });
+  await act(async () => { el.querySelector('[data-testid="cpd-workshop"]').click(); });   // 🛰 the folder opens on the flight deck; the workshop is one click
   expect(el.querySelector('[data-testid="comp-grow"]')).not.toBeNull();
   await act(async () => { el.querySelector('[data-testid="mlb-tab-build"]').click(); });
   expect(el.textContent).toContain('Sign in as the owner to build a model');
@@ -552,6 +553,7 @@ test('🧪 Model Lab live: the dataset per proof type, the owner grades an open 
   const call = jest.fn(async (path, opts) => { sent.push([path, opts?.body && JSON.parse(opts.body)]); if (path.endsWith('/grade')) { graded = 1; return view(1); } if (path.endsWith('/export')) return { rows: [{ kind: 'PoB' }, { kind: 'PoW' }], count: 2 }; return view(graded); });
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
+  await act(async () => { el.querySelector('[data-testid="cpd-workshop"]').click(); });   // 🛰 the folder opens on the flight deck; the workshop is one click
   expect(el.querySelector('[data-testid="mlb-kind-PoB"]').textContent).toContain('31 right-vs-wrong pairs');   // min(40 right, 31 wrong)
   expect(el.querySelector('[data-testid="mlb-kind-Duels"]').textContent).toContain('pairs you judged');   // ⚔ AGX-4: the owner's duel picks are pairs too
   expect(el.querySelectorAll('.mlb-steps li.is-have').length).toBe(4); expect(el.querySelector('[data-testid="mlb-mind-hy4"]').textContent).toContain('5% failed');
@@ -641,6 +643,7 @@ test('🧠 COMPAI: the header name is the model, Build trains its next version f
   });
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
+  await act(async () => { el.querySelector('[data-testid="cpd-workshop"]').click(); });   // 🛰 the folder opens on the flight deck; the workshop is one click
   await act(async () => { jest.advanceTimersByTime(300); });
   expect(el.querySelector('[data-testid="mlb-name"]').value).toBe('COMP Flagship'); expect(el.textContent).toContain('COMPAI');
   expect(el.querySelector('[data-testid="mlf-build"]').textContent).toContain('Train COMP Flagship v1.02');
@@ -675,6 +678,7 @@ test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where 
   const call = jest.fn(async (path, opts) => { sent.push([path, opts?.body && JSON.parse(opts.body)]); if (path.endsWith('/forge/family')) return { name: 'COMP Flagship' }; if (path.includes('/comp2')) return st; return {}; });
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
+  await act(async () => { el.querySelector('[data-testid="cpd-workshop"]').click(); });   // 🛰 the folder opens on the flight deck; the workshop is one click
   const mc = el.querySelector('[data-testid="mc2"]');
   expect(mc.textContent).toContain('Qwen3.5-9B'); expect(mc.textContent).toContain('99');
   expect(el.querySelector('[data-testid="mc2-live"]').className).toContain('is-idle'); expect(el.querySelector('[data-testid="mc2-live"]').textContent).toContain('150 / 150 iters');
