@@ -6,6 +6,7 @@ import { Ic3, Ic3Text, IconLook } from '../../lib/icon3d';
 import { FolderArt } from '../../lib/folderArt';
 import '../../styles/deskShell.css';
 import { apiUrl } from '../../lib/api';
+import { fxFrameMs } from '../../lib/fxPause';
 import { agentAuthQuery } from '../../lib/chatSession';
 
 // 🖥 ONE DESKTOP SHELL (owner 2026-11-04: "the same as the general agent gets"): every agent's desktop and the owner's two are built from these pieces.
@@ -241,13 +242,14 @@ export function ShaderWall({ mood = 'agent', className = '', frozen = false, sty
     const uT = U('t'); const uR = U('r'); let raf = 0; let last = 0; let seen = true;
     const size = () => { const w = Math.max(64, Math.round(cv.clientWidth / 3)); const h = Math.max(64, Math.round(cv.clientHeight / 3)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } gl.viewport(0, 0, w, h); gl.uniform2f(uR, w, h); };   // set every frame: a second run on the same canvas has a new program with no size yet
     const draw = now => { size(); gl.uniform1f(uT, now / 1000 + 40); gl.drawArrays(gl.TRIANGLES, 0, 3); };
-    const tick = now => { raf = 0; if (document.hidden || !seen) return; if (now - last >= 41) { last = now; draw(now); } if (!still() && !frozen) raf = requestAnimationFrame(tick); };
-    const go = () => { if (!raf && !document.hidden && seen) raf = requestAnimationFrame(tick); };
+    // 🧈 the wall keeps the game budget too: rests while nobody is here, 24 fps at most, slower when the page struggles (owner 2026-11-15 "clean butter browsing")
+    const tick = now => { raf = 0; const budget = fxFrameMs(); if (document.hidden || !seen || !budget) return; if (now - last >= Math.max(41, budget)) { last = now; draw(now); } if (!still() && !frozen) raf = requestAnimationFrame(tick); };
+    const go = () => { if (!raf && !document.hidden && seen && fxFrameMs()) raf = requestAnimationFrame(tick); };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(es => { seen = es[0].isIntersecting; go(); }) : null; io?.observe(cv);
     const lost = () => { cv.style.opacity = '0'; };   // the browser took the context back: the gradient under it stays
     cv.addEventListener('webglcontextlost', lost);
-    cv.style.opacity = '1'; draw(0); go(); document.addEventListener('visibilitychange', go);
-    return () => { cancelAnimationFrame(raf); io?.disconnect(); document.removeEventListener('visibilitychange', go); cv.removeEventListener('webglcontextlost', lost); };
+    cv.style.opacity = '1'; draw(0); go(); document.addEventListener('visibilitychange', go); window.addEventListener('fxchange', go);
+    return () => { cancelAnimationFrame(raf); io?.disconnect(); document.removeEventListener('visibilitychange', go); window.removeEventListener('fxchange', go); cv.removeEventListener('webglcontextlost', lost); };
   }, [mood, frozen]);
   return <canvas ref={ref} className={`dsw ${className}`.trim()} style={style} aria-hidden="true" data-mood={mood} />;
 }

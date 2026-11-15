@@ -94,7 +94,7 @@ body.is-duo-land .terminal-header { min-height: 48px; padding-top: 3px; padding-
 body.is-duo-land .context-bar { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
 body.is-duo-land .context-bar :is(.context-indicator, .context-clock) { display: none; }
 body.is-duo:not(.is-duo-land) :is(.season-banner, .workspace-topline) { display: none !important; }
-body.is-duo-land:has(.fwd-place) .feecat-widget { display: none; }   /* the FeeCat bubble sat on the open room (the perps ticket) */
+body.is-duo-land.has-fwd-place .feecat-widget { display: none; }   /* the FeeCat bubble sat on the open room (the perps ticket) */
 /* 📱📱 THE OTHER TABS ON A WIDE DUO (owner 2026-10-28: "finish Duo features in the other tabs") — each split on the crease, both halves live:
    FEECAT  her stage + chart view on the left · the side panel (calls / lives / trades) pinned on the right, scrolling on its own
    LAUNCH  the coin form on the left · the live launch floor (HUD + tape) pinned on the right — watch launches while you fill yours in

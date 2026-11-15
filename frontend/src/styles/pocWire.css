@@ -8,6 +8,6 @@
 .pwr-stage { position: relative; flex: 1 1 auto; min-height: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--ppwr-bd1); }
 .pwr-wait { display: grid; place-items: center; height: 100%; margin: 0; font: 600 12px var(--f-mono, monospace); color: var(--ppwr-tx2); }
 /* above the agent desk / HQ windows (4000-5300), like the playground; Excalidraw's own dialogs (export, help) portal to <body> and sit above the board */
-body:has(.pwr) .excalidraw-modal-container { z-index: 9100; }
+body.has-pwr .excalidraw-modal-container { z-index: 9100; }
 @keyframes pwrIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 body.fx-lite .pwr { animation: none; } @media (prefers-reduced-motion: reduce) { .pwr { animation: none; } }

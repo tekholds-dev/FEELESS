@@ -318,7 +318,7 @@ body.theme-day .fd-compose textarea::placeholder { color: var(--fee-mu2); } body
 .fd-page-wait { padding: 60px 0; text-align: center; color: var(--fee-mu1); font: 700 11px var(--f-mono, monospace); letter-spacing: .1em; }
 @media (max-width: 640px) { .fd-page { padding: 0 0 90px; } }
 /* 📰 FEEd is the whole page (owner 2026-11-11): on /terminal/feed the terminal's sidebar, context bar and breadcrumb step aside; FEEd's own nav is the left column (X pattern) */
-.terminal-app:has(.terminal-main.page-feed) > .context-bar, .terminal-body:has(> .terminal-main.page-feed) > .terminal-sidebar, .terminal-main.page-feed > .workspace-topline { display: none; }
+body.has-page-feed .terminal-app > .context-bar, body.has-page-feed .terminal-body > .terminal-sidebar, .terminal-main.page-feed > .workspace-topline { display: none; }
 .terminal-main.page-feed { padding: 0 12px; max-width: 1320px; }
 /* 🔴 LIVE NOW story rings: the ring turns while they post (transform only), entrance stagger via --i */
 .fd-live-now { display: grid; gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--fd-line, var(--fee-tx7)); }

@@ -22,6 +22,6 @@
 @keyframes ftIn { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
 body.fx-lite .ft-dot i::after, body.fx-lite .ft-card, body.fx-lite .ft-skip { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ft-dot i::after, .ft-card, .ft-skip { animation: none; } .ft-skip, .ft-bar u { transition: none; } }
-body:has(.legal-consent) :is(.ft-spot, .ft-skip) { display: none; }   /* the terms come first; tips start after */
+body.has-legal-consent :is(.ft-spot, .ft-skip) { display: none; }   /* the terms come first; tips start after */
 body.theme-day .ft-card, body.theme-day .ft-skip { background: var(--firstt-tx5); color: var(--firstt-ac7); } body.theme-day .ft-card small { color: var(--firstt-s21); } body.theme-day .ft-bar { background: var(--firstt-bg7); } body.theme-day .ft-card .ft-skipall { color: var(--firstt-bg8); } body.theme-day .ft-card b { color: var(--firstt-ac7); }
 @media (max-width: 640px) { .ft-skip { left: 12px; bottom: 76px; } }

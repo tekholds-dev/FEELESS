@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { syncBodyFlags } from './bodyFlags';
 // Off-screen FX pause: the Arena had ~400 animations running at once and 4 in 5 were on cards nobody could see.
 // ONE IntersectionObserver marks animated surfaces that are off-screen with `fx-off` (CSS pauses every animation inside);
 // they resume the moment they scroll back in. One MutationObserver (batched per frame) picks up cards as they mount.
@@ -17,10 +18,10 @@ export function startFxPause(root = document.body) {
   const mo = new MutationObserver(() => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => { queued = false; scan(); });
+    requestAnimationFrame(() => { queued = false; scan(); syncBodyFlags(); });
   });
   mo.observe(root, { childList: true, subtree: true });
-  scan();
+  scan(); syncBodyFlags();
   const stopGov = startGovernor();
   return () => { io.disconnect(); mo.disconnect(); stopGov(); started = false; };
 }
