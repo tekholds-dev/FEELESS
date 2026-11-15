@@ -60,6 +60,8 @@ import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 import { twoTap } from '../ActBtn';
+const deskOver = () => document.body.classList.contains('dsk-open');
+const mergeIf = (x, patch) => (Object.keys(patch).every(k => patch[k] === x?.[k] || JSON.stringify(patch[k]) === JSON.stringify(x?.[k])) ? x : { ...x, ...patch });   // ⚡ a poll that changed nothing keeps the same state: no desk-wide re-render   // ⚡ an agent desktop covers the page: what is under it stops polling
 // ⏹ which running proofs the desk picker can stop (two taps). PoB and PoC end by themselves: a PoB waits on its games, and its real Kalshi order lives on Kalshi.
 const STOPPABLE = {
   pow: { op: ['ask', { text: 'stop PoW' }], sure: 'Stop this PoW? If it bought, it sells at the live price.', tip: 'Stop it (two taps). If it bought, it sells at the live price' },
@@ -725,7 +727,7 @@ function VisitorProofs({ catId, seen }) {
 function PublicMinds({ cat }) {
   const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
   const [d, setD] = useState(null); const [tick, setTick] = useState(0);
-  useEffect(() => { if (!seen) return undefined; let on = true; const go = first => { if (document.hidden && first !== true) return; setTick(t => t + 1); Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
+  useEffect(() => { if (!seen) return undefined; let on = true; const go = first => { if ((document.hidden || deskOver()) && first !== true) return; setTick(t => t + 1); Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
     go(true); const t = setInterval(go, 4000); return () => { on = false; clearInterval(t); }; }, [cat.id, seen]);
   const brains = cat.brainsCfg?.brains || [];
   const wins = d?.windows?.length ? d.windows : brains.slice(0, 2).map((m, i) => ({ i, model: String(m).split('/').pop(), status: 'idle', host: '', steps: 0 }));
@@ -1097,7 +1099,7 @@ function PotSend({ cat }) {
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function PopApp({ cat, d, setD, focus = null }) {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; return j; }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popRead: j.popRead, popFolders: j.popFolders ?? x?.popFolders, popPoi: j.popPoi ?? x?.popPoi }))).catch(() => {}); };
+  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; return j; }).then(j => on && setD?.(x => mergeIf(x, { popFolder: j.popFolder, popCard: j.popCard, popRead: j.popRead, popFolders: j.popFolders ?? x?.popFolders, popPoi: j.popPoi ?? x?.popPoi }))).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const [asking, setAsking] = useState(null);   // the minds take about 15 s: the desk says so until a new card, trade or filed row arrives
   const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
@@ -1226,7 +1228,7 @@ function BidsApp({ cat, d, setD, children, focus = null }) {
   const want = useRef(null); useEffect(() => { if (focus?.id) { want.current = focus.id; setPath('pob'); setOpen(focus.id); } }, [focus?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!want.current || path !== 'pob' || open !== want.current) return undefined; const t = setTimeout(() => { const el = box.current?.querySelector('.dsk-pull'); if (el && el.getBoundingClientRect().height > 40) { want.current = null; box.current.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); } }, 60); return () => clearTimeout(t); });   // runs after each render until the file has drawn
   const [err, setErr] = useState('');
-  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; if (on) setD?.(x => ({ ...x, pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders ?? x?.pobFolders })); }).catch(() => {}); };
+  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; if (on) setD?.(x => mergeIf(x, { pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders ?? x?.pobFolders })); }).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const busy = !!d?.pobRead || !!d?.pobRun;
   const [ask, setAsk] = useState('');
@@ -1410,7 +1412,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const foregroundOpen = Object.values(w).some(x => x?.open && !x.min);
   const printLines = useMemo(() => linesOf(printOf(proofRows(d))), [d]);
   return createPortal(<IconLook.Provider value><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
-    {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
+    {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     <DeskCount d={pool} onOpen={() => openWin('boost')} />
     <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />
@@ -1611,7 +1613,9 @@ function WorkbenchLive({ cat }) {
   const [to, setTo] = useState('both');   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const [down, setDown] = useState(false);
   const verRef = useRef(null);   // ⚡ the filed PoW folders (~90 KB) come only when they changed (measured: 126 KB every 1.5 s was the lag)
+  const same = useRef(''); const seenRef = useRef(true);   // ⚡ LAG (owner 2026-11-14 'all agents ish is laggy'): a poll that brings the same state never re-renders the workbench
   const load = useCallback(() => work(cat.id, { op: 'state', ver: verRef.current }).then(x => { if (x.powVer) verRef.current = x.powVer;
+    const sig = JSON.stringify(x); if (sig === same.current) { setErr(''); setDown(false); return; } same.current = sig;
     setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, poi: x.poi ?? o?.poi, kernel: x.kernel ?? o?.kernel, popFolders: x.popFolders ?? o?.popFolders })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
   const live = !down && (LIVE_STATES.includes(status) || status === 'human' || !!d?.powFolder || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // a running PoW folder is live too — its chat lines arrive every 1.5 s   // the service down = never a stale "Working"
@@ -1619,7 +1623,7 @@ function WorkbenchLive({ cat }) {
   useEffect(() => () => window.dispatchEvent(new CustomEvent('feeless:agent-live', { detail: { id: cat.id, live: false } })), [cat.id]);
   useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { const t = setInterval(() => { if (!document.hidden) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden && seenRef.current && !deskOver()) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);   // the desktop over the page, or scrolled away: it waits
   const act = async (op, extra = {}) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op, ...extra }); setD(x => ({ ...x, ...r })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const [aiCur, setAiCur] = useState(readCursor);
   const go = !!d?.go; const queue = d?.queue || [];   // 🏇 let it go (owner Q1): long tasks, asks queue up and run one after another until a human is needed
@@ -1652,6 +1656,7 @@ function WorkbenchLive({ cat }) {
   useEffect(() => { if (stagePick && !kinds.includes(stagePick)) setStagePick(null); }, [kinds.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPeek(false); }, [liveKind, d?.task?.id]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
+  const seen = useOnScreen(dash); seenRef.current = seen; const wasSeen = useRef(true); useEffect(() => { if (seen && !wasSeen.current) load(); wasSeen.current = seen; }, [seen, load]);   // back on screen: fresh at once
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
