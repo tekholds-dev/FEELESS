@@ -26,3 +26,20 @@ body.fx-lite .lgv *, body.fx-lite .lga * , body.fx-lite .lga li { animation: non
 @media (prefers-reduced-motion: reduce) { .lgv *, .lga li, .lgv-t { animation: none !important; transition: none !important; } }
 body.theme-day .lgv-t, body.theme-day .lga li { background: rgba(236, 246, 240, .8); } body.theme-day .lga b, body.theme-day .lgv-t b { color: var(--la-sf1); }
 @media (max-width: 640px) { .lgv { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* 🎮 Pages vs the 25 fps floor (HQ › Lag catcher): bar = average fps, tick = worst report, line = the floor */
+.fpm { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fpm-row { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(90px, 2fr) auto; grid-template-areas: 'p b n' 'p t t'; column-gap: 10px; row-gap: 2px; align-items: center; }
+.fpm-row code { grid-area: p; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--m-mono); font-size: 11.5px; color: var(--m-dim); }
+.fpm-bar { grid-area: b; position: relative; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--m-line) 70%, transparent); overflow: visible; }
+.fpm-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--m-accent); transform-origin: left; animation: fpmIn .5s var(--m-ease, ease-out) both; }
+.fpm-row.t-warn .fpm-fill { background: var(--m-warn); }
+.fpm-row.t-bad .fpm-fill { background: var(--m-danger); }
+.fpm-low { position: absolute; top: -3px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--m-text); opacity: .55; }
+.fpm-floor { position: absolute; top: -5px; bottom: -5px; left: var(--floor); width: 0; border-left: 1px dashed var(--m-danger); opacity: .8; }
+.fpm-row > b { grid-area: n; font-family: var(--m-mono); font-size: 13px; color: var(--m-text); text-align: right; min-width: 52px; }
+.fpm-row > b small { color: var(--m-mute); font-size: 10px; }
+.fpm-row.t-bad > b { color: var(--m-danger); }
+.fpm-note { grid-area: t; font-size: 10.5px; color: var(--m-mute); }
+@keyframes fpmIn { from { transform: scaleX(0); } }
+@media (max-width: 560px) { .fpm-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'p n' 'b b' 't t'; } }

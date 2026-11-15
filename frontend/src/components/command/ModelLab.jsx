@@ -8,6 +8,7 @@ import CompGrow from './CompGrow';
 import { CompLive, CompTools } from './CompLive';
 import { CompWatch } from './CompWatch';
 import { CompVoice } from './CompVoice';
+import { CompDash } from './CompDash';
 import '../../styles/modelLab.css';
 
 // 🧪 MODEL LAB (owner 2026-11-11: "a folder for the new AI we are creating … a full AI and human setup to build / learn how to be a new kind of
@@ -75,6 +76,7 @@ export const ModelLab = React.memo(function ModelLab({ call }) {
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'grow'; } catch { return 'build'; } });
   const pickTab = k => { setTab(k); try { localStorage.setItem(TAB_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState('');
+  const [deck, setDeck] = useState(true);
   const load = useCallback(() => (call ? call('/admin/model-lab').then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)) : Promise.resolve()), [call]);
   useEffect(() => { load(); }, [load]);
   const onGrade = async (key, verdict, note) => { setBusy(true); try { setD(await call('/admin/model-lab/grade', { method: 'POST', body: JSON.stringify({ key, verdict, note }) })); setErr(''); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
@@ -88,7 +90,10 @@ export const ModelLab = React.memo(function ModelLab({ call }) {
   };
   const steps = d?.steps || {}; const real = STEPS.filter(s => (steps[s[0]] || 'todo') !== 'todo').length;
   const topFail = Math.max(0.01, ...(d?.minds || []).map(m => m.failRate));
+  // 🛰 the folder opens on the flight deck (owner 2026-11-15 "give me ur version of a dashboard for comp when i open its folder"); the workshop is one click
+  if (deck) return <div className="mlb" data-testid="model-lab"><CompDash call={call} lab={d} onWorkshop={() => setDeck(false)} /></div>;
   return <div className="mlb" data-testid="model-lab">
+    <button type="button" className="cpd-go cpd-back" onClick={() => setDeck(true)} data-tip="Back to COMP's flight deck" data-testid="mlb-deck">← Flight deck</button>
     <header className="ml-head m-card">
       <span className="ml-id"><small className="m-label">COMPAI · OWNER ONLY{saidName && name.trim() !== saidName ? ' · saving…' : ''}</small><input className="mlb-name" value={name} maxLength={32} onChange={e => keep(e.target.value)} placeholder="Name your model" aria-label="Model name (every version is built under it)" data-tip="The model's one name: every build becomes its next version" data-testid="mlb-name" /></span>
       <span className="ml-stats">

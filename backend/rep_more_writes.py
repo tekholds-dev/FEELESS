@@ -1782,7 +1782,7 @@ async def rpc_relay(request: Request):
 async def perf_report(p: _RSM.PerfIn):
     rs = _rs()
     api = {str(k)[:160]: [float(x) for x in v[:50] if isinstance(x, (int, float))] for k, v in list(p.api.items())[:40] if isinstance(v, list)}
-    fx = {k: float(v) for k, v in list(p.fx.items())[:6] if k in ('running', 'paused', 'shed', 'pressure') and isinstance(v, (int, float))}
+    fx = {k: float(v) for k, v in list(p.fx.items())[:6] if k in ('running', 'paused', 'shed', 'pressure', 'level') and isinstance(v, (int, float))}
     er = {str(k)[:110]: int(v) for k, v in list(p.errRoutes.items())[:20] if isinstance(v, (int, float)) and 0 < v < 1000}
     lay = p.layout or {}
     lay = {'sideways': int(min(5000, max(0, rs._fuse._f(lay.get('sideways'))))), 'spills': [str(x)[:40] for x in (lay.get('spills') or [])[:5]],

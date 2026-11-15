@@ -17,19 +17,24 @@ def _pct(xs, q):
     return round(xs[min(len(xs) - 1, int(q * len(xs)))])
 
 
+FLOOR_FPS = 25   # owner 2026-11-14 "no less than 25 fps" (frontend/src/lib/perfWatch.js keeps the same floor)
+
+
 def summarize(samples: list) -> dict:
     """samples: [{page, api: {route: [ms…]}, longTasks, longMs, fps, lite, errors}] from the last window."""
     api, pages = {}, {}
     for s in samples:
         for route, ms in (s.get('api') or {}).items():
             api.setdefault(route_key(route), []).extend(float(x) for x in ms[:50] if isinstance(x, (int, float)))
-        pg = pages.setdefault(str(s.get('page') or '/')[:60], {'reports': 0, 'longTasks': 0, 'longMs': 0, 'fps': [], 'lite': 0, 'errors': 0})
+        pg = pages.setdefault(str(s.get('page') or '/')[:60], {'reports': 0, 'longTasks': 0, 'longMs': 0, 'fps': [], 'lite': 0, 'errors': 0, 'stepped': 0})
         pg['reports'] += 1; pg['longTasks'] += int(s.get('longTasks') or 0); pg['longMs'] += int(s.get('longMs') or 0)
         pg['lite'] += 1 if s.get('lite') else 0; pg['errors'] += int(s.get('errors') or 0)
         for k, n in (s.get('errRoutes') or {}).items():
             pg.setdefault('errRoutes', {})[str(k)[:110]] = pg.get('errRoutes', {}).get(str(k)[:110], 0) + int(n or 0)
         if s.get('fps'):
             pg['fps'].append(float(s['fps']))
+        if ((s.get('fx') or {}).get('level') or 0) > 0:   # 🎮 the page had to step its effects down to hold the 25 fps floor
+            pg['stepped'] += 1
         lay = s.get('layout') or {}
         if lay:   # 🧱 the page watcher: sideways scroll + which classes spill / sit covered
             pg['sideways'] = max(pg.get('sideways', 0), int(lay.get('sideways') or 0))
@@ -38,7 +43,8 @@ def summarize(samples: list) -> dict:
                     pg.setdefault(kind, {})[c] = pg.get(kind, {}).get(c, 0) + 1
     routes = sorted(({'route': r, 'calls': len(ms), 'p50': _pct(ms, .5), 'p95': _pct(ms, .95)} for r, ms in api.items() if ms), key=lambda r: -r['p95'])
     page_rows = sorted(({'page': p, 'reports': v['reports'], 'longTasks': v['longTasks'], 'jankMsPerReport': round(v['longMs'] / v['reports']),
-                         'fps': round(sum(v['fps']) / len(v['fps'])) if v['fps'] else None, 'autoLite': v['lite'], 'errors': v['errors'],
+                         'fps': round(sum(v['fps']) / len(v['fps'])) if v['fps'] else None, 'fpsLow': round(min(v['fps'])) if v['fps'] else None,
+                         'underFloor': sum(1 for f in v['fps'] if f < FLOOR_FPS), 'stepped': v['stepped'], 'autoLite': v['lite'], 'errors': v['errors'],
                          'errRoutes': dict(sorted((v.get('errRoutes') or {}).items(), key=lambda kv: -kv[1])[:8]),
                          'sideways': v.get('sideways', 0), 'spills': sorted(v.get('spills') or {}, key=lambda k: -v['spills'][k])[:5],
                          'covered': sorted(v.get('covered') or {}, key=lambda k: -v['covered'][k])[:5]}
