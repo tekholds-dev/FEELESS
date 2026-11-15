@@ -1,0 +1,14 @@
+/* 🌍 RealShelf.jsx — REAL WORLD · NOW, the 3D studio's first shelf. Lives in the 170px side panel. Motion: Motion's fade-up, transform/opacity only. */
+:root { /* page tokens (STYLE-1) */ --prws-ac1: #5cc8ff; --prws-ac2: #5cc8ff2e; --prws-bg1: #ffffff0a; --prws-bg2: #5cc8ff1a; --prws-tx1: #ffffffeb; --prws-tx2: #ffffff8c; --prws-gd1: #f5c451; }
+.rws { display: grid; gap: 6px; min-width: 0; }
+.rws header { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; } .rws header em { font: 600 10px var(--f-mono, monospace); font-style: normal; color: var(--prws-tx2); }
+.rws-cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.rws-cats button { padding: 3px 7px; border-radius: 999px; border: 1px solid var(--prws-ac2); background: transparent; font: 600 10.5px var(--f-ui, sans-serif); color: var(--prws-tx2); cursor: pointer; }
+.rws-cats button.is-on { background: var(--prws-bg2); border-color: var(--prws-ac1); color: var(--prws-tx1); }
+.rws-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; max-height: 300px; overflow-y: auto; }
+.rws-list button { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 7px; width: 100%; padding: 5px; border-radius: 10px; border: 1px solid transparent; background: var(--prws-bg1); text-align: left; cursor: pointer; transition: transform .15s ease-out, border-color .15s; }
+.rws-list button:hover:not(:disabled) { transform: translateX(2px); border-color: var(--prws-ac1); } .rws-list button:disabled { opacity: .55; cursor: wait; }
+.rws-list img { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; background: var(--prws-bg2); }
+.rws-list span { display: grid; gap: 1px; min-width: 0; } .rws-list b { font: 700 12px var(--f-ui, sans-serif); color: var(--prws-tx1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rws-list small { font: 500 10px var(--f-ui, sans-serif); color: var(--prws-tx2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rws-list .rws-from { color: var(--prws-gd1); }
+@media (prefers-reduced-motion: reduce) { .rws-list button { transition: none; } }

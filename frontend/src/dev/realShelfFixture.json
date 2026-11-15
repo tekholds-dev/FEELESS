@@ -1,0 +1,356 @@
+{
+"real": [
+{
+"id": "iphone-duo",
+"name": "iPhone Duo",
+"line": "Apple \u00b7 Sept 2026 \u00b7 book-style foldable",
+"base": "galaxy z flip",
+"brief": "Apple's first foldable, the iPhone Duo: a 7.6 inch book-style foldable that opens into one thin slab. Remix it: a bold new colourway and a product hero shot",
+"cat": "phones",
+"model": {
+"id": "ox-112947cbab7a4f708d0d01adb7d3fa3d",
+"name": "Samsung Galaxy Z Flip 3",
+"thumb": "/api/cats/assets/thumb/112947cbab7a4f708d0d01adb7d3fa3d"
+},
+"remix": true
+},
+{
+"id": "iphone-18-pro",
+"name": "iPhone 18 Pro",
+"line": "Apple \u00b7 Sept 2026",
+"base": "iphone 13 pro max",
+"brief": "An iPhone 18 Pro concept: flat titanium edges, a big camera plateau. Reimagine it as a limited drop",
+"cat": "phones",
+"model": {
+"id": "ox-4328dea00e47497dbeac73c556121bc9",
+"name": "Apple iPhone 13 Pro Max",
+"thumb": "/api/cats/assets/thumb/4328dea00e47497dbeac73c556121bc9"
+},
+"remix": false
+},
+{
+"id": "galaxy-fold-8",
+"name": "Galaxy Z Fold 8",
+"line": "Samsung \u00b7 July 2026",
+"base": "galaxy z flip",
+"brief": "A Galaxy Z Fold 8 concept, half open on a pedestal, the hinge as the hero",
+"cat": "phones",
+"model": {
+"id": "ox-112947cbab7a4f708d0d01adb7d3fa3d",
+"name": "Samsung Galaxy Z Flip 3",
+"thumb": "/api/cats/assets/thumb/112947cbab7a4f708d0d01adb7d3fa3d"
+},
+"remix": false
+},
+{
+"id": "pixel-11-fold",
+"name": "Pixel 11 Pro Fold",
+"line": "Google \u00b7 Aug 2026",
+"base": "galaxy z flip",
+"brief": "A Pixel 11 Pro Fold concept with a camera bar across the back, in a soft pastel",
+"cat": "phones",
+"model": {
+"id": "ox-112947cbab7a4f708d0d01adb7d3fa3d",
+"name": "Samsung Galaxy Z Flip 3",
+"thumb": "/api/cats/assets/thumb/112947cbab7a4f708d0d01adb7d3fa3d"
+},
+"remix": true
+},
+{
+"id": "iphone-x",
+"name": "iPhone X",
+"line": "Apple \u00b7 the classic notch",
+"base": "iphone x",
+"brief": "The iPhone X, the phone that started the notch, as a museum piece",
+"cat": "phones",
+"model": {
+"id": "ox-3067c70fb7d14bd3b2b03e3246d6052d",
+"name": "IPHONE X LOWPOLY",
+"thumb": "/api/cats/assets/thumb/3067c70fb7d14bd3b2b03e3246d6052d"
+},
+"remix": false
+},
+{
+"id": "nb-997",
+"name": "New Balance 997",
+"line": "Made in USA runner",
+"base": "new balance 997",
+"brief": "A New Balance 997 colourway nobody has dropped yet, floating over a gallery plinth",
+"cat": "sneakers",
+"model": {
+"id": "ox-05e79a2dffbc4356bba7e0751fada08f",
+"name": "New Balance 997",
+"thumb": "/api/cats/assets/thumb/05e79a2dffbc4356bba7e0751fada08f"
+},
+"remix": false
+},
+{
+"id": "converse",
+"name": "Chuck Taylor",
+"line": "Converse classic",
+"base": "converse chuck",
+"brief": "A Chuck Taylor redesign for a coin launch, with the ticker on the heel",
+"cat": "sneakers",
+"model": {
+"id": "ox-0c6ee67086ed43ff8f531a5db991c8ee",
+"name": "Converse Classic",
+"thumb": "/api/cats/assets/thumb/0c6ee67086ed43ff8f531a5db991c8ee"
+},
+"remix": true
+},
+{
+"id": "runner",
+"name": "Daily runner",
+"line": "Any sneaker brand",
+"base": "sneaker",
+"brief": "A brand-new sneaker silhouette for an up-and-coming brand",
+"cat": "sneakers",
+"model": {
+"id": "ox-e6c51d2e77d945d1a0efbca530fb4b5b",
+"name": "Brown Sneakers",
+"thumb": "/api/cats/assets/thumb/e6c51d2e77d945d1a0efbca530fb4b5b"
+},
+"remix": true
+},
+{
+"id": "ps2",
+"name": "PlayStation 2",
+"line": "Sony \u00b7 the best seller ever",
+"base": "playstation 2",
+"brief": "A PlayStation 2 reimagined as a 2026 console, same soul, new shell",
+"cat": "gaming",
+"model": {
+"id": "ox-b53f858aa1584229a7f906239fc158a2",
+"name": "Sony PlayStation 2",
+"thumb": "/api/cats/assets/thumb/b53f858aa1584229a7f906239fc158a2"
+},
+"remix": false
+},
+{
+"id": "gameboy",
+"name": "Game Boy",
+"line": "Nintendo classic",
+"base": "game boy classic",
+"brief": "A Game Boy remix in clear neon plastic",
+"cat": "gaming",
+"model": {
+"id": "ox-0ae80019e6f046168923286d7e628f6f",
+"name": "Game Boy Classic",
+"thumb": "/api/cats/assets/thumb/0ae80019e6f046168923286d7e628f6f"
+},
+"remix": false
+},
+{
+"id": "gamepad",
+"name": "Controller",
+"line": "Any console",
+"base": "gamepad",
+"brief": "A controller for a game that does not exist yet",
+"cat": "gaming",
+"model": {
+"id": "ox-698bfa9aa58f419c8297b93d3d454554",
+"name": "Super Nintendo Controller",
+"thumb": "/api/cats/assets/thumb/698bfa9aa58f419c8297b93d3d454554"
+},
+"remix": false
+},
+{
+"id": "quest",
+"name": "Quest headset",
+"line": "Meta VR",
+"base": "oculus quest",
+"brief": "A VR headset concept, lighter, with a halo strap",
+"cat": "gaming",
+"model": {
+"id": "ox-0d6c1d6aa3f747a5b35f8105ed585418",
+"name": "Oculus Quest VR Headset",
+"thumb": "/api/cats/assets/thumb/0d6c1d6aa3f747a5b35f8105ed585418"
+},
+"remix": false
+},
+{
+"id": "rtx",
+"name": "RTX graphics card",
+"line": "NVIDIA GeForce",
+"base": "rtx 3070",
+"brief": "A graphics card as a luxury object, lit like a watch ad",
+"cat": "gaming",
+"model": {
+"id": "ox-29da4e10eb6c427cb72f3ebdf822f89e",
+"name": "Nvidia GeForce RTX 3070   UPDATED",
+"thumb": "/api/cats/assets/thumb/29da4e10eb6c427cb72f3ebdf822f89e"
+},
+"remix": false
+},
+{
+"id": "airpods-pro",
+"name": "AirPods Pro",
+"line": "Apple",
+"base": "airpods pro",
+"brief": "AirPods Pro in a colour Apple never made, case open",
+"cat": "audio",
+"model": {
+"id": "ox-40b434f607e24f52925dc27877751f1a",
+"name": "Air Pods Pro",
+"thumb": "/api/cats/assets/thumb/40b434f607e24f52925dc27877751f1a"
+},
+"remix": false
+},
+{
+"id": "sony-xm",
+"name": "Studio headphones",
+"line": "Sony MDR",
+"base": "sony mdr",
+"brief": "Studio headphones as a streetwear accessory",
+"cat": "audio",
+"model": {
+"id": "ox-05735b74d3524f00b648231138122a28",
+"name": "Sony MDR 7506 Headphones",
+"thumb": "/api/cats/assets/thumb/05735b74d3524f00b648231138122a28"
+},
+"remix": false
+},
+{
+"id": "apple-watch",
+"name": "Apple Watch",
+"line": "Apple",
+"base": "apple watch",
+"brief": "An Apple Watch band collab for a coin community",
+"cat": "audio",
+"model": {
+"id": "ox-d3b35c5d18a1438cad708b6a97deea5b",
+"name": "Apple Watch",
+"thumb": "/api/cats/assets/thumb/d3b35c5d18a1438cad708b6a97deea5b"
+},
+"remix": false
+},
+{
+"id": "macbook",
+"name": "MacBook Pro",
+"line": "Apple",
+"base": "macbook pro",
+"brief": "A MacBook Pro on a clean desk, a trader's battle station",
+"cat": "tech",
+"model": {
+"id": "ox-efab224280fd4c3993c808107f7c0b38",
+"name": "Macbook Pro 13 inch 2020",
+"thumb": "/api/cats/assets/thumb/efab224280fd4c3993c808107f7c0b38"
+},
+"remix": false
+},
+{
+"id": "imac",
+"name": "iMac",
+"line": "Apple",
+"base": "imac",
+"brief": "An iMac in a bold new colour for a creator studio",
+"cat": "tech",
+"model": {
+"id": "ox-e632ef53df614e30b9983089ff984fa4",
+"name": "iMac 3D Model | [FREE] | Agustin Honnun",
+"thumb": "/api/cats/assets/thumb/e632ef53df614e30b9983089ff984fa4"
+},
+"remix": false
+},
+{
+"id": "drone",
+"name": "Mini drone",
+"line": "Camera drone",
+"base": "s9 mini drone",
+"brief": "A camera drone in flight over a product launch",
+"cat": "tech",
+"model": {
+"id": "ox-cf3ed83c1b87486d90435f54c074e16e",
+"name": "S9 Mini Drone",
+"thumb": "/api/cats/assets/thumb/cf3ed83c1b87486d90435f54c074e16e"
+},
+"remix": false
+},
+{
+"id": "soda",
+"name": "Soda can",
+"line": "Any drink brand",
+"base": "soda can",
+"brief": "An energy drink can for a coin, with its logo wrapped around it",
+"cat": "drinks",
+"model": {
+"id": "ox-4e0be610db9646929d8be84491f1a72f",
+"name": "Soda Cans",
+"thumb": "/api/cats/assets/thumb/4e0be610db9646929d8be84491f1a72f"
+},
+"remix": false
+},
+{
+"id": "cola",
+"name": "Cola can",
+"line": "Classic cola shape",
+"base": "cola can",
+"brief": "A cola can redesign for a summer drop",
+"cat": "drinks",
+"model": {
+"id": "ox-aaa11e57064848268d701a3586792d0d",
+"name": "Simple Cola Can",
+"thumb": "/api/cats/assets/thumb/aaa11e57064848268d701a3586792d0d"
+},
+"remix": false
+},
+{
+"id": "hoodie",
+"name": "Hoodie",
+"line": "Merch staple",
+"base": "hoodie free",
+"brief": "A merch hoodie for an agent, its name across the chest",
+"cat": "wear",
+"model": {
+"id": "ox-bdd9d58e482546d98540c2bbc3f8660f",
+"name": "Hoodie",
+"thumb": "/api/cats/assets/thumb/bdd9d58e482546d98540c2bbc3f8660f"
+},
+"remix": false
+},
+{
+"id": "skate",
+"name": "Skateboard",
+"line": "Street deck",
+"base": "skateboard globe",
+"brief": "A skate deck with art made by an agent",
+"cat": "wear",
+"model": {
+"id": "ox-8dd79c785a4142e4a6e077567569e9c8",
+"name": "Skateboard [ Globe: DOWN IN FLAMES ]",
+"thumb": "/api/cats/assets/thumb/8dd79c785a4142e4a6e077567569e9c8"
+},
+"remix": false
+}
+],
+"realCats": [
+[
+"phones",
+"Phones"
+],
+[
+"sneakers",
+"Sneakers"
+],
+[
+"gaming",
+"Gaming"
+],
+[
+"audio",
+"Audio + wearables"
+],
+[
+"tech",
+"Laptops + desk"
+],
+[
+"drinks",
+"Cans + bottles"
+],
+[
+"wear",
+"Streetwear"
+]
+]
+}
