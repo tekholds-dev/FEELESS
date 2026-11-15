@@ -4195,6 +4195,7 @@ def _read_start(cat, goal, who, kind=''):
         _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
     if kind in _book.KINDS and (cat.get('siteBook') or {}).get(kind):   # 📚 a repeating window moves to the owner's next site, never an off one
         t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _foot.order_sites(kind, _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind]), cat.get(_PROOF_KEYS.get(kind)))   # 🧭 the sites the last proofs leaned on go last
+    _WORK[cat['id']]['task']['stepsMax'] = _foot.read_steps(kind, READ_STEPS)   # 🔁 each proof's own move budget a window
     _WORK[cat['id']]['task']['proofKind'] = kind or 'proof'   # 🗂 AGT-9: this job is filed in Jobs under its proof
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
@@ -4962,7 +4963,11 @@ async def _pop_begin(http, cat, do, who, now):
     if why:
         await _pop_open(http, cat, do, who, now, None, why)
         return
-    cat['popRead'] = {'do': do, 'who': who, 'at': round(now), 'tid': _WORK[cat['id']]['task']['id']}
+    t_ = _WORK[cat['id']]['task']
+    if len(t_.get('jobs') or []) > 1:   # 👣 each mind its own two sites and angle (owner 2026-11-15: "the other brain researches … uniquely")
+        foot_ = _foot.plan('pop', '', _book.apply(cat.get('siteBook'), 'pop', list(_foot.POP_SITES)), cat.get('popFolders'))
+        t_['jobs'] = [_foot.pop_goal(foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
+    cat['popRead'] = {'do': do, 'who': who, 'at': round(now), 'tid': t_['id']}
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '🌐 Reading perps sites in its own windows first. Watch its monitors.', 'at': now, 'open': 'pop'}])[-200:]
 
 
@@ -5310,7 +5315,10 @@ async def _pob_tick(http, cat, now):
         if why:
             await _pob_call(http, cat, {'who': who}, now, None, why)
             return
-        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': _WORK[cat['id']]['task']['id']}
+        t_ = _WORK[cat['id']]['task']
+        if len(t_.get('jobs') or []) > 1:   # 👣 the board read too: each mind its own angle, never one search twice
+            t_['jobs'] = [f"{t_['jobs'][i_]} Your angle: {_foot.angle_for('pob', cat.get('pobFolders'), i_)[0]}." for i_ in range(len(t_['jobs']))]
+        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id']}
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '🌐 Reading the markets in its own windows first. Watch its monitors.', 'at': now, 'open': 'bids'}])[-200:]
 
 

@@ -130,6 +130,24 @@ def plan(kind, topic, sites, folders, minds=2):
     return {'sites': [rows[i::minds] for i in range(minds)], 'angles': [angle_for(kind, folders, i) for i in range(minds)], 'used': used}
 
 
+READ_STEPS = {'pop': 10, 'pob': 12}   # 🔁 owner 2026-11-15: "PoP should do a lil less than PoW … without excessive usage". PoW keeps its own budget (pow.py); others 14
+POP_SITES = ('coinglass.com', 'hyperliquid.xyz', 'tradingview.com', 'defillama.com', 'coingecko.com', 'x.com')
+
+
+def read_steps(kind, default=14):
+    """Moves each mind's window gets on this proof's site read. Pure."""
+    return READ_STEPS.get(kind, default)
+
+
+def pop_goal(sites, angle):
+    """🔁 A PoP mind's own read: its own two sites and its own angle, blind to its partner, so the two never pay for one search twice. Pure."""
+    a = angle[0] if isinstance(angle, (tuple, list)) else str(angle or 'funding and open interest')
+    look = angle[1] if isinstance(angle, (tuple, list)) and len(angle) > 1 else a
+    on = ' and '.join(list(sites or POP_SITES[:2])[:2])
+    return (f"PROOF OF PERPS read, for SOL, ETH and BTC. Your angle: {a}. Open {on}, look for {look}, and save at most 3 numbers a site. "
+            "Then answer in at most 4 lines, each number with the site you read it on. Do not sign in or trade.")
+
+
 def angle_for(kind, folders, mind=0):
     """This proof's angle for a mind: the next pair along each proof, so the angles cycle and the two minds never share one. Pure."""
     pool = ANGLES.get(kind) or ANGLES['pos']; n = len([f for f in folders or [] if isinstance(f, dict) and not f.get('live')])
