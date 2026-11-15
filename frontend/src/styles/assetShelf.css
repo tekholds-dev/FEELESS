@@ -1,0 +1,26 @@
+/* 🗂 ASSET SHELF (AssetShelf.jsx) — Discover + My files in every studio. Tokens only. */
+.asf { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); color: var(--m-text); }
+.asf-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.asf-h > b { font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; color: var(--m-mute); margin-right: 4px; }
+.asf-up { margin-left: auto; cursor: pointer; }
+.asf-q { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.asf-q .m-input { flex: 1 1 180px; min-width: 0; width: auto; }
+.asf-q small, .asf-use { color: var(--m-dim); font-size: 11px; margin: 0; }
+.asf-err { color: var(--m-danger); font-size: 12px; margin: 0; }
+.asf-said { color: var(--m-accent); font-size: 12px; margin: 0; }
+.asf-none { color: var(--m-mute); font-size: 12px; margin: 4px 0; }
+.asf-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; max-height: 460px; overflow: auto; }
+.asf-grid li { display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: var(--m-r-sm); background: var(--m-surface-2); min-width: 0; }
+.asf-face { position: relative; aspect-ratio: 4 / 3; border: 0; padding: 0; border-radius: var(--m-r-sm); overflow: hidden; background: var(--m-bg); cursor: pointer; display: grid; place-items: center; }
+.asf-face img, .asf-face video { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s var(--m-ease); }
+.asf-face:hover img { transform: scale(1.05); }
+.asf-face em { position: absolute; left: 6px; bottom: 6px; font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--m-surface); color: var(--m-text); }
+.asf-cube { font-size: 28px; }
+.asf-wave { display: flex; align-items: center; gap: 3px; height: 60%; }
+.asf-wave i { width: 4px; height: calc(var(--h) * 6%); border-radius: 2px; background: var(--m-accent); opacity: .8; animation: asfWave 1.2s var(--m-ease) infinite; animation-delay: calc(var(--i) * .08s); }
+@keyframes asfWave { 0%, 100% { transform: scaleY(.6); } 50% { transform: scaleY(1.15); } }
+.asf-grid b { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asf-grid small { font-size: 10px; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asf-acts { display: flex; gap: 4px; margin-top: 2px; }
+.asf-acts .m-btn { padding: 3px 8px; font-size: 11px; text-decoration: none; }
+body.fx-lite .asf-wave i { animation: none; }

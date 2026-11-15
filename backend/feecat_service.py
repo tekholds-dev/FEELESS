@@ -89,6 +89,7 @@ import play_studio as _play
 import asset_packs as _assets
 import real_world as _rworld   # 🌍 the 3D studio's real-world-first shelf
 import game_lab as _game_lab
+import agent_assets as _aas   # 🗂 the studios' shared shelf: My files + Discover
 import game_desk as _gdesk   # 🎮 the Game desk: AI builds, fixes and plans game mods, checks them, zips them
 import poc_watch as _pw
 import idea_board as _ideas
@@ -7306,6 +7307,21 @@ async def show_ad_video(cat_id: str, kind: str, ownerId: str = '', session: str 
     return Response(content=f_.read_bytes(), media_type='video/webm', headers=head_)
 
 
+@app.get('/api/cats/{cat_id}/asset/{aid}')
+async def agent_asset(cat_id: str, aid: str, ownerId: str = '', session: str = '', dl: int = 0):
+    """🗂 One file from an agent's My files: its owner only."""
+    store = _load(); cat = store['cats'].get(cat_id); a_ = re.sub(r'[^a-f0-9]', '', aid)[:12]
+    row_ = next((r for r in ((_play_load(cat_id, 'assets') or {}).get('rows') or []) if r.get('id') == a_), None) if cat else None
+    f_ = DATA_DIR / 'agent_assets' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / a_
+    if not row_ or not f_.exists():
+        raise HTTPException(404, 'No such file.')
+    _owner_gate(store, cat, session, ownerId, 'open its files')
+    head_ = {'Cache-Control': 'private, max-age=3600'}
+    if dl:
+        head_['Content-Disposition'] = f'attachment; filename="{row_["name"]}"'
+    return Response(content=_ck.unseal_bytes(f_.read_bytes(), cat_id), media_type=_aas.MIME.get(row_['ext'], 'application/octet-stream'), headers=head_)
+
+
 @app.get('/api/cats/{cat_id}/powshot/{folder}/{name}')
 async def pow_snapshot(cat_id: str, folder: str, name: str, ownerId: str = '', session: str = ''):
     """📸 One research snapshot of a proof folder. Public research pages stay public; anything private asks for its owner's signed session."""
@@ -9895,6 +9911,55 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             v_ = (_ws_load(cat_id, p.to) or {}).get('versions') or []
             return {'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else ''}
         return {'apps': rows_}
+    if p.op.startswith('assets_'):   # 🗂 MY FILES + DISCOVER, shared by the PoC editor, the 3D studio and the Game desk (owner 2026-11-15)
+        ast_ = _play_load(cat_id, 'assets') or {}; arows_ = list(ast_.get('rows') or [])
+        adir_ = DATA_DIR / 'agent_assets' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40]
+        if p.op == 'assets_list':
+            return _aas.view(arows_)
+        if p.op == 'assets_drop':
+            arows_ = _aas.drop(arows_, str(p.text or '')); (adir_ / re.sub(r'[^a-f0-9]', '', str(p.text or ''))).unlink(missing_ok=True)
+            _play_save(cat_id, 'assets', {'rows': arows_}); return _aas.view(arows_)
+        if p.op in ('assets_put', 'assets_keep'):
+            t_ = p.tools or {}
+            if p.op == 'assets_put':
+                try:
+                    raw_ = base64.b64decode(str(t_.get('b64') or ''), validate=True)
+                except ValueError:
+                    raise HTTPException(400, 'That file could not be read.')
+                src_, lic_, by_, url_ = 'upload', '', '', ''
+            else:
+                url_ = str(t_.get('url') or '')
+                if not _aas.KEEP_FROM.match(url_):
+                    raise HTTPException(400, 'Files are kept only from the free libraries on this shelf.')
+                async with httpx.AsyncClient(timeout=60, follow_redirects=True, headers={'User-Agent': 'FEELESS/1.0 (asset shelf)'}) as h_:
+                    r_ = await h_.get(url_)
+                if r_.status_code != 200 or len(r_.content) > _aas.MAX_FILE:
+                    raise HTTPException(502, 'That file could not be fetched, or it is over 25 MB.')
+                raw_ = r_.content; src_, lic_, by_ = str(t_.get('src') or 'Discover')[:30], t_.get('lic'), t_.get('by')
+            name_ = str(t_.get('name') or '')
+            if p.op == 'assets_keep' and not _aas.kind_of(name_):
+                base_ = re.sub(r'[^\w -]', '', name_).strip()[:60] or 'file'; name_ = f"{base_}.{_aas.ext_of(url_)}"
+            try:
+                arows_, row_ = _aas.add(arows_, name_, len(raw_), src_, lic_, by_, url_)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            adir_.mkdir(parents=True, exist_ok=True); (adir_ / row_['id']).write_bytes(_ck.seal_bytes(raw_, cat_id))
+            _play_save(cat_id, 'assets', {'rows': arows_})
+            return {'row': row_, **_aas.view(arows_)}
+        if p.op == 'assets_find':   # 🔎 the source's own API answers; nothing here is invented
+            kind_ = p.job if p.job in ('image', 'video', 'audio', 'model') else 'image'; q_ = str(p.text or '').strip()[:80] or {'image': 'neon city', 'video': 'city night', 'audio': 'synthwave', 'model': 'chair'}[kind_]
+            async with httpx.AsyncClient(timeout=20, headers={'User-Agent': 'FEELESS/1.0 (asset shelf)'}) as h_:
+                try:
+                    if kind_ == 'model':
+                        await _assets.ensure(h_, KITS_DIR); return {'rows': _aas.model_rows(_assets.search(KITS_DIR, q_, 'model', n=24), _assets.CREDIT), 'q': q_}
+                    if kind_ == 'audio':
+                        r_ = await h_.get(_aas.OPENVERSE_AUDIO, params={'q': q_, 'page_size': 20})
+                        return {'rows': _aas.openverse_rows(r_.json()) if r_.status_code == 200 else [], 'q': q_, 'down': r_.status_code != 200}
+                    r_ = await h_.get(_aas.commons_url(q_, video=kind_ == 'video'))
+                    return {'rows': _aas.commons_rows(r_.json(), video=kind_ == 'video') if r_.status_code == 200 else [], 'q': q_, 'down': r_.status_code != 200}
+                except (httpx.HTTPError, ValueError):
+                    return {'rows': [], 'q': q_, 'down': True}
+        raise HTTPException(400, 'No such step.')
     if p.op.startswith('gdesk_'):   # 🎮 GAME DESK (owner 2026-11-15, every user): projects of real files its mind builds, fixes or plans; checked; zipped
         gst_ = _play_load(cat_id, 'game') or {}; projs_ = list(gst_.get('projects') or []); style_ = list(gst_.get('style') or [])
         pid_ = str((p.tools or {}).get('id') or p.to or '')[:12]; proj_ = next((x for x in projs_ if x.get('id') == pid_), None)
@@ -10004,6 +10069,23 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                            {'by': f"Mind {'AB'[i_]}", 'model': model_, 'text': str(say_ or 'Done.')[:400], 'files': [] if mode_ == 'plan' else list(ch_)[:12],
                             'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-40:]
             return {'project': keep_(pr_), 'say': say_, 'usd': round(float(usd_ or 0), 5), 'model': model_}
+        if p.op == 'gdesk_take':   # 🗂 a file from its My files (Discover keeps land there too) into the project
+            pr_ = need_(); aid_ = re.sub(r'[^a-f0-9]', '', str(p.text or ''))[:12]
+            row_ = next((r for r in ((_play_load(cat_id, 'assets') or {}).get('rows') or []) if r.get('id') == aid_), None)
+            f_ = DATA_DIR / 'agent_assets' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / aid_
+            if not row_ or not f_.exists():
+                raise HTTPException(404, 'That file is not in My files any more.')
+            raw_ = _ck.unseal_bytes(f_.read_bytes(), cat_id); dir_ = str((p.tools or {}).get('dir') or 'assets/')
+            path_ = f"{dir_.rstrip('/')}/{row_['name']}" if dir_.strip('/') else row_['name']
+            try:
+                if _gdesk.is_text(_gdesk.clean_path(path_)):
+                    pr_ = _gdesk.put_file(pr_, path_, raw_.decode('utf-8', 'replace'))
+                else:
+                    pr_ = _gdesk.put_bin(pr_, path_, len(raw_))
+                    b_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}; b_[_gdesk.clean_path(path_)] = base64.b64encode(raw_).decode(); _play_save(cat_id, f"gbin_{pr_['id']}", b_)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            return {'project': keep_(pr_)}
         if p.op == 'gdesk_zip':   # ⬇ the whole project as a .zip, laid out to drop in; library assets are fetched now
             pr_ = need_(); bins_ = {}; held_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}
             async with httpx.AsyncClient(timeout=30, follow_redirects=True) as h_:

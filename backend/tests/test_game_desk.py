@@ -126,3 +126,16 @@ def test_the_whole_desk_journey_build_check_fix_plan_upload_zip_share_fork(monke
     lab = post('gdesk_lab', tools={'log': {'game': 'Garage', 'platform': 'fivem', 'fps': 60, 'bugs': ['x'], 'verdict': 'ship'}}).json()
     assert lab['stats']['sessions'] == 1 and post('gdesk_lab').json()['stats']['ship'] == 1
     assert post('gdesk_get', who='h').json()['projects'][0]['name'].endswith('(fork)')
+
+
+def test_a_file_from_my_files_goes_into_a_project(monkeypatch, tmp_path):
+    import base64
+    fs, c = _server(monkeypatch, tmp_path)
+    post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
+    pid = post('gdesk_new', text='chains', job='fivem').json()['project']['id']
+    aid = post('assets_put', tools={'name': 'chain.ytd', 'b64': base64.b64encode(b'YTD!').decode()}).json()['row']['id']
+    pr = post('gdesk_take', text=aid, tools={'id': pid, 'dir': 'stream/'}).json()['project']
+    assert pr['bins']['stream/chain.ytd']['size'] == 4
+    z = post('gdesk_zip', tools={'id': pid}).json()
+    assert zipfile.ZipFile(io.BytesIO(base64.b64decode(z['b64']))).read('chains/stream/chain.ytd') == b'YTD!'
+    assert post('gdesk_take', text='ffffffffffff', tools={'id': pid}).status_code == 404

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { GameLab } from './GameLab';
+import { AssetShelf } from './AssetShelf';
 import '../../styles/gameDesk.css';
 
 // 🎮 GAME DESK (owner 2026-11-15: "GAME DESK IS FOR ALL USERS … CHOOSE A MODEL AND HAVE AI TRULY CREATE TRUE GTA RP FIVEM STUFF … FIX PORTS … A
@@ -113,20 +114,17 @@ function Plan({ p, onStep, onOpen }) {
         <button type="button" className="gd-build" onClick={() => onStep(`${ph.name}: ${s.do}${s.file ? ` (in ${s.file})` : ''}`)} data-testid={`gd-step-${i}-${j}`}>Build</button></li>; })}</ol></motion.section>)}</div></div>;
 }
 
-function Discover({ p, work, catId, busy, onFork, onLink }) {
-  const [q, setQ] = useState(''); const [rows, setRows] = useState(null); const [lib, setLib] = useState(null); const [lq, setLq] = useState(p.target === 'fivem' ? 'chain' : 'car'); const [err, setErr] = useState('');
+function Discover({ p, work, catId, busy, onFork, onAsset }) {
+  const [q, setQ] = useState(''); const [rows, setRows] = useState(null); const [err, setErr] = useState('');
   const find = useCallback(() => work(catId, { op: 'gdesk_shelf', text: q, job: '' }).then(j => setRows(j.rows || [])).catch(e => setErr(e.message)), [work, catId, q]);
-  const look = useCallback(() => work(catId, { op: 'play3d_assets', text: lq, job: 'model' }).then(j => setLib(j.rows || [])).catch(e => setErr(e.message)), [work, catId, lq]);
-  useEffect(() => { find(); look(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { find(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="gd-disc">
     {err ? <p className="gd-err" role="alert">⚠ {err}</p> : null}
     <section><header><b>SHARED BY BUILDERS</b><small>Projects other agents chose to share. Fork one and it is yours to change.</small></header>
       <form className="gd-row" onSubmit={e => { e.preventDefault(); find(); }}><input className="m-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Search shared projects" aria-label="Search shared projects" /><button type="submit" className="m-btn">Search</button></form>
       {rows == null ? <p className="gd-none">Reading the shelf…</p> : rows.length ? <ol className="gd-shelf" data-testid="gd-shelf">{rows.map(r => <li key={`${r.cat}-${r.id}`}><span><b>{r.name}</b><small>{r.by} · {r.target} · {r.files} files{r.assets ? ` · ${r.assets} assets` : ''}{r.forks ? ` · ${r.forks} forks` : ''}</small></span>{r.passed ? <i className="gd-pass">check passed</i> : null}
         <button type="button" className="m-btn" disabled={!!busy} onClick={() => onFork(r)}>Fork</button></li>)}</ol> : <p className="gd-none">Nothing shared yet. Share yours from the top bar and it shows here for everyone.</p>}</section>
-    <section><header><b>REAL 3D MODELS · CC0</b><small>Free to use. Added to the project, fetched into the zip. For FiveM it is the .glb you take into Blender + Sollumz.</small></header>
-      <form className="gd-row" onSubmit={e => { e.preventDefault(); look(); }}><input className="m-input" value={lq} onChange={e => setLq(e.target.value)} placeholder="chain, car, chair…" aria-label="Search 3D models" /><button type="submit" className="m-btn">Search</button></form>
-      {lib == null ? <p className="gd-none">Reading the library…</p> : <ol className="gd-lib" data-testid="gd-lib">{lib.slice(0, 18).map(a => <li key={a.id}>{a.thumb ? <img src={a.thumb} alt="" loading="lazy" /> : <span className="gd-noimg" aria-hidden="true">🧊</span>}<b title={a.name}>{a.name}</b><button type="button" className="gd-chip" disabled={!!busy} onClick={() => onLink(a)}>＋ Add</button></li>)}</ol>}</section>
+    <AssetShelf cat={{ id: catId }} work={work} kinds={['model', 'image', 'audio', 'video']} useWord="Add" onUse={onAsset} title="FREE MEDIA + MY FILES · ADD ONE TO THIS PROJECT" />
     <section><header><b>THE REAL TOOLS FOR {String(p.target).toUpperCase().replace('_', ' ')}</b><small>Open source or official. They open in a new tab.</small></header>
       <span className="gd-tools">{(TOOLS[p.target] || []).map(([l, u]) => <a key={u} className="gd-chip" href={u} target="_blank" rel="noreferrer noopener">{l} ↗</a>)}</span></section></div>;
 }
@@ -163,7 +161,7 @@ export function GameDesk({ cat, work }) {
         {tab === 'studio' ? <Studio p={p} minds={d.minds || []} busy={busy} onAsk={ask} onBuildStep={step} /> : null}
         {tab === 'files' ? <Files p={p} busy={busy} open={open} setOpen={setOpen} style={style} onSave={async (path, text) => take(await run('save', { op: 'gdesk_save', tools: tools({ path, text }) }))} onDrop={async path => take(await run('drop', { op: 'gdesk_drop', tools: tools({ path }) }))} onUpload={upload} onLearn={learn} onUnlearn={async path => { const j = await run('learn', { op: 'gdesk_unlearn', text: path }); if (j?.style) setStyle(j.style); }} /> : null}
         {tab === 'plan' ? <Plan p={p} onOpen={f => { setOpen(f); setTab('files'); }} onStep={t => { setStep({ text: t, at: Date.now() }); setTab('studio'); }} /> : null}
-        {tab === 'discover' ? <Discover p={p} work={work} catId={cat.id} busy={busy} onFork={async r => { const j = await run('fork', { op: 'gdesk_fork', tools: { id: r.id, cat: r.cat } }); if (take(j)) { setTab('files'); setNote(`Forked ${r.name}. It is yours now.`); } }} onLink={async a => { const j = await run('link', { op: 'gdesk_link', text: a.id, job: 'model', tools: tools() }); if (take(j)) setNote(`Added ${a.name}. It is fetched into the zip.`); }} /> : null}
+        {tab === 'discover' ? <Discover p={p} work={work} catId={cat.id} busy={busy} onFork={async r => { const j = await run('fork', { op: 'gdesk_fork', tools: { id: r.id, cat: r.cat } }); if (take(j)) { setTab('files'); setNote(`Forked ${r.name}. It is yours now.`); } }} onAsset={async r => { const j = r.lib ? await work(cat.id, { op: 'gdesk_link', text: r.id, job: 'model', tools: tools() }) : await work(cat.id, { op: 'gdesk_take', text: r.id, tools: tools({ dir: BIN_DIR[p.target] || 'assets/' }) }); take(j); }} /> : null}
         {tab === 'test' ? <GameLab call={labCall} /> : null}
       </motion.div></>}
   </div>;
