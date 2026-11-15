@@ -5,6 +5,8 @@ import '../styles/meta.css';
 import { ColonyGrid } from '../components/command/HiveBoard';
 import { BoostFolder } from '../components/command/BoostFolder';
 import { CollectiveOwner } from '../components/command/CollectiveOwner';
+import { GameLab } from '../components/command/GameLab';
+import GAMELAB from './gameLabFixture.json';
 import { FallbackFolder, PayFolder, PoolDesk, SafetyFolder, GrowFolder } from '../components/command/OwnerFolders';
 import { SplitFlow } from '../components/command/SplitFlow';
 import { BoostCoin } from '../components/command/DeskShell';
@@ -42,6 +44,7 @@ function BoostHarness() {
 export default function ColonyHarness() {
   if (window.location.search.includes('owner')) return <div style={{ background: '#050714', minHeight: '100vh', padding: 12, display: 'grid', gap: 20, maxWidth: 1100, margin: '0 auto' }}><SourceWins /><PayFolder d={OWNER} save={() => {}} /><FallbackFolder d={OWNER} onPay={() => {}} /><GrowFolder d={OWNER} save={() => {}} call={growCall} /><SafetyFolder d={OWNER} save={() => {}} c={OWNER.cfg} setC={() => {}} /><PoolDesk p={OWNER.pools[1]} d={OWNER} save={() => {}} /></div>;
   if (window.location.search.includes('manual')) return <div style={{ background: '#050714', minHeight: '100vh', padding: 12, maxWidth: 1100, margin: '0 auto' }}><AgentManual d={{ pocFolders: [{ n: 2, topic: 'New wallets', calls: [{}, {}], graded: 'right' }], kernel: { v: '1', hash: 'abc', groups: [{ name: 'Budget', rows: [['Dollars a coin', 0.03]] }] } }} onCommand={() => {}} /></div>;
+  if (window.location.search.includes('gamelab')) return <div style={{ background: 'var(--m-bg)', minHeight: '100vh', padding: 16, maxWidth: 1100, margin: '0 auto' }}><GameLab call={async (_p, o) => (o?.body && JSON.parse(o.body).resource ? GAMELAB.resource : GAMELAB.view)} /></div>;   // ?gamelab — the owner's Game lab folder on game_lab.py's own output
   if (window.location.search.includes('boost')) return <BoostHarness />;
   return <div style={{ background: '#050403', minHeight: '100vh', padding: 12 }}><ColonyGrid api={api} /></div>;
 }
