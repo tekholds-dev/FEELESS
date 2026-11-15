@@ -39,3 +39,23 @@ test('🧠 holdFx: a busy Brain sheds the big layers and gives them back; two ho
   expect(fxPressure()).toBe(0); holdFx(true); holdFx(true); expect(fxPressure()).toBe(1); expect(document.body.classList.contains('fx-shed')).toBe(true);
   holdFx(false); expect(fxPressure()).toBe(1); holdFx(false); expect(fxPressure()).toBe(0); expect(document.body.classList.contains('fx-shed')).toBe(false);
 });
+
+test('🎮 away: nobody here → every endless animation rests; someone back → they all run again', () => {
+  const { setAway, isAway } = require('./fxPause');
+  const box = { top: 100, bottom: 160, left: 0, right: 60, width: 60, height: 60 };
+  const a = { playState: 'running', effect: { getComputedTiming: () => ({ iterations: Infinity }), target: { getBoundingClientRect: () => box } }, pause() { this.playState = 'paused'; }, play() { this.playState = 'running'; } };
+  const doc = { hidden: false, getAnimations: () => [a] }; const win = { innerWidth: 1000, innerHeight: 800 };
+  setAway(true); expect(isAway()).toBe(true); govern(doc, win); expect(a.playState).toBe('paused'); expect(document.body.classList.contains('fx-away')).toBe(true);
+  setAway(false); govern(doc, win); expect(a.playState).toBe('running'); expect(document.body.classList.contains('fx-away')).toBe(false);
+});
+
+test('🎮 an animated SVG part gets its own layer once; under pressure it rests, plain small HTML keeps running', () => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); const g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); svg.appendChild(g); document.body.appendChild(svg);
+  const box = { top: 100, bottom: 160, left: 0, right: 60, width: 60, height: 60 };
+  const mk = t => { t.getBoundingClientRect = () => box; return { playState: 'running', effect: { getComputedTiming: () => ({ iterations: Infinity }), target: t }, pause() { this.playState = 'paused'; }, play() { this.playState = 'running'; } }; };
+  const part = mk(g); const html = mk(document.createElement('div'));
+  const doc = { hidden: false, getAnimations: () => [part, html] }; const win = { innerWidth: 1000, innerHeight: 800 };
+  govern(doc, win); expect(svg.style.willChange).toBe('transform'); expect(part.playState).toBe('running');
+  setFxPressure(1); govern(doc, win); expect(part.playState).toBe('paused'); expect(html.playState).toBe('running');
+  setFxPressure(0); govern(doc, win); expect(part.playState).toBe('running');
+});

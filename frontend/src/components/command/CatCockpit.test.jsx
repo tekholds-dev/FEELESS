@@ -37,7 +37,7 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   expect(el.querySelector('[data-testid="ck-chime"]').placeholder).toContain('Talk to g4');
   await act(async () => { el.querySelector('.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(send).toHaveBeenLastCalledWith('hold longer', '1');
-  localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'globe', acc: '#b388ff' });
+  localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'aurora', acc: '#b388ff' });
 });
 
 test('💬 what each mind said back shows on its own side, and its dots while it answers', async () => {

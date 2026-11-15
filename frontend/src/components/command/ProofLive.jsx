@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { drawFrame, pickLook, sceneName, seeded, readyScenes, LOOKS_PER_PROOF } from '../../lib/proofFx';
 import { fetchFeelessCandles } from '../../lib/candles';
-import { isCalm, useOnScreen } from '../../lib/fxPause';
+import { isCalm, useOnScreen, fxFrameMs } from '../../lib/fxPause';
 import '../../styles/proofLive.css';
 
 // 🎆 The chat while a proof runs (owner 2026-11-11): the messages fade into a live stage of that proof — a canvas look picked from 100
@@ -109,15 +109,23 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
       if (!top || !vit) return null; const c0 = c.getBoundingClientRect().top; return [top.getBoundingClientRect().bottom - c0 + 6, vit.getBoundingClientRect().top - c0 - 6]; };
     let r = size(); const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { r = size(); }) : null; ro?.observe(c);
     let shownScene = '';
-    const frame = now_ => { if (!alive) return; const t = (now_ - start) / 1000;
-      energy.current = Math.max(0, energy.current - 0.012);
-      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd, data: dataRef.current, band: band() });
-      if (out.scene !== shownScene) { shownScene = out.scene; setScene(out.scene); }
-      if (!isCalm() && on && !document.hidden) raf = requestAnimationFrame(frame); };
-    frame(performance.now());
-    const vis = () => { if (!document.hidden && on && !isCalm()) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); } };
-    document.addEventListener('visibilitychange', vis);
-    return () => { alive = false; cancelAnimationFrame(raf); ro?.disconnect(); document.removeEventListener('visibilitychange', vis); };
+    // 🎮 a game-style frame budget (owner 2026-11-14 "no less than 25 fps"): the stage draws at 30 fps (15 / 8 when the page is struggling),
+    // never while nobody is there, and measures its open band twice a second instead of forcing layout every frame.
+    let bandAt = 0; let bandV = null; let drewAt = -1e9;
+    const frame = now_ => { if (!alive) return; const budget = fxFrameMs();
+      if (!on || !budget) { raf = 0; return; }   // off-screen, hidden, calm or away: rest until 'fxchange' / visibility wakes it
+      raf = requestAnimationFrame(frame);
+      if (now_ - drewAt < budget - 2) return; const dt = Math.min(4, (now_ - drewAt) / 16.7); drewAt = now_;
+      if (now_ - bandAt > 500) { bandAt = now_; bandV = band(); }
+      const t = (now_ - start) / 1000; energy.current = Math.max(0, energy.current - 0.012 * dt);
+      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd, data: dataRef.current, band: bandV });
+      if (out.scene !== shownScene) { shownScene = out.scene; setScene(out.scene); } };
+    // one still frame always (calm / reduced motion keep it), then the loop if the budget allows
+    bandV = band(); { const out = drawFrame(ctx, { w: r.width, h: r.height, t: (performance.now() - start) / 1000, kind, look, energy: energy.current, rnd, data: dataRef.current, band: bandV }); shownScene = out.scene; setScene(out.scene); }
+    drewAt = performance.now(); raf = requestAnimationFrame(frame);
+    const wake = () => { if (alive && !raf && on && fxFrameMs()) raf = requestAnimationFrame(frame); };
+    document.addEventListener('visibilitychange', wake); window.addEventListener('fxchange', wake);
+    return () => { alive = false; cancelAnimationFrame(raf); ro?.disconnect(); document.removeEventListener('visibilitychange', wake); window.removeEventListener('fxchange', wake); };
   }, [kind, look, rnd, on, t0]);
 
   const nReady = readyScenes(kind, data).length;

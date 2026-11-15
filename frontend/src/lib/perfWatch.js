@@ -1,5 +1,5 @@
 import { apiUrl } from './api';
-import { fxPressure, setFxPressure, fxStats } from './fxPause';
+import { fxPressure, setFxPressure, fxStats, isAway, fxLevel } from './fxPause';
 
 // Lag catcher: measures what this browser actually feels (API latency, long tasks, FPS), reports once a
 // minute, and flips the site into lite effects when the device is struggling. Cheap by design: one fetch
@@ -52,10 +52,21 @@ export function layoutIssues(doc = document, win = window) {
   return out.sideways || out.spills.length || out.covered.length ? out : null;
 }
 
+// 🎮 Quality like a game (owner 2026-11-14 "no less than 25 fps"): a 1 s frame count every 5 s while visible and someone is here. Two samples
+// under FLOOR_FPS in a row → one quality level down at once (was: two bad MINUTES; level 2 if level 1 wasn't enough); six samples (30 s) at
+// 45+ → one level back up. The slow way back keeps it from flapping.
+export const FLOOR_FPS = 25;
+export function judge(recent, level) {
+  if (recent.length >= 2 && recent.slice(-2).every(f => f < FLOOR_FPS)) return Math.min(2, level + 1);
+  if (level > 0 && recent.length >= 6 && recent.slice(-6).every(f => f >= 45)) return level - 1;
+  return level;
+}
 function sampleFps() {
-  if (document.hidden) return;
+  if (document.hidden || isAway()) return;
   let frames = 0; const t0 = performance.now();
-  const tick = now => { frames += 1; if (now - t0 < 1000) requestAnimationFrame(tick); else state.fps.push(Math.round((frames * 1000) / (now - t0))); };
+  const tick = now => { frames += 1; if (now - t0 < 1000) { requestAnimationFrame(tick); return; }
+    const f = Math.round((frames * 1000) / (now - t0)); state.fps.push(f); state.recent = [...(state.recent || []), f].slice(-6);
+    if (!liteMode()) { const lvl = fxLevel(); const want = judge(state.recent, lvl); if (want !== lvl) { setFxPressure(want); state.recent = []; } } };
   requestAnimationFrame(tick);
 }
 
@@ -65,12 +76,8 @@ function flush() {
   // 🩺 A FIX, NOT A LITE MODE (owner, 2026-10-13): two bad minutes → the FX governor pauses only the BIG animated layers (the ones that
   // cost frames); every small effect, colour and layout stays. Three healthy minutes → they come back. The whole-site lite look is
   // only ever the user's own switch now.
-  const bad = shouldGoLite(report);
-  if (!liteMode()) {
-    if (bad) { state.okStreak = 0; state.slowStreak += 1; if (state.slowStreak >= 2 && !fxPressure()) setFxPressure(1); }
-    else if (fps != null) { state.slowStreak = 0; if (fxPressure()) { state.okStreak = (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setFxPressure(0); } } }
-  }
-  report.fx = { ...fxStats, pressure: fxPressure() };
+  if (!liteMode() && report.longMs > 1500 && !fxPressure()) setFxPressure(1);   // a blocked minute still rests the costly layers (fps is judged every 5 s above)
+  report.fx = { ...fxStats, pressure: fxPressure(), level: fxLevel() };
   if (state.layout) { report.layout = state.layout; state.layout = null; }
   const has = Object.keys(report.api).length || report.longTasks || fps != null || report.layout;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, errRoutes: {} });
@@ -107,7 +114,7 @@ export function startPerfWatch() {
   try {
     new PerformanceObserver(list => list.getEntries().forEach(e => { state.longTasks += 1; state.longMs += Math.round(e.duration); })).observe({ type: 'longtask', buffered: false });
   } catch { /* longtask unsupported (Safari) */ }
-  setInterval(sampleFps, 30000); setTimeout(sampleFps, 5000);
+  setInterval(sampleFps, 5000); setTimeout(sampleFps, 2000);
   setInterval(flush, 60000);
   let hidAt = 0;   // a tab flicking hidden / visible must not post a report each time (≤ one hidden-flush per 10s)
   document.addEventListener('visibilitychange', () => { if (document.hidden && Date.now() - hidAt > 10000) { hidAt = Date.now(); flush(); } });

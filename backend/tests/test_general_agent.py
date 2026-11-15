@@ -227,12 +227,14 @@ def test_an_agents_desk_look_is_saved_on_the_agent_by_its_owner(monkeypatch):
     monkeypatch.setattr(svc, '_load', lambda: store)
     monkeypatch.setattr(svc, '_save', lambda s: None)
     act = lambda **k: asyncio.run(svc.cat_action('k1', svc.ActionPayload(**k), SimpleNamespace(headers={})))
-    act(action='skin', ownerId='o', session='o', look={'bg': 'creek', 'acc': '#7FD3FF'})
-    assert cat['skin'] == {'bg': 'creek', 'acc': '#7fd3ff'}
+    act(action='skin', ownerId='o', session='o', look={'bg': 'violet', 'acc': '#7FD3FF'})
+    assert cat['skin'] == {'bg': 'violet', 'acc': '#7fd3ff'}
     with pytest.raises(HTTPException):
         act(action='skin', ownerId='o', session='o', look={'bg': 'lava', 'acc': '#000000'})
+    with pytest.raises(HTTPException):   # the video clips came out 2026-11-14
+        act(action='skin', ownerId='o', session='o', look={'bg': 'globe', 'acc': '#b388ff'})
     with pytest.raises(HTTPException):
-        act(action='skin', ownerId='someone-else', session='someone-else', look={'bg': 'globe', 'acc': '#b388ff'})
+        act(action='skin', ownerId='someone-else', session='someone-else', look={'bg': 'hive', 'acc': '#b388ff'})
 
 
 def test_general_brief_hourly_edits_and_proposals_need_approval_trader_stays_sealed(monkeypatch):

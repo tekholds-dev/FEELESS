@@ -13,50 +13,31 @@ import { Ic3 } from '../../lib/icon3d';
 // 🛸 THE AGENT COCKPIT (owner, 2026-10-30: "skinny chat — not wide — with model vitals on each side, under that a realtime degen categorised log
 // with folders… bg options that are clean + calming, pick the card colour instead of purple"). Under the two live windows:
 //   [ MIND A vitals ] [ the chat: bubbles, A left · B right · you ] [ MIND B vitals ]  →  📁 the log, one folder per kind of thing it did.
-// Desk skins = the owner's real nature clips (Earth · creek · forest) or plain Night; they stop under fx-lite / reduced motion.
-export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '💎', 'Live hive'], ['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
+// Desk skins = the live walls or plain Night. The video clips (Earth · creek · forest) are gone (owner 2026-11-14 "take out th video backgrounds": a
+// 720p clip behind the glass desk cost ~8 fps every frame); a desk saved on one opens on the default wall.
+export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '💎', 'Live hive'], ['night', '🌌', 'Night']];
+export const DEFAULT_BG = 'aurora';
 export const ACCENTS = ['#b388ff', '#d6c4ff', '#b48cff', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
-  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'globe', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
-  catch { return { bg: 'globe', acc: ACCENTS[0] }; }
+  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : DEFAULT_BG, acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
+  catch { return { bg: DEFAULT_BG, acc: ACCENTS[0] }; }
 }
 // 🎨 an agent's desk look lives ON the agent (owner 2026-10-30: "each dash customised — users see it without the controls"): `saved` = cat.skin from the
 // server; `onSave` (its owner only) stores a change there. No saved look yet → this browser's last pick, else Earth.
 export function useDeskSkin(saved, onSave) {
-  const [skin, setSkin] = useState(() => (saved?.bg ? { ...readSkin(), ...saved } : readSkin()));
-  useEffect(() => { if (saved?.bg) setSkin(x => (x.bg === saved.bg && x.acc === saved.acc ? x : { ...x, ...saved })); }, [saved?.bg, saved?.acc]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const ok = saved?.bg && SCENES.some(x => x[0] === saved.bg) ? saved : saved?.acc ? { acc: saved.acc } : null;   // a saved video skin → the default wall, its colour kept
+  const [skin, setSkin] = useState(() => (ok ? { ...readSkin(), ...ok } : readSkin()));
+  useEffect(() => { if (ok) setSkin(x => (x.bg === (ok.bg || x.bg) && x.acc === ok.acc ? x : { ...x, ...ok })); }, [saved?.bg, saved?.acc]);   // eslint-disable-line react-hooks/exhaustive-deps
   const set = patch => setSkin(s => { const n = { ...s, ...patch }; try { localStorage.setItem(SKIN_KEY, JSON.stringify(n)); } catch { /* private window */ } onSave?.(n); return n; });
   return [skin, set];
 }
 
-// 🎥 the owner's own 4K nature clips (2026-10-30), encoded to 720p loops (~30 s, silent, fast-start; 1080p was 18-22 MB each and loaded on every desk open, 2026-11-11 lag fix): /backdrops/<scene>.mp4. Full-screen behind
-// the desk, played only while it is on screen and the tab is visible; fx-lite / reduced motion → paused on its first frame; a missing file → Night.
-// Cards over it are dark GLASS (no backdrop blur over a moving layer — a scrim + near-opaque glass keeps every colour readable).
-export const VIDEO = { globe: 'Earth at night', creek: 'Autumn creek', forest: 'Forest canopy' };
-function SceneVideo({ bg, onFail }) {
-  const ref = React.useRef(null);
-  useEffect(() => { const v = ref.current; if (!v) return undefined;
-    const still = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const pause = () => { try { v.pause(); } catch { /* no media engine (tests) */ } };
-    if (still) { pause(); return undefined; }
-    document.body.classList.add('has-desk-video');   // 🧊 the page's own ambient layers run unseen behind the clip: rest them while it shows
-    let seen = true; const sync = () => { if (seen && !document.hidden) { try { Promise.resolve(v.play?.()).catch(() => {}); } catch { /* autoplay blocked */ } } else pause(); };
-    const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }) : null;
-    // 🧊 no scroll lag (owner 2026-10-30): the clip holds its frame while you scroll and plays again 250ms after you stop
-    let idle = 0; const onScroll = () => { if (!idle) pause(); clearTimeout(idle); idle = setTimeout(() => { idle = 0; sync(); }, 250); };
-    io?.observe(v); document.addEventListener('visibilitychange', sync); document.addEventListener('scroll', onScroll, { capture: true, passive: true }); sync();
-    return () => { document.body.classList.remove('has-desk-video'); io?.disconnect(); clearTimeout(idle); document.removeEventListener('visibilitychange', sync); document.removeEventListener('scroll', onScroll, { capture: true }); };
-  }, [bg]);
-  return <video ref={ref} className="ckb-video" src={`/backdrops/${bg}.mp4`} muted loop playsInline preload="metadata" onError={onFail} aria-hidden="true" data-testid="desk-video" />;
-}
 const LIVE_WALLS = { aurora: 'agent', violet: 'fee', hive: 'colony' };   // 🌌 the desktop's own live walls, as desk backdrops
 export function DeskBackdrop({ bg }) {
-  const [fail, setFail] = useState(false);
-  useEffect(() => setFail(false), [bg]);
-  if (LIVE_WALLS[bg]) return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><ShaderWall mood={LIVE_WALLS[bg]} /></div></div>;
-  if (!VIDEO[bg] || fail) return <i className="ckb ckb-night" aria-hidden="true" />;
-  return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div></div>;
+  const wall = LIVE_WALLS[bg] || (bg === 'night' ? null : LIVE_WALLS[DEFAULT_BG]);   // an old video skin → the default wall
+  if (!wall) return <i className="ckb ckb-night" aria-hidden="true" />;
+  return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><ShaderWall mood={wall} /></div></div>;
 }
 
 export function SkinPicker({ skin, set }) {

@@ -35,3 +35,11 @@ test('auto lite is told apart from a user-chosen lite mode', () => {
   const { isAutoLite } = require('./perfWatch');
   expect(isAutoLite('auto@1')).toBe(true); expect(isAutoLite('on')).toBe(false);
 });
+
+test('🎮 judge: two samples under 25 fps step quality down (to level 2 at most); 30 s at 45+ steps one back up', () => {
+  const { judge, FLOOR_FPS } = require('./perfWatch');
+  expect(FLOOR_FPS).toBe(25);
+  expect(judge([60, 20], 0)).toBe(0); expect(judge([20, 22], 0)).toBe(1); expect(judge([30, 28], 0)).toBe(0);
+  expect(judge([20, 22], 1)).toBe(2); expect(judge([20, 22], 2)).toBe(2);
+  expect(judge([50, 50, 50, 50, 50], 1)).toBe(1); expect(judge([50, 50, 50, 50, 50, 50], 2)).toBe(1); expect(judge([50, 50, 30, 50, 50, 50], 1)).toBe(1);
+});

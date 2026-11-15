@@ -359,7 +359,7 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
     store['events'] = store['events'][:200]
 
 
-DESK_SCENES = ('aurora', 'violet', 'hive', 'globe', 'creek', 'forest', 'night')   # 🎨 CatCockpit.SCENES (change both)
+DESK_SCENES = ('aurora', 'violet', 'hive', 'night')   # 🎨 CatCockpit.SCENES (change both) — the video clips came out 2026-11-14
 BRIEF_EVERY = 3600   # 📜 a general agent's brief: you edit it, or its minds propose one, at most once an hour
 MODEL_LOCK_SEC = 24 * 3600   # 🔁 a cat's models can be switched 24 h after it was made
 FEE_PER_SIDE = 0.01   # the default paper fee per side — HQ › Core › house fees sets the live one (RULES['feePerSidePct'])
