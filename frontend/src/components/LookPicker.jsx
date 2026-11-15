@@ -4,6 +4,7 @@ import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';
 import { DEFAULT_LOOK, LOCAL_LOOKS, keepLocalLook, localLook } from '../lib/looks';
+import { setChartTheme } from '../lib/chartTheme';
 import { applyTheme } from './HolderTheme';
 import { ActBtn, serverJson } from './ActBtn';
 import '../styles/lookPicker.css';
@@ -21,7 +22,11 @@ export function LookPicker({ compact = false }) {
     if (a) fetch(apiUrl(`/api/reputation/theme/${a}`)).then(r => r.json()).then(d => { if (live && d?.theme?.look?.id) setOn(d.theme.look.id); }).catch(() => {});
     return () => { live = false; };
   }, [wallet?.address, wallet?.chain]);
-  const pick = l => { if (l.locked) return; setOn(l.id); applyTheme({ look: { id: l.id, ambient: l.ambient, tokens: l.tokens } }); };   // a look replaces a custom colour (saving keeps only the look)
+  // 🎨 a tap keeps the look (owner 2026-11-15 "i switch the looks and they dont work": it only showed until the next page): this device at once, and
+  // the wallet too when a chat session is already open (never asks for a new signature — Save does that). A look replaces a custom colour.
+  const pick = l => { if (l.locked) return; setOn(l.id); applyTheme({ look: { id: l.id, ambient: l.ambient, tokens: l.tokens } }); keepLocalLook(l.id); setChartTheme('feeless');   // the candles wear the look too (a chart theme picked later in Settings still wins)
+    const a = wallet?.address && wallet.chain !== 'evm' ? wallet.address : '';
+    if (a) getChatSession(a, () => Promise.reject(new Error('no session'))).then(session => fetch(apiUrl('/api/reputation/theme'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: a, session, look: l.id }) })).catch(() => {}); };
   const save = async () => {   // 🔘 ActBtn: ✓ only when the server kept it (signed in) — its own reason otherwise
     const l = cat.looks.find(x => x.id === on); if (!l || l.locked) throw new Error('That look is locked.');
     if (wallet?.address && wallet.chain !== 'evm') {

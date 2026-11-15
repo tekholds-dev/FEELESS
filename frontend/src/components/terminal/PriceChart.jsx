@@ -189,21 +189,24 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     if (!container.current || !hasChart) return;
     container.current.replaceChildren();
     drawnRef.current = [displayCandles, trail];
+    // 🟢 wearing an owner's-pick look (Obsidian / Desk / Pit, <html data-layout>) the chart is the look lab's: no box, no column lines, faint
+    // look-coloured rows, borderless scales, the look's dim text (owner 2026-11-15 "desktop … trench chart isnt how the newnew looks had it")
+    const lab = !!document.documentElement.dataset.layout; const look = (k, fb) => { const v = getComputedStyle(document.documentElement).getPropertyValue(k).trim(); return /^#[0-9a-f]{6}$/i.test(v) ? v : fb; };
     const chart = createChart(container.current, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: bgOn ? 'transparent' : dayMode ? '#edf4ef' : '#080e0d' },   /* 🎨 a picked scene shows through */
-        textColor: dayMode ? '#464646' : '#939393',
+        background: { type: ColorType.Solid, color: bgOn || lab ? 'transparent' : dayMode ? '#edf4ef' : '#080e0d' },   /* 🎨 a picked scene shows through */
+        textColor: lab && !dayMode ? look('--m-dim', '#86868f') : dayMode ? '#464646' : '#939393',
         fontFamily: 'JetBrains Mono',
         fontSize: 10,
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: dayMode ? '#d8e8dc' : '#ffffff04' },
-        horzLines: { color: dayMode ? '#d8e8dc' : '#ffffff06' },
+        vertLines: lab ? { visible: false } : { color: dayMode ? '#d8e8dc' : '#ffffff04' },
+        horzLines: { color: lab && !dayMode ? look('--m-line', '#1f1f23') : dayMode ? '#d8e8dc' : '#ffffff06' },
       },
-      rightPriceScale: { borderColor: dayMode ? '#aac7b3' : '#282828' },
-      timeScale: { borderColor: dayMode ? '#aac7b3' : '#282828', timeVisible: true, secondsVisible: false, maxBarSpacing: 14, rightOffset: 4 },
+      rightPriceScale: lab ? { borderVisible: false } : { borderColor: dayMode ? '#aac7b3' : '#282828' },
+      timeScale: { ...(lab ? { borderVisible: false } : { borderColor: dayMode ? '#aac7b3' : '#282828' }), timeVisible: true, secondsVisible: false, maxBarSpacing: 14, rightOffset: 4 },
       localization: { locale: 'en-US', priceFormatter: n => formatUSD(n) }, crosshair: { mode: 0 },
     });
     // Price precision sized to the coin: sub-cent memecoins need 6–10 decimals or every axis tick reads $0.00.

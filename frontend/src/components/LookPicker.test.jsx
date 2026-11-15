@@ -19,7 +19,7 @@ test('🎨 wearing a look sets the meta tokens and the ambient on <html>; Plasma
   expect(r.dataset.look).toBeUndefined(); expect(r.style.getPropertyValue('--m-accent')).toBe('');
 });
 
-test('🎨 the picker shows free looks to wear and advanced ones locked with what unlocks them; a tap previews, save keeps it on this device', async () => {
+test('🎨 the picker shows free looks to wear and advanced ones locked with what unlocks them; a tap wears it and keeps it on this device', async () => {
   const looks = [...Object.values(FREE_LOOKS).map(l => ({ id: l.id, name: l.name, tier: 'free', line: 'x', ambient: l.ambient, swatch: ['#111111', '#222222', '#333333', '#000000'], tokens: l.tokens, locked: false })),
     { id: 'aurora', name: 'Aurora', tier: 'holder', line: 'y', ambient: 'aurora', swatch: ['#3ef2c9', '#8b6bff', '#c06bff', '#030d12'], locked: true }];
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ looks, eligible: false, minUsd: 1000 }) }));
@@ -29,7 +29,9 @@ test('🎨 the picker shows free looks to wear and advanced ones locked with wha
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('look-aurora').textContent).toContain('ADVANCED'); expect(el.textContent).toContain('unlock at $1,000');
   await act(async () => { q('look-aurora').click(); }); expect(document.documentElement.dataset.look).toBeUndefined();   // locked: nothing applies
+  localStorage.removeItem('feeless.look');
   await act(async () => { q('look-molten').click(); }); expect(document.documentElement.dataset.look).toBe('molten'); expect(q('look-molten').textContent).toContain('WEARING');
+  expect(localStorage.getItem('feeless.look')).toBe('molten');   // the tap itself keeps it (2026-11-15): it survives the next page
   await act(async () => { q('look-save').click(); }); expect(localStorage.getItem('feeless.look')).toBe('molten');
   applyLook(null); el.remove();
 });
