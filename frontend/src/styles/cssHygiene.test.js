@@ -17,7 +17,7 @@ const BUDGET = { 'terminal.css': 516, 'command.css': 84, 'trade.css': 6.2, 'meta
 
 test.each(fs.readdirSync(__dirname).filter(f => f.endsWith('.css')))('%s has no dead class rules', file => {
   const css = fs.readFileSync(path.join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)|\d+\.\d+/g, '');
-  const dead = [...new Set([...css.matchAll(/\.([A-Za-z_][\w-]*)/g)].map(m => m[1]))].filter(c => !used(c) && !c.startsWith('react-flow__'));   // React Flow's own class names
+  const dead = [...new Set([...css.matchAll(/\.([A-Za-z_][\w-]*)/g)].map(m => m[1]))].filter(c => !used(c) && !c.startsWith('react-flow__') && !c.startsWith('excalidraw-'));   // React Flow's / Excalidraw's own class names
   expect(dead).toEqual([]);
 });
 
