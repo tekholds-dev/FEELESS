@@ -268,7 +268,8 @@ export function BoostCoin({ earning = false }) {
 }
 // ▦ The grid it snaps to, faint on the wall; the cell a dragged folder will land in lights up. Spots are saved, so a refresh keeps them.
 export const DeskGrid = () => <i className="dsk-grid" aria-hidden="true" data-testid="dsk-grid"><b /></i>;
-export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, testid, earn = false, earning = false }) {
+export function DeskIcon({ k, ic, label, at: atIn, onMove, onOpen, tip, badge = null, testid, earn = false, earning = false }) {
+  const at = atIn && Number.isFinite(atIn.x) && Number.isFinite(atIn.y) ? atIn : { x: 0, y: 0 };   // 🩹 an icon with no saved spot (support report 11-06: "reading 'x' in <DeskIcon>") starts top-left instead of crashing the desk
   const g = useRef(null); const dragged = useRef(false);
   const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y, px: at.x, py: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { const nav = e.currentTarget.parentElement; const c = ICON_CELL[nav?.dataset.size] || 96; nav?.classList.add('is-drag'); nav?.style.setProperty('--tx', `${Math.round(d.px / c) * c}px`); nav?.style.setProperty('--ty', `${Math.round(d.py / c) * c}px`); d.px = Math.min(Math.max(0, d.ox + dx), Math.max(0, window.innerWidth - ICON_W)); d.py = Math.min(Math.max(0, d.oy + dy), Math.max(0, window.innerHeight - ICON_H)); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };

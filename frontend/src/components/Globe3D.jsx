@@ -8,6 +8,7 @@ import { apiUrl } from '../lib/api';
 import { isEco } from '../lib/eco';
 import { burstObject, tickBurst, disposeBurst, coinHeat, kindFor, BURST_COLORS } from '../lib/globeBursts';
 import { Ic3 } from '../lib/icon3d';
+import { isAway } from '../lib/fxPause';
 
 const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
 let glowTex = null;
@@ -375,7 +376,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   useEffect(() => {
     let raf;
     const loop = () => {
-      if (!visible.current) { raf = requestAnimationFrame(loop); return; }
+      if (!visible.current || isAway()) { raf = setTimeout(() => requestAnimationFrame(loop), 500); return; }   // 🎮 off-screen or nobody here: check twice a second, not 60×
       if (eco.current && !burstObjs.current.size) { raf = setTimeout(() => requestAnimationFrame(loop), 500); return; }   // 🔋 nothing to animate: idle at 2 Hz, not 120
       const now = performance.now();
       const dead = [];
@@ -399,7 +400,10 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       try { if (e.isIntersecting) { if (eco.current) wake(1200); else g?.resumeAnimation?.(); } else g?.pauseAnimation?.(); } catch { /* noop */ }
     }, { threshold: 0.05 });
     io.observe(el);
-    return () => io.disconnect();
+    // 🎮 nobody here (90 s without input) → the WebGL globe stops spinning; the first touch or key brings it back
+    const fx = () => { const g = globeRef.current; try { if (isAway()) g?.pauseAnimation?.(); else if (visible.current) { if (eco.current) wake(1200); else g?.resumeAnimation?.(); } } catch { /* noop */ } };
+    window.addEventListener('fxchange', fx);
+    return () => { io.disconnect(); window.removeEventListener('fxchange', fx); };
   }, []);
 
   useEffect(() => {
@@ -461,7 +465,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       .map(t => ({ lat: t.lat, lng: t.lng, color: t.color, maxR: 2.6, propagationSpeed: 0.9, repeatPeriod: 2600 })),
   ], [tokenPoints]);
 
-  const particles = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
+  const particles = useMemo(() => Array.from({ length: 8 }, (_, i) => ({   // 🎮 8, not 16 (2026-11-14, 25 fps floor): every one is its own moving layer
     id: i,
     left: `${(i * 37) % 100}%`,
     top: `${(i * 53) % 100}%`,
@@ -478,7 +482,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       <div className="globe-bloom-layer globe-bloom-outer" aria-hidden="true" />
       <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
       <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>
-      <div className="globe-starfield" aria-hidden="true">{stars.map(s => <span key={s.id} className="globe-star" style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />)}</div>
+      <div className="globe-starfield" aria-hidden="true">{stars.map(s => <span key={s.id} className={s.id % 3 ? 'globe-star is-still' : 'globe-star'} style={{ left: s.left, top: s.top, width: s.size, height: s.size, animationDelay: s.delay, animationDuration: s.duration }} />)}</div>
       <GlobeHud hottest={hottest} openToken={openToken} feedPush={feedPush} fireRef={fireRef} />
       <GlobeErrorBoundary fallback={<GlobeFallback onSelect={onSelect} selectedId={selectedId} />}>
         <Globe

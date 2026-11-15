@@ -50,7 +50,7 @@ const told = () => { try { window.dispatchEvent(new Event('fxchange')); } catch 
 export function setAway(v) { const n = !!v; if (n === away) return; away = n; try { document.body.classList.toggle('fx-away', n); govern(); } catch { /* not in a page */ } told(); }
 // 🎮 The frame budget a canvas loop should keep: 0 = draw nothing (away / hidden / calm). Level 0 → 30 fps, level 1 → 15, level 2 → 8 (still alive).
 export const fxFrameMs = () => (away || (typeof document !== 'undefined' && document.hidden) || isCalm() ? 0 : [33, 66, 125][fxLevel()]);
-const TINY_PX = 24 * 24;   // level 2 keeps the live dots, carets and blinks (≤ 24×24): they say "it's working" and cost next to nothing
+const TINY_PX = 24 * 24; const TINY_KEEP = 6;   // level 2 keeps up to 6 live dots, carets and blinks (≤ 24×24): they say "it's working"; a field of 40 twinkles is not a live dot
 const svgRoot = t => (typeof SVGElement !== 'undefined' && t instanceof SVGElement ? (t.ownerSVGElement ? (t.closest?.('svg:not(svg svg)') || t.ownerSVGElement) : t) : null);
 let pressure = 0; let holds = 0;   // `holds`: a surface doing heavy work for the user right now (the Brain while the model answers) asks the big layers to rest
 export const fxPressure = () => (pressure || holds ? 1 : 0);
@@ -64,13 +64,13 @@ export function govern(doc = document, win = window) {
   const vw = win.innerWidth; const vh = win.innerHeight; const hid = !!doc.hidden;
   const list = doc.getAnimations().filter(a => a?.effect?.target && a.effect.getComputedTiming?.().iterations === Infinity);
   const rects = list.map(a => a.effect.target.getBoundingClientRect());
-  let running = 0; let paused = 0; let shed = 0;
+  let running = 0; let paused = 0; let shed = 0; let tinyKept = 0;
   list.forEach((a, i) => {
     const r = rects[i];
     const off = hid || away || (r.width === 0 && r.height === 0) || r.bottom < -200 || r.top > vh + 200 || r.right < -200 || r.left > vw + 200;
     const svg = svgRoot(a.effect.target);
     const area = r.width * r.height; const lvl = fxLevel();
-    const big = !off && lvl > 0 && (area >= BIG_PX || !!svg || (lvl > 1 && area > TINY_PX));
+    const big = !off && lvl > 0 && (area >= BIG_PX || !!svg || (lvl > 1 && (area > TINY_PX || ++tinyKept > TINY_KEEP)));
     if (!off && !big && svg && !lifted.has(svg) && layered < LAYER_CAP) { lifted.add(svg); layered += 1; try { svg.style.willChange = 'transform'; svg.style.contain = 'paint'; } catch { /* read-only node */ } }
     if (off || big) {
       if (a.playState === 'running') { a.pause(); mine.add(a); }

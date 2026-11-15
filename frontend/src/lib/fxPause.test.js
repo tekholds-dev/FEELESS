@@ -59,3 +59,12 @@ test('🎮 an animated SVG part gets its own layer once; under pressure it rests
   setFxPressure(1); govern(doc, win); expect(part.playState).toBe('paused'); expect(html.playState).toBe('running');
   setFxPressure(0); govern(doc, win); expect(part.playState).toBe('running');
 });
+
+test('🎮 level 2 keeps a handful of live dots, not a whole field of twinkles', () => {
+  const box = { top: 100, bottom: 104, left: 0, right: 4, width: 4, height: 4 };
+  const mk = () => ({ playState: 'running', effect: { getComputedTiming: () => ({ iterations: Infinity }), target: { getBoundingClientRect: () => box } }, pause() { this.playState = 'paused'; }, play() { this.playState = 'running'; } });
+  const dots = Array.from({ length: 20 }, mk); const doc = { hidden: false, getAnimations: () => dots }; const win = { innerWidth: 1000, innerHeight: 800 };
+  setFxPressure(2); govern(doc, win); expect(dots.filter(a => a.playState === 'running')).toHaveLength(6);
+  setFxPressure(1); govern(doc, win); expect(dots.filter(a => a.playState === 'running')).toHaveLength(20);
+  setFxPressure(0);
+});
