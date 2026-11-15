@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@ethersproject/sha2": "5.8.0",
+    "@excalidraw/excalidraw": "0.18.1",
     "@heroui/react": "3.2.7",
     "@heroui/styles": "3.2.7",
     "@internationalized/date": "^3.12.4",

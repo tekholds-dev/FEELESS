@@ -6,7 +6,7 @@ import re
 
 MAX_BYTES = 12 * 1024 * 1024          # a 4K PNG of a busy scene stays under this
 MAX_CLIP = 48 * 1024 * 1024           # a 60 s clip at 6 Mbps (the playground's recorder) is ~45 MB
-TEMPLATES = ('free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas', 'adset')
+TEMPLATES = ('free', 'post', 'story', 'thumb', 'phone', 'billboard', 'shelf', 'launch', 'ideas', 'adset', 'wire')   # wire = the Excalidraw wireframe board (PocWire.jsx)
 _DATA = re.compile(r'^data:(?:image|video)/(png|jpeg|webp|mp4|webm)(?:;codecs=[\w.,"\'-]+)?;base64,([A-Za-z0-9+/=\s]+)$')
 _MAGIC = {'png': b'\x89PNG\r\n\x1a\n', 'jpeg': b'\xff\xd8\xff', 'webp': b'RIFF', 'webm': b'\x1a\x45\xdf\xa3', 'mp4': b''}
 VIDEO = ('mp4', 'webm')

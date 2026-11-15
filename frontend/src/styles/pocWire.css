@@ -1,0 +1,11 @@
+/* 🧩 PocWire.jsx — the PoC wireframe board: a full-screen sheet around Excalidraw (MIT). Motion: pwrIn, transform/opacity only. */
+:root { /* page tokens (STYLE-1) */ --ppwr-bg1: #07040df2; --ppwr-bd1: #ffffff1f; --ppwr-tx1: #ffffffe6; --ppwr-tx2: #ffffff8c; --ppwr-dg1: #ff5c7a; --ppwr-ok1: #19e68c; }
+.pwr { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--ppwr-bg1); animation: pwrIn .22s ease-out both; }
+.pwr-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.pwr-h > span:first-child { display: grid; gap: 2px; min-width: 0; } .pwr-h b { font: 700 12px var(--f-mono, monospace); letter-spacing: .12em; color: var(--ppwr-tx1); } .pwr-h small { font: 500 11.5px var(--f-ui, sans-serif); color: var(--ppwr-tx2); }
+.pwr-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.pwr-note { margin: 0; font: 600 11.5px var(--f-ui, sans-serif); color: var(--ppwr-ok1); } .pwr-note.is-bad { color: var(--ppwr-dg1); }
+.pwr-stage { position: relative; flex: 1 1 auto; min-height: 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--ppwr-bd1); }
+.pwr-wait { display: grid; place-items: center; height: 100%; margin: 0; font: 600 12px var(--f-mono, monospace); color: var(--ppwr-tx2); }
+@keyframes pwrIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+body.fx-lite .pwr { animation: none; } @media (prefers-reduced-motion: reduce) { .pwr { animation: none; } }

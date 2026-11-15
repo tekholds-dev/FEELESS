@@ -113,3 +113,9 @@ def test_references_join_the_folder_and_images_keep_the_exact_character(monkeypa
     assert sent[0]['text'].startswith('him on a beach') and 'EXACT same character' in sent[0]['text'] and sent[1]['image_url']['url'].startswith('data:image/png;base64,')
     W(op='media_make', text='just a beach', tools={'kind': 'image', 'model': 'or-nano-banana', 'noChar': True})
     assert 'refs' not in doc['messages'][-1]['media'] and mg.ref_content('x', []) == 'x'
+
+
+def test_a_wireframe_board_save_is_labelled_wire():
+    import poc_play
+    assert 'wire' in poc_play.TEMPLATES
+    assert poc_play.version_label([], 'wire') == 'Playground v1 · wire'

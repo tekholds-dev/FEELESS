@@ -208,6 +208,27 @@ def keep_owned(cat):
     _KEPT[cat['id']] = json.loads(json.dumps({k: cat[k] for k in OWNER_KEYS if k in cat}))
 
 
+
+_DONOR = {'at': 0.0, 'rows': {}}
+
+
+def _owner_donor(provider):
+    """🔑 The owner's shared key: the newest key of this provider saved on any owner agent (ownerStaff). Re-read at most every 30 s."""
+    if time.time() - _DONOR['at'] > 30:
+        rows_ = {}
+        try:
+            for c in (_load().get('cats') or {}).values():
+                for p_, r_ in (c.get('apiKeys') or {}).items():
+                    if p_ in _ck.SHARED and c.get('ownerStaff') and r_ and float(r_.get('at') or 0) >= float((rows_.get(p_) or ({}, '', ''))[0].get('at') or 0):
+                        rows_[p_] = (r_, c.get('id'), c.get('name'))
+        except Exception:   # noqa: BLE001 — no store, no sharing
+            rows_ = {}
+        _DONOR.update(at=time.time(), rows=rows_)
+    return _DONOR['rows'].get(provider)   # (sealed row, donor id, donor name)
+
+
+_ck.OWNER_DONOR['fn'] = _owner_donor
+
 def _save(store: dict):
     path_key = str(STORE_PATH)
     for (path, cid), cat in _NEW_CATS.items():
@@ -5236,6 +5257,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
 
 async def _pob_tick(http, cat, now):
     want = _POB_WANT.pop(cat['id'], None); do, _, who = str(want or '').partition(':'); run = cat.get('pobRun')
+    if not want and not run and cat.get('pobAsk') and not cat.get('pobRead'):
+        do = 'start'   # 🔁 a saved ask whose start signal a restart lost: start it now, never leave it holding a proof slot
     if run:
         if now - float(run.get('checkedAt') or 0) >= _pob.CHECK_EVERY_S:
             run['checkedAt'] = round(now)
@@ -10486,7 +10509,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time())
         (_media_dir() / cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{jid}.{ext_}').write_bytes(raw_)
         prompt_ = str(smd_.get('prompt') or t_.get('note') or 'Made in the playground')[:300]
-        msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': _pplay.kind_of(ext_), 'provider': 'playground', 'model': 'Konva canvas' if _pplay.kind_of(ext_) == 'image' else 'Konva canvas + browser recorder', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
+        msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': _pplay.kind_of(ext_), 'provider': 'playground', 'model': 'Excalidraw board' if t_.get('template') == 'wire' else 'Konva canvas' if _pplay.kind_of(ext_) == 'image' else 'Konva canvas + browser recorder', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
                 'usd': 0, 'prompt': prompt_, 'status': 'queued', 'at': now_, **({'from': src_} if smd_ else {}), **({'template': t_['template']} if t_.get('template') in _pplay.TEMPLATES else {})}}
         _media_set(cat_id, p.job, jid, keep=msg_, status='done', url=f'/api/cats/media/{cat_id}/{jid}.{ext_}', doneAt=now_)   # also joins a filed PoC of this folder
         return {'doc': _ws_view(cat_id, p.job), 'id': jid}

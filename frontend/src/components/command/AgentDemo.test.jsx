@@ -95,3 +95,13 @@ test('🔑 Kalshi and fal get two boxes each, and Seal sends them joined the way
   const e = await mount(<ApiDrawer rows={[]} draft={{ 'kalshi.0': 'only-the-id' }} onDraft={jest.fn()} onSave={onSave} />);
   expect(e.querySelector('[data-testid="akd-save-kalshi"]').disabled).toBe(true);   // both parts or nothing
 });
+
+// Owner 2026-11-14: "all my agents i own should follow the same openrouter key". An owner agent with no key of its own shows whose key it uses, and no Connect button.
+test('an owner agent without its own OpenRouter key says it uses yours; others still get Connect', async () => {
+  const a = await mount(<ApiDrawer rows={[{ provider: 'openrouter', saved: false, sharedFrom: 'Happy Assistant' }]} start onConnect={jest.fn()} />);
+  expect(a.querySelector('[data-testid="akd-shared-openrouter"]').textContent).toContain('Happy Assistant');
+  expect(a.querySelector('[data-testid="akd-connect-openrouter"]')).toBeNull();
+  const b = await mount(<ApiDrawer rows={[]} start onConnect={jest.fn()} />);
+  expect(b.querySelector('[data-testid="akd-shared-openrouter"]')).toBeNull();
+  expect(b.querySelector('[data-testid="akd-connect-openrouter"]')).not.toBeNull();
+});

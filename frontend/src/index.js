@@ -48,6 +48,8 @@ import('./lib/openrouterConnect').then(m => m.finishOpenRouterConnect()).catch((
 if (process.env.NODE_ENV === 'development' && window.location.pathname.startsWith('/dev/') && window.location.search.includes('look')) import('./lib/looks').then(m => m.applyLook(m.DEFAULT_LOOK));   // 🧪 any harness under the owner's look (?look)
 if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/colony') {   // 🧪 the Colony on fixtures
   import('./dev/ColonyHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/wire') {   // 🧪 the PoC wireframe board on a fixture picture (src/dev/WireHarness.jsx)
+  import('./dev/WireHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/rewards') {   // 🧪 the rewards dash on fixtures, signed in (src/dev/RewardsHarness.jsx)
   import('./dev/RewardsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)

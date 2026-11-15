@@ -111,7 +111,7 @@ let webpackConfig = {
       if (process.env.FEELESS_WEBPACK_CACHE && webpackConfig.cache && typeof webpackConfig.cache === 'object') webpackConfig.cache = { ...webpackConfig.cache, cacheDirectory: process.env.FEELESS_WEBPACK_CACHE };
 
       // Meteora's SDK ships .mjs files that import extensionless paths; allow that for .mjs only.
-      webpackConfig.module.rules.push({ test: /\.m?js$/, include: /node_modules[\\/]@meteora-ag/, resolve: { fullySpecified: false } });
+      webpackConfig.module.rules.push({ test: /\.m?js$/, include: /node_modules[\\/](@meteora-ag|@excalidraw)/, resolve: { fullySpecified: false } });
       // Anchor only requires Node's 'util' on its non-browser branch; browsers use TextEncoder/Decoder.
       webpackConfig.resolve.fallback = { ...webpackConfig.resolve.fallback, util: false };
 

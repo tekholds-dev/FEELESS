@@ -137,19 +137,38 @@ def drop(cat, provider):
     return public(cat)
 
 
+# 🔑 ONE OPENROUTER KEY FOR ALL THE OWNER'S AGENTS (owner 2026-11-14: "all my agents i own should follow the same openrouter key! feecat and happy
+# especially; ossy and g4 are free local models"). An owner agent (ownerStaff) with no key of its own uses the key saved on another owner agent.
+# Local brains (LM Studio) never call OpenRouter, so they stay apart. A user's agent never borrows anyone's key.
+SHARED = ('openrouter',)
+OWNER_DONOR = {'fn': None}   # the service sets it: provider → (sealed row, donor cat id) or None
+
+
 def key_for(cat, provider, env=None, data_dir=None):
     """The clear key for the server's own call — never returned to a page."""
-    row = (cat.get('apiKeys') or {}).get(provider)
+    row = (cat.get('apiKeys') or {}).get(provider); owner_id = cat.get('id')
+    if not row and provider in SHARED and cat.get('ownerStaff') and OWNER_DONOR['fn']:
+        got = OWNER_DONOR['fn'](provider)
+        if got:
+            row, owner_id = got[0], got[1]
     if not row:
         return None
     try:
-        return unseal(row['sealed'], cat.get('id'), env, data_dir)
+        return unseal(row['sealed'], owner_id, env, data_dir)
     except Exception:
         return None
+
+
+def shared_from(cat, provider):
+    """What the page may see about a borrowed key: only which owner agent it comes from (never the key, never its last 4)."""
+    if (cat.get('apiKeys') or {}).get(provider) or provider not in SHARED or not cat.get('ownerStaff') or not OWNER_DONOR['fn']:
+        return None
+    got = OWNER_DONOR['fn'](provider)
+    return got[2] if got and len(got) > 2 and got[1] != cat.get('id') else None
 
 
 def public(cat):
     """What the page may see: every provider, whether one is saved (last 4 only), and whether the cat uses it yet."""
     drawer = cat.get('apiKeys') or {}
     return [{'provider': p, 'label': lab, 'use': use, 'wired': wired, 'saved': p in drawer, 'last4': (drawer.get(p) or {}).get('last4'),
-             'at': (drawer.get(p) or {}).get('at'), 'check': (drawer.get(p) or {}).get('check')} for p, (lab, use, wired, _) in PROVIDERS.items() if p != 'github_project']
+             'at': (drawer.get(p) or {}).get('at'), 'check': (drawer.get(p) or {}).get('check'), 'sharedFrom': shared_from(cat, p)} for p, (lab, use, wired, _) in PROVIDERS.items() if p != 'github_project']
