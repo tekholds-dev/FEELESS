@@ -4,7 +4,6 @@ import { motion } from 'motion/react';
 import { CircleAlert, Gift, LifeBuoy, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { money, usePoolRules } from './SplitFlow';
-import { GameLab } from './GameLab';
 import { MoneyCockpit } from './MoneyCockpit';
 import { ColonyPot } from './HiveBoard';
 import { Pools, Dials, planBody } from './CollectiveOwner';
@@ -245,7 +244,6 @@ export function useOwnerFolders(call, on = true) {
   if (!on) return [];
   return [
     { k: 'own-grow', ic: '💰', label: 'Money', tip: 'Owner only: what is really here, every way it could work, what the same dollars did, and how agents get paid', body: <FolderTabs id="own-grow" at={moneyTab} setAt={setMoneyTab} tabs={[['money', 'Money', wrap(d ? <GrowFolder d={d} save={save} busy={busy} call={call} extra={<div className="ofd"><ColonyPot call={call} /><Pools d={d} save={save} busy={busy} /></div>} /> : null)], ['pay', 'Pay + reward', wrap(d ? <PayFolder d={d} save={save} busy={busy} /> : null)], ['fallback', 'Fallbacks', wrap(d ? <FallbackFolder d={d} onPay={openPay} /> : null)]]} /> },
-    { k: 'own-games', ic: '🎮', label: 'Game lab', tip: 'Owner only: playtest log, porting checklists (GTA RP, RedM, PS Vita homebrew, Steam Deck, web) and a FiveM / RedM resource starter', body: <GameLab call={call} /> },
     { k: 'own-safety', ic: '🛡', label: 'Safety', tip: 'Owner only: stop payouts, the limits, and what is not built yet', body: wrap(d && c ? <SafetyFolder d={d} save={save} busy={busy} c={c} setC={setC} /> : null) },
     { k: 'own-fix', ic: '🛠', label: 'Fix agent', tip: 'Owner only: logged crashes, and a tested fix for each on its own branch', body: <FixFolder call={call} /> },
     { k: 'own-py', ic: '🐍', label: 'Py agents', tip: 'Owner only: the five validators, their real record, and what OSSY and G4 propose', body: <PyAgentsFolder call={call} /> },

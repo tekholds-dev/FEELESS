@@ -88,6 +88,8 @@ import collective_debate as _debate
 import play_studio as _play
 import asset_packs as _assets
 import real_world as _rworld   # 🌍 the 3D studio's real-world-first shelf
+import game_lab as _game_lab
+import game_desk as _gdesk   # 🎮 the Game desk: AI builds, fixes and plans game mods, checks them, zips them
 import poc_watch as _pw
 import idea_board as _ideas
 import proof_footprint as _foot
@@ -9893,6 +9895,162 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             v_ = (_ws_load(cat_id, p.to) or {}).get('versions') or []
             return {'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else ''}
         return {'apps': rows_}
+    if p.op.startswith('gdesk_'):   # 🎮 GAME DESK (owner 2026-11-15, every user): projects of real files its mind builds, fixes or plans; checked; zipped
+        gst_ = _play_load(cat_id, 'game') or {}; projs_ = list(gst_.get('projects') or []); style_ = list(gst_.get('style') or [])
+        pid_ = str((p.tools or {}).get('id') or p.to or '')[:12]; proj_ = next((x for x in projs_ if x.get('id') == pid_), None)
+
+        def keep_(pr=None, **more):
+            if pr is not None:
+                pr['checks'] = _gdesk.check(pr['target'], pr.get('files') or {}, pr.get('bins') or {}); pr['at'] = round(time.time())
+                rows = [pr] + [x for x in projs_ if x.get('id') != pr['id']]
+            else:
+                rows = projs_
+            _play_save(cat_id, 'game', {**gst_, 'projects': rows[:_gdesk.MAX_PROJECTS], 'style': style_, **more})
+            return pr
+
+        def need_():
+            if not proj_:
+                raise HTTPException(404, 'Open a project first.')
+            return dict(proj_)
+        if p.op == 'gdesk_get':
+            return {**_gdesk.view({**gst_, 'projects': projs_, 'style': style_}), 'project': proj_ or (projs_[0] if projs_ else None),
+                    'minds': [_answered_by(b, '') for b in ((cat.get('brainsCfg') or {}).get('brains') or [])]}
+        if p.op == 'gdesk_new':
+            pr_ = _gdesk.new_project(p.text, p.job)
+            if (p.tools or {}).get('starter') and pr_['target'] in ('fivem', 'redm'):   # 🧱 a working starter, no model and no cost
+                r_ = _game_lab.resource(pr_['name'], 'rdr3' if pr_['target'] == 'redm' else 'gta5', '')
+                pr_['files'] = {**r_['files'], 'INSTALL.md': f"# {pr_['name']}\n\n{r_['install']}\n"}
+            return {'project': keep_(pr_), **_gdesk.view({'projects': [pr_] + projs_, 'style': style_})}
+        if p.op == 'gdesk_save':   # its builder's own edit of one file
+            try:
+                pr_ = _gdesk.put_file(need_(), (p.tools or {}).get('path'), (p.tools or {}).get('text'))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            return {'project': keep_(pr_)}
+        if p.op == 'gdesk_drop':
+            pr_ = need_(); path_ = str((p.tools or {}).get('path') or '')
+            if (pr_.get('bins') or {}).get(path_):
+                b_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}; b_.pop(path_, None); _play_save(cat_id, f"gbin_{pr_['id']}", b_)
+            return {'project': keep_(_gdesk.drop(pr_, path_))}
+        if p.op == 'gdesk_delete':
+            projs_ = [x for x in projs_ if x.get('id') != pid_]; _play_save(cat_id, f'gbin_{pid_}', {})
+            shelf_p_ = DATA_DIR / 'game_shelf.json'
+            try:
+                sh_ = json.loads(shelf_p_.read_text())
+            except (OSError, ValueError):
+                sh_ = []
+            shelf_p_.write_text(json.dumps([r for r in sh_ if not (r.get('id') == pid_ and r.get('cat') == cat_id)]))
+            keep_()
+            return _gdesk.view({'projects': projs_, 'style': style_})
+        if p.op == 'gdesk_upload':   # 📤 files from this computer: text files open in the editor, binaries ride into the zip; "learn" = its style
+            t_ = p.tools or {}; path_ = str(t_.get('path') or ''); data_ = str(t_.get('b64') or '')
+            try:
+                raw_ = base64.b64decode(data_, validate=True)
+            except ValueError:
+                raise HTTPException(400, 'That file could not be read.')
+            if t_.get('learn'):
+                txt_ = raw_.decode('utf-8', 'replace')[:_gdesk.STYLE_CHARS]
+                style_ = ([{'path': _gdesk.clean_path(path_) or 'mine.txt', 'text': txt_}] + [s_ for s_ in style_ if s_.get('path') != path_])[:_gdesk.STYLE_FILES]
+                keep_()
+                return {'style': [{'path': s_['path'], 'chars': len(s_['text'])} for s_ in style_]}
+            pr_ = need_()
+            try:
+                if _gdesk.is_text(_gdesk.clean_path(path_)):
+                    pr_ = _gdesk.put_file(pr_, path_, raw_.decode('utf-8', 'replace'))
+                else:
+                    pr_ = _gdesk.put_bin(pr_, path_, len(raw_))
+                    b_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}; b_[_gdesk.clean_path(path_)] = data_; _play_save(cat_id, f"gbin_{pr_['id']}", b_)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            return {'project': keep_(pr_)}
+        if p.op == 'gdesk_unlearn':
+            style_ = [s_ for s_ in style_ if s_.get('path') != str(p.text or '')]; keep_()
+            return {'style': [{'path': s_['path'], 'chars': len(s_['text'])} for s_ in style_]}
+        if p.op == 'gdesk_link':   # 🎁 a real CC0 asset from the library, fetched into the zip
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR); got_ = await _assets.resolve(h_, KITS_DIR, str(p.text or ''), p.job if p.job in _assets.TYPES else 'model')
+            if not got_:
+                raise HTTPException(502, 'That asset could not be read. Try another.')
+            ext_ = got_['url'].rsplit('?', 1)[0].rsplit('.', 1)[-1].lower()[:5] or 'glb'
+            try:
+                pr_ = _gdesk.put_link(need_(), f"assets/{re.sub(r'[^a-z0-9_]+', '_', got_['name'].lower())[:40]}.{ext_}", got_['url'], got_.get('lic') or 'CC0')
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            return {'project': keep_(pr_)}
+        if p.op == 'gdesk_ask':   # 🧠 its own mind builds, fixes or plans; the check runs on what it wrote
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_ or not str(p.text or '').strip():
+                raise HTTPException(400, 'Pick a model for this agent, and say what you want.')
+            pr_ = need_(); mode_ = p.job if p.job in _gdesk.MODES else 'build'
+            i_ = int(p.i) if isinstance(p.i, int) and 0 <= p.i < len(brains_) else 0
+            sys_, user_ = _gdesk.prompt(pr_, mode_, p.text, style_, (p.tools or {}).get('log') or '')
+            raw_, usd_, _own = await _ws_ask(cat, brains_[i_], sys_, user_, 3000 if mode_ == 'plan' else 16000)
+            model_ = _answered_by(brains_[i_], _WS_VIA.get())
+            if mode_ == 'plan':
+                plan_, say_ = _gdesk.parse_plan(raw_)
+                if not plan_:
+                    raise HTTPException(502, f"Mind {'AB'[i_]} did not send a usable plan, and nothing changed. Try again.")
+                pr_['plan'] = {**plan_, 'ask': str(p.text)[:300], 'by': model_, 'at': round(time.time())}
+            else:
+                ch_, drops_, say_ = _gdesk.parse_files(raw_)
+                if not ch_ and not drops_:
+                    raise HTTPException(502, f"Mind {'AB'[i_]} did not send any files, and nothing changed. Try again, or ask for less.")
+                try:
+                    pr_ = _gdesk.apply_reply(pr_, ch_, drops_)
+                except ValueError as e:
+                    raise HTTPException(400, str(e))
+                say_ = say_ or f"Changed {', '.join(list(ch_)[:5])}."
+            pr_['chat'] = (list(pr_.get('chat') or []) + [{'by': 'you', 'mode': mode_, 'text': str(p.text)[:400], 'at': round(time.time())},
+                           {'by': f"Mind {'AB'[i_]}", 'model': model_, 'text': str(say_ or 'Done.')[:400], 'files': [] if mode_ == 'plan' else list(ch_)[:12],
+                            'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-40:]
+            return {'project': keep_(pr_), 'say': say_, 'usd': round(float(usd_ or 0), 5), 'model': model_}
+        if p.op == 'gdesk_zip':   # ⬇ the whole project as a .zip, laid out to drop in; library assets are fetched now
+            pr_ = need_(); bins_ = {}; held_ = _play_load(cat_id, f"gbin_{pr_['id']}") or {}
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as h_:
+                for path_, meta_ in (pr_.get('bins') or {}).items():
+                    if meta_.get('url'):
+                        try:
+                            r_ = await h_.get(meta_['url'])
+                            if r_.status_code == 200 and len(r_.content) <= 25_000_000:
+                                bins_[path_] = r_.content
+                        except httpx.HTTPError:
+                            pass   # a library file that did not answer stays out; the page names it
+                    elif held_.get(path_):
+                        bins_[path_] = base64.b64decode(held_[path_])
+            z_ = _gdesk.zip_bytes(pr_, bins_)
+            return {'name': f"{_gdesk.folder_name(pr_)}.zip", 'b64': base64.b64encode(z_).decode(), 'size': len(z_), 'missing': [k for k in (pr_.get('bins') or {}) if k not in bins_]}
+        if p.op == 'gdesk_lab':   # 🧪 its playtest log and porting checklists (game_lab.py), and the FiveM / RedM starter maker
+            t_ = p.tools or {}
+            if t_.get('resource'):
+                r_ = t_['resource'] if isinstance(t_['resource'], dict) else {}
+                return _game_lab.resource(r_.get('name'), r_.get('game'), r_.get('what'))
+            if t_:
+                try:
+                    gst_['lab'] = _game_lab.apply(gst_.get('lab'), t_)
+                except ValueError as e:
+                    raise HTTPException(400, str(e))
+                keep_()
+            return _game_lab.view(gst_.get('lab'))
+        if p.op in ('gdesk_share', 'gdesk_shelf', 'gdesk_fork'):   # 🌍 DISCOVER: projects their builders chose to share, open to every agent
+            shelf_p_ = DATA_DIR / 'game_shelf.json'
+            try:
+                sh_ = json.loads(shelf_p_.read_text())
+            except (OSError, ValueError):
+                sh_ = []
+            if p.op == 'gdesk_share':
+                pr_ = need_(); pr_['shared'] = bool(p.on)
+                sh_ = _gdesk.shelf_put(sh_, _gdesk.shelf_row(pr_, cat_id, cat.get('name')), bool(p.on)); shelf_p_.write_text(json.dumps(sh_))
+                return {'project': keep_(pr_)}
+            if p.op == 'gdesk_fork':
+                row_ = next((r for r in sh_ if r.get('id') == pid_ and r.get('cat') == str((p.tools or {}).get('cat') or '')), None)
+                src_ = next((x for x in ((_play_load(row_['cat'], 'game') or {}).get('projects') or []) if x.get('id') == pid_ and x.get('shared')), None) if row_ else None
+                if not src_:
+                    raise HTTPException(404, 'That project is not shared any more.')
+                pr_ = _gdesk.fork(src_); row_['forks'] = int(row_.get('forks') or 0) + 1; shelf_p_.write_text(json.dumps(sh_))
+                projs_ = [pr_] + projs_
+                return {'project': keep_(pr_), **_gdesk.view({'projects': projs_, 'style': style_})}
+            return {'rows': _gdesk.shelf_find(sh_, p.text, p.job if p.job in _gdesk.TARGETS else '')}
+        raise HTTPException(400, 'No such step.')
     if p.op.startswith('playc_'):   # 🎬 the PoC editor: media stays in the owner's browser, the edit list comes here
         saved_ = _play_load(cat_id, 'edit') or {}
         files_ = dict(saved_.get('files') or {}); cur_ = saved_.get('current') or 'Untitled'   # 📁 named edit files (owner 2026-11-10: "new starts a file they name to save and just go")

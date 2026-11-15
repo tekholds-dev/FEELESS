@@ -3968,29 +3968,3 @@ async def circle_destination_save(request: Request, p: _RSM.CircleDestIn):
     rs._json_save(rs.CIRCLE_DEST_PATH, d)
     ad = rs._admin_load(); rs._audit(ad, me, 'circle-dest', f"{'removed' if p.remove else 'saved'} {p.address[:6]}… {p.label[:20]}"); rs._admin_save(ad)
     return {'saved': d['saved']}
-
-
-
-@router.get('/api/reputation/admin/game-lab')
-async def admin_game_lab(request: Request):
-    """🎮 Owner only: the Game lab folder (playtest log, porting checklists)."""
-    rs = _rs(); rs._require_owner(request)
-    import game_lab as _gl
-    return _gl.view(rs._json_load(rs.DATA_DIR / 'game_lab.json', {}))
-
-
-@router.post('/api/reputation/admin/game-lab')
-async def admin_game_lab_save(request: Request):
-    """🎮 Owner only: log a playtest, drop one, tick a porting step, or make a FiveM / RedM resource starter (nothing saved for that)."""
-    rs = _rs(); rs._require_owner(request); b = await request.json()
-    import game_lab as _gl
-    if b.get('resource'):
-        r_ = b['resource'] if isinstance(b['resource'], dict) else {}
-        return _gl.resource(r_.get('name'), r_.get('game'), r_.get('what'))
-    path_ = rs.DATA_DIR / 'game_lab.json'
-    try:
-        st_ = _gl.apply(rs._json_load(path_, {}), b)
-    except ValueError as e:
-        raise rs.HTTPException(400, str(e))
-    rs._json_save(path_, st_)
-    return _gl.view(st_)
