@@ -103,10 +103,7 @@
 .gd-shelf li > span { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .gd-shelf small { color: var(--m-dim); font-size: 11px; }
 .gd-pass { font-style: normal; font-size: 10px; color: var(--m-accent); font-family: var(--m-mono); }
-.gd-lib { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
-.gd-lib li { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: var(--m-r-sm); background: var(--m-surface-2); }
-.gd-lib img, .gd-noimg { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--m-r-sm); background: var(--m-bg); display: grid; place-items: center; }
-.gd-lib b { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 @media (max-width: 860px) { .gd-studio { grid-template-columns: 1fr; grid-template-areas: 'chat' 'ask' 'checks'; } .gd-files { grid-template-columns: 1fr; } }
 body.fx-lite .gd-dots i { animation: none; }
 .gd-disc form.gd-row { flex-wrap: nowrap; }

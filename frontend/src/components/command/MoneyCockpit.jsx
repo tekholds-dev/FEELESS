@@ -57,3 +57,38 @@ export function MoneyCockpit({ st = {}, lanes = [], rows, placedPct = 0, reserve
     </div>}
   </section>;
 }
+
+// 💰 MONEY REDO, slice 2 (owner 2026-11-15 "yes dooo alll"): the rest of the Money folder in the cockpit's language: one verdict line, then meters.
+const signed$ = (v, fmt) => `${v < 0 ? '−' : '+'}${fmt(Math.abs(v))}`;
+/** One sentence on the chart: which of the picked options did best over the window, after price moves. */
+export function chartVerdict(series, size, hours, fmt = short$) {
+  const done = (series || []).filter(x => x.curve); if (!done.length) return '';
+  const best = done.reduce((a, b) => (b.net > a.net ? b : a)); const worst = done.reduce((a, b) => (b.net < a.net ? b : a));
+  const win = hours >= 168 ? `${Math.round(hours / 24)} days` : `${hours} hours`;
+  return done.length === 1 ? `Over the last ${win}, ${fmt(size)} in ${best.name} would be ${signed$(best.net, fmt)} after price moves.`
+    : `Over the last ${win}, ${best.name} did best: ${signed$(best.net, fmt)} on ${fmt(size)}.${worst !== best ? ` ${worst.name} did worst: ${signed$(worst.net, fmt)}.` : ''}`;
+}
+/** Earned · price move · net as bars on one shared scale, so options compare at a glance. */
+export function MoveBars({ earned = 0, moved = 0, net = 0, top = 1, fmt = short$, stock = false }) {
+  const rows = [['EARNED', earned, stock ? 'A stock pays nothing for being held' : 'Fees or interest over this window'], ['PRICE MOVE', moved, 'What price moves did to the money'], ['NET', net, 'Earned plus the price move']];
+  return <div className="mck-moves">{rows.map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><i aria-hidden="true"><motion.u initial={{ scaleX: 0 }} animate={{ scaleX: Math.min(1, Math.abs(v) / Math.max(top, 1e-9)) }} transition={{ duration: 0.6 }} className={v < 0 ? 'is-dn' : 'is-up'} /></i><b className={`m-num ${v < 0 ? 'is-dn' : 'is-up'}`}>{signed$(v, fmt)}</b></span>)}</div>;
+}
+const RISK_PIPS = { none: 1, coin: 2, half: 3, both: 4 };
+/** One option on the board as meters: what $1K earns a day against the board's best, its depth (log scale), its risk pips. */
+export function OptionMeter({ r, top, deepest, on, onTick, word, riskWord, riskTip, fmt = short$ }) {
+  const depth = r.tvl > 0 ? Math.log10(r.tvl) / Math.log10(Math.max(10, deepest)) : 0;
+  return <li className={`mck-opt${on ? ' is-on' : ''}`} data-testid={`grow-row-${r.id}`}>
+    <label><input type="checkbox" checked={on} onChange={onTick} aria-label={`Put ${r.name} on the chart`} data-testid={`grow-tick-${r.id}`} /><span className="mck-opt-n"><b title={r.name}>{r.name}</b><small>{word} · {r.venue}{r.readOnly ? ' · read only' : ''}</small></span></label>
+    <span className="mck-opt-m" data-tip="Earned on $1,000 at the last day's pace, before price moves"><small>A DAY ON $1K</small><i aria-hidden="true"><motion.u initial={{ scaleX: 0 }} animate={{ scaleX: top ? Math.min(1, (r.per1k24 || 0) / top) : 0 }} transition={{ duration: 0.6 }} /></i><b className="m-num">{r.per1k24 ? `$${r.per1k24.toFixed(2)}` : '$0'}</b></span>
+    <span className="mck-opt-m is-depth" data-tip={`Money in it: ${fmt(r.tvl)}. Deeper is harder to move`}><small>DEPTH</small><i aria-hidden="true"><motion.u initial={{ scaleX: 0 }} animate={{ scaleX: Math.max(0, Math.min(1, depth)) }} transition={{ duration: 0.6 }} /></i><b className="m-num">{fmt(r.tvl)}</b></span>
+    <span className="mck-opt-y" data-tip={r.rewardPct ? `${r.rewardPct}% of it is paid in reward tokens` : "At today's pace, before price moves. Not a promise"}><small>A YEAR</small><b className="m-num">{r.yearPct}%</b></span>
+    <em className={`mck-opt-r is-${r.risk}`} data-tip={riskTip}><i className="mck-risk" aria-hidden="true">{[1, 2, 3, 4].map(n => <u key={n} className={n <= (RISK_PIPS[r.risk] || 2) ? 'is-lit' : ''} />)}</i>{riskWord}</em>
+  </li>;
+}
+/** A ring of where the Collective's money sits (compounded · kept · paid), its total in the middle. */
+export function SplitRing({ parts, label }) {
+  const R = 52; const C = 2 * Math.PI * R; const sum = parts.reduce((a, p) => a + Math.max(0, p.v || 0), 0); const total = sum || 1; let at = 0;
+  return <svg className="mck-ring" viewBox="0 0 128 128" role="img" aria-label={label}><circle cx="64" cy="64" r={R} className="mck-ring-bg" />
+    {parts.map((p, i) => { const f = Math.max(0, p.v || 0) / total; const start = at; at += f; return <motion.circle key={p.k} cx="64" cy="64" r={R} fill="none" stroke={`var(${p.c})`} strokeWidth="12" strokeDasharray={C} initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: C * (1 - f) }} transition={{ duration: 0.8, delay: i * 0.1 }} style={{ rotate: start * 360 - 90, transformOrigin: '64px 64px' }} />; })}
+    <text x="64" y="60" className="mck-ring-n">{short$(sum)}</text><text x="64" y="78" className="mck-ring-l">IN ALL</text></svg>;
+}

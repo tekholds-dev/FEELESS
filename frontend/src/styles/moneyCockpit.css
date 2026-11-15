@@ -1,5 +1,5 @@
 /* 💰 MoneyCockpit.jsx — the Money folder's cockpit: ring + verdict + 3 facts, then risk lanes as meters and the pick. Motion: Motion (stroke offset, scaleX, fades), transform/opacity only for layout. */
-:root { /* page tokens (STYLE-1) */ --pmck-ac1: #19e68c; --pmck-ac2: #19e68c26; --pmck-rs1: #f5c451; --pmck-bd1: #ffffff1f; --pmck-bg1: #ffffff0a; --pmck-bg2: #0000004d; --pmck-tx1: #ffffffeb; --pmck-tx2: #ffffff8c; --pmck-tr1: #ffffff14; }
+:root { /* page tokens (STYLE-1) */ --pmck-ac1: #19e68c; --pmck-ac2: #19e68c26; --pmck-rs1: #f5c451; --pmck-bd1: #ffffff1f; --pmck-bg1: #ffffff0a; --pmck-bg2: #0000004d; --pmck-tx1: #ffffffeb; --pmck-tx2: #ffffff8c; --pmck-tr1: #ffffff14; --pmck-dn1: #ff5c7a; }
 .mck { display: grid; gap: 14px; min-width: 0; }
 .mck-top { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 18px; padding: 16px; border-radius: 18px; border: 1px solid var(--pmck-bd1); background: radial-gradient(120% 140% at 0% 0%, var(--pmck-ac2), transparent 60%), var(--pmck-bg1); }
 .mck-ring { width: 150px; height: 150px; } .mck-ring circle { fill: none; stroke-width: 12; stroke-linecap: round; } .mck-ring-bg { stroke: var(--pmck-tr1); } .mck-ring-on { stroke: var(--pmck-ac1); } .mck-ring-res { stroke: var(--pmck-rs1); }
@@ -28,3 +28,41 @@
 .mck-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .mck-hand { font: 500 11px var(--f-ui, sans-serif); color: var(--pmck-tx2); }
 @media (max-width: 720px) { .mck-top { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; } .mck-lanes { grid-template-columns: minmax(0, 1fr); } .mck-facts { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .mck-meters button { transition: none; } }
+
+/* slice 2 (owner 2026-11-15): the chart verdict + move bars, the option board as meters, Pay's ring, Fallbacks' coverage meters */
+.mck-verdictline { margin: 2px 0 10px; font: 700 15px/1.35 var(--f-display, sans-serif); color: var(--pmck-tx1); }
+.mck-moves { display: grid; gap: 4px; margin: 6px 0; }
+.mck-moves span { display: grid; grid-template-columns: 82px minmax(60px, 1fr) 92px; align-items: center; gap: 8px; }
+.mck-moves small { font: 600 9.5px var(--f-mono, monospace); letter-spacing: .1em; color: var(--pmck-tx2); }
+.mck-moves i { height: 6px; border-radius: 6px; background: var(--pmck-tr1); overflow: hidden; }
+.mck-moves u, .mck-opt-m u, .mck-cover u { display: block; height: 100%; transform-origin: left; }
+.mck-moves u.is-up { background: var(--pmck-ac1); } .mck-moves u.is-dn { background: var(--pmck-dn1); }
+.mck-moves b { text-align: right; font-size: 13px; } .mck-moves b.is-up { color: var(--pmck-ac1); } .mck-moves b.is-dn { color: var(--pmck-dn1); }
+.mck-opts { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.mck-opt { display: grid; grid-template-columns: minmax(150px, 1.4fr) minmax(110px, 1fr) minmax(110px, 1fr) 64px minmax(120px, auto); align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; background: var(--pmck-bg1); border: 1px solid transparent; transition: border-color .15s ease, transform .15s ease; }
+.mck-opt:hover { transform: translateX(2px); border-color: var(--pmck-bd1); }
+.mck-opt.is-on { border-color: var(--pmck-ac1); background: linear-gradient(90deg, var(--pmck-ac2), transparent 70%), var(--pmck-bg1); }
+.mck-opt label { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; }
+.mck-opt-n { display: grid; min-width: 0; } .mck-opt-n b { font-size: 13px; color: var(--pmck-tx1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .mck-opt-n small { font-size: 11px; color: var(--pmck-tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mck-opt-m { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; row-gap: 3px; align-items: center; }
+.mck-opt-m small, .mck-opt-y small { grid-column: 1 / -1; font: 600 9px var(--f-mono, monospace); letter-spacing: .1em; color: var(--pmck-tx2); }
+.mck-opt-m i { height: 5px; border-radius: 5px; background: var(--pmck-tr1); overflow: hidden; } .mck-opt-m u { background: var(--pmck-ac1); } .mck-opt-m.is-depth u { background: var(--pmck-rs1); }
+.mck-opt-m b, .mck-opt-y b { font-size: 12.5px; color: var(--pmck-tx1); }
+.mck-opt-y { display: grid; gap: 3px; }
+.mck-opt-r { display: grid; gap: 4px; font: 600 9.5px var(--f-mono, monospace); font-style: normal; letter-spacing: .06em; color: var(--pmck-tx2); --c: var(--pmck-ac1); }
+.mck-opt-r.is-half, .mck-opt-r.is-coin { --c: var(--pmck-rs1); } .mck-opt-r.is-both { --c: var(--pmck-dn1); }
+.mck-paytop .mck-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.mck-key { display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 5px; background: var(--c); vertical-align: 1px; }
+.mck-plans { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.mck-plans li { display: grid; gap: 8px; align-content: start; padding: 14px; border-radius: 14px; border: 1px solid var(--pmck-bd1); background: var(--pmck-bg1); }
+.mck-plans li.is-live { border-color: var(--pmck-ac1); background: radial-gradient(120% 120% at 0% 0%, var(--pmck-ac2), transparent 60%), var(--pmck-bg1); }
+.mck-plans header { display: grid; gap: 4px; } .mck-plans header b { font: 800 15px var(--f-display, sans-serif); color: var(--pmck-tx1); }
+.mck-tag { justify-self: start; font: 700 9px var(--f-mono, monospace); font-style: normal; letter-spacing: .12em; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--pmck-bd1); color: var(--pmck-tx2); }
+.mck-plans li.is-live .mck-tag { border-color: var(--pmck-ac1); color: var(--pmck-ac1); }
+.mck-plans p { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--pmck-tx2); }
+.mck-cover { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; column-gap: 8px; align-items: center; }
+.mck-cover i { height: 6px; border-radius: 6px; background: var(--pmck-tr1); overflow: hidden; } .mck-cover u { background: var(--pmck-ac1); }
+.mck-cover b { font: 800 15px var(--f-display, sans-serif); color: var(--pmck-tx1); } .mck-cover small { grid-column: 1 / -1; font-size: 11px; color: var(--pmck-tx2); }
+@media (max-width: 860px) { .mck-opt { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .mck-paytop .mck-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mck-top.is-solo { grid-template-columns: minmax(0, 1fr); }
+.mck-owed { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; } .mck-owed small, .mck-owed em { font: 600 10.5px var(--f-mono, monospace); font-style: normal; letter-spacing: .08em; color: var(--pmck-tx2); } .mck-owed b { font: 800 22px var(--f-display, sans-serif); color: var(--pmck-tx1); }

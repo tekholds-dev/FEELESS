@@ -47,7 +47,7 @@ export function CompWatch({ call }) {
     load(); const t = setInterval(load, POLL_MS); const k = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000);
     return () => { on = false; clearInterval(t); clearInterval(k); };
   }, [has]);
-  if (!d) return <p className="cw-wait" role="status">{err ? `⚠ ${err}` : 'Pricing every coin COMP is holding…'}</p>;
+  if (!d || !Array.isArray(d.board)) return <p className="cw-wait" role="status">{err ? `⚠ ${err}` : 'Pricing every coin COMP is holding…'}</p>;
   const mi = d.minds || {}; const tt = d.totals || {}; const fresh = Math.max(0, POLL_MS / 1000 - (now - d.at));
   const ring = [['won', tt.won || 0, c.up], ['lost', tt.lost || 0, c.bad], ['flat', tt.flat || 0, c.dim]].map(([k, v, col]) => ({ k, v, col }));
   const settledTotal = ring.reduce((a, x) => a + x.v, 0);
