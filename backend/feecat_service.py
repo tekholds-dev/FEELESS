@@ -2580,7 +2580,7 @@ def _mark_lessons(store=None, now=None):
     store = store or _load(); seen, out = set(), []
     rows = sorted(((f.get('at') or 0, n.get('note')) for c in (store.get('cats') or {}).values() for f in c.get('psFolders') or []
                    if f.get('graded') == 'right' for n in f.get('markNotes') or [] if n.get('note')), reverse=True)
-    for _at, n in rows:
+    for _when, n in rows:
         k_ = n.lower().strip()
         if k_ not in seen:
             seen.add(k_); out.append(n)
