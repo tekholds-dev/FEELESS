@@ -229,3 +229,50 @@ def test_main_desk_proof_picker_focuses_the_proof_in_the_chat(monkeypatch, tmp_p
     assert post('desk_focus', job='poe', text='x').status_code == 400
     assert post('desk_focus', job='pow', text='nope').status_code == 404
     assert c.post('/api/cats/g/work', json={'ownerId': 'h', 'session': 'h', 'op': 'desk_focus', 'job': 'pow', 'text': 'w1'}).status_code in (401, 403)
+
+
+# ── GAME-LUA: the real Lua 5.4 parse ──────────────────────────────────────────────────────────────────────────────────────────────────────
+needs_lupa = pytest.mark.skipif(gd._lupa is None, reason='lupa not installed: the structure check stands alone')
+
+
+@needs_lupa
+def test_lua_run_passes_good_code_and_names_the_line_of_a_real_syntax_error():
+    good = "local t = {1, 2}\nfunction a(x)\n  if x then return `adder` end\n  return t[1]\nend\n"
+    assert gd.lua_run(good) == {'ok': True, 'line': 0, 'msg': 'Lua 5.4 parses it'}
+    bad = gd.lua_run("print('a')\nif x then\n  print(1)\n")
+    assert bad['ok'] is False and bad['line'] == 4 and "'end' expected" in bad['msg'] and bad['msg'].startswith('line 4:')
+    # the structure check cannot see this one; real Lua can
+    assert gd.lua_check("local x = = 1\n") is None
+    assert gd.lua_run("local x = = 1\n")['ok'] is False
+
+
+@needs_lupa
+def test_lua_run_compiles_but_never_runs():
+    # if the chunk ran, os.exit would kill pytest and the error() would raise; compile() does neither
+    assert gd.lua_run("os.exit(1)\nerror('ran')\n")['ok'] is True
+
+
+@needs_lupa
+def test_cfxlua_extras_are_not_reported_as_mistakes():
+    assert gd.lua_run("local n = 1\nn += 2\n") is None          # compound assignment: CfxLua, structure check decides
+    assert gd.lua_run("local v = ped?.health\n") is None
+    rows = gd.check('fivem', {'client.lua': "local n = 1\nn += 2\n"})
+    assert next(r for r in rows if r['file'] == 'client.lua')['ok'] is True
+    assert gd.lua_run('local s = "x += 1"\nlocal y = `a"b`\n')['ok'] is True   # inside a string / backtick: not CfxLua syntax
+
+
+@needs_lupa
+def test_check_row_carries_the_real_error_for_studio_fix_and_zip():
+    rows = gd.check('fivem', {'server.lua': "RegisterNetEvent('x', function()\n  if a then\nend)\n"})
+    row = next(r for r in rows if r['file'] == 'server.lua')
+    assert row['ok'] is False and row['line'] >= 1 and row['msg'].startswith(f"line {row['line']}:")
+    assert not gd.passed(rows)
+
+
+def test_lupa_missing_falls_back_to_the_structure_check(monkeypatch):
+    monkeypatch.setattr(gd, '_lupa', None)
+    assert gd.lua_run('if x then') is None
+    rows = gd.check('fivem', {'a.lua': 'function f()\n'})
+    row = next(r for r in rows if r['file'] == 'a.lua')
+    assert row['ok'] is False and 'never closed' in row['msg']
+    assert next(r for r in gd.check('fivem', {'b.lua': 'print(1)\n'}) if r['file'] == 'b.lua')['msg'] == 'blocks and brackets balance'

@@ -3,7 +3,7 @@ CREATE TRUE GTA RP FIVEM STUFF … HELP THEM FIX PORTS … BUILD A WIREFRAME PLA
 BUILD IT, TEST, AND HAVE IT DOWNLOADABLE … SAME FOR A DUDE THAT BUILDS FIVEM STUFF FROM SCRATCH, HE HAS HIS AI LEARN AND BUILD FOR HIM").
 
 Pure. A project = a target + real files. The agent's own mind (Mind A or B, the models its owner picked) BUILDS files, FIXES them from an error
-or log, or PLANS the work as phases. Every change runs the CHECK (a structure check, not a compiler: Lua blocks and brackets balance, the
+or log, or PLANS the work as phases. Every change runs the CHECK (real Lua 5.4 compiles every .lua file without running it when lupa is installed, else Lua blocks and brackets balance; the
 fxmanifest names its game and every script it lists exists, JSON parses, a Vita mod only touches its own folder, a web game has an index.html)
 and the project downloads as a .zip laid out to drop straight in. A builder's own uploaded code becomes its STYLE: the mind reads it first and
 writes like them. Own games, legal homebrew and your own servers only: no cheats, injectors, anti-cheat bypasses, DRM cracks, leaked or
@@ -149,7 +149,7 @@ def drop(proj, path):
     return {**proj, 'files': files, 'bins': bins}
 
 
-# ── the check (a structure check, not a compiler) ─────────────────────────────────────────────────────────────────────────────────────────
+# ── the check (structure; the real Lua parse is lua_run below) ─────────────────────────────────────────────────────────────────────────────────────────
 _LUA_TOK = re.compile(r'--\[(=*)\[.*?\]\1\]|--[^\n]*|\[(=*)\[.*?\]\2\]|"(?:\\.|[^"\\\n])*"?|\'(?:\\.|[^\'\\\n])*\'?|`[^`\n]*`|[A-Za-z_]\w*|[(){}\[\]]|\n', re.S)
 _OPEN = {'function': 'end', 'if': 'end', 'do': 'end', 'repeat': 'until'}
 _PAIR = {'(': ')', '{': '}', '[': ']'}
@@ -184,6 +184,45 @@ def lua_check(src):
     return None
 
 
+# ── the real parse: Lua 5.4 compiles each file, never runs it (GAME-LUA) ─────────────────────────────────────────────────────────────────
+try:
+    from lupa import lua54 as _lupa
+except Exception:          # lupa not installed (gate, other Macs): the structure check above stands alone
+    _lupa = None
+_LUA_ERR = re.compile(r':(\d+):\s*(.+)$', re.S)
+# CfxLua (FiveM / RedM) extras plain Lua 5.4 does not know: compound assignment (+= -= … ..=), safe navigation (?. ?[).
+# An error on a line using one is CfxLua, not a mistake, so the structure check decides that file.
+_CFX_ONLY = re.compile(r'(?<![=<>~])(?:[+\-*/%^&|]|//|\.\.|<<|>>)=(?!=)|\?[.\[]')
+
+
+def _cfx_to_lua(src):
+    """CfxLua backtick hashes (`adder`) → plain strings of the same length, so line numbers stay true. Strings and comments untouched."""
+    return _LUA_TOK.sub(lambda m: '"' + m.group(0)[1:-1].replace('"', "'") + '"' if m.group(0).startswith('`') and m.group(0).endswith('`') and len(m.group(0)) > 1 else m.group(0), src)
+
+
+def lua_run(src):
+    """→ {'ok', 'line', 'msg'} from a real Lua 5.4 parse, or None when lupa is missing or the error is a CfxLua extra.
+    compile() only: the chunk is never called, so nothing in it runs (os.exit, io, require …). No eval, no builtins, 64 MB cap."""
+    if _lupa is None:
+        return None
+    src = str(src or '')
+    if len(src) > MAX_TEXT:
+        return None
+    try:
+        rt = _lupa.LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True, max_memory=64 << 20)
+        rt.compile(_cfx_to_lua(src))
+        return {'ok': True, 'line': 0, 'msg': 'Lua 5.4 parses it'}
+    except _lupa.LuaSyntaxError as x:
+        m = _LUA_ERR.search(str(x))
+        line, msg = (int(m.group(1)), m.group(2).strip()) if m else (0, str(x).strip())
+        lines = src.split('\n')
+        if 0 < line <= len(lines) and _CFX_ONLY.search(lines[line - 1]):
+            return None
+        return {'ok': False, 'line': line, 'msg': f'line {line}: {msg[:200]}' if line else msg[:200]}
+    except Exception:      # memory cap, an odd lupa build: never block the desk on the checker itself
+        return None
+
+
 def _manifest_scripts(src):
     out = []
     for m in re.finditer(r"\b(client_scripts?|server_scripts?|shared_scripts?|files|ui_page)\s*(\{[^}]*\}|'[^']*'|\"[^\"]*\")", src or '', re.S):
@@ -205,7 +244,11 @@ def check(target, files, bins=None):
     for path, src in sorted(files.items()):
         e = ext(path)
         if e == 'lua':
-            bad = lua_check(src); out.append({'file': path, 'ok': not bad, 'msg': bad or 'blocks and brackets balance'})
+            real = lua_run(src)
+            if real:
+                out.append({'file': path, 'ok': real['ok'], 'msg': real['msg'], 'line': real['line']})
+            else:
+                bad = lua_check(src); out.append({'file': path, 'ok': not bad, 'msg': bad or 'blocks and brackets balance'})
         elif e == 'json':
             try:
                 json.loads(src); out.append({'file': path, 'ok': True, 'msg': 'valid JSON'})
