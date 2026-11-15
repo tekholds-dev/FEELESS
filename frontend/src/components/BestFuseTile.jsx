@@ -19,6 +19,6 @@ export function BestFuseTile({ onOpen }) {
     <span className="m-label"><Ic3 e="⚡" /> BEST FUSE CARD NOW · {c.real ? '💵 REAL' : '📄 PAPER'}</span>
     <b className="bft-name">{c.label}</b>
     <em className={`m-num ${p >= 0 ? 'm-pos' : 'm-neg'}`}>{p >= 0 ? '+' : ''}{p.toFixed(1)}%</em>
-    <span className="bft-coins">{c.legs.slice(0, 6).map(l => <i key={l.pairAddress} className={(l.livePct || 0) >= 0 ? 'm-pos' : 'm-neg'}>${l.symbol}</i>)}</span>
+    <span className="bft-coins">{c.legs.slice(0, 6).map((l, k) => <i key={`${l.pairAddress}-${k}`} className={(l.livePct || 0) >= 0 ? 'm-pos' : 'm-neg'}>${l.symbol}</i>)}</span>
     <u>Open →</u></a>;
 }
