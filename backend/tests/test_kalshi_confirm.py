@@ -27,7 +27,7 @@ def test_send_then_confirm_and_say_it_in_chat(monkeypatch):
     monkeypatch.setattr(kb, 'place', place); monkeypatch.setattr(kb, 'order_status', order_status)
     monkeypatch.setattr(kb, 'split_key', lambda s: ('kid', 'pem'))
     monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x')
-    cat = {'id': 'c1', 'kalshiCfg': {'on': True}, 'chat': []}
+    cat = {'id': 'c1', 'kalshiCfg': {}, 'chat': []}
     tk = {'id': 'kb1', 'ticker': 'KXNBAGAME-X', 'side': 'yes', 'title': 'Lakers win', 'conf': [80, 70], 'price': 0.4, 'status': 'waiting'}
     asyncio.run(fs._kalshi_send(cat, tk))
     assert len(sent) == 1 and sent[0]['type'] == 'limit'                  # one limit order, never re-sent

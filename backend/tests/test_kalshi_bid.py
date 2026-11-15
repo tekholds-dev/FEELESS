@@ -15,7 +15,7 @@ def _mkt(ticker='KXNBAGAME-26NOV16ORLBOS-ORL', yes='0.4000', no='0.6100', close=
     return {'ticker': ticker, 'title': title, 'yes_sub_title': title.split()[0], 'status': status, 'close_time': _iso(close), 'yes_ask_dollars': yes, 'no_ask_dollars': no}
 
 
-ON = {'on': True, 'mode': 'auto', 'bidUsd': 1, 'dayUsd': 3, 'floorUsd': 2, 'minConf': 65}
+ON = {'mode': 'auto', 'bidUsd': 1, 'dayUsd': 3, 'floorUsd': 2, 'minConf': 65}
 PICK = {'ticker': 'KXNBAGAME-26NOV16ORLBOS-ORL', 'side': 'yes', 'conf': [72, 70]}
 
 
@@ -26,17 +26,20 @@ def _pem():
     return k, k.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()).decode()
 
 
-def test_settings_are_off_by_default_and_clamped_to_the_hard_limits():
-    c = kb.cfg({})
-    assert c['on'] is False and c['mode'] == 'approve' and c['bidUsd'] == 1.0
-    c = kb.cfg({'on': True, 'mode': 'auto', 'bidUsd': 500, 'dayUsd': 999, 'minConf': 5})
+def test_settings_default_and_clamp_to_the_hard_limits_with_no_on_switch():
+    c = kb.cfg({'on': False})   # an old saved Off no longer blocks anything (owner 2026-11-15: no cutting on)
+    assert 'on' not in c and c['mode'] == 'approve' and c['bidUsd'] == 1.0
+    c = kb.cfg({'mode': 'auto', 'bidUsd': 500, 'dayUsd': 999, 'minConf': 5})
     assert c['bidUsd'] == kb.HARD_BID and c['dayUsd'] == kb.HARD_DAY and c['minConf'] == 50
-    assert kb.cfg({'on': 'yes'})['on'] is False   # only a real true switches it on
+
+
+def test_a_pob_he_asked_for_bids_now_an_auto_run_only_when_auto_is_on():
+    assert kb.sends_now({}, 'you') and kb.sends_now({'mode': 'approve'}, None)
+    assert not kb.sends_now({'mode': 'approve'}, 'auto') and kb.sends_now({'mode': 'auto'}, 'auto')
 
 
 def test_every_guard_refuses_with_its_reason():
     m = _mkt(); bal = 10.0
-    assert kb.check({**ON, 'on': False}, m, PICK, [], bal, NOW)[1].startswith('Real Kalshi bids are off')
     assert 'not open' in kb.check(ON, _mkt(ticker='OTHER'), PICK, [], bal, NOW)[1]
     assert 'under 10 minutes' in kb.check(ON, _mkt(close=NOW + 300), PICK, [], bal, NOW)[1]
     assert '65%' in kb.check(ON, m, {**PICK, 'conf': [80, 60]}, [], bal, NOW)[1]
@@ -108,7 +111,7 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
     _, pem = _pem(); now = time.time()
     tk = {'id': 'kb1', 'ticker': PICK['ticker'], 'side': 'yes', 'conf': [72, 70], 'price': 0.4, 'status': 'waiting', 'folder': 'pob1', 'title': 'Orlando wins'}
-    store = {'cats': {'g': {'id': 'g', 'name': 'Ann', 'ownerId': 'g', 'revoked': False, 'kalshiCfg': {'on': True, 'mode': 'approve', 'bidUsd': 1, 'dayUsd': 3, 'floorUsd': 2, 'minConf': 65},
+    store = {'cats': {'g': {'id': 'g', 'name': 'Ann', 'ownerId': 'g', 'revoked': False, 'kalshiCfg': {'mode': 'approve', 'bidUsd': 1, 'dayUsd': 3, 'floorUsd': 2, 'minConf': 65},
                             'pobFolders': [{'id': 'pob1', 'kind': 'PoB', 'topic': 'orlando', 'kalshi': tk}]}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **kw: f'a952bcbe-ec3b-4b5b-b8f9-11dae589608c {pem}' if prov == 'kalshi' else None)
@@ -122,16 +125,8 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     assert len(sent) == 1 and sent[0]['type'] == 'limit' and sent[0]['yes_price'] == 40 and sent[0]['count'] == 2
     assert j['ticket']['status'] == 'resting' and j['ticket']['usd'] == 0.8 and j['spentToday'] == 0.8 and j['bids'][0]['orderId'] == 'o-1'
     assert post('kalshi_bid', job='kb1').status_code == 409 and len(sent) == 1   # one tap, one order
-    # the door switched off: a new ticket is refused and nothing is sent
-    store['cats']['g']['pobFolders'].append({'id': 'pob2', 'kind': 'PoB', 'kalshi': {**tk, 'id': 'kb2', 'ticker': 'T2', 'status': 'waiting'}})
-    mk2 = {**_mkt(ticker='T2', close=now + 7200)}
-    async def market2(h, t): return mk2
-    monkeypatch.setattr(fs._kb, 'market', market2)
-    post('kalshi_cfg', tools={'on': False})
-    j = post('kalshi_bid', job='kb2').json()
-    assert j['ticket']['status'] == 'refused' and 'off' in j['ticket']['why'] and len(sent) == 1
-    # a price that ran away from the minds' pick is refused too
-    post('kalshi_cfg', tools={'on': True, 'mode': 'approve'})
+    # a price that ran away from the minds' pick is refused
+    post('kalshi_cfg', tools={'mode': 'approve'})
     store['cats']['g']['pobFolders'].append({'id': 'pob3', 'kind': 'PoB', 'kalshi': {**tk, 'id': 'kb3', 'ticker': 'T3', 'status': 'waiting', 'price': 0.30}})
     mk3 = _mkt(ticker='T3', yes='0.4500', close=now + 7200)
     async def market3(h, t): return mk3

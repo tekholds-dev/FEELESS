@@ -3,8 +3,9 @@ real-money order. A topic PoB's two minds also read the live Kalshi markets for 
 makes a ticket. The order goes from the owner's own Kalshi API key to his own Kalshi account: FEELESS never holds his money.
 
 Every guard must pass or nothing is sent (`check`):
-  · the owner switched the door on for this agent (off by default), and saved his Kalshi API key (key id + RSA private key)
-  · mode 'approve' (default) waits for his tap on the ticket; 'auto' sends it inside the caps by itself
+  · the owner saved his Kalshi API key (key id + RSA private key) on this agent — there is no separate On switch (owner 2026-11-15: "i shouldnt
+    have to cut on pob or kalshi"): a PoB HE asks for (main desk or proof folder) bids at once; AUTO is the one switch, and only lets his
+    scheduled auto runs bid by themselves too (`sends_now`)
   · a LIMIT order at the ask it showed, never a market order; the price is re-read just before sending and refused if it moved past the limit
   · per bid ≤ his cap (default $1, hard max $5) · per day ≤ his daily cap (default $3, hard max $20)
   · both minds agree on the market and the side, each at or above his minimum confidence (default 65)
@@ -20,7 +21,7 @@ import uuid
 BASE = 'https://api.elections.kalshi.com/trade-api/v2'
 PATH = '/trade-api/v2'
 HARD_BID, HARD_DAY = 5.0, 20.0
-DEFAULT = {'on': False, 'mode': 'approve', 'bidUsd': 1.0, 'dayUsd': 3.0, 'floorUsd': 2.0, 'minConf': 65}
+DEFAULT = {'mode': 'approve', 'bidUsd': 1.0, 'dayUsd': 3.0, 'floorUsd': 2.0, 'minConf': 65}
 MIN_PRICE, MAX_PRICE = 0.05, 0.95
 CLOSE_GAP_S = 600
 SAME_MARKET_S = 86400
@@ -43,7 +44,7 @@ def cfg(raw):
             return round(max(lo, min(hi, float(r.get(k, DEFAULT[k])))), 2)
         except (TypeError, ValueError):
             return DEFAULT[k]
-    return {'on': r.get('on') is True, 'mode': 'auto' if r.get('mode') == 'auto' else 'approve', 'bidUsd': num('bidUsd', 0.05, HARD_BID),
+    return {'mode': 'auto' if r.get('mode') == 'auto' else 'approve', 'bidUsd': num('bidUsd', 0.05, HARD_BID),
             'dayUsd': num('dayUsd', 0.05, HARD_DAY), 'floorUsd': num('floorUsd', 0, 10000), 'minConf': int(num('minConf', 50, 100))}
 
 
@@ -146,11 +147,15 @@ def spent_today(bids, now=None):
     return round(sum(float(b.get('usd') or 0) for b in bids or [] if b.get('status') in ('sent', 'filled', 'resting') and now - float(b.get('at') or 0) < 86400), 2)
 
 
+def sends_now(c, by):
+    """A PoB the owner asked for (`by` 'you') sends its ticket at once; one his scheduled auto run filed ('auto') only when AUTO is on —
+    otherwise it waits for his tap. Every guard in `check` still runs either way."""
+    return by != 'auto' or cfg(c)['mode'] == 'auto'
+
+
 def check(c, market, pick, bids, balance_usd, now=None):
     """→ (ok, why, count, price). Every guard in the module note; the first that fails is the reason shown to the owner."""
     now = now or time.time(); c = cfg(c)
-    if not c['on']:
-        return False, 'Real Kalshi bids are off for this agent.', 0, None
     if not market or market.get('ticker') != (pick or {}).get('ticker'):
         return False, 'That market is not open on Kalshi any more.', 0, None
     if market.get('status') not in ('active', 'open') or _ts(market.get('close_time')) - now <= CLOSE_GAP_S:

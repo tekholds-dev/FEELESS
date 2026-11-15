@@ -2,9 +2,10 @@ import { ActBtn } from '../ActBtn';
 import React, { useEffect, useState } from 'react';
 import { HqVitals } from './ccTabInfo';
 
-// 🎯 THE REAL-BID DOOR (owner 2026-11-11: "kalshi signed in with $10, they should be able to bid"). Off until he switches it on. His own Kalshi
-// API key (saved in this agent's Keys) sends a LIMIT order to his own Kalshi account only when both minds backed the same market and side and
-// every guard passes (backend kalshi_bid.py). Approve each (default) waits for his tap on the ticket; Auto sends inside his caps.
+// 🎯 THE REAL-BID DOOR (owner 2026-11-11: "kalshi signed in with $10, they should be able to bid"). His own Kalshi API key (saved in this
+// agent's Keys) sends a LIMIT order to his own Kalshi account only when both minds backed the same market and side and every guard passes
+// (backend kalshi_bid.py). No On switch (owner 2026-11-15: "i shouldnt have to cut on pob or kalshi"): a PoB he asks for bids at once, inside
+// his caps. AUTO is the one switch: on, his scheduled auto runs bid by themselves too; off, their tickets wait for his tap.
 const STATUS = { waiting: 'Waiting for your tap', resting: 'On Kalshi, waiting to fill', filled: 'Filled', sent: 'Sent', refused: 'Not sent', failed: 'Kalshi refused it', skipped: 'You skipped it', canceled: 'Canceled on Kalshi, nothing filled' };
 const hhmm = at => new Date(at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 // ✅ what Kalshi itself said when the agent read the order back (owner 2026-11-14: "they should check and confirm the bid on kalshi works")
@@ -17,14 +18,13 @@ export function KalshiDoor({ cat, work }) {
   useEffect(() => { load(); }, [cat.id]);   // eslint-disable-line react-hooks/exhaustive-deps
   const save = async next => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'kalshi_cfg', tools: next }); setS(x => ({ ...x, ...j })); setF(j.cfg); } catch (e) { setErr(e.message); } setBusy(false); };
   if (!s || !f) return <p className="dsk-note" data-testid="kd-wait">{err || 'Reading the Kalshi door…'}</p>;
-  const on = f.on && s.key; const bal = s.balance;
+  const on = !!s.key; const auto = f.mode === 'auto'; const bal = s.balance;
   return <section className={`kd m-glass${on ? ' is-on' : ''}`} data-testid="kalshi-door">
-    <header className="kd-h"><span><b>🎯 REAL BIDS ON KALSHI</b><small>{!s.key ? 'Save your Kalshi API key in this agent’s Keys (key id, a space, then the private key) to use it.' : on ? (f.mode === 'auto' ? 'On · it bids by itself inside your caps when both minds agree.' : 'On · each bid waits for your tap.') : 'Off · its PoB stays research and free chips.'}</small></span>
-      <label className="m-toggle" data-tip={s.key ? 'Real money on your own Kalshi account' : 'Save the key first'}><input type="checkbox" checked={!!f.on} disabled={busy || !s.key} onChange={e => save({ ...f, on: e.target.checked })} data-testid="kd-on" />{f.on ? 'On' : 'Off'}</label></header>
+    <header className="kd-h"><span><b>🎯 REAL BIDS ON KALSHI</b><small>{!s.key ? 'Save your Kalshi API key in this agent’s Keys (key id, a space, then the private key) to use it.' : auto ? 'A PoB you ask for bids at once inside your caps · Auto on: its auto runs bid by themselves too.' : 'A PoB you ask for bids at once inside your caps, when both minds agree.'}</small></span>
+      <label className="m-toggle" data-tip={s.key ? 'Auto: its scheduled auto runs bid by themselves too, never over your caps. Off: their tickets wait for your tap' : 'Save the key first'}><input type="checkbox" checked={auto} disabled={busy || !s.key} onChange={e => save({ ...f, mode: e.target.checked ? 'auto' : 'approve' })} data-testid="kd-auto" />Auto {auto ? 'on' : 'off'}</label></header>
     <HqVitals tiles={[{ label: 'Kalshi balance', value: bal, pre: '$', dec: 2, tone: 'up', tip: s.balanceErr || 'Read live from your Kalshi account' }, { label: 'Spent today', value: s.spentToday, pre: '$', dec: 2, of: f.dayUsd, tone: 'gold' }, { label: 'Per bid cap', value: f.bidUsd, pre: '$', dec: 2, of: s.hard.bidUsd, tone: 'violet' }, { label: 'Bids', value: (s.bids || []).filter(b => ['resting', 'filled', 'sent'].includes(b.status)).length, tone: 'pink' }]} />
     {s.balanceErr ? <p className="dsk-note" role="alert" data-testid="kd-balerr">Kalshi: {s.balanceErr}</p> : null}
     <div className="kd-set">
-      <span className="m-seg" role="radiogroup" aria-label="How a bid goes out">{[['approve', 'Approve each', 'Every bid waits for your tap on its ticket'], ['auto', 'Auto in caps', 'It sends by itself, never over your caps']].map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={f.mode === k} className={f.mode === k ? 'active' : ''} disabled={busy} onClick={() => save({ ...f, mode: k })} data-tip={tip} data-testid={`kd-mode-${k}`}>{l}</button>)}</span>
       {[['bidUsd', 'Per bid $', s.hard.bidUsd, 'Most one bid may spend'], ['dayUsd', 'Per day $', s.hard.dayUsd, 'Most all its bids may spend in 24 h'], ['floorUsd', 'Keep at least $', 10000, 'It never bids your Kalshi balance below this'], ['minConf', 'Both minds ≥ %', 100, 'Each mind must be at least this sure']].map(([k, l, hi, tip]) => <label key={k} className="kd-num" data-tip={tip}><small>{l}</small><input className="m-input" type="number" min={0} max={hi} step={k === 'minConf' ? 1 : 0.5} value={f[k]} onChange={e => setF(x => ({ ...x, [k]: e.target.value }))} onBlur={() => save(f)} disabled={busy} data-testid={`kd-${k}`} /></label>)}
     </div>
     {s.streak ? <p className="kd-streak" data-testid="kd-streak">🔥 {s.streak} real win{s.streak === 1 ? '' : 's'} in a row on Kalshi</p> : null}

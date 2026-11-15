@@ -407,6 +407,14 @@ a.fb-row:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent)
 .chart-with-trade .candle-canvas{flex:1 1 auto}
 .chart-with-trade :is(.chart-style-toggle,.chart-foot-chips){bottom:60px}
 .chart-with-trade .chart-area .chart-stale-note{bottom:60px!important}
+/* 📐 desktop chart fits the window; the trade column scrolls (2026-11-15) */
+@media (min-width:900px){
+.terminal-app .chart-with-trade{--ct-h:clamp(420px,calc(100dvh - 250px),720px);align-items:flex-start}
+.terminal-app .chart-with-trade>.chart-fullscreen-wrap:not(.chart-pseudo-full):not(:fullscreen){height:var(--ct-h)}
+.terminal-app .chart-with-trade>.chart-fullscreen-wrap:not(.chart-pseudo-full):not(:fullscreen) .chart-area{min-height:0;height:100%}
+.terminal-app .chart-with-trade .candle-canvas{min-height:0}
+.terminal-app .chart-with-trade>.chart-side-stack{max-height:var(--ct-h);overflow-y:auto;overscroll-behavior:contain}
+}
 /* Profile swap tab: columns wrap inside whatever width the profile gives them — never spill under the right rail */
 .profile-swap-layout{display:flex!important;flex-wrap:wrap;align-items:flex-start}
 .profile-swap-layout>*{flex:1 1 260px;min-width:0;max-width:100%}

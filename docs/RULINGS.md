@@ -11,6 +11,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
 ## 2026-11-15
+- **No cutting on asked proofs** (owner: "there should oly be the auto button a user can choose to cut on, other than that, if a user rewuersts in main desk or in proof folder it goes, like i shouldnt have to cuton pob or kalshi thats corny"): the Kalshi door has no On switch; with his key saved, a PoB he asks for (chat or Bids desk) bids at once inside his caps and every guard (`kalshi_bid.sends_now`). AUTO is the one switch: on, his scheduled auto runs bid too; off, their tickets wait for his tap. Caps, floor, 24 h same-market and price guards unchanged.
 - **Butter, not a floor** (owner: "forget what i said about the site needs to be minimum of 25fps, just make the site butter and do what u do best to assure no lag at all anywhere, no dead code or bugs either"): the 25 fps floor is gone. The governor steps effects down under 40 fps and back up at 55+ (`lib/perfWatch.js` SMOOTH_FPS / BACK_FPS); HQ › Lag catcher meters show pages against that line.
 - **51367 = the production build** (owner: "still mad lag everywhere … make this project professional"): `scripts/serve-fast.sh`; live-reload dev is 51366.
 

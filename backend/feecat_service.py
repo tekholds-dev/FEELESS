@@ -4368,7 +4368,7 @@ def _sicario_loop(store, now, free=None):
         elif kind == 'pop':
             _POP_WANT[cid] = 'start'
         elif kind == 'pob':
-            _POB_WANT[cid] = 'start'
+            _POB_WANT[cid] = 'start'; c['pobBy'] = 'auto'
         else:
             _POC_BUSY.add(cid); asyncio.create_task(_poc_file(cid, ''))
         _POW_WAKE.set()
@@ -5229,7 +5229,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     loop_ = _pl.bid_loop(cat.get('pobFolders'), rd['topic']); base['loop'] = loop_   # 🔁 the Proof Loop: "lakers parlays" again continues one series
     lead_ = _pl.lead_of(_pl.mind_board(cat), _pl.pob_topics(rd['topic']), names); base['lead'] = lead_   # 🧠 each mind sees who has the better record on this topic
     kb_cfg_ = _kb.cfg(cat.get('kalshiCfg')); kb_rows_ = []
-    if kb_cfg_['on'] and _ck.key_for(cat, 'kalshi', data_dir=DATA_DIR):   # 🎯 the door is on and his key is saved: both minds see the live Kalshi markets for this topic
+    by_ = rd.get('by') or 'you'   # 'auto' = his scheduled auto run (or a self-started loop); anything else he asked for (set when the read starts)
+    if _ck.key_for(cat, 'kalshi', data_dir=DATA_DIR):   # 🎯 his key is saved: both minds see the live Kalshi markets for this topic
         try:
             async with httpx.AsyncClient(timeout=10) as http_k:
                 kb_rows_ = await _kb.markets_for(http_k, rd['topic'])
@@ -5248,7 +5249,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
         base['kalshiSplit'] = _kb.split_view(calls, kb_rows_)   # ⚖ hedge: no ticket, but each mind's side with the live odds
     if kb_pick_:
         base['kalshi'] = _kb.ticket(kb_pick_, next(m for m in kb_rows_ if m['ticker'] == kb_pick_['ticker']), rid, now)
-        if kb_cfg_['mode'] == 'auto':
+        if _kb.sends_now(kb_cfg_, by_):   # 🎯 he asked for this PoB: it bids now, inside his caps (an auto run only when AUTO is on)
             await _kalshi_send(cat, base['kalshi'])
     try:   # 🏈 the real games it is about, so it can update live and be graded from the final score
         async with httpx.AsyncClient(timeout=10) as http_g:
@@ -5297,10 +5298,11 @@ async def _pob_tick(http, cat, now):
             _pev.append(DATA_DIR / _pev.DB_NAME, 'pob', f'pob{int(now)}', 'reuse', {'topic': topic[:80], 'from': sh_['by'], 'ageMin': round((now - sh_['at']) / 60)}, cat=cat['id'])
         except Exception as e:   # noqa: BLE001
             print(f'[pob] reuse event: {str(e)[:80]}')
-        await _pob_topic_file(cat, {'who': who, 'topic': topic, 'sites': sh_['sites'], 'sharedFrom': sh_['by'], 'sharedAt': round(sh_['at'])}, now, sh_['notes'], 'shared read')
+        await _pob_topic_file(cat, {'who': who, 'topic': topic, 'sites': sh_['sites'], 'sharedFrom': sh_['by'], 'sharedAt': round(sh_['at']), 'by': cat.pop('pobBy', None) or 'you'}, now, sh_['notes'], 'shared read')
     elif do == 'start' and cat.get('pobAsk'):
         topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _book.apply(cat.get('siteBook'), 'pob', _pob.sites_for(topic)), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
         why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
+        by_ = cat.pop('pobBy', None) or 'you'   # 🎯 who asked travels with this run, never left on the agent for the next one
         if why:
             cat.pop('proofHosts', None)
             _pob_file(cat, {'id': f'pob{int(now)}', 'at': round(now), 'kind': 'PoB', 'status': 'closed', 'noTrade': True, 'topic': topic, 'why': why, 'calls': []}, f'🎲 PoB on {topic} not filed: {why}')
@@ -5308,9 +5310,10 @@ async def _pob_tick(http, cat, now):
         t_ = _WORK[cat['id']]['task']; t_['keepShots'] = True
         if len(t_.get('jobs') or []) > 1:   # 👣 each mind has its own sites and angle, so they never run one search twice
             t_['jobs'] = [_pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
-        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites}
+        cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites, 'by': by_}
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🌐 Researching {topic}: {', '.join(sites[:3])} and more, in its own windows. Snapshots go in the folder.", 'at': now, 'open': 'bids'}])[-200:]
     elif do == 'start':
+        cat.pop('pobBy', None)   # the free-chip board never bids on Kalshi: nothing to carry
         rows = await _pob_board(http, cat, now)
         if not rows:
             _pob_file(cat, {'id': f'pob{int(now)}', 'at': round(now), 'kind': 'PoB', 'status': 'closed', 'noTrade': True, 'why': 'no open market to bid on', 'calls': []}, '🎲 PoB not filed: no open market to bid on')
@@ -11930,7 +11933,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         if pob_topic_:   # 🏈 "file a pob best nfl picks": researched like a PoW, filed in Bids
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
-                cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
+                cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; cat['pobBy'] = 'auto' if p.auto else 'you'; _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
                 say_ = f'🎲 Filing a PoB on {pob_topic_}. Each mind reads major sites in its own window, then calls it blind. Paid model calls. Nothing is staked.'
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'bids'}])[-200:]
             keep_owned(cat); _save(store)
@@ -11946,7 +11949,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('proofSite', None)
                 if re.search(r'\b(board|chips?|coins?)\b', str(p.text or ''), re.I):   # only when asked: the free-chip coin board
                     cat['pobBoard'] = True
-                _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
+                cat['pobBy'] = 'auto' if p.auto else 'you'; _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'bids'}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
