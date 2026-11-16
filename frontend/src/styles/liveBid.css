@@ -34,3 +34,6 @@ body.fx-lite :is(.lbc, .lbc-pane, .lbc-feed li, .lbc-dot) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.lbc, .lbc-pane, .lbc-feed li, .lbc-dot) { animation: none; } }
 @media (max-width: 640px) { .lbc-h { grid-template-columns: minmax(0, 1fr) auto; } .lbc-h small { grid-column: 1 / -1; } .lbc-kv dd { font-size: 15px; } }
 .lbc-feed b, .lbc-minds em { font-size: 13px; font-weight: 600; }
+/* 📺 PoW / PoP live cards (owner 2026-11-15 'epic live cards for the other proof types') */
+.lpc-score > span { display: grid; gap: 2px; } .lpc-score b { font: 800 26px var(--f-display); line-height: 1.1; } .lpc-score b.is-good { color: var(--m-accent); } .lpc-score b.is-bad { color: var(--m-danger); } .lpc-score b.is-none { color: var(--m-dim); }
+.lpc-score small { font-size: 11px; color: var(--m-dim); } .lbc-pane .pop-nums { margin-top: 6px; }

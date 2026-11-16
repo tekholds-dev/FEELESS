@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { KalshiDoor, KalshiTicket } from './KalshiDoor';
+import { KalshiDoor, KalshiTicket, plainWhy } from './KalshiDoor';
 
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 const STATE = { cfg: { mode: 'approve', bidUsd: 1, dayUsd: 3, floorUsd: 2, minConf: 65 }, key: true, balance: 10, spentToday: 0, bids: [], hard: { bidUsd: 5, dayUsd: 20 } };
@@ -72,4 +72,10 @@ test('a slip that got no quote offers Try smaller once, and it goes to the serve
   await act(async () => { q(el, 'kd-smaller').click(); }); expect(sent).toEqual([]);   // first tap only arms it
   await act(async () => { q(el, 'kd-smaller').click(); }); await act(async () => { await Promise.resolve(); });
   expect(sent).toEqual([{ op: 'kalshi_smaller', job: 'kb1' }]); expect(q(el, 'kd-smaller')).toBeNull(); expect(q(el, 'kd-budget').textContent).toContain('$0.50');
+});
+
+test('🗣 a Kalshi refusal reads in plain words, never raw JSON', () => {
+  expect(plainWhy('Kalshi refused the order (404): {"error":{"code":"insufficient_shard_balance"}}')).toContain('Exchange Indexes');
+  expect(plainWhy('Kalshi refused the order (410): {"error":{"code":"deprecated_v1_order_endpoint"}}')).toContain('Nothing was bought');
+  expect(plainWhy('Kalshi refused the order (400): market closed')).toBe('market closed');
 });

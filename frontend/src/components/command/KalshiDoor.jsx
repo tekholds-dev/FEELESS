@@ -36,6 +36,14 @@ export function KalshiDoor({ cat, work }) {
   </section>;
 }
 
+// 🗣 a Kalshi refusal in plain words (mirrors backend kalshi_bid.plain_why), never its raw JSON (owner 2026-11-16 desk check)
+export function plainWhy(w) {
+  const s = String(w || '');
+  if (s.includes('insufficient_shard_balance')) return "Your money is not on this game's exchange index. Move funds at kalshi.com › Account › Exchange Indexes, then file a new PoB. Nothing was bought.";
+  if (s.includes('insufficient_balance')) return "The balance on this game's exchange index does not cover it. Add funds there or bid smaller. Nothing was bought.";
+  if (s.includes('deprecated_v1_order_endpoint')) return "Sent on Kalshi's retired order route (fixed since: orders go through v2). Nothing was bought.";
+  return s.replace(/^Kalshi refused the order \(\d+\):\s*/, '').slice(0, 240);
+}
 export function KalshiTicket({ t: t0, catId, work, onDone }) {
   const [t, setT] = useState(t0); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
   const act = async op => { setBusy(op); setErr(''); try { const j = await work(catId, { op, job: t.id }); if (j.ticket) setT(j.ticket); if (j.checkErr) setErr(j.checkErr); onDone?.(j); } catch (e) { setErr(e.message); } setBusy(''); };
@@ -47,7 +55,7 @@ export function KalshiTicket({ t: t0, catId, work, onDone }) {
     {t.idxWarn && t.status === 'waiting' ? <small className="kd-tk-warn" role="alert" data-testid="kd-idxwarn">💵 {t.idxWarn}</small> : null}{t.warn ? <small className="kd-tk-warn" role="note" data-testid="kd-warn">⚠ {t.warn}</small> : null}
     {Array.isArray(t.why) ? <small className="kd-tk-why">{t.why.filter(Boolean).join(' · ')}</small> : null}
     {t.status === 'waiting' ? <span className="kd-tk-go"><ActBtn money className="m-btn m-go" disabled={!!busy} run={() => work(catId, { op: 'kalshi_bid', job: t.id })} onDone={j => { setT(j.ticket); onDone?.(j); }} confirm={slip ? `Tap again: real parlay, at most ${px(t.maxPx)} a contract` : `Tap again: real bid ${t.side?.toUpperCase()} @ ${px(t.price)}`} done="Sent" data-tip={slip ? 'Real money: two taps. Re-reads every leg and your balance, checks every cap, asks Kalshi market makers for ONE quote and takes it only at or under the most shown' : 'Real money: two taps. Re-reads the price and your balance, checks every cap, then sends ONE limit order on your own Kalshi key'} data-testid="kd-approve">Approve real bid</ActBtn><button type="button" className="m-btn" disabled={!!busy} onClick={() => act('kalshi_skip')} data-tip="Nothing is sent" data-testid="kd-skip">Skip</button></span>
-      : <b className={`kd-tk-st is-${t.status}`} role="status" data-testid="kd-status">{STATUS[t.status] || t.status}{t.usd ? ` · ${t.count} × ${px(t.price)} = $${Number(t.usd).toFixed(2)}` : ''}{typeof t.why === 'string' && !t.usd ? ` · ${t.why}` : ''}</b>}
+      : <b className={`kd-tk-st is-${t.status}`} role="status" data-testid="kd-status">{STATUS[t.status] || t.status}{t.usd ? ` · ${t.count} × ${px(t.price)} = $${Number(t.usd).toFixed(2)}` : ''}{typeof t.why === 'string' && !t.usd ? ` · ${plainWhy(t.why)}` : ''}</b>}
     {slip && t.status === 'refused' && String(t.why || '').includes('No market maker quoted') && !t.retryOf ? <span className="kd-tk-go"><ActBtn money className="m-btn" disabled={!!busy} run={() => work(catId, { op: 'kalshi_smaller', job: t.id })} onDone={j => { setT(j.ticket); onDone?.(j); }} confirm="Tap again: same slip, half your per-bid cap" done="Asked" data-tip="Real money: the same legs, one new quote request at half your per-bid cap, taken only at or under the most shown. Once only" data-testid="kd-smaller">Try smaller</ActBtn></span> : null}
     {t.budgetUsd ? <small className="kd-tk-why" data-testid="kd-budget">Smaller try · up to ${Number(t.budgetUsd).toFixed(2)}</small> : null}
     {t.orderId ? <span className="kd-tk-ok"><small className="kd-ok" data-testid="kd-confirm">{confirmLine(t) || 'Sent to Kalshi'}</small>{resultLine(t) ? <small className={`kd-ok kd-res${t.outcome ? ` is-${t.outcome}` : ''}`} data-testid="kd-result">{resultLine(t)}</small> : null}{['sent', 'resting'].includes(t.status) || t.confirmErr ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('kalshi_check')} data-tip="Reads this order back from your Kalshi account. Nothing is sent" data-testid="kd-check">Check on Kalshi</button> : null}</span> : null}

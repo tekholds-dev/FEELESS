@@ -21,7 +21,7 @@
 - **Money guards (feecat_service):** `_kb_once`/`_kb_claim` = one send per ticket id ever (tap/auto/slip/Try smaller); `_kb_remember`/`_kb_merge` in `_save` = a sent bid's ledger row survives stale engine copies; `kalshi_bid.reached()` = only rows with an order id (or sent/resting/filled) count for the 24 h same-market guard and day cap. Tests: `test_kalshi_once.py`, `test_pob_parlay_flow.py`.
 - **Parlay refile flow (live):** team-to-win already bid on this game today (`_pob_team_bid`) → chat chips only `Parlay slip` → `pobLegsAsk` chips `2 legs / 3 legs / Max legs (4)` (`kalshi_bid.LEG_CHIPS`, `legs_answer`) → topic "… parlay slip N legs"; the read goal lists Kalshi's legs (`first_note(markets, legs)`). Same market twice in 24 h stays refused by design (owner's trading rule, unchanged).
 - **📺 Watch live:** `LiveBidCard.jsx` + `liveBid.css`; filed PoB chat line → `📺 Watch it live here` (CatWorkbench `pobFiledLine`, `fl.watch.<cat>` localStorage) → card pinned above chat: Live / Clips / Bid % / P&L. Checked on `/dev/bids?watch=401909989`; NOT yet seen on his real desk.
-- **Next (owner asked):** epic live cards for the other proof types (PoW price + P&L, PoP perps) in the main desk chat; confirm on his desk + screenshot. Watcher script: scratchpad `watch2.py` (read-only).
+- **Live cards (done 2026-11-16):** PoW + PoP lines in the desk chat have 📺 Watch it live here → `LiveProofCard.jsx` (PoW: price vs entry / TP / SL + P&L, settled P&L once closed; PoP: the paper perp `Live`). Checked on his real PoW #16. NOT yet seen on a PoW/PoP running live.
 - Also fixed 11-15: 'went into the pot under 1x' chat line repeated every 20 s (potAlerted is an OWNER_KEY; `_pot_keep` adds to `_KEPT`).
 
 ## CLAUDE
