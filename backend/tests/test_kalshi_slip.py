@@ -90,6 +90,9 @@ def _fake(monkeypatch, quotes, final='executed'):
         monkeypatch.setattr(kb, n, f)
     monkeypatch.setattr(kb, 'split_key', lambda s: ('kid', 'pem')); monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x')
     monkeypatch.setattr(fs.asyncio, 'sleep', nap); monkeypatch.setattr(kb, 'QUOTE_WAIT_S', 0.05); monkeypatch.setattr(kb, 'FILL_WAIT_S', 0.05)
+    async def no_feed(*a): return None
+    async def quick(wake, s): return None
+    monkeypatch.setattr(kb, 'quote_feed', no_feed); monkeypatch.setattr(kb, 'nap', quick)
     return calls
 
 
@@ -184,3 +187,72 @@ def test_extras_warning_record_notes_and_worth_line():
     assert 'Sengun ate inside.' in notes and 'WON' in notes and kb.past_notes([won], 'Lakers vs Suns') == ''
     v = kb.room_view({'orderId': 'o', 'ticker': 'T', 'side': 'yes', 'filled': 2, 'price': 0.4, 'pxHist': [[1, 0.4], [2, 0.55]]})
     assert v['hist'] == [[1, 0.8], [2, 1.1]]
+
+
+def test_feed_only_wakes_for_our_request_and_nap_returns_early():
+    assert kb.feed_hit('{"type": "quote_created", "msg": {"rfq_id": "r1"}}', 'r1')
+    assert not kb.feed_hit('{"type": "quote_created", "msg": {"rfq_id": "r2"}}', 'r1') and not kb.feed_hit('nope', 'r1') and not kb.feed_hit('{"type": "ticker"}', 'r1')
+    async def go():
+        w = asyncio.Event(); w.set(); t0 = asyncio.get_event_loop().time()
+        await kb.nap(w, 5)
+        return asyncio.get_event_loop().time() - t0, w.is_set()
+    took, still = asyncio.run(go())
+    assert took < 0.5 and not still
+
+
+def test_slip_send_starts_and_ends_the_feed(monkeypatch):
+    _fake(monkeypatch, [{'id': 'q2', 'status': 'open', 'no_bid_dollars': '0.58', 'yes_contracts_fp': '2.00'}])
+    seen = {}
+    async def feed(k, p, rid, wake, stop): seen['rfq'] = rid; seen['stop'] = stop
+    async def yield_once(wake, s):   # one real turn of the loop, so the feed task gets to start
+        f = asyncio.get_running_loop().create_future(); asyncio.get_running_loop().call_soon(f.set_result, None); await f
+    monkeypatch.setattr(kb, 'quote_feed', feed); monkeypatch.setattr(kb, 'nap', yield_once)
+    asyncio.run(fs._kalshi_slip_send({'id': 'c', 'kalshiCfg': {'minConf': 65}}, _tk()))
+    assert seen['rfq'] == 'r1' and seen['stop'].is_set()
+
+
+def test_same_slip_smaller_only_after_no_quote_and_once():
+    c = {'bidUsd': 2, 'minConf': 65}
+    tk = {**_tk(), 'status': 'refused', 'why': 'No market maker quoted the slip at 0.536 or less within 25 s, so nothing was bought.'}
+    new, _ = kb.smaller(tk, c)
+    assert new['status'] == 'waiting' and new['budgetUsd'] == 1.0 and new['retryOf'] == tk['id'] and new['legs'] == tk['legs'] and new['id'] != tk['id']
+    assert kb.smaller(new, c)[0] is None   # waiting, not refused
+    assert kb.smaller({**new, 'status': 'refused', 'why': tk['why']}, c)[1] == 'It was already tried smaller once.'
+    assert kb.smaller({**tk, 'why': 'Your Kalshi balance would fall under your floor.'}, c)[0] is None
+    fresh = {HOU['ticker']: HOU, SEN['ticker']: SEN}
+    assert kb.slip_check({**c, 'dayUsd': 5, 'floorUsd': 0}, fresh, {**new, 'conf': [80, 75]}, [], 10.0)[2] == 1.0   # the guard spends the smaller budget
+
+
+def test_the_collective_shows_minds_not_agents():
+    won = {'topic': 'Rockets vs Wizards', 'kalshi': {'ticker': HOU['ticker'], 'side': 'yes', 'outcome': 'won', 'settledAt': 5}, 'final': [{'name': 'openrouter/hy4', 'text': 'Sengun ate inside.'}],
+           'calls': [_call('openrouter/hy4', [(HOU['ticker'], 'yes', 70)]), _call('x/terra', [(WAS['ticker'], 'yes', 70)], 1)]}
+    cats = [{'id': 'secret-agent', 'name': 'Happy Assistant', 'pobFolders': [won, {'kalshi': {'status': 'waiting'}}]}]
+    b = kb.public_board(cats)
+    assert b['minds'] == [{'mind': 'hy4', 'won': 1, 'lost': 0, 'n': 1}] and b['notes'][0]['text'] == 'Sengun ate inside.' and b['notes'][0]['mind'] == 'hy4'
+    flat = str(b)
+    assert 'Happy Assistant' not in flat and 'secret-agent' not in flat and HOU['ticker'] not in flat
+
+
+def test_public_kalshi_endpoint(monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_load', lambda: {'cats': {}}); fs._KB_PUBLIC['at'] = 0
+    r = TestClient(fs.app).get('/api/cats/collective/kalshi')
+    assert r.status_code == 200 and r.json() == {'minds': [], 'notes': []}
+    fs._KB_PUBLIC['at'] = 0
+
+
+def test_try_smaller_tap_sends_once_through_the_slip_door(monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    tk = {**_tk(), 'status': 'refused', 'why': 'No market maker quoted the slip at 0.536 or less within 25 s, so nothing was bought.'}
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'kalshiCfg': {'bidUsd': 1}, 'pobFolders': [{'id': 'pob1', 'kalshi': tk}]}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: None)
+    sent = []
+    async def slip(cat, t): sent.append(t['budgetUsd']); t.update(status='refused', why='No market maker quoted again.'); return t
+    monkeypatch.setattr(fs, '_kalshi_slip_send', slip)
+    c = TestClient(fs.app)
+    r = c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'kalshi_smaller', 'job': tk['id']})
+    assert r.status_code == 200, r.text
+    f = store['cats']['g']['pobFolders'][0]
+    assert sent == [0.5] and f['kalshi']['retryOf'] == tk['id'] and f['kalshiTries'][0]['id'] == tk['id']
+    assert c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'kalshi_smaller', 'job': f['kalshi']['id']}).status_code == 409 and sent == [0.5]   # once only

@@ -70,6 +70,19 @@ function Pick({ p, onClose }) {
     <p>Only these facts are public. The agent, coin and sources stay private.</p>
   </motion.aside> : null}</AnimatePresence>;
 }
+// 🎯 THE MINDS ON REAL KALSHI BIDS (owner 2026-11-15 'do proposed'): each mind's record on settled real bids it backed, and what it wrote
+// after the payout. Public rule kept: no agent, coin, ticker or stash — only the mind (its model) and how the bid ended.
+function KalshiMinds() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl('/api/cats/collective/kalshi')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setD(j); }).catch(() => {}); return () => { on = false; }; }, []);
+  if (!d) return null;
+  return <section data-testid="cvx-kalshi"><h4>THE MINDS ON REAL KALSHI BIDS</h4>
+    {d.minds?.length ? <ul className="cvx-bars cvx-minds">{d.minds.map((m, i) => <li key={m.mind} style={{ '--i': i }} data-tip={`${m.mind}: ${m.won} won, ${m.lost} lost on settled real bids it backed`}><b>{m.mind}</b><i><u style={{ transform: `scaleX(${Math.max(0.02, m.won / Math.max(1, m.n))})` }} /></i><em className="m-num">{m.won}–{m.lost}</em></li>)}</ul>
+      : <p className="cvx-none">No real Kalshi bid has settled yet.</p>}
+    {d.notes?.length ? <ol className="cvx-notes" aria-label="What the minds wrote after the payout">{d.notes.map((n, i) => <li key={i} className={`is-${n.outcome}`}><small><b>{n.mind}</b> · {n.kind === 'parlay' ? 'parlay' : 'straight bid'} · {n.outcome === 'won' ? 'WON' : 'LOST'}</small><p>{n.text}</p></li>)}</ol> : null}
+  </section>;
+}
+
 function Mix({ t }) {
   const [c] = useState(() => ({ up: tok('--m-accent', '#19e68c'), dn: tok('--m-danger', '#ff8fa3'), wait: tok('--m-warn', '#f5c451'), ax: tok('--m-dim', '#86868f'), bg: tok('--m-surface', '#111114'), line: tok('--m-line', '#1f1f23'), text: tok('--m-text', '#eeeef1') }));
   const data = t.byKind.filter(x => x.rows.length);
@@ -80,6 +93,7 @@ function Mix({ t }) {
       <Tooltip cursor={{ fill: c.line }} contentStyle={{ background: c.bg, border: `1px solid ${c.line}`, borderRadius: 8, fontSize: 11, color: c.text }} />
       <Bar dataKey="won" stackId="a" fill={c.up} name="Won" isAnimationActive={!isCalm()} /><Bar dataKey="lost" stackId="a" fill={c.dn} name="Lost" isAnimationActive={!isCalm()} /><Bar dataKey="open" stackId="a" fill={c.wait} fillOpacity={0.55} name="Waiting" radius={[0, 4, 4, 0]} isAnimationActive={!isCalm()} />
     </BarChart></ResponsiveContainer> : <p className="cvx-none">No proofs on the print yet.</p>}</section>
+    <KalshiMinds />
     <section data-testid="cvx-ranks"><h4>RANK MIX</h4><ul className="cvx-bars">{t.ranks.map(([r, n], i) => <li key={r} style={{ '--i': i }} data-tip={`${n} proofs ranked ${r}`}><b>{r}</b><i><u style={{ transform: `scaleX(${Math.max(0.02, n / top)})` }} /></i><em className="m-num">{n}</em></li>)}</ul></section>
   </div>;
 }

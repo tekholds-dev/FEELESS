@@ -5037,7 +5037,7 @@ async def _kalshi_slip_send(cat, tk):
     """🧩 The only place a real Kalshi PARLAY goes out: every leg re-read, every guard, then the slip's combo market, ONE quote request, and ONE
     accept of the cheapest quote at or under the ticket's most-per-contract. No quote, or none cheap enough → nothing is bought. Never retried."""
     kid_, pem_ = _kb.split_key(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR) or '')
-    bids_ = list(cat.get('kalshiBids') or []); rfq_ = None
+    bids_ = list(cat.get('kalshiBids') or []); rfq_ = stop_ = feed_ = None
     if not kid_:
         tk.update(status='refused', why='Save your Kalshi key on this agent first (Keys › Kalshi).')
     else:
@@ -5062,9 +5062,11 @@ async def _kalshi_slip_send(cat, tk):
                     tk.setdefault('minds', tk.get('why') if isinstance(tk.get('why'), list) else [])
                     tk['ticker'] = await _kb.combo_create(h_, kid_, pem_, tk['legs'])
                     rfq_ = await _kb.rfq_create(h_, kid_, pem_, tk['ticker'], budget_)
+                    wake_, stop_ = asyncio.Event(), asyncio.Event()
+                    feed_ = asyncio.create_task(_kb.quote_feed(kid_, pem_, rfq_, wake_, stop_))   # ⚡ wakes the wait the moment a maker answers
                     got_, t0_ = None, time.time()
                     while time.time() - t0_ < _kb.QUOTE_WAIT_S and not got_:
-                        await asyncio.sleep(1.5)
+                        await _kb.nap(wake_, 1.5)
                         got_ = _kb.pick_quote(await _kb.rfq_quotes(h_, kid_, pem_, rfq_), float(tk['maxPx']), budget_)
                     if not got_:
                         tk.update(status='refused', why=f"No market maker quoted the slip at {float(tk['maxPx']):.3f} or less within {_kb.QUOTE_WAIT_S} s, so nothing was bought.", balance=bal_)
@@ -5074,7 +5076,7 @@ async def _kalshi_slip_send(cat, tk):
                         tk.update(status='sent', quoteId=q_['id'], price=px_, count=n_, why=why_)
                         t0_ = time.time(); st_ = None
                         while time.time() - t0_ < _kb.FILL_WAIT_S:   # ⏳ the maker confirms (3 s on a combo), then Kalshi executes it
-                            await asyncio.sleep(2)
+                            await _kb.nap(wake_, 2)
                             st_ = next((q for q in await _kb.rfq_quotes(h_, kid_, pem_, rfq_) if q.get('id') == q_['id']), None)
                             if st_ and st_.get('status') in ('executed', 'cancelled'):
                                 break
@@ -5091,6 +5093,8 @@ async def _kalshi_slip_send(cat, tk):
                 tk['why'] = f'Accepted on Kalshi, but the fill could not be read back ({str(e)[:120]}). Check it on Kalshi.'
             else:
                 tk.update(status='failed', why=str(e)[:200])
+    if stop_:   # ⚡ the feed ends with the send, whatever happened
+        stop_.set(); feed_.cancel()
     tk['doneAt'] = round(time.time())
     cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]
     if tk.get('orderId'):
@@ -5103,7 +5107,7 @@ async def _kalshi_go(cat, tk):
     return await (_kalshi_slip_send if tk.get('kind') == 'parlay' else _kalshi_send)(cat, tk)
 
 
-_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist')
+_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf')
 
 
 async def _kalshi_confirm(h_, kid_, pem_, row):
@@ -9115,6 +9119,18 @@ async def collective_atoms():
     return {'proofs': _ATOMS['rows']}
 
 
+_KB_PUBLIC = {'at': 0, 'v': {'minds': [], 'notes': []}}
+
+
+@app.get('/api/cats/collective/kalshi')
+async def collective_kalshi():
+    """🌐 Public: the minds' record on settled real Kalshi bids and their after-payout notes. No agent, coin, ticker or stash."""
+    now = time.time()
+    if now - _KB_PUBLIC['at'] > ATOMS_FRESH_S:
+        _KB_PUBLIC['v'] = _kb.public_board(list((_load().get('cats') or {}).values())); _KB_PUBLIC['at'] = now
+    return _KB_PUBLIC['v']
+
+
 @app.get('/api/cats/collective/look')
 async def collective_look():
     """🎨 The colors the owner picked for the Collective."""
@@ -10713,13 +10729,24 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
-    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip', 'kalshi_check', 'kalshi_raise'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
+    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip', 'kalshi_check', 'kalshi_raise', 'kalshi_smaller'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
         if p.op == 'kalshi_raise':   # 🔥 he took the streak offer: ONLY the exact value offered, inside the hard max
             off_ = _kb.raise_offer(cat.get('kalshiCfg'), cat.get('kalshiBids') or [])
             if not off_ or str(p.job or '') != f"{off_['to']:.2f}":
                 raise HTTPException(409, 'That offer is gone. Nothing was changed.')
             cat['kalshiCfg'] = _kb.cfg({**_kb.cfg(cat.get('kalshiCfg')), 'bidUsd': off_['to']}); keep_owned(cat); _save(store)
             return _kalshi_view(cat)
+        if p.op == 'kalshi_smaller':   # 🔁 a slip that got no quote, tried once more at half his per-bid cap — only on his tap
+            f_k_ = next((f_ for f_ in cat.get('pobFolders') or [] if (f_.get('kalshi') or {}).get('id') == p.job), None)
+            if not f_k_:
+                raise HTTPException(404, 'That ticket is gone.')
+            new_, why_s_ = _kb.smaller(f_k_['kalshi'], cat.get('kalshiCfg'))
+            if not new_:
+                raise HTTPException(409, why_s_)
+            f_k_['kalshiTries'] = (list(f_k_.get('kalshiTries') or []) + [f_k_['kalshi']])[-4:]; f_k_['kalshi'] = new_
+            await _kalshi_slip_send(cat, new_)
+            keep_owned(cat); _save(store)
+            return {**_kalshi_view(cat), 'ticket': new_, 'pobFolders': _pob_view(cat)}
         if p.op == 'kalshi_cfg':
             cat['kalshiCfg'] = _kb.cfg(p.tools); keep_owned(cat); _save(store)
         if p.op in ('kalshi_bid', 'kalshi_skip'):

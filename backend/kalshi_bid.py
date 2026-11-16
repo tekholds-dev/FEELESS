@@ -16,6 +16,7 @@ Pure and tested (`tests/test_kalshi_bid.py`): the service holds the store, the c
 import asyncio
 import base64
 import calendar
+import json
 import re
 import time
 import uuid
@@ -690,7 +691,7 @@ def slip_check(c, fresh, tk, bids, balance_usd, now=None):
     key = slip_key(legs)
     if any(slip_key(b.get('legs')) == key and now - float(b.get('at') or 0) < SAME_MARKET_S and b.get('status') != 'refused' for b in bids or [] if b.get('legs')):
         return False, 'It already bid this exact slip in the last 24 hours.', 0
-    budget = round(min(c['bidUsd'], c['dayUsd'] - spent_today(bids, now)), 2)
+    budget = round(min(c['bidUsd'], float(tk.get('budgetUsd') or c['bidUsd']), c['dayUsd'] - spent_today(bids, now)), 2)   # a smaller retry asks for less
     if budget < 0.10:
         return False, f"Today's cap of ${c['dayUsd']:.2f} is used up.", 0
     if balance_usd is None:
@@ -793,3 +794,83 @@ async def rfq_delete(http, key_id, pem, rfq_id):
         await _signed(http, key_id, pem, 'DELETE', f'/communications/rfqs/{rfq_id}')
     except Exception:   # noqa: BLE001 — an RFQ left open closes by itself within hours, with nothing accepted
         pass
+
+
+# ⚡ THE LIVE QUOTE FEED (owner 2026-11-15 'do proposed'): Kalshi pushes quote_created / quote_accepted / quote_executed on its
+# `communications` channel. The feed only WAKES the wait early; the REST read stays the one source of truth, so a feed that fails or never
+# connects leaves the 1.5 s reads exactly as before.
+WS_URL, WS_PATH = 'wss://api.elections.kalshi.com/trade-api/ws/v2', '/trade-api/ws/v2'
+_FEED_TYPES = ('quote_created', 'quote_accepted', 'quote_executed')
+
+
+def feed_hit(raw, rfq_id):
+    """Is this websocket message about our quote request? Pure."""
+    try:
+        m = json.loads(raw)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(m, dict) and m.get('type') in _FEED_TYPES and str((m.get('msg') or {}).get('rfq_id') or '') == str(rfq_id or '')
+
+
+async def quote_feed(key_id, pem, rfq_id, wake, stop):
+    """Listen on his own Kalshi feed until `stop`; set `wake` whenever our request gets news. Never raises."""
+    try:
+        import websockets
+        ts = str(int(time.time() * 1000))
+        hdr = {'KALSHI-ACCESS-KEY': key_id, 'KALSHI-ACCESS-TIMESTAMP': ts, 'KALSHI-ACCESS-SIGNATURE': sign(pem, 'GET', WS_PATH, ts)}
+        async with websockets.connect(WS_URL, additional_headers=hdr, open_timeout=5, close_timeout=1) as ws:
+            await ws.send(json.dumps({'id': 1, 'cmd': 'subscribe', 'params': {'channels': ['communications']}}))
+            while not stop.is_set():
+                try:
+                    raw = await asyncio.wait_for(ws.recv(), 1.0)
+                except asyncio.TimeoutError:
+                    continue
+                if feed_hit(raw, rfq_id):
+                    wake.set()
+    except Exception:   # noqa: BLE001 — no feed: the REST reads carry on
+        return
+
+
+async def nap(wake, s):
+    """Wait up to `s` seconds, or less when the feed has news."""
+    try:
+        await asyncio.wait_for(wake.wait(), s)
+    except asyncio.TimeoutError:
+        pass
+    wake.clear()
+
+
+# 🔁 SAME SLIP, SMALLER (owner 2026-11-15 'do proposed'): only after a slip got no quote, and only on his tap. Half his per-bid cap, once.
+NO_QUOTE = 'No market maker quoted'
+
+
+def smaller(tk, c, now=None):
+    """→ the new ticket, or (None, why). Pure."""
+    c = cfg(c)
+    if tk.get('kind') != 'parlay' or tk.get('status') != 'refused' or NO_QUOTE not in str(tk.get('why') or ''):
+        return None, 'Only a slip that got no quote can be tried smaller.'
+    if tk.get('retryOf'):
+        return None, 'It was already tried smaller once.'
+    b = round(max(0.10, min(float(tk.get('budgetUsd') or c['bidUsd']), c['bidUsd']) / 2), 2)
+    keep = ('kind', 'legs', 'side', 'title', 'conf', 'why', 'price', 'maxPx', 'folder', 'offer', 'minds')
+    return {**{k: tk[k] for k in keep if k in tk}, 'id': 'kb' + uuid.uuid4().hex[:10], 'ticker': None, 'status': 'waiting', 'budgetUsd': b, 'retryOf': tk.get('id'), 'at': round(now or time.time())}, ''
+
+
+# 🌐 THE MINDS ON THE COLLECTIVE (owner 2026-11-15 'do proposed'). Public page rule: no agent, coin or stash — so only the minds (by model),
+# their record on settled real Kalshi bids, and their after-payout notes. Pure.
+def public_board(cats, n=6):
+    rec, notes = {}, []
+    for c in cats or []:
+        for f in c.get('pobFolders') or []:
+            k = f.get('kalshi') or {}
+            if k.get('outcome') not in ('won', 'lost'):
+                continue
+            for call in f.get('calls') or []:
+                nm = str(call.get('name') or '').split('/')[-1]
+                if nm and backed(call, k):
+                    r = rec.setdefault(nm, {'won': 0, 'lost': 0}); r[k['outcome']] += 1
+            for r in f.get('final') or []:
+                notes.append({'mind': str(r.get('name') or '').split('/')[-1], 'text': str(r.get('text') or '')[:240], 'outcome': k['outcome'],
+                              'kind': 'parlay' if k.get('kind') == 'parlay' else 'single', 'at': k.get('settledAt') or k.get('at')})
+    minds = sorted(({'mind': m, **r, 'n': r['won'] + r['lost']} for m, r in rec.items()), key=lambda r: (-(r['won'] + 1) / (r['n'] + 2), -r['n']))
+    return {'minds': minds[:8], 'notes': sorted(notes, key=lambda x: -float(x.get('at') or 0))[:n]}

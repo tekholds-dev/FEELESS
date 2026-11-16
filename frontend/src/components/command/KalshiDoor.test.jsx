@@ -65,3 +65,11 @@ test('the door shows each mind real Kalshi record', async () => {
   const el = await mount(<KalshiDoor cat={{ id: 'c' }} work={async () => ({ ...STATE, minds: { 'openrouter/hy4': { won: 3, lost: 1 } } })} />);
   expect(q(el, 'kd-minds').textContent).toContain('hy4 3–1');
 });
+
+test('a slip that got no quote offers Try smaller once, and it goes to the server on the second tap', async () => {
+  const sent = []; const t = { id: 'kb1', kind: 'parlay', status: 'refused', why: 'No market maker quoted the slip at 0.536 or less within 25 s, so nothing was bought.', price: 0.41, maxPx: 0.536, conf: [70], legs: [] };
+  const el = await mount(<KalshiTicket t={t} catId="c" work={async (_c, b) => { sent.push(b); return { ticket: { ...t, id: 'kb2', status: 'refused', retryOf: 'kb1', budgetUsd: 0.5 } }; }} />);
+  await act(async () => { q(el, 'kd-smaller').click(); }); expect(sent).toEqual([]);   // first tap only arms it
+  await act(async () => { q(el, 'kd-smaller').click(); }); await act(async () => { await Promise.resolve(); });
+  expect(sent).toEqual([{ op: 'kalshi_smaller', job: 'kb1' }]); expect(q(el, 'kd-smaller')).toBeNull(); expect(q(el, 'kd-budget').textContent).toContain('$0.50');
+});

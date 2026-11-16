@@ -25,3 +25,13 @@ test('the front page (LOOK-1): real atoms → live strip + matrix + 3D, three pa
   expect(el.textContent).not.toMatch(/OSSY|G4/);
   el.remove(); document.body.classList.remove('fx-lite');
 });
+
+test('the minds on real Kalshi bids: record meters and their after-payout notes, no agent names', async () => {
+  global.fetch = jest.fn(async u => ({ ok: true, json: async () => (String(u).includes('/kalshi') ? { minds: [{ mind: 'hy4', won: 3, lost: 1, n: 4 }], notes: [{ mind: 'hy4', text: 'Sengun ate inside.', outcome: 'won', kind: 'parlay', at: 5 }] } : String(u).includes('atoms') ? { proofs: [] } : { theme: 'NEBULA' }) }));
+  document.body.classList.add('fx-lite');
+  const { CollectiveLanding } = require('./CollectiveLanding');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CollectiveLanding />); }); await act(async () => { await new Promise(r => { setTimeout(r, 30); }); });
+  const box = el.querySelector('[data-testid="cvx-kalshi"]');
+  expect(box.textContent).toContain('hy43–1'); expect(box.textContent).toContain('parlay · WON'); expect(box.textContent).toContain('Sengun ate inside.');
+});
