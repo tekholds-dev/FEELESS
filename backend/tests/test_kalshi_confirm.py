@@ -18,6 +18,7 @@ def test_settle_reads_kalshis_own_record():
 
 
 def test_send_then_confirm_and_say_it_in_chat(monkeypatch):
+    monkeypatch.setattr(fs, "_KB_SENT", {})   # the one-send claim set is per process: another test in this worker may have claimed the same ticket id
     sent = []
     async def market(h, t): return {'ticker': t, 'status': 'active', 'close_time': '2099-01-01T00:00:00Z', 'yes_ask': 40}
     async def balance(h, k, p): return 10.0
