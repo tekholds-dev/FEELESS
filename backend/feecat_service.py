@@ -9372,6 +9372,10 @@ async def _pob_grade_pass(http, store, now):
             kept_ = _pob.dedupe_scores(c_['chat'])
             if len(kept_) != len(c_['chat']):
                 c_['chat'] = kept_
+        for f_ in (c_.get('pobFolders') or [])[-6:]:   # 💵 a short-index warning is read again, so it clears once he moves the money
+            tk_ = f_.get('kalshi') or {}
+            if tk_.get('idxWarn') and tk_.get('status') == 'waiting':
+                tk_.pop('idxWarn', None); await _kalshi_index_warn(c_, tk_)
     open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and f.get('gradedBy') not in _stamp.OUTSIDE]   # 🔒 a hand mark never stops the scoreboard
     owner_of = {id(f): c for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:]}
     for sport in {g.get('sport') for f in open_ for g in f['games'] if g.get('sport')}:
