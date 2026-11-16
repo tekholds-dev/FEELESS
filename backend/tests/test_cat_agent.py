@@ -389,3 +389,24 @@ def test_each_mind_plans_3_steps_on_its_first_reply_and_the_plan_rides_every_ste
     t2 = ca.new_task('tp4', 'check BONK', ['m/a'], 1.0, 8, 'jobs')
     asyncio.run(ca.run(t2, scripted({'m/a': [{'thought': 'done', 'action': 'answer', 'say': 'ok'}]}), [Page()], None, ('A',)))
     assert len(t2['windows'][0]['plan']) == 3                                                # no plan given → the engine's default 3 steps
+
+
+def test_a_proof_read_never_waits_on_the_owner_at_a_wall_it_leaves_for_another_source():
+    """Owner 2026-11-15 PoB #18: a Kalshi sign-up box held Mind B in '✋ needs you' past tip-off. A proof read (keepShots) moves on instead."""
+    waits = []
+
+    async def wait_human(i):
+        waits.append(i); return True
+    ask = scripted({'m/a': [{'fast': '', 'a': 'read odds', 'b': 'x'}, {'thought': 'open', 'action': 'open', 'url': 'https://site.com/login'},
+                            {'action': 'answer', 'say': 'odds read'}, 'Merged'],
+                    'm/b': [{'action': 'answer', 'say': 'ok'}]})
+
+    async def ask2(model, messages):
+        by = await ask(model, messages)
+        return (by[0].strip('"') if by[0] == '"Merged"' else by[0]), by[1]
+    pa = Page(wall='/login')
+    t = ca.new_task('t9', 'Thunder vs Kings odds', ['m/a', 'm/b'], 1.0); t['keepShots'] = True; t['notCoins'] = True; t['alsoHosts'] = ['espn.com']
+    asyncio.run(ca.run(t, ask2, [pa, Page()], wait_human))
+    assert waits == []                                                            # never handed to him
+    assert ('goto', 'https://espn.com') in pa.done                                # it left for another source
+    assert any(s['action'] == 'refused' and s['thought'].startswith('left') for s in t['windows'][0]['steps'])

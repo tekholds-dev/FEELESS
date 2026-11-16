@@ -1529,7 +1529,7 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
             return '', 0.0
         d = r.json()
         ch_ = (d.get('choices') or [{}])[0]; text = (ch_.get('message') or {}).get('content') or ''
-        if long_write and not text.strip() and ch_.get('finish_reason') == 'length':   # some models ignore 'off' (GLM): once more with thinking capped
+        if not text.strip() and ch_.get('finish_reason') == 'length':   # some models ignore 'off' (GLM), hy4 thinks its whole budget away (owner 2026-11-15 PoB #19): once more with thinking capped
             async with httpx.AsyncClient(timeout=40) as h:
                 r2 = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, 'reasoning': {'max_tokens': 300}, **extra})
             if r2.status_code == 200:
@@ -4221,7 +4221,7 @@ def _read_start(cat, goal, who, kind=''):
     if not b_.get('brains') or (float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE <= 0.005 and not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)):
         return 'no model credit left for browsing'
     try:
-        _work_start(cat['id'], cat, goal + _site_note(cat, kind) + (_book.goal_line(cat.get('siteBook'), kind) if kind in _book.KINDS else ''), who if who in ('0', '1') else None, None, read_=True)
+        _work_start(cat['id'], cat, goal + _site_note(cat, kind) + (_book.goal_line(cat.get('siteBook'), kind) if kind in _book.KINDS else ''), who if who in ('0', '1') else None, None, read_=True, kind=kind or None)
     except HTTPException as e:
         return str(e.detail)[:80]
     if kind in ('pob', 'poc', 'pos'):   # the sources book + the PoW guide list coin sites (Birdeye, Jupiter, RugCheck): GLM followed them on a Knicks pick (2026-11-07)
@@ -5040,7 +5040,7 @@ async def _kalshi_send_raw(cat, tk):
     else:
         try:
             async with httpx.AsyncClient(timeout=15) as h_:
-                mk_ = await _kb.market(h_, tk['ticker']); bal_ = await _kb.balance(h_, kid_, pem_)
+                mk_ = await _kb.market(h_, tk['ticker']); bal_ = await _kb.balance(h_, kid_, pem_, mk_)   # 💵 the money on THIS market's exchange index
                 ok_, why_, n_, px_ = _kb.check(cat.get('kalshiCfg'), mk_, tk, bids_, bal_)
                 if ok_ and not await _kb.unstarted(h_, mk_):   # ⏱ already-ran guard, read again at send time
                     ok_, why_ = False, 'Its game has already started (or ESPN could not confirm it has not), so nothing was sent.'
@@ -5417,6 +5417,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
         try:
             async with httpx.AsyncClient(timeout=10) as http_k:
                 kb_rows_ = await _kb.markets_for(http_k, rd['topic'])
+                if not kb_rows_:   # 🏁 the game reached its start while the minds read: chat says so, not 'minimum confidence'
+                    base['closedGame'] = _kb.started_game(rd['topic'], await _kb.board_for(http_k, rd['topic']))
         except Exception as e:   # noqa: BLE001 — the proof still files, with no real bid
             print(f'[pob] kalshi markets: {str(e)[:100]}')
     slip_n_ = (_pob.legs_of(rd['topic']) or 3) if _kb.mode_of(rd['topic']) == 'parlay' else 0; kb_menu_ = []
@@ -5464,7 +5466,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
         print(f'[pob] no scoreboard: {str(e)[:80]}')
     cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
     run_ = _pob.run_of(cat.get('pobFolders'), {**base, 'topic': rd['topic'], 'at': base.get('at') or now})   # 🗂 a refile is the next reading in its game's file
-    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed{f' as reading {run_} in its file' if run_ > 1 else ''}: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR))))
+    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed{f' as reading {run_} in its file' if run_ > 1 else ''}: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR)), base.get('closedGame')))
 
 
 async def _pob_tick(http, cat, now):
@@ -5509,6 +5511,15 @@ async def _pob_tick(http, cat, now):
                 kb_first_ = await _kb.markets_for(http, topic)
             except Exception as e:   # noqa: BLE001 — research goes on; the final call reads Kalshi again
                 print(f'[pob] kalshi first: {str(e)[:100]}')
+        if kb_key_ and not kb_first_:   # 🏁 owner 2026-11-15 PoB #19: a game past its start time is refused here, before any paid model call
+            try:
+                gone_ = _kb.started_game(topic, await _kb.board_for(http, topic), now)
+            except Exception as e:   # noqa: BLE001 — unsure: research goes on, the send guard still checks
+                gone_ = None; print(f'[pob] started check: {str(e)[:100]}')
+            if gone_:
+                cat.pop('pobBy', None)
+                _pob_file(cat, {'id': f'pob{int(now)}', 'at': round(now), 'kind': 'PoB', 'status': 'closed', 'noTrade': True, 'topic': topic, 'why': 'game started', 'calls': []}, f'🎲 PoB on {topic} not filed: ' + _kb.started_say(gone_))
+                return
         legs_first_ = []
         if kb_first_ and _kb.mode_of(topic) == 'parlay':   # 🧩 a parlay: the legs Kalshi will price go in the research goal too
             try:
@@ -6171,7 +6182,7 @@ def day_left(cat):
     return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(time.strftime('%Y-%m-%d', time.gmtime()), 0)))
 
 
-def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, read_=False):
+def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, read_=False, kind=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
@@ -6187,11 +6198,14 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
         cap = min(cap, left_)
     lim_ = cat.get('limits') or {}
     models = list(b['brains'])[:8]
+    k_minds_ = 'pow' if pow_ else kind if read_ else None
+    if k_minds_ and _lc.minds_for(b, k_minds_):   # 🧠 owner 2026-11-15 'not even the right minds set': a proof's monitors browse with THAT proof's own pair (PoB = its PoB minds), the same models that make its call
+        models = _lc.minds_for(b, k_minds_)
     if to not in (None, 'both') and str(to).isdigit() and int(to) < len(models):   # talk to ONE of its minds: that model takes the whole task
         models = [models[int(to)]]
     if pows:   # ⛏ a pair round: each mind's own model, in mind order (window i = mind i)
         base_ = int(pow_.get('base') or 0)
-        models = [models[base_ + i] for i in sorted(pows)]
+        models = [models[(base_ + i) % len(models)] for i in sorted(pows)]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     if pow_:   # ⛏ one mind, its own job, the PoW's step budget (its random 3–8 moves a site, pow.py) — the rest is the same guarded work path

@@ -348,10 +348,12 @@ def room_view(k):
             'kind': k.get('kind') or 'single', 'legs': [{x: g.get(x) for x in ('title', 'side', 'price')} for g in k.get('legs') or []], 'maxPx': k.get('maxPx')}
 
 
-def outcome_line(k, has_key):
+def outcome_line(k, has_key, closed=None):
     """What the filed PoB did on Kalshi, in one chat sentence. Pure."""
     if not has_key:
         return ' No Kalshi key saved, so it is filed on paper.'
+    if not k and closed:
+        return ' ' + started_say(closed)
     if not k:
         return ' No real bid: no Kalshi market both minds backed, and no single pick reached your minimum confidence.'
     side = f"{str(k.get('side') or '').upper()} {k.get('title') or k.get('ticker')}"
@@ -435,7 +437,7 @@ def check(c, market, pick, bids, balance_usd, now=None):
     if balance_usd is None:
         return False, 'Could not read the Kalshi balance, so nothing was sent.', 0, price
     if balance_usd - usd < c['floorUsd']:
-        return False, f"Your Kalshi balance (${balance_usd:.2f}) would fall under your ${c['floorUsd']:.2f} floor.", 0, price
+        return False, f"Your Kalshi balance on this market's exchange index (${balance_usd:.2f}) would fall under your ${c['floorUsd']:.2f} floor. Move funds onto that index on kalshi.com › Exchange Indexes.", 0, price
     return True, f"{count} × {pick['side'].upper()} at {price:.2f} = ${usd:.2f}", count, price
 
 
@@ -472,6 +474,32 @@ def ticket(pick, market, folder_id, now=None):
 
 
 # 🌐 the network (the service passes one pooled httpx client)
+def started_game(topic, games, now=None):
+    """🏁 The ESPN game this topic names when it has reached its start time (or is live / over), else None. Pure.
+    Owner 2026-11-15 PoB #19: filed at 02:01Z on a 02:00Z game, Kalshi's market was gone and chat blamed 'minimum confidence'."""
+    now = now or time.time(); words = set(re.findall(r'[a-z0-9]+', str(topic or '').lower()))
+    for g in games or []:
+        ts = g.get('teams') or []
+        if len(ts) == 2 and all(isinstance(t, dict) and words & set(re.findall(r'[a-z0-9]+', f"{t.get('short') or ''} {t.get('abbr') or ''}".lower())) for t in ts):
+            if g.get('state') != 'pre' or _start(g.get('at')) <= now:
+                return g
+    return None
+
+
+async def board_for(http, topic):
+    """ESPN's board rows for the topic's league(s). Read only."""
+    import proof_tools as _pt
+    ss = series_for(topic)[:2]
+    boards = await asyncio.gather(*(_pt.sport_board(http, ESPN_OF[s]) for s in ss if s in ESPN_OF), return_exceptions=True)
+    return [g for b in boards if isinstance(b, dict) for g in b.get('games') or []]
+
+
+def started_say(g):
+    """One plain sentence for a game whose bids are closed. Pure."""
+    names = ' vs '.join(str((t or {}).get('short') or '') for t in g.get('teams') or [])
+    return f"{names} reached its start time ({str(g.get('at') or '')[11:16]} UTC, ESPN), and Kalshi bids stop at tip-off, so no real bid. Pick a game that has not started."
+
+
 async def markets_for(http, topic, games=None):
     """The open Kalshi markets for this topic's games, none already started. `games` = ESPN board rows (read here when not given)."""
     rows = []; ss = series_for(topic)[:2]
@@ -492,11 +520,22 @@ async def market(http, ticker):
     return (r.json() or {}).get('market') if r.status_code == 200 else None
 
 
-async def balance(http, key_id, pem):
+async def balance(http, key_id, pem, market=None):
+    """His Kalshi balance in dollars: on the market's own exchange index when Kalshi says which (owner 2026-11-15 PoB #17: $10 in the
+    account, $0 on the index OKC-SAC trades on, so the order died with insufficient_shard_balance). Read only."""
     r = await http.get(f'{BASE}/portfolio/balance', headers=headers(key_id, pem, 'GET', '/portfolio/balance'))
     if r.status_code != 200:
         raise RuntimeError(f'Kalshi said {r.status_code}: {r.text[:160]}')
-    return round(float(r.json().get('balance') or 0) / 100, 2)
+    return shard_dollars(r.json(), market)
+
+
+def shard_dollars(j, market=None):
+    """Dollars on the market's exchange index, or the whole balance when either side does not say. Pure."""
+    ix = (market or {}).get('exchange_index')
+    for row in (j or {}).get('balance_breakdown') or []:
+        if ix is not None and row.get('exchange_index') == ix:
+            return round(float(row.get('balance') or 0), 2)
+    return round(float((j or {}).get('balance') or 0) / 100, 2)
 
 
 def plain_why(why):
@@ -504,9 +543,9 @@ def plain_why(why):
     w = str(why or 'Kalshi did not take it.')
     if 'insufficient_shard_balance' in w:
         return ("Kalshi says your money is not on this market's exchange index. Open kalshi.com › Account › Exchange Indexes, move funds onto "
-                "the index this game trades on (or set an allocation so Kalshi keeps it topped up), then tap Approve real bid again. Nothing was sent twice.")
+                "the index this game trades on (or set an allocation so Kalshi keeps it topped up), then file a new PoB on it. This ticket is used up; nothing was sent twice.")
     if 'insufficient_balance' in w:
-        return "Kalshi says the balance on this market's exchange index does not cover it. Add funds there or bid smaller, then tap Approve again."
+        return "Kalshi says the balance on this market's exchange index does not cover it. Add funds there or bid smaller, then file a new PoB on it."
     return w[:240]
 
 
@@ -768,7 +807,7 @@ def slip_check(c, fresh, tk, bids, balance_usd, now=None):
     if balance_usd is None:
         return False, 'Could not read the Kalshi balance, so nothing was sent.', 0
     if balance_usd - budget < c['floorUsd']:
-        return False, f"Your Kalshi balance (${balance_usd:.2f}) would fall under your ${c['floorUsd']:.2f} floor.", 0
+        return False, f"Your Kalshi balance on this market's exchange index (${balance_usd:.2f}) would fall under your ${c['floorUsd']:.2f} floor. Move funds onto that index on kalshi.com › Exchange Indexes.", 0
     return True, f"Up to ${budget:.2f} on a {len(legs)} leg slip, at most {float(tk.get('maxPx') or 0):.3f} a contract", budget
 
 

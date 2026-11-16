@@ -192,6 +192,7 @@ def repeat_why(w, act, sig, url, prior=()):
     return None
 
 
+SITE_STEPS = 4   # 🔀 a proof read's most steps on one site before the engine opens another source
 REPEAT_MAX = 3   # 🔁 the third repeat of a read it already has ends its turn (a real run paid for 'already read this' 15×)
 STEP_PACE = 2.5   # s: the least time between two moves in a live window
 DONE_WORDS = frozenset({'report', 'final', 'final_answer', 'done', 'finish', 'respond', 'reply', 'result'})
@@ -293,6 +294,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 seen = w['_page'] = await page.goto(site)
                 w['url'], w['title'] = page.url, page.title
                 why_ = needs_human(page.url, seen)
+            if why_ and task.get('keepShots'):   # 🔀 a proof's read: a walled first page is skipped for another source, never handed to him
+                _step(w, f"left {_pow.host_of(page.url) or 'that page'}: {why_}", 'refused', 'divert')
+                seen = await _divert(task, w, page, wait_human); why_ = None
             if why_:   # a checkpoint on the very first page → straight to the person, no steps burned on it
                 w['human'] = {'why': why_, 'url': page.url}
                 w['status'], w['bubble'] = 'human', f"✋ needs you: {why_}"
@@ -566,6 +570,17 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if why:
                 w['human'] = {'why': why, 'url': page.url}
         _step(w, thought, act, a.get('url') or a.get('q') or a.get('text') or '')
+        if task.get('keepShots') and not w['human'] and act in ('click', 'scroll', 'search', 'site_search', 'read', 'type'):   # 🔀 owner 2026-11-15 'left screen not switching': a proof read moves on after SITE_STEPS on one site
+            h_now_ = _pow.host_of(getattr(page, 'url', '') or ''); w['_siteRun'] = (w.get('_siteRun') or 0) + 1 if h_now_ and h_now_ == w.get('_siteHost') else 1; w['_siteHost'] = h_now_
+            if w['_siteRun'] > SITE_STEPS:
+                w['_siteRun'] = 0
+                seen = await _divert(task, w, page, wait_human)
+                continue
+        if w['human'] and task.get('keepShots'):   # 🔀 owner 2026-11-15 PoB #18/#19: a proof's read never waits on him (a Kalshi sign-up box held Mind B past tip-off): it leaves for another source
+            _step(w, f"left {_pow.host_of(page.url) or 'that page'}: {w['human']['why']}", 'refused', 'divert')
+            w['human'] = None
+            seen = await _divert(task, w, page, wait_human)
+            continue
         if w['human']:
             w['status'], w['bubble'] = 'human', f"✋ needs you: {w['human']['why']}"
             go = await wait_human(w['i'])

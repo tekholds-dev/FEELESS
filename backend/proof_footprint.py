@@ -124,7 +124,7 @@ def plan(kind, topic, sites, folders, minds=2):
     """Each mind's own sites and angle. The sites used least lately go first, so a loop moves on, and a site the last proofs leaned on waits. The order given is best first, so ties keep it. → {sites: [[...], ...], angles: [...]}"""
     used = {}
     for f in _recent(folders, KEEP):
-        for h in footprint(kind, f)['sites']:
+        for h in footprint(kind, f)['sites'] | {_host(x) for x in f.get('sites') or [] if isinstance(x, str)}:   # the sites it was SENT to count too: Yahoo opened first on PoB #17-#19 because its visits were never recorded
             used[h] = used.get(h, 0) + 1
     seed = f'{topic}{len(folders or [])}'; rows = [s for i, s in sorted(enumerate(sites or []), key=lambda x: (used.get(_host(x[1]), 0), zlib.crc32(f'{seed}{x[1]}'.encode()), x[0]))]   # among the least used, a different order each proof: fixed ties opened ESPN first every time
     return {'sites': [rows[i::minds] for i in range(minds)], 'angles': [angle_for(kind, folders, i) for i in range(minds)], 'used': used}
