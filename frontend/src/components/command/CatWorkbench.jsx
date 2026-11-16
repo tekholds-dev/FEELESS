@@ -205,6 +205,12 @@ function MindNow({ d, w, p }) {
     {phase ? <em className="ck-v-row"><b className="m-num is-pow">{phase}</b></em> : null}
     {w?.bubble ? <small data-testid="ck-now-step">{w.bubble}</small> : null}</div>;
 }
+// 🧠 owner 2026-11-15 'not even the right minds set': a busy window names the model really in it; otherwise the proof on the desk names ITS own pair (PoB = its PoB minds), else the agent's pair
+export function mindModel(cat, d, wins, i) {
+  const w = (wins || [])[i]; if (w?.model && (w.status === 'working' || w.status === 'human')) return w.model;
+  const k = d?.deskProof?.kind; const own = k ? cat?.brainsCfg?.byKind?.[k] : null;
+  return (own && own.length ? own[i] : cat?.brainsCfg?.brains?.[i]) || w?.model || '';
+}
 function WinVitals({ w, f = null, i = 0, model = '' }) {   // ⛏ while a PoW folder runs, its role in it (owner: "it says IDLE while they work")
   if (f && (roundIsOver(w, f) || !(w?.status === 'working' || w?.status === 'human'))) {
     const me = String(i + (f.base || 0)); const name = String(model || '').split('/').pop().replace(':free', '');
@@ -1705,8 +1711,8 @@ function WorkbenchLive({ cat }) {
           : <small className="cwb-rpx is-auto" data-tip={k === 'pob' ? 'A PoB ends when its games are final. Any real Kalshi order stays on Kalshi either way' : 'It finishes by itself'}>auto</small>}</span>)}
       {kinds.length >= (d?.proofMax || 3) ? <small className="cwb-running-full" data-tip="One agent runs at most 3 proofs at once: a new one starts when one of these finishes or is stopped">full</small> : null}</nav> : null}
     <DeskFlip cat={cat} onProofs={() => setProofPick(true)} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
-      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
-      right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
+      left={<MindVitals cat={cat} model={mindModel(cat, d, wins, 0)} i={0} kind="general" live={!!mindModel(cat, d, wins, 0)} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
+      right={<MindVitals cat={cat} model={mindModel(cat, d, wins, 1)} i={1} kind="general" live={!!mindModel(cat, d, wins, 1)} hot={wins[1]?.status === 'working'}
         extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <MindNow d={d} w={wins[1]} p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
