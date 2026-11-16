@@ -27,7 +27,7 @@ export function Live({ t }) {
     <Calls calls={t.calls} /></article>;
 }
 
-const CONVICTION = { blind: ['🕶 BLIND AGREE', 'Both minds picked this without seeing each other'], argued: ['🗣 ARGUED', 'They split at first, then agreed after reading each other. A weaker signal than a blind agree'], solo: ['☝ ONE MIND', 'One mind only, so nothing checked it'] };
+const CONVICTION = { blind: ['🕶 BLIND AGREE', 'Both minds picked this without seeing each other'], argued: ['🗣 ARGUED', 'They split at first, then agreed after reading each other. A weaker signal than a blind agree'], solo: ['☝ ONE MIND', 'One mind only, so nothing checked it'], lone: ['🙋 ONE MIND CALLED', 'One mind called it and the other passed. It runs only if you tap Run'], split: ['⚖ SPLIT', 'The minds called different trades. You pick which one runs'] };
 const STATE = { waiting: '', passed: 'You passed. Its ghost keeps tracking what you skipped.', expired: 'Its 15 minutes ran out. Its ghost keeps tracking it.' };
 
 // 💡 pPoP: the agreed trade as a card. Nothing is open: Run makes it a normal paper PoP at the live price, while the setup still holds.

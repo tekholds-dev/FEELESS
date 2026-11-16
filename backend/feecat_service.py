@@ -4962,6 +4962,12 @@ async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
         cat['popCard'] = {**_pop.card(rid, both_[0], px_of[both_[0]['market']], now, calls, 'split', base), 'alt': {**both_[1], 'entry': px_of[both_[1]['market']]}}
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"💡 pPoP: the minds split, {_pop.call_line(both_[0])} or {_pop.call_line(both_[1])}. Pick one to run on paper, within 15 minutes.", 'at': now, 'open': 'pop'}])[-200:]
         return
+    lone_ = [(k, c) for k, c in enumerate(final_calls) if c and c.get('market') and c.get('side')] if not trade and len(idx) == 2 else []
+    if len(lone_) == 1 and lone_[0][1]['market'] in px_of and not cat.get('popCard'):   # 🙋 one mind called it, the other passed: a card for HIS tap, paper only, never opened by itself
+        k_, c_ = lone_[0]; passed_ = _pop.no_trade_why('a mind called no trade', calls)
+        cat['popCard'] = _pop.card(rid, {x: c_[x] for x in ('market', 'side', 'lev', 'tp', 'sl')}, px_of[c_['market']], now, calls, 'lone', base)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🙋 {icon}: only Mind {'AB'[idx[k_]]} called it: {_pop.call_line(c_)}. {passed_}. Run it on paper within 15 minutes, or let it go.", 'at': now, 'open': 'pop'}])[-200:]
+        return
     if not trade:
         why = _pop.no_trade_why(why, calls)
         _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
