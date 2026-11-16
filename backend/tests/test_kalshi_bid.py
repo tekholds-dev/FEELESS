@@ -143,7 +143,7 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **kw: f'a952bcbe-ec3b-4b5b-b8f9-11dae589608c {pem}' if prov == 'kalshi' else None)
     sent = []; mk = _mkt(close=now + 7200)
     async def market(h, t): return mk
-    async def balance(h, k, p): return 10.0
+    async def balance(h, k, p, m=None): return 10.0
     async def place(h, k, p, body): sent.append(body); return {'order_id': 'o-1', 'status': 'resting'}
     monkeypatch.setattr(fs._kb, 'market', market); monkeypatch.setattr(fs._kb, 'balance', balance); monkeypatch.setattr(fs._kb, 'place', place)
     async def unstarted(h, m): return True

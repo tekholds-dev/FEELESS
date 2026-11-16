@@ -75,7 +75,7 @@ def test_pick_quote_takes_the_cheapest_under_the_ticket_and_budget():
 def _fake(monkeypatch, quotes, final='executed'):
     calls = []
     async def market(h, t): return {m['ticker']: m for m in MENU}.get(t)
-    async def balance(h, k, p): return 10.0
+    async def balance(h, k, p, m=None): return 10.0
     async def unstarted(h, m): return True
     async def combo(h, k, p, legs): calls.append(('combo', [g['ticker'] for g in legs])); return 'KXMVECROSSCATEGORY-S1-ABC'
     async def rfq(h, k, p, t, b): calls.append(('rfq', t, b)); return 'r1'
