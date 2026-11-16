@@ -145,7 +145,10 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .pfc-foot { display: flex; align-items: center; gap: 7px; margin-top: auto; font: 700 11px var(--f-ui); color: var(--tone); }
 .pfc-foot i { width: 7px; height: 7px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 10px var(--tone); }
 .pfc-foot u { margin-left: auto; text-decoration: none; font: 600 10px var(--m-mono); color: var(--m-dim); }
-.prf-filing > .phd, .prf-filing > .prf-rail { display: none; }
+.prf-filing > .phd, .prf-filing > .prf-rail { display: none; } :is(.dsk-body, .dfw-in) > .prf-bids.prf-filing { grid-template-columns: minmax(0, 1fr); }
+/* owner 2026-11-15 IMG1 'so I don't scroll to the bottom to see filings': on Bids the 7-step how-to strip steps aside and the head is one tight row */
+.prf-bids > .phd .phd-steps { display: none; } .prf-bids .bd-head { padding: 8px 12px; } .prf-bids .bd-head small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.prf-bids .bd-head .bd-file { min-height: 32px; } .prf-bids .pbt-ask { margin-bottom: 8px; }
 .pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
 .pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
 .pfl-back { width: 40px; min-height: 40px; font-size: 18px; }

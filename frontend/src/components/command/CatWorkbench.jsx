@@ -1232,7 +1232,7 @@ function filingMoney(x) {
   if (k.status === 'failed' || k.status === 'refused') return { tone: 'bad', text: 'Kalshi did not take it' };
   return { tone: 'none', text: x?.status !== 'closed' ? 'Researching' : 'No real bid' };
 }
-function picksOf(x) { return (x?.calls || []).map((c, i) => ({ mind: 'AB'[i % 2], name: c.name, pick: (c.picks || [])[0], pass: c.pass })); }
+function picksOf(x) { return (x?.calls || []).map((c, i) => ({ mind: 'AB'[(Number.isInteger(c.mind) ? c.mind : i) % 2], name: c.name, pick: (c.picks || [])[0] || (c.side ? { pick: String(c.side).toUpperCase(), confidence: c.confidence, why: c.why } : null), pass: c.pass })); }   // free-chip calls carry a side, Kalshi reads carry picks
 function PobFile({ g, focus, catId, onMark, onBack }) {
   const [at, setAt] = useState(() => Math.max(0, g.runs.findIndex(r => r.id === focus)));
   const x = g.runs[at] || g.head; const money = filingMoney(x); const minds = picksOf(x);
@@ -1244,7 +1244,7 @@ function PobFile({ g, focus, catId, onMark, onBack }) {
     </header>
     {minds.length ? <div className="pfl-minds">{minds.map((m, i) => <section key={i} className={`pfl-mind m-glass${m.pick ? ' has-pick' : ''}`} style={{ '--i': i }}>
       <small className="m-label">MIND {m.mind}{m.name ? ` · ${String(m.name).split('/').pop()}` : ''}</small>
-      {m.pick ? <><b>{m.pick.pick}</b><span className="pfl-conf" role="img" aria-label={`${m.pick.confidence}% sure`}><s style={{ transform: `scaleX(${Math.min(1, (Number(m.pick.confidence) || 0) / 100)})` }} /></span><em className="m-num">{m.pick.confidence}% sure</em></> : <><b className="is-pass">Passed</b><em>{String(m.pass || 'no answer').slice(0, 140)}</em></>}
+      {m.pick && m.pick.confidence == null ? <><b>{m.pick.pick}</b><em>{String(m.pick.why || '').slice(0, 140)}</em></> : m.pick ? <><b>{m.pick.pick}</b><span className="pfl-conf" role="img" aria-label={`${m.pick.confidence}% sure`}><s style={{ transform: `scaleX(${Math.min(1, (Number(m.pick.confidence) || 0) / 100)})` }} /></span><em className="m-num">{m.pick.confidence}% sure</em></> : <><b className="is-pass">Passed</b><em>{String(m.pass || 'no answer').slice(0, 140)}</em></>}
     </section>)}</div> : null}
     {g.runs.length > 1 ? <nav className="m-seg pfl-tabs" role="tablist" aria-label="Readings of this game">{g.runs.map((r, i) => <button key={r.id} type="button" role="tab" aria-selected={i === at} className={i === at ? 'active' : ''} onClick={() => setAt(i)} data-tip={`${runLabel(r)} · ${clock(r.at)}`} data-testid={`pob-readbtn-${r.id}`}>Reading {g.runs.length - i}<small>#{r.n}</small></button>)}</nav> : null}
     <div key={x.id} className="pfl-body" data-testid={`pob-read-${x.id}`}><PobFolder f={x} catId={catId} onMark={onMark} /></div>
