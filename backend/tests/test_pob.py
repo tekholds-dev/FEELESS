@@ -92,3 +92,12 @@ def test_a_topic_report_says_nothing_was_staked_and_the_owner_marks_it():
     from pob import report
     r = report({'status': 'closed', 'topic': 'nfl', 'agreed': ['a']})
     assert r['grade'] == 'RESEARCH' and 'No real bid' in r['lesson'] and 'Real Kalshi bid: YES Dallas wins at 0.41' in report({'status': 'closed', 'topic': 'nba', 'agreed': ['a'], 'kalshi': {'orderId': 'o1', 'side': 'yes', 'title': 'Dallas wins', 'price': 0.41, 'status': 'filled'}})['lesson'] and report({'status': 'closed', 'topic': 'nfl', 'graded': 'right'})['grade'] == 'GOOD CALL'
+
+
+def test_a_refile_of_the_same_game_is_the_next_run_in_its_folder():
+    """Owner 2026-11-15: 'if I refile the same proof it just adds on to the current' — one folder per game, the desk groups by the same key."""
+    import pob as _p
+    assert _p.game_key('Thunder vs Kings') == _p.game_key('Thunder vs Kings team to win') == _p.game_key('kings at thunder parlay slip') == 'kings thunder'
+    assert _p.game_key('file a pob 49ers vs Cowboys. Test this: Pace runs over') == '49ers cowboys'
+    rows = [{'topic': 'Thunder vs Kings'}, {'topic': 'Mavericks vs Celtics'}, {'topic': 'Thunder vs Kings team to win'}]
+    assert _p.run_of(rows, 'Thunder vs Kings team to win') == 3 and _p.run_of(rows, 'Lakers vs Suns') == 1

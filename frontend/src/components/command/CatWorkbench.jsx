@@ -1,6 +1,7 @@
 import { useOnScreen } from '../../lib/fxPause';
 import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
 import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
+import { pobGroups, runLabel } from '../../lib/pobGroups';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1211,11 +1212,21 @@ function PobFolder({ f, catId, onMark }) {
     <BrowseNote f={f} /><SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'} · {c.side ? String(c.side).toUpperCase() : 'NO BID'}</b><small className="pob-why">{c.why || 'No reason given.'}</small><Browsed b={f.browsed?.[c.mind]} /></section>)}</div></div>;
 }
+// 🗂 one folder per game (owner 2026-11-15): a refile of the same game is a new file INSIDE its folder, never a folder of its own
+const pobOpen = (g, setOpen) => setOpen(g.runs.length > 1 ? `g:${g.key}` : g.head.id);
+function PobGameTile({ g, i, onOpen }) {
+  const x = g.head; const many = g.runs.length > 1;
+  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={pobTone(x)} ic={many ? '🗂' : '🎲'} label={many ? String(x.topic || 'PoB').split(/[.:]/)[0].replace(/\b(team to win|parlay slip)\b/i, '').trim().slice(0, 22) : `PoB #${x.n || i + 1}`} sub={many ? `${g.runs.length} runs · newest #${x.n}` : x.topic ? String(x.topic).slice(0, 20) : x.report?.grade || 'open'} onOpen={onOpen} tip={many ? `${x.topic}: every run on this game, newest first` : x.topic || x.q || x.why || 'Open this proof'} testid={`pob-${many ? `g-${g.key.replace(/\s+/g, '-')}` : x.id}`} />;
+}
 function PobShelf({ d, open, setOpen, catId, onMark }) {
-  const rows = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]; const f = rows.find(x => x.id === open);
+  const rows = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]; const groups = pobGroups(rows);
+  const g = String(open).startsWith('g:') ? groups.find(x => `g:${x.key}` === open) : null;
+  if (g) return <div className="pob-game" data-testid="pob-game"><p className="dsk-note"><b>{String(g.head.topic || '').split(/[.:]/)[0]}</b> · {g.runs.length} runs in this folder, newest first. Each refile of this game lands here.</p>
+    <div className="dsk-xgrid" data-testid="pob-runs">{g.runs.map((x, i) => <Tile key={x.id} print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={pobTone(x)} ic="📄" label={`Run · PoB #${x.n || i + 1}`} sub={runLabel(x)} onOpen={() => setOpen(x.id)} tip={x.topic || 'Open this run'} testid={`pob-${x.id}`} />)}</div></div>;
+  const f = rows.find(x => x.id === open);
   if (f) return <PobFolder f={f} catId={catId} onMark={onMark} />;
   if (!rows.length) return <p className="dsk-note">No PoB filed yet. Press File a bid.</p>;
-  return <div className="dsk-xgrid" data-testid="pob-shelf">{rows.map((x, i) => <Tile key={x.id} print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={pobTone(x)} ic="🎲" label={`PoB #${x.n || i + 1}`} sub={x.topic ? String(x.topic).slice(0, 20) : x.report?.grade || 'open'} onOpen={() => setOpen(x.id)} tip={x.topic || x.q || x.why || 'Open this proof'} testid={`pob-${x.id}`} />)}</div>;
+  return <div className="dsk-xgrid" data-testid="pob-shelf">{groups.map((x, i) => <PobGameTile key={x.key} g={x} i={i} onOpen={() => pobOpen(x, setOpen)} />)}</div>;
 }
 function BidsApp({ cat, d, setD, children, focus = null }) {
   const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(focus?.id ? 'pob' : ''); const [m, setM] = useState(null); const [open, setOpen] = useState(focus?.id || '');
@@ -1239,7 +1250,7 @@ function BidsApp({ cat, d, setD, children, focus = null }) {
   const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
   const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA', pob: 'Its proofs' }[path];
   return <div ref={box} className="dsk-pow bd" data-testid="dsk-bids">
-    {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => (open && path === 'pob' ? setOpen('') : setPath(''))} aria-label="Up one folder" data-tip="Up one folder">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span><BackToDesk /></p> : null}
+    {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => { if (!open || path !== 'pob') { setPath(''); return; } const gs = pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const up = !String(open).startsWith('g:') && gs.find(x => x.runs.length > 1 && x.runs.some(r => r.id === open)); setOpen(up ? `g:${up.key}` : ''); }} aria-label="Up one folder" data-tip="Up one folder" data-testid="pob-up">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span><BackToDesk /></p> : null}
     <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} catId={cat.id} onMark={mark} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
       <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, the USA real-money sites, and real Kalshi bids when both minds back one market, inside your caps below.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Each mind reads major sites, keeps snapshots and calls it blind. Nothing is staked' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
       <input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} placeholder="What to research: best NFL picks this week, or leave empty for our free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
@@ -1250,7 +1261,7 @@ function BidsApp({ cat, d, setD, children, focus = null }) {
       <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
       <div className="bd-strip" data-testid="bd-stats">{[['LIVE', m ? live.length : '…', () => setPath('live'), 'Bid free chips on proofs running now', 'bd-live', 'is-live'], ['SETTLED', m ? settled.length : '…', () => setPath('settled'), 'How finished proofs ended', 'bd-settled', ''], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—', () => setPath('live'), 'Free chips. Nothing here bets real money', 'bd-chips', ''], ['ITS PROOFS', (d?.pobFolders || []).length + (d?.pobRun ? 1 : 0), () => setPath('pob'), 'Every PoB it filed', 'bd-proofs', ''], ['REAL MONEY', `${BID_SITES.length} sites`, () => setPath('sites'), 'Links to USA real-money sites, with what each says about automation', 'bd-sites', 'is-money']].map(([k, v, go, tip, id, tone]) => <button key={k} type="button" className={tone} onClick={go} data-tip={tip} data-testid={id}><em>{k}</em><b className="m-num">{v}</b></button>)}</div>
       {live.length ? <ul className="bd-live">{live.slice(0, 5).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath('live')} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{x.q}</span></button></li>)}</ul> : null}
-      <div className="bd-proofs" data-testid="pob-tiles">{[...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])].slice(0, 12).map((x, i) => <Tile key={x.id} print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={pobTone(x)} ic="🎲" label={`PoB #${x.n || i + 1}`} sub={x.topic ? String(x.topic).slice(0, 20) : x.report?.grade || 'open'} onOpen={() => { setOpen(x.id); setPath('pob'); }} tip={x.topic || x.q || x.why || 'Open this proof'} testid={`pob-${x.id}`} />)}</div></>}</div></div>;
+      <div className="bd-proofs" data-testid="pob-tiles">{pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]).slice(0, 12).map((g, i) => <PobGameTile key={g.key} g={g} i={i} onOpen={() => { pobOpen(g, setOpen); setPath('pob'); }} />)}</div></>}</div></div>;
 }
 function HoneyPot({ cat, pool, d }) {   // 🫙 Its pot (redo 2026-11-14): AgentPot.jsx draws it; the real send controls + ledger ride in
   const p = pool?.pool || {};

@@ -5384,7 +5384,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     except Exception as e:   # noqa: BLE001 — a proof still files without its scoreboard
         print(f'[pob] no scoreboard: {str(e)[:80]}')
     cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
-    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR))))
+    run_ = _pob.run_of(cat.get('pobFolders'), rd['topic'])   # 🗂 a refile is the next file in the same game's folder
+    legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed{f' as run {run_} in its folder' if run_ > 1 else ''}: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR))))
 
 
 async def _pob_tick(http, cat, now):

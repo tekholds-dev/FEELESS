@@ -760,3 +760,19 @@ test('💳 an agent that thinks on your OpenRouter key shows that balance, not F
   expect(el.querySelector('[data-testid="cwb-or-left"]')).toBeNull(); expect(el.textContent).toContain('CREDIT');   // no key of its own or shared: the old credit
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🗂 PoB refiles of one game open as files inside one folder, and ↑ goes back to that folder', async () => {
+  const f = global.fetch;
+  const rows = [{ id: 'b2', n: 2, status: 'closed', topic: 'Thunder vs Kings team to win' }, { id: 'b1', n: 1, status: 'closed', topic: 'Thunder vs Kings', report: { grade: 'GOOD BID' } }];
+  global.fetch = jest.fn((u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; return Promise.resolve({ ok: true, json: async () => (String(u).includes('rep-markets') ? { live: [], settled: [] } : { pobFolders: b.op === 'state' ? rows : [], ok: true, chat: [] }) }); });
+  const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = t2 => document.querySelector(`[data-testid="${t2}"]`);
+  expect(q('pob-b1')).toBeNull(); expect(q('pob-g-kings-thunder').textContent).toContain('2 runs');
+  await act(async () => { q('pob-g-kings-thunder').click(); });
+  expect(q('pob-runs').textContent).toContain('Run · PoB #1'); expect(q('pob-runs').textContent).toContain('Team to win');
+  await act(async () => { q('pob-b1').click(); }); expect(document.querySelector('.dsk-pull').textContent).toContain('GOOD BID');
+  await act(async () => { q('pob-up').click(); }); expect(q('pob-game')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
+});

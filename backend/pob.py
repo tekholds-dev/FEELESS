@@ -235,3 +235,20 @@ def report(r):
 
 def folder(r, position=0):
     return {**r, 'n': r.get('n') or position, 'report': report(r)}
+
+
+# 🗂 ONE FOLDER PER GAME (owner 2026-11-15 'if I refile the same proof it just adds on to the current'): the same words the desk groups by
+# (frontend/src/lib/pobGroups.js), so the chat names the run inside its folder.
+_GAME_SKIP = {'vs', 'v', 'at', 'versus', 'and', 'the', 'a', 'an', 'of', 'on', 'for', 'team', 'to', 'win', 'wins', 'parlay', 'parlays', 'slip', 'sgp',
+              'leg', 'legs', 'pick', 'picks', 'best', 'tonight', 'today', 'game', 'games', 'bid', 'bids', 'moneyline', 'ml', 'straight', 'winner', 'pob', 'test', 'this', 'file', 'make', 'start'}
+
+
+def game_key(topic):
+    t = re.split(r'[.:]', str(topic or '').lower())[0]
+    return ' '.join(sorted({w for w in re.findall(r'[a-z0-9]+', t) if w not in _GAME_SKIP and not w.isdigit()}))
+
+
+def run_of(folders, topic):
+    """Which run on this game a new filing is (1 = its folder's first file). Pure."""
+    k = game_key(topic)
+    return 1 + sum(1 for f in folders or [] if k and game_key(f.get('topic') or f.get('q')) == k)
