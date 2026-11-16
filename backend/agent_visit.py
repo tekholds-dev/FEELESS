@@ -125,7 +125,7 @@ async def render(http, url):
         return 200, _paper()
     m = re.fullmatch(r'/whitepaper/(\d{1,3})', p)
     page = _chapter_page(int(m.group(1))) if m else None
-    return (200, page) if page else (404, _page('Not here', f'<p>That page is not on the visitor floor. <a href="/">Back home</a>.</p>'))
+    return (200, page) if page else (404, _page('Not here', '<p>That page is not on the visitor floor. <a href="/">Back home</a>.</p>'))
 
 
 async def install(ctx):

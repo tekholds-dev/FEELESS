@@ -31,6 +31,7 @@ step "1/3 backend tests"
 if [ "$back" = 1 ]; then
 # 4 workers, one file per worker (conftest sandboxes per test; files keep their own order) — 2,373 tests in ~1.7 min under load
 ( cd backend && for m in feecat_service reputation_service; do .venv/bin/python -c "import $m" || { echo "✋ GATE RED: $m does not start in its own Python"; exit 1; }; done ) || exit 1
+.venv/bin/python scripts/pyflakes-gate.py || { echo "✋ GATE RED: backend lint (unused import, empty f-string, undefined or shadowed name)"; exit 1; }   # 🧹 owner 2026-11-16: no dead code
 if ! PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q -n 4 --dist loadfile -p no:cacheprovider > "$out/pytest.txt" 2>&1; then
   # 🔁 load flakes (2026-11-10: timing tests failed at load 10-59, then passed alone, blocking 5 pushes in one day): re-run ONLY the failed
   # tests, one at a time with nothing beside them. Still failing = a real break = red. Passing = named here, so a real pattern is never hidden.

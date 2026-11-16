@@ -13,16 +13,16 @@ no provider API keys) so it can run standalone.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
-import name_lock as _name_lock
-import agent_deposit as _deposit
+import name_lock as _name_lock   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
+import agent_deposit as _deposit   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 import collective_pool as _cpool
 import collective_stake as _stake
 import collective_stash as _stash   # noqa: F401  (read by rep_* modules as rs._stash)
-import looks as _looks   # 🎨 the site's looks: Plasma default, free + advanced (looks.py)
+import looks as _looks   # 🎨 the site's looks: Plasma default, free + advanced (looks.py)   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 import reserve_pool
 import perf
 import verify
-import launch_meta
+import launch_meta   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 import fee_report
 import money_pulse
 import badge_cards
@@ -34,7 +34,7 @@ import asyncio
 import threading
 import math
 import contextvars
-import trade_fills
+import trade_fills   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 import collections
 import json
 import shutil
@@ -42,7 +42,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-import random
+import random   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 from typing import List, Optional
 
 import httpx
@@ -51,7 +51,7 @@ import http_ctx
 http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 import launchpad_board as _launchpad_board
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 from urllib.parse import quote   # noqa: F401  (read by rep_public_reads as rs.quote)
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -4977,7 +4977,7 @@ async def _sf_refresh(src):
         _SF_BUSY.discard(src)
 
 
-import feed_social as _fsoc
+import feed_social as _fsoc   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 FEED_SOCIAL_PATH = DATA_DIR / 'feed_social.json'
 FEED_X_PATH = DATA_DIR / 'feed_x.json'   # X posts people pasted into FEEd (X's public oEmbed: no key, no login)
 X_SHARE_DAY = 20
@@ -7584,7 +7584,6 @@ async def arena_ws(ws: WebSocket, room: str = 'fee-city', name: str = 'guest'):
         await ws.close(code=4008)
         return
     await ws.accept()
-    import secrets as _secrets
     cid = _secrets.token_hex(4); nm = ''.join(ch for ch in str(name)[:16] if ch.isprintable()) or 'guest'
     peers[cid] = {'ws': ws, 'name': nm}
 
@@ -7729,7 +7728,7 @@ def _ffuse_view(st, c, now):
 # live pools and today's top coins, in parallel, cached 60s, one pooled client. Read-only.
 import fee_markets as _fmk
 _fmk_cache = {'at': 0.0, 'v': None, 'prev': {}, 'lock': None}
-import fee_pools as _fpl
+import fee_pools as _fpl   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _fpl_cache = {'at': 0.0, 'v': None, 'lock': None}
 FPL_SEC = 600
 
@@ -7757,7 +7756,7 @@ async def _fpl_fetch():
     return ll, tr + nw
 
 
-import sleep_money as _slm
+import sleep_money as _slm   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _slm_cache = {'at': 0.0, 'km': None}
 
 
@@ -7804,7 +7803,7 @@ def _cat_fund_rules(me=None):
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
-import agent_pay as _apay
+import agent_pay as _apay   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _or_float: dict = {'at': 0.0, 'left': None}
 
 
@@ -8126,7 +8125,7 @@ async def _fmk_fetch():
 
 # 📱 SCAN TO SIGN IN TO HQ (hq_pair.py): the computer shows a one-time QR, Phantom on the phone signs the normal HQ message, the computer
 # receives that session once. The signature is checked exactly like a normal sign-in before it is stored. Memory only.
-import hq_pair as _hqp
+import hq_pair as _hqp   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _hqp_store = {}
 
 
@@ -14507,7 +14506,7 @@ async def _ai_proposal_apply(p, now):
     raise ValueError('unknown kind')
 
 
-import ai_play as _play
+import ai_play as _play   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
 
 
@@ -14866,7 +14865,7 @@ async def _colony_pool_build(d, body):
         fc, sol = float(body.get('amountA', body.get('feecat'))), float(body.get('amountB', body.get('sol')))
     except (TypeError, ValueError):
         raise HTTPException(400, 'Give both amounts.')
-    quote = str(body.get('quote') or 'SOL').upper()
+    quote = str(body.get('quote') or 'SOL').upper()   # noqa: F811 (the pool quote coin, not urllib quote)
     if quote not in POOL_QUOTES:
         raise HTTPException(400, 'The second token must be SOL or USDC.')
     mint_b, lo_, hi_ = POOL_QUOTES[quote]
@@ -15231,7 +15230,7 @@ import trench_kernel.metrics as _tkm
 import trench_kernel.events as _tke
 import trench_kernel.supply as _tks
 import owner_review as _owr
-import ai_keys as _aik
+import ai_keys as _aik   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 LINGO_PATH = FUSE_HQ_PATH.parent / 'trench_lingo.json'   # 📖 slang the desk learned from Pump callers' own words (per-day counts + learned words)
 AGENTS_PATH = FUSE_HQ_PATH.parent / 'agents.json'   # 🤖 the agent desk: Tally's tapes, every call, every judged result
 import mem_store as _ms
@@ -19330,7 +19329,7 @@ def _bug_seen(b):
 
 
 
-import presence as _pres
+import presence as _pres   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _presence = {}   # 🟢 wallet → (mode, at) — memory only, capped in presence.py
 
 
@@ -20524,7 +20523,7 @@ def _quote_fee_bps(q):
 
 
 # ---- Chat sessions: sign once, chat for 7 days --------------------------------------------
-import secrets as _secrets
+import secrets as _secrets   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 SESSIONS_PATH = DATA_DIR / 'chat_sessions.json'
 SESSION_TTL = 7 * 86400
 
@@ -21298,7 +21297,7 @@ async def _portfolio_build(a):
 
 # ---- Image proxy for coin logos whose hosts forbid cross-site embedding ------------------------
 from fastapi.responses import Response as _Resp   # noqa: F401  (read by rep_public_reads as rs._Resp)
-from fnum import zero as _num_or_0
+from fnum import zero as _num_or_0   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _img_cache = {}
 
 
@@ -21776,7 +21775,7 @@ async def _kol_stats(address, chain):
 # No raw IPs or wallets stored: visitors are a salted SHA-256 of IP+day (salt rotates daily), so
 # uniques can be counted per day but never linked across days. Writes are batched in memory and
 # flushed every 30s so page views cost no disk I/O at request time.
-import hashlib as _hashlib
+import hashlib as _hashlib   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 TRAFFIC_PATH = DATA_DIR / 'traffic.json'
 _tr_buf = {'views': {}, 'uniq': {}, 'coins': {}, 'refs': {}, 'hours': {}}
 _tr_salt = {'day': '', 'salt': ''}
