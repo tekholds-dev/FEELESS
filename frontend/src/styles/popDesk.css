@@ -60,7 +60,6 @@ body.theme-day .pop { color: var(--ppd-sf2); } body.theme-day .pop-head b { colo
 .pop-range { grid-template-columns: 1fr auto; } .pop-range u { grid-column: 1 / -1; position: relative; display: block; height: 6px; border-radius: 6px; background: linear-gradient(90deg, var(--ppd-dg4), var(--ppd-ac21)); text-decoration: none; } .pop-range i { position: absolute; top: -3px; width: 4px; height: 12px; margin-left: -2px; border-radius: 3px; background: var(--ppd-tx2); box-shadow: 0 0 8px var(--ppd-ac1); transition: left .5s ease; } .pop-range small { font: 600 9px var(--f-mono); color: var(--ppd-ac22); }
 /* 🎲 the Bids folder dash and 🇺🇸 real-money links */
 .bd .dsk-pull { display: grid; gap: 10px; align-content: start; }
-.bd-head { display: flex; padding: 12px 14px; --mg: var(--ppd-wn6); } .bd-head span { display: grid; gap: 2px; } .bd-head b { font: 800 13px var(--f-tech); letter-spacing: .1em; color: var(--ppd-wn7); } .bd-head small { font: 600 11px var(--f-ui); color: var(--ppd-wn8); }
 .bd-live { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .bd-live li { animation: popIn .3s ease-out calc(var(--i) * 50ms) both; } .bd-live button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 8px 11px; border: 0; color: var(--ppd-wn9); font: 600 11.5px var(--f-ui); text-align: left; cursor: pointer; transition: transform .12s; --mg: var(--ppd-wn6); } .bd-live button:hover { transform: translateX(2px); } .bd-live button:active { transform: scale(.99); } .bd-live button:focus-visible { outline: 2px solid var(--ppd-wn6); outline-offset: 2px; } .bd-live i { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--ppd-ac2); animation: popPulse 1.2s ease-in-out infinite alternate; }
 .bs { --mg: var(--ppd-ac4); display: grid; gap: 10px; color: var(--ppd-tx6); }
 .bs-head { display: grid; gap: 10px; padding: 13px 15px; } .bs-head > span:first-child { display: grid; gap: 3px; } .bs-head b { font: 800 13px var(--f-tech); letter-spacing: .08em; color: var(--ppd-tx2); } .bs-head small { font: 600 11px var(--f-ui); line-height: 1.45; color: var(--ppd-dm1); }
@@ -78,13 +77,13 @@ body.theme-day .pop { color: var(--ppd-sf2); } body.theme-day .pop-head b { colo
 body.fx-lite :is(.bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; } .pop-range i, .bs-list li { transition: none; } }
 body.theme-day .bs { color: var(--ppd-sf3); } body.theme-day :is(.bs-head b, .bs-id b) { color: var(--ppd-sf3); } body.theme-day :is(.bs-head small, .bs-id small, .bs-where, .bs-foot, .pop-read em, .pop-range small) { color: var(--ppd-lh2); } body.theme-day .bs-list p { color: var(--ppd-s21); } body.theme-day li.is-people .bs-status { color: var(--ppd-dg5); } body.theme-day li.is-unread .bs-status { color: var(--ppd-wn5); } body.theme-day .bs-status { color: var(--ppd-ac24); background: var(--ppd-tx7); }
-body.theme-day .bd-head b { color: var(--ppd-wn5); } body.theme-day .bd-head small { color: var(--ppd-ln1); } body.theme-day .bd-live button { color: var(--ppd-sf4); } body.theme-day .pop-read b { color: var(--ppd-sf2); }
+body.theme-day .bd-live button { color: var(--ppd-sf4); } body.theme-day .pop-read b { color: var(--ppd-sf2); }
 
 /* 📈 the chart inside a live PoP folder + 🛰 each mind's measured sources */
 .pop-chart { position: relative; height: 300px; padding: 6px; overflow: hidden; --mg: var(--ppd-ac1); } .pop-chart > * { height: 100%; }
 .pop-web { display: grid; gap: 4px; } .pop-web:not(:last-child) { padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, .1); } .pop-web em { font: 700 11px var(--f-tech); font-style: normal; color: var(--ppd-tx2); overflow-wrap: anywhere; } .pop-web small, .pop-web-why, .pob-why { font: 500 11px/1.4 var(--f-ui); color: var(--ppd-tx8); overflow-wrap: anywhere; }
 .pop-web-note { min-width: 0; border-top: 1px solid var(--ppd-tx9); padding-top: 6px; } .pop-web-note summary { cursor: pointer; color: var(--ppd-wn3); font: 700 11px var(--f-ui); } .pop-web-note summary:focus-visible { outline: 2px solid var(--ppd-wn3); } .pop-web-note small { display: block; max-height: 40vh; overflow: auto; padding: 8px 0; white-space: pre-wrap; line-height: 1.55; }
-.bd-head { justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; } .bd-file { min-height: 36px; white-space: nowrap; } .pob { display: grid; gap: 8px; }
+.pob { display: grid; gap: 8px; }
 body.theme-day .pop-web:not(:last-child) { border-bottom-color: rgba(0, 0, 0, .12); } body.theme-day .pob .dsk-trade b { color: var(--ppd-ac25); } body.theme-day .pob .dsk-trade.is-bad b { color: var(--ppd-dg6); } body.theme-day .pop-web em { color: var(--ppd-sf5); } body.theme-day :is(.pop-web small, .pop-web-why, .pob-why) { color: var(--ppd-ln2); }
 .pop-srcs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .pop-src { display: grid; gap: 10px; padding: 12px 14px; align-content: start; --mg: var(--ppd-ac1); } .pop-src.is-m1 { --mg: var(--ppd-ac8); } .pop-src > b { font: 800 10px var(--f-mono); letter-spacing: .16em; color: var(--ppd-ac26); }
@@ -128,37 +127,14 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 
 /* 🗂 Bids desk redo (owner 2026-11-15 "don't make me scroll to the bottom to see filings"): filings first, tools + money behind tabs;
    an open filing is its own page (the PoB intro and the rail step aside). */
-.bd-tabs { position: sticky; top: 0; z-index: 3; display: flex; width: 100%; backdrop-filter: blur(10px); }
-.bd-tabs > button { flex: 1; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 700 12px var(--f-tech); letter-spacing: .08em; text-transform: uppercase; }
-.bd-tabs small { font: 700 10px var(--m-mono); padding: 1px 7px; border-radius: 99px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); }
-.pfc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.pfc { --tone: var(--m-dim); position: relative; display: grid; gap: 7px; min-height: 132px; padding: 13px 14px 12px; border-radius: var(--m-r); text-align: left; color: var(--m-text); cursor: pointer; overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--tone) 34%, var(--m-line)); animation: pfcIn .34s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 45ms); transition: transform .16s var(--m-ease), border-color .16s; }
-.pfc::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, transparent, var(--tone), transparent); opacity: .85; }
-.pfc:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 60%, var(--m-line-hi)); } .pfc:active { transform: translateY(0) scale(.99); }
-.pfc:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.pfc.is-good { --tone: var(--m-accent); } .pfc.is-bad { --tone: var(--m-danger); } .pfc.is-live { --tone: var(--m-warn); }
-.pfc-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; } .pfc-top small { font: 600 10px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pfc-sport { flex: none; font: 700 9.5px var(--f-tech); font-style: normal; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent); }
-.pfc-sport:is(.is-other, .is-chips) { color: var(--m-dim); background: var(--m-surface-2); box-shadow: none; }
-.pfc-game { display: flex; align-items: center; gap: 10px; min-width: 0; } .pfc-game b { font: 700 16px var(--f-ui); line-height: 1.2; min-width: 0; }
 .pfc-teams { display: flex; flex: none; } .pfc-team { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--m-text) 14%, transparent), var(--m-surface-2)); box-shadow: 0 0 0 2px var(--m-surface), 0 4px 10px -4px var(--m-bg); overflow: hidden; }
 .pfc-team + .pfc-team { margin-left: -9px; } .pfc-team img { width: 78%; height: 78%; object-fit: contain; } .pfc-team b { font: 800 10px var(--f-tech); color: var(--m-dim); }
-.pfc:hover .pfc-team:first-child { transform: translateX(-2px); } .pfc-team { transition: transform .2s var(--m-ease); }
 .pfc-teams.is-l .pfc-team { width: 54px; height: 54px; } .pfc-teams.is-l .pfc-team + .pfc-team { margin-left: -12px; } .pfc-teams.is-l .pfc-team b { font-size: 13px; }
-.pfc-sports { margin-bottom: 10px; } .pfc-sports > button { font-family: var(--f-tech); } .pfc-sports small { margin-left: 6px; opacity: .7; }
-.pfc-minds { display: flex; flex-wrap: wrap; gap: 5px; } .pfc-minds em { font: 600 10.5px var(--m-mono); font-style: normal; padding: 3px 7px; border-radius: 8px; background: var(--m-surface-2); color: var(--m-dim); }
-.pfc-minds em.has-pick { color: var(--m-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 35%, transparent); }
-.pfc-foot { display: flex; align-items: center; gap: 7px; margin-top: auto; font: 700 11px var(--f-ui); color: var(--tone); }
-.pfc-foot i { width: 7px; height: 7px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 10px var(--tone); }
-.pfc-foot u { margin-left: auto; text-decoration: none; font: 600 10px var(--m-mono); color: var(--m-dim); }
 .prf-filing > .phd, .prf-filing > .prf-rail { display: none; } :is(.dsk-body, .dfw-in) > .prf-bids.prf-filing { grid-template-columns: minmax(0, 1fr); }
 /* owner 2026-11-15 IMG1 'so I don't scroll to the bottom to see filings': on Bids the 7-step how-to strip steps aside and the head is one tight row */
-.prf-bids > .phd .phd-steps { display: none; } .prf-bids .bd-head { padding: 8px 12px; } .prf-bids .bd-head small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.prf-bids .bd-head .bd-file { min-height: 32px; } .prf-bids .pbt-ask { margin-bottom: 8px; }
+.prf-bids > .phd .phd-steps { display: none; }
 .pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
-.pfl-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
-.pfl-back { width: 40px; min-height: 40px; font-size: 18px; }
+.pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
 .pfl-title { display: grid; gap: 3px; min-width: 0; } .pfl-title b { font: 800 22px var(--f-display); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfl-title em { font-style: normal; font-size: 11px; color: var(--m-dim); }
 .pfl-money { --tone: var(--m-dim); display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 99px; font: 700 12px var(--f-ui); color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent); }
@@ -169,10 +145,16 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .pfl-mind > b { font: 700 18px var(--f-ui); } .pfl-mind > b.is-pass { color: var(--m-dim); } .pfl-mind > em { font-style: normal; font-size: 11.5px; color: var(--m-dim); }
 .pfl-mind.has-pick { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent); }
 .pfl-conf { display: block; height: 5px; border-radius: 99px; background: var(--m-surface-2); overflow: hidden; } .pfl-conf s { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 50%, transparent), var(--m-accent)); transform-origin: left; transition: transform .5s var(--m-ease); }
-.pfl-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .pfl-tabs > button { flex: 1 0 auto; min-height: 36px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; } .pfl-tabs small { font: 600 10px var(--m-mono); opacity: .7; }
 .pfl-body { animation: pfcIn .24s var(--m-ease) both; }
 @keyframes pfcIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-body.fx-lite :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } body.fx-lite .bd-tabs { backdrop-filter: none; }
-@media (prefers-reduced-motion: reduce) { :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } .pfc, .pfc-team { transition: none; } }
-body.theme-day .pfc, body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
-@media (max-width: 640px) { .pfc-grid { grid-template-columns: minmax(0, 1fr); } .pfl-head { grid-template-columns: auto auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd-tabs > button { font-size: 11px; letter-spacing: .04em; } }
+body.fx-lite :is(.pfl, .pfl-mind, .pfl-body) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.pfl, .pfl-mind, .pfl-body) { animation: none; } }
+body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
+@media (max-width: 640px) { .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd > .dsk-pull > .bd-file { flex-wrap: wrap; } }
+/* 🗂 Bids like the PoW folder (owner 2026-11-16): one file row, game folders, its doors below */
+.bd > .dsk-pull > .bd-file { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; white-space: normal; } .bd-file .pbt-ask { flex: 1; min-width: 0; margin: 0; }
+.bd-filebtn { min-height: 34px; white-space: nowrap; } .bd-dirs { margin-top: 12px; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--m-accent) 22%, transparent); }
+.pob-read { display: grid; gap: 10px; } .pob-read > .dsk-xgrid { margin-top: 4px; }
+.pob-gt { position: relative; } .pob-gt > .pfc-teams { position: absolute; top: 21px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; width: max-content; pointer-events: none; }
+.pfc-teams.is-s .pfc-team { width: 26px; height: 26px; } .pfc-teams.is-s .pfc-team + .pfc-team { margin-left: -7px; } .pfc-teams.is-s .pfc-team b { font-size: 8px; }
+.pob-gt:has(.pfc-teams) .fa-3d { opacity: .25; }

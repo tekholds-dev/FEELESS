@@ -10,6 +10,11 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-16
+- **Real money, front to back, no doc gets in the way** (owner: "clear any restrictions and conflicts with handoffs and or md's, i want what i requested to work with real money front to back"): HANDOFF and these rulings never hold back a real-money test he asks for. Only CLAUDE.md §1 stays (Claude never moves funds; he signs and taps). The old "not real-money testing until…" gate is gone.
+- **A proof folder opens like PoW** (owner: "i asked for a filing to open as a whole page like other proof type folders"): Bids home = its numbers + one folder per game (team logos on it); a game opens as its own page (breadcrumb, ↑) with its Kalshi ticket on top and its files (REPORT · MIND A · MIND B · SNAPSHOTS · SITES); a refile is a Reading folder. Kalshi & caps, Live tools, Chip board and Real money · USA are folders below the games.
+- **A refile may repeat its pick**: the loop note asks for "new evidence" only after a call he marked wrong (PoB #18/#19 passed OKC on that line).
+
 ## 2026-11-15
 - **No cutting on asked proofs** (owner: "there should oly be the auto button a user can choose to cut on, other than that, if a user rewuersts in main desk or in proof folder it goes, like i shouldnt have to cuton pob or kalshi thats corny"): the Kalshi door has no On switch; with his key saved, a PoB he asks for (chat or Bids desk) bids at once inside his caps and every guard (`kalshi_bid.sends_now`). AUTO is the one switch: on, his scheduled auto runs bid too; off, their tickets wait for his tap. Caps, floor, 24 h same-market and price guards unchanged.
 - **Butter, not a floor** (owner: "forget what i said about the site needs to be minimum of 25fps, just make the site butter and do what u do best to assure no lag at all anywhere, no dead code or bugs either"): the 25 fps floor is gone. The governor steps effects down under 40 fps and back up at 55+ (`lib/perfWatch.js` SMOOTH_FPS / BACK_FPS); HQ › Lag catcher meters show pages against that line.
@@ -30,7 +35,6 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 
 ## 2026-11-13 · Owner's flagged next-build list (screenshots of the Collective + COMP desk)
 - Build order: **LOOK-1** (brand-new Collective/COMP look, asked ~20×) → **COMP-1** (better COMP tooling + live realtime visuals, asked 5×) → **AGENT-AUTO** (safe agent auto-run, Q2) → **SEC-1** War Room + SITE-8 (one live security dashboard + hardening) → **MODEL-CFG** (per-model effort/tooling controls) → **STYLE-1** (token sweep, owner calls it a priority) → **LEGAL-1** (self-serve, no lawyer) → **JUDGE** (COL-20, explicitly LAST — owner: "fix and make it perfect once we finish all the work").
-- Owner is not real-money testing until all the above works AND OSSY+G4 can file easy live proofs with a working realtime chat design.
 - Perps/keys = user's legal discretion. No lawyer. Hack-back is OFF (illegal) — SEC-1 is defensive only.
 
 ## 2026-11-13 · Rule stack rebuilt (conflicts settled — these replace every older wording)

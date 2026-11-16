@@ -85,7 +85,10 @@ def bid_note(loop):
     if not past:
         return ''
     lines = [f"Folder {r.get('n')}: {', '.join(r['picks']) or 'no shared pick'}" + (f", the owner marked it {r['mark']}" if r.get('mark') else ', not marked yet') for r in past]
-    return f"\nThis is loop {loop['n']} on this topic. Your past calls: " + '; '.join(lines) + '. A call marked wrong needs new evidence to be made again. Say what is different this time.'
+    wrong = any(r.get('mark') == 'wrong' for r in past)   # owner 2026-11-16: PoB #18/#19 passed OKC because every refile was told 'say what is different'
+    return (f"\nThis is loop {loop['n']} on this topic. Your past calls: " + '; '.join(lines) + '. ' +
+            ('A call marked wrong needs new evidence to be made again; one not marked wrong may be made again when the evidence and price still back it.' if wrong
+             else 'None was marked wrong: backing the same side again is fine when the evidence and price still back it. Never pass only because a past folder already picked it.'))
 
 
 def perp_loop(folders):

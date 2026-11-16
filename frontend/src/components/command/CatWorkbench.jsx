@@ -3,6 +3,7 @@ import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive'
 import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
 import { pobGroups, runLabel, gameName, sportOf, sportLabel, teamsOf } from '../../lib/pobGroups';
 import { useLogos, logoFor } from '../../lib/teamLogos';
+import { FolderArt } from '../../lib/folderArt';
 import { LiveBidCard } from './LiveBidCard';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
@@ -1224,34 +1225,20 @@ function PobFolder({ f, catId, onMark }) {
 }
 // 🗂 ONE FILE PER GAME (owner 2026-11-15 "one file shows but separate readings"): every PoB on the same real game is a reading inside one file
 const clock = at => (at ? new Date(at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
-// 🗂 owner 2026-11-15 "the filing opening as a part of the main PoB page and not its own filing page": an open filing is a page of its own —
-// its head (game, readings, money), its readings as tabs (newest first), and only that reading below. The PoB intro and the rail step aside.
+// 🗂 owner 2026-11-16 "a filing to open as a whole page like other proof type folders": Bids works like the PoW folder.
+// Home = its numbers + one folder per game. A game opens as its own page (the PoB intro, rail and stat row step aside): ↑ / breadcrumb back,
+// the money (the Kalshi ticket with its Approve tap) on top, then its files: REPORT · MIND A · MIND B · SNAPSHOTS · SITES. Refiles = Reading folders.
+const moneyTone = t => ({ good: 'good', bad: 'bad', live: 'live' }[t] || 'none');
 function filingMoney(x) {
   const k = x?.kalshi || {};
   if (k.orderId) return { tone: k.outcome === 'won' ? 'good' : k.outcome === 'lost' ? 'bad' : 'live', text: k.outcome ? `Kalshi ${k.outcome === 'won' ? 'won' : 'lost'}` : `Real bid · ${k.count || ''}× ${String(k.side || '').toUpperCase()} @ ${Number(k.price || 0).toFixed(2)}` };
   if (k.status === 'waiting') return { tone: 'live', text: 'Waiting for your tap' };
   if (k.status === 'failed' || k.status === 'refused') return { tone: 'bad', text: 'Kalshi did not take it' };
+  if (x?.status === 'closed' && x?.won === true) return { tone: 'good', text: 'Right' };
+  if (x?.status === 'closed' && x?.won === false) return { tone: 'bad', text: 'Wrong' };
   return { tone: 'none', text: x?.status !== 'closed' ? 'Researching' : 'No real bid' };
 }
 function picksOf(x) { return (x?.calls || []).map((c, i) => ({ mind: 'AB'[(Number.isInteger(c.mind) ? c.mind : i) % 2], name: c.name, pick: (c.picks || [])[0] || (c.side ? { pick: String(c.side).toUpperCase(), confidence: c.confidence, why: c.why } : null), pass: c.pass })); }   // free-chip calls carry a side, Kalshi reads carry picks
-function PobFile({ g, focus, catId, onMark, onBack }) {
-  const [at, setAt] = useState(() => Math.max(0, g.runs.findIndex(r => r.id === focus)));
-  const x = g.runs[at] || g.head; const money = filingMoney(x); const minds = picksOf(x);
-  return <article className="pfl" data-testid="pob-file">
-    <header className="pfl-head m-glass m-live">
-      <button type="button" className="m-btn pfl-back" onClick={onBack} aria-label="Back to all filings" data-tip="Back to all filings" data-testid="pfl-back">←</button>
-      <TeamMarks x={g.head} size="l" /><span className="pfl-title"><small className="m-label">PROOF OF BIDS · {sportLabel(sportOf(g.head)).toUpperCase()} · FILING</small><b>{gameName(g.head)}</b><em className="m-num">{g.runs.length} reading{g.runs.length > 1 ? 's' : ''} · PoB #{x.n} · {clock(x.at)}</em></span>
-      <span className={`pfl-money is-${money.tone}`} data-testid="pfl-money"><i aria-hidden="true" />{money.text}</span>
-    </header>
-    {minds.length ? <div className="pfl-minds">{minds.map((m, i) => <section key={i} className={`pfl-mind m-glass${m.pick ? ' has-pick' : ''}`} style={{ '--i': i }}>
-      <small className="m-label">MIND {m.mind}{m.name ? ` · ${String(m.name).split('/').pop()}` : ''}</small>
-      {m.pick && m.pick.confidence == null ? <><b>{m.pick.pick}</b><em>{String(m.pick.why || '').slice(0, 140)}</em></> : m.pick ? <><b>{m.pick.pick}</b><span className="pfl-conf" role="img" aria-label={`${m.pick.confidence}% sure`}><s style={{ transform: `scaleX(${Math.min(1, (Number(m.pick.confidence) || 0) / 100)})` }} /></span><em className="m-num">{m.pick.confidence}% sure</em></> : <><b className="is-pass">Passed</b><em>{String(m.pass || 'no answer').slice(0, 140)}</em></>}
-    </section>)}</div> : null}
-    {g.runs.length > 1 ? <nav className="m-seg pfl-tabs" role="tablist" aria-label="Readings of this game">{g.runs.map((r, i) => <button key={r.id} type="button" role="tab" aria-selected={i === at} className={i === at ? 'active' : ''} onClick={() => setAt(i)} data-tip={`${runLabel(r)} · ${clock(r.at)}`} data-testid={`pob-readbtn-${r.id}`}>Reading {g.runs.length - i}<small>#{r.n}</small></button>)}</nav> : null}
-    <div key={x.id} className="pfl-body" data-testid={`pob-read-${x.id}`}><PobFolder f={x} catId={catId} onMark={onMark} /></div>
-  </article>;
-}
-// 🃏 one filing on the Bids home: the game, how many readings, what the money did, what each mind said — readable without opening it
 function TeamMarks({ x, size = 'm' }) {   // 🛡 the two teams' ESPN logos, or their initials when a league has none
   const sp = sportOf(x); const logos = useLogos(sp); const teams = teamsOf(x);
   if (!teams.length) return null;
@@ -1259,70 +1246,124 @@ function TeamMarks({ x, size = 'm' }) {   // 🛡 the two teams' ESPN logos, or 
     return <span key={k} className="pfc-team" data-tip={t}>{u ? <img src={u} alt="" loading="lazy" /> : <b>{String(t).split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase()}</b>}</span>; })}</span>;
 }
 const pickWord = p => (p ? `${String(p.pick).slice(0, 18)}${p.confidence != null ? ` ${p.confidence}%` : ''}` : 'pass');
-function FilingCard({ g, i, onOpen }) {
-  const x = g.head; const money = filingMoney(x); const minds = picksOf(x); const sp = sportOf(x);
-  return <button type="button" className={`pfc m-glass is-${money.tone}`} style={{ '--i': i }} onClick={onOpen} data-tip="Open this filing" data-testid={`pob-${x.id}`}>
-    <span className="pfc-top"><small className="m-label">PoB #{x.n || '…'} · {clock(x.at)}</small><em className={`pfc-sport is-${sp}`} data-testid="pfc-sport">{sportLabel(sp)}</em></span>
-    <span className="pfc-game"><TeamMarks x={x} /><b>{x.topic ? gameName(x) : 'Free-chip board'}</b></span>
-    <span className="pfc-minds">{minds.slice(0, 2).map((m, k) => <em key={k} className={m.pick ? 'has-pick' : ''}>{m.mind} · {pickWord(m.pick)}</em>)}</span>
-    <span className="pfc-foot"><i aria-hidden="true" />{money.text}{g.runs.length > 1 ? <u className="m-num">{g.runs.length} readings</u> : null}</span>
-  </button>;
+const newestFirst = rows => rows.filter(Boolean).map((x, i) => [x, i]).sort((a, b) => (Number(b[0].at) || 0) - (Number(a[0].at) || 0) || a[1] - b[1]).map(([x]) => x);   // the newest reading first, whatever order it arrived in
+const fileName = x => (x?.topic ? gameName(x) : 'Free chips');
+// 📂 one reading of a game: the money first (the ticket you tap), then its files
+function PobReading({ x, leaf, catId, onLeaf, onMark }) {
+  const [big, setBig] = useState(null); const minds = picksOf(x); const agreed = new Set((x.agreed || []).map(s => String(s).toLowerCase()));
+  const call = m => (x.calls || []).find((c, i) => (Number.isInteger(c.mind) ? c.mind : i) === m);
+  if (leaf === 'report') { const r = x.report;
+    return <div className="pob pbt" data-testid="pob-report">
+      <div className={`dsk-trade is-${moneyTone(filingMoney(x).tone)}`}><b>{r?.grade || (x.status === 'closed' ? 'FILED' : '● RESEARCHING')}</b><small className="m-num">{runLabel(x)} · PoB #{x.n || '…'} · {clock(x.at)}{x.cost ? ` · $${Number(x.cost).toFixed(4)}` : ''}</small></div>
+      {r?.lesson ? <p className="dsk-note">{r.lesson}</p> : <p className="dsk-note">The game's final score files this.</p>}
+      {x.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={x.graded === k ? 'active' : ''} aria-pressed={x.graded === k} onClick={() => onMark(x.id, x.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}
+      {(x.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{x.agreed.map((s, i) => <li key={s} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{s}</b><small>both minds, blind</small></li>)}</ul> : null}
+      <BrowseNote f={x} /><ProofSubmit cat={{ id: catId }} work={work} f={x} kind="PoB" />
+      <p className="dsk-note">It never bets on its own. Any real bid is yours, inside your caps, on a site where it is legal for you.</p></div>;
+  }
+  if (leaf === 'm0' || leaf === 'm1') { const m = Number(leaf[1]); const c = call(m) || {};
+    return <div className="pop-srcs" data-testid={`pob-mind-${'ab'[m]}`}><section className={`pop-src m-glass is-m${m}`}><b>MIND {'AB'[m]}{c.name ? ` · ${String(c.name).split('/').pop()}` : ''}{c.side ? ` · ${String(c.side).toUpperCase()}` : ''}</b>
+      {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(String(p.pick).toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul>
+        : <small className="pob-why">{c.why || c.pass || 'It made no pick.'}</small>}
+      <Browsed b={x.browsed?.[m]} /></section></div>;
+  }
+  if (leaf === 'shots') return <>{(x.shots || []).length ? <div className="pbt-shots" data-testid="pbt-shots">{x.shots.map((s, i) => <button key={s.file} type="button" style={{ '--i': i }} onClick={() => setBig(s)} data-tip={`${s.site}: open it big`} data-testid={`pbt-shot-${i}`}><img src={apiUrl(`/api/cats/${catId}/powshot/${x.id}/${s.file}?${agentAuthQuery()}`)} alt={`${s.site} when it read it`} loading="lazy" /><span><b>{s.site}</b><small>mind {s.mind === 0 ? 'A' : 'B'}</small></span></button>)}</div> : <p className="dsk-note">No snapshots were kept.</p>}
+    {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={apiUrl(`/api/cats/${catId}/powshot/${x.id}/${big.file}?${agentAuthQuery()}`)} alt={big.site} /></div> : null}</>;
+  if (leaf === 'sites') return <SitesRead rows={x.sitesRead} />;
+  return <div className="pob-read" data-testid={`pob-read-${x.id}`}>
+    {x.kalshi ? <KalshiTicket t={x.kalshi} catId={catId} work={work} /> : x.kalshiSplit?.length ? <KalshiHedge rows={x.kalshiSplit} /> : null}
+    {minds.length ? <div className="pfl-minds">{minds.map((m, i) => <section key={i} className={`pfl-mind m-glass${m.pick ? ' has-pick' : ''}`} style={{ '--i': i }}>
+      <small className="m-label">MIND {m.mind}{m.name ? ` · ${String(m.name).split('/').pop()}` : ''}</small>
+      {m.pick && m.pick.confidence == null ? <><b>{m.pick.pick}</b><em>{String(m.pick.why || '').slice(0, 140)}</em></> : m.pick ? <><b>{m.pick.pick}</b><span className="pfl-conf" role="img" aria-label={`${m.pick.confidence}% sure`}><s style={{ transform: `scaleX(${Math.min(1, (Number(m.pick.confidence) || 0) / 100)})` }} /></span><em className="m-num">{m.pick.confidence}% sure</em></> : <><b className="is-pass">Passed</b><em>{String(m.pass || 'no answer').slice(0, 140)}</em></>}
+    </section>)}</div> : null}
+    <div className="dsk-xgrid">
+      <Tile kind="file" tone={moneyTone(filingMoney(x).tone)} ic="📋" label="REPORT" sub={x.report?.grade || (x.status === 'closed' ? 'filed' : 'when it closes')} onOpen={() => onLeaf('report')} tip="Its grade, the lesson, mark it right or wrong, send it" testid="pob-x-report" />
+      {[0, 1].map(m => { const c = call(m); return c ? <Tile key={m} i={m + 1} tone="none" ic="🧠" label={`MIND ${'AB'[m]}`} sub={pickWord(picksOf({ calls: [c] })[0]?.pick)} onOpen={() => onLeaf(`m${m}`)} tip="Its picks and what it read in its own browser" testid={`pob-x-m${m}`} /> : null; })}
+      <Tile i={3} tone="none" ic="📸" label="SNAPSHOTS" sub={`${(x.shots || []).length}`} onOpen={() => onLeaf('shots')} tip="What each site showed when it read it" testid="pob-x-shots" />
+      {(x.sitesRead || []).length ? <Tile i={4} tone="none" ic="🌐" label="SITES" sub={`${x.sitesRead.length} read`} onOpen={() => onLeaf('sites')} tip="Every site it read and what it took from each" testid="pob-x-sites" /> : null}
+    </div>
+    {x.why ? <small className="dsk-fold-why">{x.why}</small> : null}</div>;
+}
+// 🎲 one game, as its own page: its head, then one reading (or a folder per reading when it was filed more than once)
+function PobFile({ g, rid, leaf, catId, onMark, setPath }) {
+  const x = g.runs.find(r => r.id === rid) || (g.runs.length === 1 ? g.head : null); const money = filingMoney(x || g.head);
+  return <article className="pfl" data-testid="pob-file">
+    <header className="pfl-head m-glass m-live">
+      <TeamMarks x={g.head} size="l" /><span className="pfl-title"><small className="m-label">PROOF OF BIDS · {sportLabel(sportOf(g.head)).toUpperCase()}</small><b>{fileName(g.head)}</b><em className="m-num">{g.runs.length} reading{g.runs.length > 1 ? 's' : ''}{x ? ` · PoB #${x.n || '…'} · ${clock(x.at)}` : ''}</em></span>
+      <span className={`pfl-money is-${money.tone}`} data-testid="pfl-money"><i aria-hidden="true" />{money.text}</span>
+    </header>
+    {x ? <div key={`${x.id}/${leaf}`} className="pfl-body">{x.topic ? <PobReading x={x} leaf={leaf} catId={catId} onMark={onMark} onLeaf={l => setPath(['g', g.key, x.id, l])} /> : <PobFolder f={x} catId={catId} onMark={onMark} />}</div>
+      : <div className="dsk-xgrid" data-testid="pob-readings">{g.runs.map((r, i) => { const mo = filingMoney(r);
+        return <Tile key={r.id} i={i} tone={moneyTone(mo.tone)} ic={mo.tone === 'good' ? '👍' : mo.tone === 'bad' ? '👎' : '📁'} label={`Reading ${g.runs.length - i}`} sub={`#${r.n || '…'} · ${runLabel(r)}`} onOpen={() => setPath(['g', g.key, r.id])} tip={`${runLabel(r)} · ${clock(r.at)}`} testid={`pob-readbtn-${r.id}`} />; })}</div>}
+  </article>;
+}
+// 🗃 the game folders (the Bids home, and the dev harness)
+function GameTile({ g, i, onOpen }) {   // 🛡 a game folder: the two teams' logos on the folder, its name, what the money did
+  const x = g.head; const mo = filingMoney(x); const mi = picksOf(x).filter(m => m.pick); const tone = x.status !== 'closed' ? 'live' : moneyTone(mo.tone);
+  return <button type="button" className={`dsk-ico dsk-xt pob-gt is-${tone}`} style={{ '--i': i }} onClick={onOpen} data-tip={`PoB #${x.n || '…'} · ${clock(x.at)}${mi.length ? ` · ${mi.map(m => `${m.mind} ${pickWord(m.pick)}`).join(' · ')}` : ''}`} data-testid={`pob-${x.id}`}>
+    <i className="dsk-ico-art" aria-hidden="true"><FolderArt k="pob" ic="🎲" lit={tone === 'live'} /></i><TeamMarks x={x} size="s" />
+    <span>{fileName(x)}</span><small className="m-num">{sportLabel(sportOf(x))} · {mo.text}{g.runs.length > 1 ? ` · ${g.runs.length} readings` : ''}</small></button>;
+}
+function PobTiles({ groups, onOpen }) {
+  return <div className="dsk-xgrid" data-testid="pob-tiles">{groups.map((g, i) => <GameTile key={g.key} g={g} i={i} onOpen={() => onOpen(g)} />)}</div>;
 }
 export function PobShelf({ d, open, setOpen, catId, onMark }) {   // eslint-disable-line react/prop-types
-  const rows = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]; const groups = pobGroups(rows);
+  const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows); const [sub, setSub] = useState([]);
   const g = open ? groups.find(x => x.runs.some(r => r.id === open)) : null;
-  if (g) return <PobFile key={g.key} g={g} focus={open} catId={catId} onMark={onMark} onBack={() => setOpen('')} />;
+  if (g) return <PobFile g={g} rid={sub[2] || (g.runs.length === 1 ? g.head.id : '')} leaf={sub[3] || ''} catId={catId} onMark={onMark} setPath={setSub} />;
   if (!rows.length) return <p className="dsk-note">No PoB filed yet. Press File a bid.</p>;
-  return <div className="pfc-grid" data-testid="pob-shelf">{groups.map((x, i) => <FilingCard key={x.key} g={x} i={i} onOpen={() => setOpen(x.head.id)} />)}</div>;
+  return <PobTiles groups={groups} onOpen={x => { setSub([]); setOpen(x.head.id); }} />;
 }
+const BIDS_DIRS = { money: 'Kalshi & caps', tools: 'Live tools', board: 'Chip board', live: 'Live board', settled: 'Settled', sites: 'Real money · USA' };
 function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
-  const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(focus?.id ? 'pob' : ''); const [m, setM] = useState(null); const [open, setOpen] = useState(focus?.id || ''); const [tab, setTab] = useState('filings');
-  const box = useRef(null);   // 🎯 a picked proof sits under the live tools: scroll it into view
-  useEffect(() => {   // 📐 scrolled down, the window tucks its stat row and steps away so the tools get the room (owner 2026-11-14)
-    const main = box.current?.closest('.prf')?.querySelector('.prf-main'); const win = box.current?.closest('.dfw'); if (!main || !win) return undefined;
-    const on = () => {   // 🩹 owner 2026-11-15 'SCROLL GLITCH': tucking makes the pane taller, so with a short list the scroll clamped back under 60, it untucked, and the page jumped on every wheel tick.
-      const tucked = win.classList.contains('is-tucked'); const room = main.scrollHeight - main.clientHeight;   // tuck only when the list is long enough to stay scrolled once the row is gone; untuck only at the very top
-      if (!tucked && main.scrollTop > 60 && room > 260) win.classList.add('is-tucked'); else if (tucked && main.scrollTop < 4) win.classList.remove('is-tucked');
-    };
-    main.addEventListener('scroll', on, { passive: true });
-    return () => { main.removeEventListener('scroll', on); win.classList.remove('is-tucked'); };
-  }, []);
-  const filing = path === 'pob' && !!open;
-  useEffect(() => { const prf = box.current?.closest('.prf'); prf?.classList.toggle('prf-filing', filing); box.current?.closest('.prf-main')?.scrollTo?.({ top: 0 }); return () => prf?.classList.remove('prf-filing'); }, [filing]);   // 🗂 an open filing is its own page: the PoB intro + rail step aside
-  const want = useRef(null); useEffect(() => { if (focus?.id) { want.current = focus.id; setPath('pob'); setOpen(focus.id); } }, [focus?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!want.current || path !== 'pob' || open !== want.current) return undefined; const t = setTimeout(() => { const el = box.current?.querySelector('.dsk-pull'); if (el && el.getBoundingClientRect().height > 40) { want.current = null; box.current.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); } }, 60); return () => clearTimeout(t); });   // runs after each render until the file has drawn
+  const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState([]); const [m, setM] = useState(null);
+  const box = useRef(null);
+  const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows);
+  const g = path[0] === 'g' ? groups.find(x => x.key === path[1]) : null;
+  const rid = g ? (path[2] || (g.runs.length === 1 ? g.head.id : '')) : ''; const x = g ? g.runs.find(r => r.id === rid) : null;
+  const filing = !!g;
+  useEffect(() => {   // 🗂 an open game is a whole page: the PoB intro, rail and stat row step aside, and it starts at its top
+    const prf = box.current?.closest('.prf'); const win = box.current?.closest('.dfw'); prf?.classList.toggle('prf-filing', filing); win?.classList.toggle('is-tucked', filing); box.current?.closest('.prf-main')?.scrollTo?.({ top: 0 });
+    return () => { prf?.classList.remove('prf-filing'); win?.classList.remove('is-tucked'); };
+  }, [filing, path.join('/')]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const want = useRef(focus?.id || null); useEffect(() => { if (focus?.id) want.current = focus.id; }, [focus?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!want.current) return; const hit = groups.find(y => y.runs.some(r => r.id === want.current)); if (hit) { setPath(['g', hit.key, want.current]); want.current = null; } });   // a chat link opens its reading once it has loaded
   const [err, setErr] = useState('');
-  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; if (on) setD?.(x => mergeIf(x, { pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders ?? x?.pobFolders })); }).catch(() => {}); };
+  useEffect(() => { let on = true; let ver = d?.powVer || null; const load = () => { if (!document.hidden) work(cat.id, { op: 'state', ver }).then(j => { if (j.powVer) ver = j.powVer; if (on) setD?.(y => mergeIf(y, { pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders ?? y?.pobFolders })); }).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const busy = !!d?.pobRead || !!d?.pobRun;
   const [ask, setAsk] = useState('');
-  const mark = (id, job) => work(cat.id, { op: 'pob_folder', text: id, job }).then(j => setD?.(x => ({ ...x, pobFolders: j.pobFolders }))).catch(e => setErr(e.message));
-  const file = () => { setErr(''); const text = ask.trim(); work(cat.id, { op: 'pob', ...(text ? { text } : {}) }).then(() => setAsk('')).then(() => setD?.(x => ({ ...x, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
-  useEffect(() => { let on = true; const load = () => { if (!document.hidden && !path) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setM(x)).catch(() => {}); };
-    load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, path]);
-  const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
-  const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA', pob: 'Its proofs' }[path];
-  const groups = pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const [sport, setSport] = useState('all');   // 🏷 the filings by sport
-  const sports = Object.entries(groups.reduce((o, g) => { const k = sportOf(g.head); o[k] = (o[k] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(([k, n]) => [k, sportLabel(k), n]);
+  const mark = (id, job) => work(cat.id, { op: 'pob_folder', text: id, job }).then(j => setD?.(y => ({ ...y, pobFolders: j.pobFolders }))).catch(e => setErr(e.message));
+  const file = () => { setErr(''); const text = ask.trim(); work(cat.id, { op: 'pob', ...(text ? { text } : {}) }).then(() => setAsk('')).then(() => setD?.(y => ({ ...y, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
+  const atHome = !path.length; const onBoard = atHome || path[0] === 'board';
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden && onBoard) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(y => on && y && setM(y)).catch(() => {}); };
+    load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, onBoard]);
+  const live = (m?.live || []).filter(y => y.kind === 'agent'); const settled = (m?.settled || []).filter(y => y.kind === 'agent');
+  const closed = rows.filter(y => y.status === 'closed'); const right = closed.filter(y => y.won === true || y.graded === 'right' || y.kalshi?.outcome === 'won').length; const wrong = closed.filter(y => y.won === false || y.graded === 'wrong' || y.kalshi?.outcome === 'lost').length;
+  const leafName = { report: 'REPORT', m0: 'Mind A', m1: 'Mind B', shots: 'Snapshots', sites: 'Sites' };
+  const crumbs = [['Bids', []], ...(g ? [[fileName(g.head), ['g', g.key]]] : []), ...(g && g.runs.length > 1 && x ? [[`Reading ${g.runs.length - g.runs.indexOf(x)}`, ['g', g.key, x.id]]] : []), ...(g && path[3] ? [[leafName[path[3]] || path[3], path]] : []), ...(BIDS_DIRS[path[0]] ? [[BIDS_DIRS[path[0]], path]] : [])];
+  const up = () => setPath(p => (p[0] !== 'g' ? [] : p.length > 3 ? p.slice(0, 3) : p.length === 3 && g && g.runs.length > 1 ? p.slice(0, 2) : []));
+  let body;
+  if (g) body = <PobFile g={g} rid={rid} leaf={path[3] || ''} catId={cat.id} onMark={mark} setPath={setPath} />;
+  else if (path[0] === 'money') body = <><KalshiDoor cat={cat} work={work} />{children}<SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} /></>;
+  else if (path[0] === 'tools') body = tools || <p className="dsk-note">No live tools right now.</p>;
+  else if (path[0] === 'sites') body = <BidSites />;
+  else if (path[0] === 'live' || path[0] === 'settled') body = <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path[0]} /></Suspense>;
+  else if (path[0] === 'board') body = <>
+    <div className="bd-strip" data-testid="bd-stats">{[['LIVE', m ? live.length : '…', ['live'], 'Bid free chips on proofs running now', 'bd-live', 'is-live'], ['SETTLED', m ? settled.length : '…', ['settled'], 'How finished proofs ended', 'bd-settled', ''], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—', ['live'], 'Free chips. Nothing here bets real money', 'bd-chips', ''], ['REAL MONEY', `${BID_SITES.length} sites`, ['sites'], 'Links to USA real-money sites, with what each says about automation', 'bd-sites', 'is-money']].map(([k, v, to, tip, id, tone]) => <button key={k} type="button" className={tone} onClick={() => setPath(to)} data-tip={tip} data-testid={id}><em>{k}</em><b className="m-num">{v}</b></button>)}</div>
+    {live.length ? <ul className="bd-live">{live.slice(0, 5).map((y, i) => <li key={y.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath(['live'])} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{y.q}</span></button></li>)}</ul> : null}</>;
+  else body = <>
+    <div className="bd-file"><input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) file(); }} placeholder="Game to research, e.g. Thunder vs Kings — or leave empty for the free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
+      <button type="button" className="m-btn m-go bd-filebtn" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Each mind reads major sites, keeps snapshots and calls it blind. With your Kalshi key saved and both minds on one market, it bids inside your caps' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></div>
+    {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
+    <div className="hv-pow-stats">{[['FILINGS', groups.length], ['REAL BIDS', rows.filter(y => y.kalshi?.orderId).length], ['RIGHT', right], ['WRONG', wrong], ['COST', `$${rows.reduce((a, y) => a + (Number(y.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    {groups.length ? <PobTiles groups={groups} onOpen={y => setPath(['g', y.key])} /> : <p className="dsk-note">No PoB filed yet. Type a game above and press File a bid.</p>}
+    <div className="dsk-xgrid bd-dirs">{[['money', '🔑', 'Your Kalshi key, caps and the sites it uses'], ['tools', '📡', 'Live games, parlays, markets and the watch room'], ['board', '🎟', `Free chips on agents' live proofs${m ? ` · ${live.length} live` : ''}`], ['sites', '🇺🇸', 'Links to USA real-money sites, with what each says about automation']].map(([k, ic, tip], i) => <Tile key={k} i={groups.length + i} tone={k === 'money' ? 'live' : 'none'} ic={ic} label={BIDS_DIRS[k]} sub={k === 'sites' ? `${BID_SITES.length} sites` : k === 'board' && m?.bank ? `${m.bank.chips} chips` : ''} onOpen={() => setPath([k])} tip={tip} testid={`bd-dir-${k}`} />)}</div></>;
   return <div ref={box} className="dsk-pow bd" data-testid="dsk-bids">
-    {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => (open && path === 'pob' ? setOpen('') : setPath(''))} aria-label="Up one folder" data-tip="Up one folder" data-testid="pob-up">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span><BackToDesk /></p> : null}
-    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} catId={cat.id} onMark={mark} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
-      <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, the USA real-money sites, and real Kalshi bids when both minds back one market, inside your caps below.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Each mind reads major sites, keeps snapshots and calls it blind. Nothing is staked' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
-      <input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} placeholder="What to research: best NFL picks this week, or leave empty for our free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
-      {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
-      {err ? <p className="dsk-note" role="alert">{err}</p> : null}
-      <nav className="m-seg bd-tabs" role="tablist" aria-label="Bids">{[['filings', 'Filings', 'Every PoB it filed, newest first'], ['tools', 'Live tools', 'Live games, parlays, markets and the watch room'], ['money', 'Kalshi & sites', 'Your Kalshi key and caps, the USA sites, the free-chip board']].map(([k, l, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={t} data-testid={`bd-tab-${k}`}>{l}{k === 'filings' ? <small className="m-num">{pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]).length}</small> : null}</button>)}</nav>
-      {tab === 'filings' ? (groups.length ? <>
-        {sports.length > 1 ? <div className="m-seg pfc-sports" role="radiogroup" aria-label="Sport">{[['all', 'All', groups.length], ...sports].map(([k, l, n]) => <button key={k} type="button" role="radio" aria-checked={sport === k} className={sport === k ? 'active' : ''} onClick={() => setSport(k)} data-tip={k === 'all' ? 'Every filing' : `Only ${l} filings`} data-testid={`pfc-sport-${k}`}>{l}<small>{n}</small></button>)}</div> : null}
-        <div className="pfc-grid" data-testid="pob-tiles">{groups.filter(g => sport === 'all' || sportOf(g.head) === sport).map((g, i) => <FilingCard key={g.key} g={g} i={i} onOpen={() => { setOpen(g.head.id); setPath('pob'); }} />)}</div></> : <p className="dsk-note">No PoB filed yet. Type a game above and press File.</p>) : null}
-      {tab === 'tools' ? tools : null}
-      {tab === 'money' ? <>
-      <KalshiDoor cat={cat} work={work} />
-      {children}
-      <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
-      <div className="bd-strip" data-testid="bd-stats">{[['LIVE', m ? live.length : '…', () => setPath('live'), 'Bid free chips on proofs running now', 'bd-live', 'is-live'], ['SETTLED', m ? settled.length : '…', () => setPath('settled'), 'How finished proofs ended', 'bd-settled', ''], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—', () => setPath('live'), 'Free chips. Nothing here bets real money', 'bd-chips', ''], ['ITS PROOFS', (d?.pobFolders || []).length + (d?.pobRun ? 1 : 0), () => setPath('pob'), 'Every PoB it filed', 'bd-proofs', ''], ['REAL MONEY', `${BID_SITES.length} sites`, () => setPath('sites'), 'Links to USA real-money sites, with what each says about automation', 'bd-sites', 'is-money']].map(([k, v, go, tip, id, tone]) => <button key={k} type="button" className={tone} onClick={go} data-tip={tip} data-testid={id}><em>{k}</em><b className="m-num">{v}</b></button>)}</div>
-      {live.length ? <ul className="bd-live">{live.slice(0, 5).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath('live')} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{x.q}</span></button></li>)}</ul> : null}
-      </> : null}</>}</div></div>;
+    {path.length ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={up} aria-label="Up one folder" data-tip="Up one folder" data-testid="pob-up">↑</button>
+      {crumbs.map(([l, p], i) => <span key={`${i}${l}`}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}<BackToDesk /></p> : null}
+    {err ? <p className="dsk-note" role="alert">{err}</p> : null}
+    <div key={path.join('/')} className="dsk-pull">{body}</div></div>;
 }
 function HoneyPot({ cat, pool, d }) {   // 🫙 Its pot (redo 2026-11-14): AgentPot.jsx draws it; the real send controls + ledger ride in
   const p = pool?.pool || {};

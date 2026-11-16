@@ -107,6 +107,9 @@ def test_one_topic_keeps_one_series():
     note = pl.bid_note(loop)
     assert 'loop 2' in note and 'marked it wrong' in note and 'new evidence' in note
     assert pl.bid_note(pl.bid_loop(rows, 'mma')) == ''
+    okc = [{'topic': 'Thunder vs Kings team to win', 'n': k, 'agreed': ['Thunder to win']} for k in (15, 16)]   # owner 2026-11-16: unmarked refiles never ask for 'something different'
+    n2 = pl.bid_note(pl.bid_loop(okc, 'Thunder vs Kings team to win'))
+    assert 'different' not in n2 and 'Never pass only because a past folder already picked it' in n2
 
 
 def test_perp_loop():
