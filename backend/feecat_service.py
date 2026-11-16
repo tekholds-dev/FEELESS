@@ -9353,10 +9353,12 @@ async def _pob_grade_pass(http, store, now):
                         f.setdefault('ownerMark', f['graded'])   # the hand mark from before the results stays, as a note
                     f['graded'], f['gradedBy'] = grade, 'scoreboard'
                 for g_ in f['games']:   # 🏀 once a quarter or period, the score lands in its chat
-                    per_ = str(g_.get('status') or '').split(' ')[0]
+                    per_ = str(g_.get('status') or '').split(' - ')[-1].strip()   # '8:41 - 1st' → '1st' (it took the clock, so it posted on every pass)
                     if g_.get('state') == 'in' and per_ and g_.get('said') != per_:
                         g_['said'] = per_; c_ = owner_of.get(id(f))
-                        if c_ is not None:
+                        key_ = f"{g_.get('id')}:{per_}"; said_ = c_.setdefault('scoreSaid', []) if c_ is not None else []
+                        if c_ is not None and key_ not in said_:   # one line per game per period, however many readings share that game (owner 2026-11-15: 5 copies)
+                            c_['scoreSaid'] = (said_ + [key_])[-60:]
                             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"🏟 {g_.get('name') or g_.get('side') or 'Its game'}: {g_.get('score')} · {g_.get('status')}. From your PoB on {str(f.get('topic') or '')[:50]}.", 'at': now, 'open': 'bids'}])[-200:]
     for f in [x for c in store['cats'].values() for x in (c.get('pobFolders') or [])[-20:] if x.get('poly') and x.get('gradedBy') not in _stamp.OUTSIDE]:   # 🗳 graded when the market itself settles
         ev = await _tools._get(http, f"https://gamma-api.polymarket.com/events/{f['poly'].get('id')}")

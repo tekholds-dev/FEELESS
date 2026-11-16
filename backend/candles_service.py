@@ -161,6 +161,14 @@ class TickPayload(BaseModel):
 
 
 _hot_pairs: dict = {}
+HOT_MAX = 400   # 🛡 2026-11-15 audit: an open POST could add unlimited made-up pairs, and the poller would read every one (DexScreener's limit, shared by real users)
+
+
+def _hot_mark(key):
+    """Mark a pair as watched; past HOT_MAX the oldest-watched pair drops out, so a flood cannot grow the poll list."""
+    if key not in _hot_pairs and len(_hot_pairs) >= HOT_MAX:
+        _hot_pairs.pop(min(_hot_pairs, key=_hot_pairs.get), None)
+    _hot_pairs[key] = time.time()
 HOT_TTL = 30 * 60
 DEX_CHAIN = {'solana': 'solana', 'ethereum': 'ethereum', 'base': 'base', 'bsc': 'bsc', 'arbitrum': 'arbitrum', 'avalanche': 'avalanche', 'polygon': 'polygon', 'sui': 'sui',
              'optimism': 'optimism', 'zksync': 'zksync', 'zora': 'zora', 'cronos': 'cronos', 'unichain': 'unichain', 'worldchain': 'worldchain', 'tron': 'tron'}
@@ -312,7 +320,7 @@ async def observe(payload: TickPayload):
     server. A client-supplied price is never stored — otherwise one user could draw on everyone's chart."""
     if not _re_pair.match(payload.pairAddress or '') or payload.chain not in DEX_CHAIN:
         return {'ok': False}
-    _hot_pairs[_pair_key(payload.chain, payload.pairAddress)] = time.time()
+    _hot_mark(_pair_key(payload.chain, payload.pairAddress))
     return {'ok': True}
 
 

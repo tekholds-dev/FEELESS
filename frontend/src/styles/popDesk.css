@@ -45,7 +45,7 @@
 body.fx-lite :is(.pbt-agree li, .pbt-picks li, .pbt-picks u i, .pbt-shots button) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.pbt-agree li, .pbt-picks li, .pbt-picks u i, .pbt-shots button) { animation: none; } }
 @media (max-width: 640px) { .pbt-head { grid-template-columns: auto minmax(0, 1fr); } .pbt-mark { grid-column: 1 / -1; } }
-body.fx-lite .pop-roe, body.fx-lite .pob-read { animation: none; } body.fx-lite :is(.pop-band i, .pop-clock s) { transition: none; } body.fx-lite .pop-asking i { animation: none; }
+body.fx-lite .pop-roe { animation: none; } body.fx-lite :is(.pop-band i, .pop-clock s) { transition: none; } body.fx-lite .pop-asking i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pop-roe, .pop-asking i { animation: none; } :is(.pop-band i, .pop-clock s) { transition: none; } }
 body.theme-day .pop { color: var(--ppd-sf2); } body.theme-day .pop-head b { color: var(--ppd-ac15); } body.theme-day .pop-asking { color: var(--ppd-sf2); } body.theme-day .pop-ghost em, body.theme-day .pop-score > em, body.theme-day .pop-ghost > small { color: var(--ppd-lh1); } body.theme-day .pop-tag { color: var(--ppd-wn5); } body.theme-day .pop-tag.is-how { color: var(--ppd-ac16); } body.theme-day :is(.pop-stats b, .pop-nums b, .pop-calls b, .pop-live > header b) { color: var(--ppd-sf2); } body.theme-day :is(.pop-head small, .pop-stats em, .pop-nums em, .pop-band small, .pop-live > header small, .pop-calls em, .pop-calls small) { color: var(--ppd-lh1); } body.theme-day .pop-roe { color: var(--ppd-sf2); text-shadow: none; } body.theme-day .pop-band i { background: var(--ppd-sf2); box-shadow: none; }
 
@@ -126,16 +126,43 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .kd-legs li::before { content: counter(leg); font: 800 10px var(--f-mono); color: var(--ppd-ac29); }
 .kd-legs li b { flex: 1; font: 600 12px var(--f-ui); color: var(--ppd-tx11); } .kd-legs li small { font: 600 10.5px var(--f-mono); color: var(--ppd-ac29); }
 
-/* 🗂 one PoB file per game: each refile is a reading, newest first; tap a reading to open or fold it */
-.pob-file { display: grid; gap: 10px; }
-.pob-read { border-radius: 14px; overflow: hidden; animation: pob-read-in .32s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
-.pob-read-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: none; border: 0; color: var(--m-text); text-align: left; cursor: pointer; }
-.pob-read-head em { font-style: normal; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }
-.pob-read-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pob-read-head small { color: var(--m-dim); font-size: 12px; }
-.pob-read-head i { font-style: normal; font-family: var(--m-mono); color: var(--m-dim); width: 1ch; }
-.pob-read.is-on > .pob-read-head { border-bottom: 1px solid color-mix(in srgb, var(--m-accent) 22%, transparent); }
-.pob-read > .pob { padding: 10px 12px 12px; }
-@keyframes pob-read-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (max-width: 640px) { .pob-read-head { grid-template-columns: auto minmax(0, 1fr) auto; } .pob-read-head small { grid-column: 1 / -1; } }
-@media (prefers-reduced-motion: reduce) { .pob-read { animation: none; } }
+/* 🗂 Bids desk redo (owner 2026-11-15 "don't make me scroll to the bottom to see filings"): filings first, tools + money behind tabs;
+   an open filing is its own page (the PoB intro and the rail step aside). */
+.bd-tabs { position: sticky; top: 0; z-index: 3; display: flex; width: 100%; backdrop-filter: blur(10px); }
+.bd-tabs > button { flex: 1; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 700 12px var(--f-tech); letter-spacing: .08em; text-transform: uppercase; }
+.bd-tabs small { font: 700 10px var(--m-mono); padding: 1px 7px; border-radius: 99px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); }
+.pfc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.pfc { --tone: var(--m-dim); position: relative; display: grid; gap: 7px; min-height: 132px; padding: 13px 14px 12px; border-radius: var(--m-r); text-align: left; color: var(--m-text); cursor: pointer; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tone) 34%, var(--m-line)); animation: pfcIn .34s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 45ms); transition: transform .16s var(--m-ease), border-color .16s; }
+.pfc::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 2px; background: linear-gradient(90deg, transparent, var(--tone), transparent); opacity: .85; }
+.pfc:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 60%, var(--m-line-hi)); } .pfc:active { transform: translateY(0) scale(.99); }
+.pfc:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.pfc.is-good { --tone: var(--m-accent); } .pfc.is-bad { --tone: var(--m-danger); } .pfc.is-live { --tone: var(--m-warn); }
+.pfc > small { font: 600 10px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); }
+.pfc > b { font: 700 16px var(--f-ui); line-height: 1.2; }
+.pfc-minds { display: flex; flex-wrap: wrap; gap: 5px; } .pfc-minds em { font: 600 10.5px var(--m-mono); font-style: normal; padding: 3px 7px; border-radius: 8px; background: var(--m-surface-2); color: var(--m-dim); }
+.pfc-minds em.has-pick { color: var(--m-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 35%, transparent); }
+.pfc-foot { display: flex; align-items: center; gap: 7px; margin-top: auto; font: 700 11px var(--f-ui); color: var(--tone); }
+.pfc-foot i { width: 7px; height: 7px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 10px var(--tone); }
+.pfc-foot u { margin-left: auto; text-decoration: none; font: 600 10px var(--m-mono); color: var(--m-dim); }
+.prf-filing > .phd, .prf-filing > .prf-rail { display: none; }
+.pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
+.pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
+.pfl-back { width: 40px; min-height: 40px; font-size: 18px; }
+.pfl-title { display: grid; gap: 3px; min-width: 0; } .pfl-title b { font: 800 22px var(--f-display); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pfl-title em { font-style: normal; font-size: 11px; color: var(--m-dim); }
+.pfl-money { --tone: var(--m-dim); display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 99px; font: 700 12px var(--f-ui); color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent); }
+.pfl-money i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 12px var(--tone); }
+.pfl-money.is-good { --tone: var(--m-accent); } .pfl-money.is-bad { --tone: var(--m-danger); } .pfl-money.is-live { --tone: var(--m-warn); }
+.pfl-minds { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.pfl-mind { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--m-r); animation: pfcIn .3s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.pfl-mind > b { font: 700 18px var(--f-ui); } .pfl-mind > b.is-pass { color: var(--m-dim); } .pfl-mind > em { font-style: normal; font-size: 11.5px; color: var(--m-dim); }
+.pfl-mind.has-pick { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.pfl-conf { display: block; height: 5px; border-radius: 99px; background: var(--m-surface-2); overflow: hidden; } .pfl-conf s { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 50%, transparent), var(--m-accent)); transform-origin: left; transition: transform .5s var(--m-ease); }
+.pfl-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; } .pfl-tabs > button { flex: 1 0 auto; min-height: 36px; display: inline-flex; gap: 6px; align-items: center; justify-content: center; } .pfl-tabs small { font: 600 10px var(--m-mono); opacity: .7; }
+.pfl-body { animation: pfcIn .24s var(--m-ease) both; }
+@keyframes pfcIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } body.fx-lite .bd-tabs { backdrop-filter: none; }
+@media (prefers-reduced-motion: reduce) { :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } .pfc { transition: none; } }
+body.theme-day .pfc, body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
+@media (max-width: 640px) { .pfc-grid { grid-template-columns: minmax(0, 1fr); } .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd-tabs > button { font-size: 11px; letter-spacing: .04em; } }

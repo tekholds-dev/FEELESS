@@ -679,7 +679,7 @@ body.theme-day .dsk-src-health { background: var(--pcw-bg35); color: var(--pcw-a
 
 /* 🎲 The Bids home on one strip */
 .bd-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; } .bd-strip button { display: grid; gap: 1px; min-height: 52px; padding: 7px 10px; border-radius: 11px; border: 1px solid var(--pcw-tx13); background: linear-gradient(150deg, var(--pcw-tx4), var(--pcw-tx44)); color: inherit; text-align: left; cursor: pointer; transition: transform .14s ease, border-color .14s ease; } .bd-strip button:hover { transform: translateY(-1px); border-color: var(--pk, var(--pcw-ac7)); } .bd-strip button:active { transform: scale(.98); } .bd-strip button:focus-visible { outline: 2px solid var(--pk, var(--pcw-ac7)); outline-offset: 2px; } .bd-strip em { font: 800 9px var(--f-mono); font-style: normal; letter-spacing: .1em; opacity: .7; } .bd-strip b { font-size: 16px; color: var(--pk, var(--pcw-ac22)); } .bd-strip .is-money b { color: var(--pcw-wn28); font-size: 14px; }
-.bd-proofs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; scroll-snap-type: x proximity; } .bd-proofs:empty { display: none; } .bd-proofs > * { flex: 0 0 96px; scroll-snap-align: start; }
+
 @media (prefers-reduced-motion: reduce) { .bd-strip button { transition: none; } } body.theme-day .bd-strip button { background: var(--pcw-tx3); border-color: var(--pcw-bg34); }
 
 .dsk-fold-tabs { max-width: 52vw; overflow-x: auto; scrollbar-width: none; font-size: 11px; } .dsk-fold-tabs button { min-height: 28px; white-space: nowrap; }

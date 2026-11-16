@@ -73,3 +73,12 @@ def test_proof_monitors_browse_with_that_proofs_own_minds(monkeypatch):
     except Exception:
         pass
     assert got['models'] == ['tencent/hy4', 'openai/gpt-6.1-terra']
+
+
+def test_watched_pairs_cannot_be_flooded():
+    import candles_service as cs
+    cs._hot_pairs.clear()
+    for i in range(cs.HOT_MAX + 50):
+        cs._hot_mark(f'solana:fake{i}')
+    assert len(cs._hot_pairs) == cs.HOT_MAX and 'solana:fake0' not in cs._hot_pairs
+    cs._hot_pairs.clear()
