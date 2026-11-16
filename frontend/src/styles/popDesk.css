@@ -45,7 +45,7 @@
 body.fx-lite :is(.pbt-agree li, .pbt-picks li, .pbt-picks u i, .pbt-shots button) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.pbt-agree li, .pbt-picks li, .pbt-picks u i, .pbt-shots button) { animation: none; } }
 @media (max-width: 640px) { .pbt-head { grid-template-columns: auto minmax(0, 1fr); } .pbt-mark { grid-column: 1 / -1; } }
-body.fx-lite .pop-roe { animation: none; } body.fx-lite :is(.pop-band i, .pop-clock s) { transition: none; } body.fx-lite .pop-asking i { animation: none; }
+body.fx-lite .pop-roe, body.fx-lite .pob-read { animation: none; } body.fx-lite :is(.pop-band i, .pop-clock s) { transition: none; } body.fx-lite .pop-asking i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pop-roe, .pop-asking i { animation: none; } :is(.pop-band i, .pop-clock s) { transition: none; } }
 body.theme-day .pop { color: var(--ppd-sf2); } body.theme-day .pop-head b { color: var(--ppd-ac15); } body.theme-day .pop-asking { color: var(--ppd-sf2); } body.theme-day .pop-ghost em, body.theme-day .pop-score > em, body.theme-day .pop-ghost > small { color: var(--ppd-lh1); } body.theme-day .pop-tag { color: var(--ppd-wn5); } body.theme-day .pop-tag.is-how { color: var(--ppd-ac16); } body.theme-day :is(.pop-stats b, .pop-nums b, .pop-calls b, .pop-live > header b) { color: var(--ppd-sf2); } body.theme-day :is(.pop-head small, .pop-stats em, .pop-nums em, .pop-band small, .pop-live > header small, .pop-calls em, .pop-calls small) { color: var(--ppd-lh1); } body.theme-day .pop-roe { color: var(--ppd-sf2); text-shadow: none; } body.theme-day .pop-band i { background: var(--ppd-sf2); box-shadow: none; }
 
@@ -125,3 +125,17 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .kd-legs li { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--ppd-tx10); border-left: 3px solid var(--ppd-ac30); counter-increment: leg; }
 .kd-legs li::before { content: counter(leg); font: 800 10px var(--f-mono); color: var(--ppd-ac29); }
 .kd-legs li b { flex: 1; font: 600 12px var(--f-ui); color: var(--ppd-tx11); } .kd-legs li small { font: 600 10.5px var(--f-mono); color: var(--ppd-ac29); }
+
+/* 🗂 one PoB file per game: each refile is a reading, newest first; tap a reading to open or fold it */
+.pob-file { display: grid; gap: 10px; }
+.pob-read { border-radius: 14px; overflow: hidden; animation: pob-read-in .32s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.pob-read-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; width: 100%; padding: 11px 14px; background: none; border: 0; color: var(--m-text); text-align: left; cursor: pointer; }
+.pob-read-head em { font-style: normal; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-accent); }
+.pob-read-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pob-read-head small { color: var(--m-dim); font-size: 12px; }
+.pob-read-head i { font-style: normal; font-family: var(--m-mono); color: var(--m-dim); width: 1ch; }
+.pob-read.is-on > .pob-read-head { border-bottom: 1px solid color-mix(in srgb, var(--m-accent) 22%, transparent); }
+.pob-read > .pob { padding: 10px 12px 12px; }
+@keyframes pob-read-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .pob-read-head { grid-template-columns: auto minmax(0, 1fr) auto; } .pob-read-head small { grid-column: 1 / -1; } }
+@media (prefers-reduced-motion: reduce) { .pob-read { animation: none; } }

@@ -6,6 +6,7 @@ Pure and tested: the service holds the store, the clock and the network.
 """
 import json
 import re
+import time
 from fnum import zero as _f
 
 STAKE = 50             # free chips on every proof
@@ -237,8 +238,8 @@ def folder(r, position=0):
     return {**r, 'n': r.get('n') or position, 'report': report(r)}
 
 
-# 🗂 ONE FOLDER PER GAME (owner 2026-11-15 'if I refile the same proof it just adds on to the current'): the same words the desk groups by
-# (frontend/src/lib/pobGroups.js), so the chat names the run inside its folder.
+# 🗂 ONE FILE PER GAME (owner 2026-11-15 'one file shows but separate readings'): mirrors frontend/src/lib/pobGroups.js, so the chat names
+# the reading inside its file. Same game = the same ESPN game id, or (no scoreboard yet) the same teams on the same day.
 _GAME_SKIP = {'vs', 'v', 'at', 'versus', 'and', 'the', 'a', 'an', 'of', 'on', 'for', 'team', 'to', 'win', 'wins', 'parlay', 'parlays', 'slip', 'sgp',
               'leg', 'legs', 'pick', 'picks', 'best', 'tonight', 'today', 'game', 'games', 'bid', 'bids', 'moneyline', 'ml', 'straight', 'winner', 'pob', 'test', 'this', 'file', 'make', 'start'}
 
@@ -248,7 +249,31 @@ def game_key(topic):
     return ' '.join(sorted({w for w in re.findall(r'[a-z0-9]+', t) if w not in _GAME_SKIP and not w.isdigit()}))
 
 
-def run_of(folders, topic):
-    """Which run on this game a new filing is (1 = its folder's first file). Pure."""
-    k = game_key(topic)
-    return 1 + sum(1 for f in folders or [] if k and game_key(f.get('topic') or f.get('q')) == k)
+def _ids(f):
+    return {str(g.get('id')) for g in (f or {}).get('games') or [] if isinstance(g, dict) and g.get('id')}
+
+
+def _day(f):
+    at = (f or {}).get('at')
+    return time.strftime('%Y-%m-%d', time.localtime(at)) if at else ''
+
+
+def same_game(a, b):
+    """Two PoBs are readings of one file when they are about the same real game. Pure."""
+    ka, kb = game_key(a.get('topic') or a.get('q')), game_key(b.get('topic') or b.get('q'))
+    if not ka or not kb:
+        return False
+    ia, ib = _ids(a), _ids(b)
+    if ia and ib:
+        return bool(ia & ib) and (ka == kb or ia == ib)
+    return ka == kb and _day(a) == _day(b)
+
+
+def run_of(folders, new):
+    """Which reading of its game's file a new filing is (1 = the file's first). Pure."""
+    rows, file_ = list(folders or []), [new]
+    grew = True
+    while grew:   # transitive, like the desk: a reading that matches any reading in the file is in the file
+        more = [f for f in rows if any(same_game(f, x) for x in file_)]
+        rows = [f for f in rows if f not in more]; file_ += more; grew = bool(more)
+    return len(file_)

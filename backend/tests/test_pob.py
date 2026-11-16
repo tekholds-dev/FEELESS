@@ -94,10 +94,14 @@ def test_a_topic_report_says_nothing_was_staked_and_the_owner_marks_it():
     assert r['grade'] == 'RESEARCH' and 'No real bid' in r['lesson'] and 'Real Kalshi bid: YES Dallas wins at 0.41' in report({'status': 'closed', 'topic': 'nba', 'agreed': ['a'], 'kalshi': {'orderId': 'o1', 'side': 'yes', 'title': 'Dallas wins', 'price': 0.41, 'status': 'filled'}})['lesson'] and report({'status': 'closed', 'topic': 'nfl', 'graded': 'right'})['grade'] == 'GOOD CALL'
 
 
-def test_a_refile_of_the_same_game_is_the_next_run_in_its_folder():
+def test_a_refile_of_the_same_game_is_the_next_reading_in_its_file():
     """Owner 2026-11-15: 'if I refile the same proof it just adds on to the current' — one folder per game, the desk groups by the same key."""
     import pob as _p
     assert _p.game_key('Thunder vs Kings') == _p.game_key('Thunder vs Kings team to win') == _p.game_key('kings at thunder parlay slip') == 'kings thunder'
     assert _p.game_key('file a pob 49ers vs Cowboys. Test this: Pace runs over') == '49ers cowboys'
-    rows = [{'topic': 'Thunder vs Kings'}, {'topic': 'Mavericks vs Celtics'}, {'topic': 'Thunder vs Kings team to win'}]
-    assert _p.run_of(rows, 'Thunder vs Kings team to win') == 3 and _p.run_of(rows, 'Lakers vs Suns') == 1
+    T = 1794788221; okc = [{'id': '401909993'}]
+    rows = [{'topic': 'Thunder vs Kings', 'at': T, 'games': okc}, {'topic': 'Mavericks vs Celtics', 'at': T}, {'topic': 'OKC Sacramento', 'at': T, 'games': okc}]
+    assert _p.run_of(rows, {'topic': 'Thunder vs Kings team to win', 'at': T + 600, 'games': okc}) == 3   # same ESPN game, any words → one file
+    assert _p.run_of(rows, {'topic': 'Thunder vs Kings', 'at': T + 7 * 86400, 'games': [{'id': '401910777'}]}) == 1   # rematch next week → new file
+    assert _p.run_of(rows, {'topic': 'Kings at Thunder parlay slip', 'at': T + 60}) == 3   # no scoreboard yet: same teams, same day (and so the OKC one too)
+    assert _p.run_of(rows, {'topic': 'Lakers vs Suns', 'at': T}) == 1 and _p.run_of(rows, {'at': T}) == 1   # no topic: a file of its own
