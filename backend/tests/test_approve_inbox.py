@@ -106,3 +106,21 @@ def test_a_decline_runs_nothing(monkeypatch):
 
 def test_a_zero_recorded_cost_is_not_known_never_free():
     assert ap.redo_item('poc', {'id': 'c', 'cost': 0}, ap.biggest_lift(PARTS), ['m'])['estUsd'] is None
+
+
+def test_an_alert_is_not_resent_after_the_save_lays_the_owner_snapshot_back(monkeypatch):
+    """Owner's PoB #16 (2026-11-15): the same 'went into the pot' line every 20 s. potAlerted is an owner key, and _save laid the last owner
+    snapshot (_KEPT, taken before the alert) back over it, so each pass forgot it had spoken. Now the pass adds what it recorded to the snapshot."""
+    import json as _j
+    import feecat_service as fs
+    monkeypatch.setattr(fs, '_proof_view', lambda c, k, f, top=300, w=None: {'score': 60, 'top': 300, 'rank': 'D', 'parts': PARTS})
+    store = _store(fs); cat = store['cats']['g']; cat['potAlertSince'] = 0
+    monkeypatch.setitem(fs._KEPT, 'g', {'approvals': [{'id': 'owner-tap', 'state': 'approved'}]})   # an owner action before the pass
+    assert fs._pot_alert_pass(store, now=2000) == 2
+    for k in fs.OWNER_KEYS:   # what _save does to the engine's copy
+        if k in fs._KEPT['g']:
+            cat[k] = _j.loads(_j.dumps(fs._KEPT['g'][k]))
+        else:
+            cat.pop(k, None)
+    assert fs._pot_alert_pass(store, now=2100) == 0                                       # never said twice
+    assert {r['id'] for r in cat['approvals']} >= {'owner-tap'} and any(r.get('proof', {}).get('id') == 's1' for r in cat['approvals'])

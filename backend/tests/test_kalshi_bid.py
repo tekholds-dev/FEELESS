@@ -55,8 +55,33 @@ def test_a_passing_bid_buys_whole_contracts_inside_the_cap_as_a_limit_order():
     ok, why, count, price = kb.check(ON, _mkt(), PICK, [], 10.0, NOW)
     assert ok and count == 2 and price == 0.4 and '$0.80' in why   # $1 cap / 40¢ = 2 contracts, never more than the cap
     o = kb.order(PICK, count, price, 'cid')
-    assert o == {'ticker': PICK['ticker'], 'action': 'buy', 'side': 'yes', 'count': 2, 'type': 'limit', 'yes_price': 40, 'client_order_id': 'cid'}
-    assert kb.order({**PICK, 'side': 'no'}, 1, 0.61)['no_price'] == 61
+    assert o == {'ticker': PICK['ticker'], 'side': 'bid', 'count': '2', 'price': '0.4000', 'time_in_force': 'good_till_canceled',
+                 'self_trade_prevention_type': 'taker_at_cross', 'client_order_id': 'cid'}   # Kalshi v2: bid = buy YES, dollar strings
+
+
+def test_kalshi_v2_order_goes_to_the_new_endpoint_and_a_no_pick_is_never_sent():
+    """PoB #16 (2026-11-15): v1 /portfolio/orders answered 410 Gone. The order now goes to /portfolio/events/orders; v2 has no NO field, so a NO pick
+    raises before anything is sent, and the flat v2 answer (order_id, fill_count) reads as filled."""
+    import asyncio
+    try:
+        kb.order({**PICK, 'side': 'no'}, 1, 0.61); assert False
+    except ValueError as e:
+        assert 'not sent' in str(e)
+    seen = {}
+
+    class _R:
+        status_code = 201
+        def json(self): return {'order_id': 'o1', 'fill_count': '2.00', 'remaining_count': '0.00', 'ts_ms': 1}
+
+    class _H:
+        async def post(self, url, json=None, headers=None):
+            seen.update(url=url, body=json, sig=headers); return _R()
+    pem = __import__('cryptography.hazmat.primitives.asymmetric.rsa', fromlist=['x']).generate_private_key(public_exponent=65537, key_size=2048)
+    from cryptography.hazmat.primitives import serialization as _s
+    pem_s = pem.private_bytes(_s.Encoding.PEM, _s.PrivateFormat.TraditionalOpenSSL, _s.NoEncryption()).decode()
+    o = asyncio.run(kb.place(_H(), 'kid', pem_s, kb.order(PICK, 2, 0.4, 'cid')))
+    assert seen['url'].endswith('/trade-api/v2/portfolio/events/orders') and seen['body']['side'] == 'bid'
+    assert o['order_id'] == 'o1' and kb.settle(o, 2, 0.4) == {'status': 'filled', 'filled': 2, 'usd': 0.8, 'kalshiStatus': None}
 
 
 def test_only_a_market_both_minds_backed_on_the_same_side_becomes_a_ticket():
@@ -125,7 +150,7 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     monkeypatch.setattr(fs._kb, 'unstarted', unstarted)
     c = TestClient(fs.app); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
     j = post('kalshi_bid', job='kb1').json()
-    assert len(sent) == 1 and sent[0]['type'] == 'limit' and sent[0]['yes_price'] == 40 and sent[0]['count'] == 2
+    assert len(sent) == 1 and sent[0]['side'] == 'bid' and sent[0]['price'] == '0.4000' and sent[0]['count'] == '2'
     assert j['ticket']['status'] == 'resting' and j['ticket']['usd'] == 0.8 and j['spentToday'] == 0.8 and j['bids'][0]['orderId'] == 'o-1'
     assert post('kalshi_bid', job='kb1').status_code == 409 and len(sent) == 1   # one tap, one order
     # a price that ran away from the minds' pick is refused

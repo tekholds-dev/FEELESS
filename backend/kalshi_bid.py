@@ -406,11 +406,17 @@ def check(c, market, pick, bids, balance_usd, now=None):
     return True, f"{count} × {pick['side'].upper()} at {price:.2f} = ${usd:.2f}", count, price
 
 
+ORDER_PATH = '/portfolio/events/orders'   # 🆕 Kalshi's v2 create-order (2026-11-15: the v1 /portfolio/orders write endpoint answers 410 Gone)
+
+
 def order(pick, count, price, client_id=None):
-    """A LIMIT buy at the shown ask (cents), never a market order."""
-    cents = max(1, min(99, int(round(price * 100))))
-    return {'ticker': pick['ticker'], 'action': 'buy', 'side': pick['side'], 'count': int(count), 'type': 'limit',
-            ('yes_price' if pick['side'] == 'yes' else 'no_price'): cents, 'client_order_id': client_id or str(uuid.uuid4())}
+    """A LIMIT buy of YES at the shown ask, never a market order (Kalshi v2: one YES book, `bid` buys YES, dollar strings).
+    A NO pick is refused here: v2 has no NO field and its docs do not say that an ask opens a NO position, so nothing is sent."""
+    if str(pick.get('side') or '').lower() != 'yes':
+        raise ValueError("Kalshi's new order API takes YES buys only here; a NO bid is not sent (nothing moved).")
+    px = max(0.01, min(0.99, round(float(price), 2)))
+    return {'ticker': pick['ticker'], 'side': 'bid', 'count': str(int(count)), 'price': f'{px:.4f}', 'time_in_force': 'good_till_canceled',
+            'self_trade_prevention_type': 'taker_at_cross', 'client_order_id': client_id or str(uuid.uuid4())}
 
 
 FIGHT_PX = 0.20   # ⚠ under 20¢ its side fights a Kalshi favourite of 80¢ or more (owner 2026-11-15 'build it all': the "Kalshi already disagrees" warning)
@@ -461,10 +467,11 @@ async def balance(http, key_id, pem):
 
 
 async def place(http, key_id, pem, body):
-    r = await http.post(f'{BASE}/portfolio/orders', json=body, headers=headers(key_id, pem, 'POST', '/portfolio/orders'))
+    r = await http.post(f'{BASE}{ORDER_PATH}', json=body, headers=headers(key_id, pem, 'POST', ORDER_PATH))
     if r.status_code not in (200, 201):
         raise RuntimeError(f'Kalshi refused the order ({r.status_code}): {r.text[:200]}')
-    return (r.json() or {}).get('order') or {}
+    j = r.json() or {}
+    return j.get('order') or j   # v2 answers flat: order_id, fill_count, remaining_count (no status: the confirm pass reads it back)
 
 
 # ✅ CONFIRM ON KALSHI (owner 2026-11-14: "they should check and confirm the bid on kalshi works"). After an order is sent, the agent reads it

@@ -6714,7 +6714,24 @@ def _pot_alert_pass(store, now=None):
             kept_ = _appr.add(c, item_) if item_ else None
             c['chat'] = (list(c.get('chat') or []) + [{'by': 'cats', 'text': _appr.alert_text(k, f, v, lift_, bool(kept_)), 'at': now_, **({'approve': kept_['id']} if kept_ else {})}])[-200:]
             c['potAlerted'] = (list(c.get('potAlerted') or []) + [f.get('id')])[-_appr.ALERTED_KEEP:]; n += 1
+            if kept_ and c['id'] in _KEPT:   # the redo row survives the save overlay too (added only: an owner's tap meanwhile is never undone)
+                ap_ = _KEPT[c['id']].setdefault('approvals', [])
+                if isinstance(ap_, list) and not any(isinstance(x, dict) and x.get('id') == kept_['id'] for x in ap_):
+                    ap_.append(json.loads(json.dumps(kept_)))
+        _pot_keep(c)
     return n
+
+
+def _pot_keep(c):
+    """🔁 potAlerted / potAlertSince are owner keys, so _save lays the last owner snapshot (_KEPT) over the engine's copy: without this the alert was
+    forgotten on every save and re-sent every pass (owner's PoB #16, 2026-11-15: the same 'went into the pot' line every 20 s). Adds only."""
+    k_ = _KEPT.get(c.get('id'))
+    if k_ is None:
+        return
+    if 'potAlertSince' in c:
+        k_.setdefault('potAlertSince', c['potAlertSince'])
+    have_ = list(k_.get('potAlerted') or [])
+    k_['potAlerted'] = (have_ + [x for x in c.get('potAlerted') or [] if x not in have_])[-_appr.ALERTED_KEEP:]
 
 
 def _review_apply(store):
