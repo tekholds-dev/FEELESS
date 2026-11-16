@@ -772,6 +772,9 @@ test('🗂 PoB refiles of one game open as ONE file with separate readings; ↑ 
   const q = t2 => document.querySelector(`[data-testid="${t2}"]`);
   expect(q('pob-b1')).toBeNull(); expect(q('pob-b2').textContent).toContain('2 readings');
   expect(q('ptl-bids')).not.toBeNull(); expect(q('bd-stats')).not.toBeNull();   // the old home: live games, coming up + watch room above the filings
+  expect(q('ptl-bids').open).toBe(true);   // the games show open; only a tap on its header folds them
+  await act(async () => { q('ptl-bids').open = false; q('ptl-bids').dispatchEvent(new Event('toggle')); }); await act(async () => { q('ptl-bids-fold').click(); }); expect(q('ptl-bids').open).toBe(false);
+  await act(async () => { q('ptl-bids-fold').click(); }); expect(q('ptl-bids').open).toBe(true);
   await act(async () => { q('pob-b2').click(); }); expect(q('ptl-bids')).toBeNull();   // a filing is its own whole page
   const page = () => document.querySelector('article[data-testid="pob-file"]');
   expect(page().textContent).toContain('Reading 2'); expect(page().textContent).toContain('Reading 1'); expect(q('pob-b2')).toBeNull();   // the game is a whole page: its readings are folders
