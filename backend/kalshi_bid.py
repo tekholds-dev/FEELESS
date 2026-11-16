@@ -234,7 +234,7 @@ def brief(markets):
     if not markets:
         return ''
     return ('\nLIVE KALSHI MARKETS (real money: it bids at once if BOTH of you back the same ticker and side; if only one of you does, the owner '
-            'gets that pick to place with a tap). You MUST back exactly one of these with your honest confidence: add '
+            'gets that pick to place with a tap). These are the live odds for this game: price = the chance the crowd gives it. You MUST back exactly one of these with your honest confidence: add '
             '"kalshi": {"ticker": "<ticker>", "side": "yes|no"} to your main pick. Only if nothing you read supports any side, give no pick and say why in "pass":\n'
             + '\n'.join(line(m) for m in markets))
 
@@ -269,6 +269,26 @@ def _rate(rec, name):
     r = (rec or {}).get(name) or {}
     n = r.get('won', 0) + r.get('lost', 0)
     return (r.get('won', 0) + 1) / (n + 2)   # a mind with no record counts as a coin flip
+
+
+def attach(calls, markets):
+    """🎯 A pick that names exactly one team to win, with no Kalshi tag, gets that team's Kalshi market (YES). Anything else — a spread, a total,
+    a fade, two teams — stays untagged. Mutates and returns `calls`. Pure apart from that."""
+    by = {}
+    for m in markets or []:
+        by.setdefault(str(m.get('yes_sub_title') or '').strip(), m)
+    series = {str(m.get('ticker') or '').split('-')[0] for m in markets or []}
+    for c in calls or []:
+        for p in c.get('picks') or []:
+            if isinstance(p.get('kalshi'), dict) and p['kalshi'].get('ticker'):
+                continue
+            txt = str(p.get('pick') or '')
+            if re.search(r'(?i)\b(lose|loses|losing|not|fade|under|over|cover|covers|spread|ats|points?|total)\b|[+-]\s?\d', txt):
+                continue
+            labs = [lab for lab in teams_in(txt, series) if lab in by]
+            if len(labs) == 1:
+                p['kalshi'] = {'ticker': by[labs[0]]['ticker'], 'side': 'yes'}; p['kalshiFrom'] = 'named'
+    return calls
 
 
 def offer(calls, ids, min_conf, record=None):
