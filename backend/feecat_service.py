@@ -9259,6 +9259,15 @@ async def collective_look():
         return {'theme': 'NEBULA', 'glow': 70}
 
 
+@app.get('/api/cats/tools/logos/{sport}')
+async def cat_tool_team_logos(sport: str):
+    """🛡 A league's team logos for the PoB filing cards: {team name: ESPN logo url}. Public read, one league, cached a day."""
+    if sport not in _tools.SPORTS:
+        raise HTTPException(404, 'No such sport.')
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
+        return {'sport': sport, 'label': _tools.SPORTS[sport][0], 'logos': await _tools.team_logos(http, sport)}
+
+
 @app.get('/api/cats/tools/sources/{kind}')
 async def cat_tool_proof_sources(kind: str):
     """🗂 A proof's sites, best first: the Stash's real results move them once a site has 5 graded proofs."""

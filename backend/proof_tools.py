@@ -182,6 +182,31 @@ async def sport_board(http, sport):
     return await _cached(f'sport:{sport}', go) or {'games': [], 'espn': False, 'poly': False}
 
 
+def parse_teams(data):
+    """ESPN's team list → {lower-case display, short and nickname: logo}. Only ESPN's own image host. Pure."""
+    out = {}
+    for lg in ((data or {}).get('sports') or [{}])[0].get('leagues') or []:
+        for row in lg.get('teams') or []:
+            t = row.get('team') or {}; logo = _logo(t)
+            if not logo:
+                continue
+            for k in (t.get('displayName'), t.get('shortDisplayName'), t.get('name'), t.get('location')):
+                if k:
+                    out.setdefault(str(k).lower(), logo)
+    return out
+
+
+async def team_logos(http, sport):
+    """🛡 Every team's logo in one league (owner 2026-11-15: 'i wona see team logos'), read once a day. Unknown sport → {}."""
+    if sport not in SPORTS:
+        return {}
+    return await _cached(f'logos:{sport}', lambda: _teams_get(http, sport), ttl=86400) or {}
+
+
+async def _teams_get(http, sport):
+    return parse_teams(await _get(http, f'https://site.api.espn.com/apis/site/v2/sports/{SPORTS[sport][1]}/teams', params={'limit': 1000}))
+
+
 ORDER = {'in': 0, 'pre': 1, 'post': 2}
 
 

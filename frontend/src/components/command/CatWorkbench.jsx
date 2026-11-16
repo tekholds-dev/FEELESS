@@ -1,7 +1,8 @@
 import { useOnScreen } from '../../lib/fxPause';
 import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
 import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
-import { pobGroups, runLabel, gameName } from '../../lib/pobGroups';
+import { pobGroups, runLabel, gameName, sportOf, sportLabel, teamsOf } from '../../lib/pobGroups';
+import { useLogos, logoFor } from '../../lib/teamLogos';
 import { LiveBidCard } from './LiveBidCard';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
@@ -1239,7 +1240,7 @@ function PobFile({ g, focus, catId, onMark, onBack }) {
   return <article className="pfl" data-testid="pob-file">
     <header className="pfl-head m-glass m-live">
       <button type="button" className="m-btn pfl-back" onClick={onBack} aria-label="Back to all filings" data-tip="Back to all filings" data-testid="pfl-back">←</button>
-      <span className="pfl-title"><small className="m-label">PROOF OF BIDS · FILING</small><b>{gameName(g.head)}</b><em className="m-num">{g.runs.length} reading{g.runs.length > 1 ? 's' : ''} · PoB #{x.n} · {clock(x.at)}</em></span>
+      <TeamMarks x={g.head} size="l" /><span className="pfl-title"><small className="m-label">PROOF OF BIDS · {sportLabel(sportOf(g.head)).toUpperCase()} · FILING</small><b>{gameName(g.head)}</b><em className="m-num">{g.runs.length} reading{g.runs.length > 1 ? 's' : ''} · PoB #{x.n} · {clock(x.at)}</em></span>
       <span className={`pfl-money is-${money.tone}`} data-testid="pfl-money"><i aria-hidden="true" />{money.text}</span>
     </header>
     {minds.length ? <div className="pfl-minds">{minds.map((m, i) => <section key={i} className={`pfl-mind m-glass${m.pick ? ' has-pick' : ''}`} style={{ '--i': i }}>
@@ -1251,12 +1252,19 @@ function PobFile({ g, focus, catId, onMark, onBack }) {
   </article>;
 }
 // 🃏 one filing on the Bids home: the game, how many readings, what the money did, what each mind said — readable without opening it
+function TeamMarks({ x, size = 'm' }) {   // 🛡 the two teams' ESPN logos, or their initials when a league has none
+  const sp = sportOf(x); const logos = useLogos(sp); const teams = teamsOf(x);
+  if (!teams.length) return null;
+  return <span className={`pfc-teams is-${size}`} aria-hidden="true">{teams.map((t, k) => { const u = logoFor(logos, t);
+    return <span key={k} className="pfc-team" data-tip={t}>{u ? <img src={u} alt="" loading="lazy" /> : <b>{String(t).split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase()}</b>}</span>; })}</span>;
+}
+const pickWord = p => (p ? `${String(p.pick).slice(0, 18)}${p.confidence != null ? ` ${p.confidence}%` : ''}` : 'pass');
 function FilingCard({ g, i, onOpen }) {
-  const x = g.head; const money = filingMoney(x); const minds = picksOf(x);
+  const x = g.head; const money = filingMoney(x); const minds = picksOf(x); const sp = sportOf(x);
   return <button type="button" className={`pfc m-glass is-${money.tone}`} style={{ '--i': i }} onClick={onOpen} data-tip="Open this filing" data-testid={`pob-${x.id}`}>
-    <small className="m-label">PoB #{x.n || '…'} · {clock(x.at)}</small>
-    <b>{x.topic ? gameName(x) : 'Free-chip board'}</b>
-    <span className="pfc-minds">{minds.slice(0, 2).map((m, k) => <em key={k} className={m.pick ? 'has-pick' : ''}>{m.mind} · {m.pick ? `${String(m.pick.pick).slice(0, 18)} ${m.pick.confidence}%` : 'pass'}</em>)}</span>
+    <span className="pfc-top"><small className="m-label">PoB #{x.n || '…'} · {clock(x.at)}</small><em className={`pfc-sport is-${sp}`} data-testid="pfc-sport">{sportLabel(sp)}</em></span>
+    <span className="pfc-game"><TeamMarks x={x} /><b>{x.topic ? gameName(x) : 'Free-chip board'}</b></span>
+    <span className="pfc-minds">{minds.slice(0, 2).map((m, k) => <em key={k} className={m.pick ? 'has-pick' : ''}>{m.mind} · {pickWord(m.pick)}</em>)}</span>
     <span className="pfc-foot"><i aria-hidden="true" />{money.text}{g.runs.length > 1 ? <u className="m-num">{g.runs.length} readings</u> : null}</span>
   </button>;
 }
@@ -1272,7 +1280,11 @@ function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
   const box = useRef(null);   // 🎯 a picked proof sits under the live tools: scroll it into view
   useEffect(() => {   // 📐 scrolled down, the window tucks its stat row and steps away so the tools get the room (owner 2026-11-14)
     const main = box.current?.closest('.prf')?.querySelector('.prf-main'); const win = box.current?.closest('.dfw'); if (!main || !win) return undefined;
-    const on = () => win.classList.toggle('is-tucked', main.scrollTop > 60); main.addEventListener('scroll', on, { passive: true });
+    const on = () => {   // 🩹 owner 2026-11-15 'SCROLL GLITCH': tucking makes the pane taller, so with a short list the scroll clamped back under 60, it untucked, and the page jumped on every wheel tick.
+      const tucked = win.classList.contains('is-tucked'); const room = main.scrollHeight - main.clientHeight;   // tuck only when the list is long enough to stay scrolled once the row is gone; untuck only at the very top
+      if (!tucked && main.scrollTop > 60 && room > 260) win.classList.add('is-tucked'); else if (tucked && main.scrollTop < 4) win.classList.remove('is-tucked');
+    };
+    main.addEventListener('scroll', on, { passive: true });
     return () => { main.removeEventListener('scroll', on); win.classList.remove('is-tucked'); };
   }, []);
   const filing = path === 'pob' && !!open;
@@ -1290,6 +1302,8 @@ function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
     load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, path]);
   const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
   const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA', pob: 'Its proofs' }[path];
+  const groups = pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const [sport, setSport] = useState('all');   // 🏷 the filings by sport
+  const sports = Object.entries(groups.reduce((o, g) => { const k = sportOf(g.head); o[k] = (o[k] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(([k, n]) => [k, sportLabel(k), n]);
   return <div ref={box} className="dsk-pow bd" data-testid="dsk-bids">
     {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => (open && path === 'pob' ? setOpen('') : setPath(''))} aria-label="Up one folder" data-tip="Up one folder" data-testid="pob-up">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span><BackToDesk /></p> : null}
     <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} catId={cat.id} onMark={mark} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
@@ -1298,7 +1312,9 @@ function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
       {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
       {err ? <p className="dsk-note" role="alert">{err}</p> : null}
       <nav className="m-seg bd-tabs" role="tablist" aria-label="Bids">{[['filings', 'Filings', 'Every PoB it filed, newest first'], ['tools', 'Live tools', 'Live games, parlays, markets and the watch room'], ['money', 'Kalshi & sites', 'Your Kalshi key and caps, the USA sites, the free-chip board']].map(([k, l, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={t} data-testid={`bd-tab-${k}`}>{l}{k === 'filings' ? <small className="m-num">{pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]).length}</small> : null}</button>)}</nav>
-      {tab === 'filings' ? ((pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])])).length ? <div className="pfc-grid" data-testid="pob-tiles">{pobGroups([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]).map((g, i) => <FilingCard key={g.key} g={g} i={i} onOpen={() => { setOpen(g.head.id); setPath('pob'); }} />)}</div> : <p className="dsk-note">No PoB filed yet. Type a game above and press File.</p>) : null}
+      {tab === 'filings' ? (groups.length ? <>
+        {sports.length > 1 ? <div className="m-seg pfc-sports" role="radiogroup" aria-label="Sport">{[['all', 'All', groups.length], ...sports].map(([k, l, n]) => <button key={k} type="button" role="radio" aria-checked={sport === k} className={sport === k ? 'active' : ''} onClick={() => setSport(k)} data-tip={k === 'all' ? 'Every filing' : `Only ${l} filings`} data-testid={`pfc-sport-${k}`}>{l}<small>{n}</small></button>)}</div> : null}
+        <div className="pfc-grid" data-testid="pob-tiles">{groups.filter(g => sport === 'all' || sportOf(g.head) === sport).map((g, i) => <FilingCard key={g.key} g={g} i={i} onOpen={() => { setOpen(g.head.id); setPath('pob'); }} />)}</div></> : <p className="dsk-note">No PoB filed yet. Type a game above and press File.</p>) : null}
       {tab === 'tools' ? tools : null}
       {tab === 'money' ? <>
       <KalshiDoor cat={cat} work={work} />

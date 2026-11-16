@@ -41,3 +41,15 @@ export function runLabel(x) {
   const money = k?.orderId ? (k.outcome ? `Kalshi ${k.outcome === 'won' ? 'WON' : 'lost'}` : 'Real bid placed') : k?.status === 'waiting' ? 'Waiting for your tap' : '';
   return [mode, money].filter(Boolean).join(' · ') || (x?.graded ? `Marked ${x.graded}` : x?.status !== 'closed' ? 'Running' : 'Filed');
 }
+
+// 🏷 A filing's sport and its two teams (owner 2026-11-15: "i wona see team logos and the categories for teams and sport"). Pure.
+export const SPORT_LABEL = { nba: 'NBA', nfl: 'NFL', mlb: 'MLB', nhl: 'NHL', cfb: 'College football', cbb: 'College hoops', epl: 'Premier League', mls: 'MLS', ucl: 'Champions League', laliga: 'La Liga', wnba: 'WNBA', ufc: 'UFC' };
+const SPORT_WORDS = [['nba', /\bnba\b/i], ['nfl', /\bnfl\b/i], ['nhl', /\bnhl\b/i], ['mlb', /\bmlb\b/i], ['wnba', /\bwnba\b/i], ['cbb', /\bncaa\b|college (hoops|basketball)/i], ['cfb', /college football|\bcfb\b/i], ['ufc', /\bufc\b/i]];
+export const sportOf = x => { const g = (x?.games || []).find(r => r?.sport); if (g) return g.sport; const t = String(x?.topic || ''); const hit = SPORT_WORDS.find(([, re]) => re.test(t)); return hit ? hit[0] : x?.topic ? 'other' : 'chips'; };
+export const sportLabel = k => SPORT_LABEL[k] || (k === 'chips' ? 'Free chips' : 'Mixed');
+export const teamsOf = x => {
+  const g = (x?.games || [])[0];
+  if (g?.label && / at /.test(g.label)) return g.label.split(' at ').map(s => s.trim()).filter(Boolean).slice(0, 2);
+  const m = gameName(x).match(/^(.+?)\s+(?:vs\.?|v|at|@)\s+(.+?)$/i);
+  return m ? [m[1].trim(), m[2].trim()] : [];
+};

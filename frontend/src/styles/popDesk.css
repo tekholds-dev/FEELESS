@@ -138,8 +138,15 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .pfc:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 60%, var(--m-line-hi)); } .pfc:active { transform: translateY(0) scale(.99); }
 .pfc:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .pfc.is-good { --tone: var(--m-accent); } .pfc.is-bad { --tone: var(--m-danger); } .pfc.is-live { --tone: var(--m-warn); }
-.pfc > small { font: 600 10px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); }
-.pfc > b { font: 700 16px var(--f-ui); line-height: 1.2; }
+.pfc-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; } .pfc-top small { font: 600 10px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pfc-sport { flex: none; font: 700 9.5px var(--f-tech); font-style: normal; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.pfc-sport:is(.is-other, .is-chips) { color: var(--m-dim); background: var(--m-surface-2); box-shadow: none; }
+.pfc-game { display: flex; align-items: center; gap: 10px; min-width: 0; } .pfc-game b { font: 700 16px var(--f-ui); line-height: 1.2; min-width: 0; }
+.pfc-teams { display: flex; flex: none; } .pfc-team { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--m-text) 14%, transparent), var(--m-surface-2)); box-shadow: 0 0 0 2px var(--m-surface), 0 4px 10px -4px var(--m-bg); overflow: hidden; }
+.pfc-team + .pfc-team { margin-left: -9px; } .pfc-team img { width: 78%; height: 78%; object-fit: contain; } .pfc-team b { font: 800 10px var(--f-tech); color: var(--m-dim); }
+.pfc:hover .pfc-team:first-child { transform: translateX(-2px); } .pfc-team { transition: transform .2s var(--m-ease); }
+.pfc-teams.is-l .pfc-team { width: 54px; height: 54px; } .pfc-teams.is-l .pfc-team + .pfc-team { margin-left: -12px; } .pfc-teams.is-l .pfc-team b { font-size: 13px; }
+.pfc-sports { margin-bottom: 10px; } .pfc-sports > button { font-family: var(--f-tech); } .pfc-sports small { margin-left: 6px; opacity: .7; }
 .pfc-minds { display: flex; flex-wrap: wrap; gap: 5px; } .pfc-minds em { font: 600 10.5px var(--m-mono); font-style: normal; padding: 3px 7px; border-radius: 8px; background: var(--m-surface-2); color: var(--m-dim); }
 .pfc-minds em.has-pick { color: var(--m-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 35%, transparent); }
 .pfc-foot { display: flex; align-items: center; gap: 7px; margin-top: auto; font: 700 11px var(--f-ui); color: var(--tone); }
@@ -150,7 +157,7 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .prf-bids > .phd .phd-steps { display: none; } .prf-bids .bd-head { padding: 8px 12px; } .prf-bids .bd-head small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .prf-bids .bd-head .bd-file { min-height: 32px; } .prf-bids .pbt-ask { margin-bottom: 8px; }
 .pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
-.pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
+.pfl-head { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
 .pfl-back { width: 40px; min-height: 40px; font-size: 18px; }
 .pfl-title { display: grid; gap: 3px; min-width: 0; } .pfl-title b { font: 800 22px var(--f-display); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfl-title em { font-style: normal; font-size: 11px; color: var(--m-dim); }
@@ -166,6 +173,6 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .pfl-body { animation: pfcIn .24s var(--m-ease) both; }
 @keyframes pfcIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } body.fx-lite .bd-tabs { backdrop-filter: none; }
-@media (prefers-reduced-motion: reduce) { :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } .pfc { transition: none; } }
+@media (prefers-reduced-motion: reduce) { :is(.pfc, .pfl, .pfl-mind, .pfl-body) { animation: none; } .pfc, .pfc-team { transition: none; } }
 body.theme-day .pfc, body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
-@media (max-width: 640px) { .pfc-grid { grid-template-columns: minmax(0, 1fr); } .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd-tabs > button { font-size: 11px; letter-spacing: .04em; } }
+@media (max-width: 640px) { .pfc-grid { grid-template-columns: minmax(0, 1fr); } .pfl-head { grid-template-columns: auto auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd-tabs > button { font-size: 11px; letter-spacing: .04em; } }

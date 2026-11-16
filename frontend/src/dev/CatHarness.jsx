@@ -71,6 +71,7 @@ if (Array.isArray(WORK.pobFolders) && WORK.pobFolders[0]) WORK.pobFolders[0].kal
 Object.assign(WORK, { ipfs: [{ file: 'x', name: 'banner.gif', cid: 'bafyDemo', url: '#', sol: 0.001326, days: 30, expires: '2026-12-02' }], storage: { ...(WORK.storage || {}), files: [{ id: 'c'.repeat(32), name: 'coin-logo.png', mime: 'image/png', size: 182000 }] }, address: 'AGTw4LLet9xQ2vRkZb7mNcY1pHf3sJd8uTeW5gK6oLqA', sol: 0.0179, usdc: 0.35, gas: 0.01, canSwap: true, swaps: [{ at: now - 600, side: 'USDC>SOL', amount: 1, landed: true }] });   // 👛 the wallet app's fixture
 const REALPOW = new URLSearchParams(window.location.search).get('realpow');   // ?realpow=<cat id> — that agent's REAL PoW folders (gitignored public/dev-pow.json) + its real snapshots
 if (REALPOW) { try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pow.json', false); x.send(); WORK.powFolders = JSON.parse(x.responseText); WORK.powFolder = null; } catch { /* no file: the fixture */ } }
+if (window.location.search.includes('realpob')) { try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pob.json', false); x.send(); WORK.pobFolders = JSON.parse(x.responseText); } catch { /* no file: the fixture */ } }   // ?realpob — the owner's real PoB folders (gitignored public/dev-pob.json)
 export default function CatHarness() {
   const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');

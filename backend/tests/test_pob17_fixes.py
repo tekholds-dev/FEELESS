@@ -82,3 +82,11 @@ def test_watched_pairs_cannot_be_flooded():
         cs._hot_mark(f'solana:fake{i}')
     assert len(cs._hot_pairs) == cs.HOT_MAX and 'solana:fake0' not in cs._hot_pairs
     cs._hot_pairs.clear()
+
+
+def test_team_logos_only_from_espn():
+    import proof_tools as pt
+    data = {'sports': [{'leagues': [{'teams': [{'team': {'displayName': 'Oklahoma City Thunder', 'shortDisplayName': 'Thunder', 'name': 'Thunder', 'location': 'Oklahoma City', 'logos': [{'href': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png'}]}},
+                                                {'team': {'displayName': 'Bad', 'logos': [{'href': 'https://evil.example/x.png'}]}}]}]}]}
+    got = pt.parse_teams(data)
+    assert got['thunder'].endswith('okc.png') and got['oklahoma city thunder'] == got['thunder'] and 'bad' not in got
