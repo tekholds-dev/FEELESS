@@ -1,37 +1,39 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import PocWire, { placePic, planDay, planned, blankPost, FORMATS, DAYS } from './PocWire';
-
-beforeEach(() => { try { localStorage.clear(); } catch { /* no store */ } });
-
-test('cover fills the post and crops around the focus; contain fits the whole picture', () => {
-  const c = placePic(1080, 1080, 2000, 1000, 'cover', '0% 50%');
-  expect(c.h).toBe(1080); expect(c.w).toBe(2160); expect(c.x).toBe(0);
-  const r = placePic(1080, 1080, 2000, 1000, 'cover', '100% 50%'); expect(r.x).toBe(1080 - 2160);
-  const f = placePic(1080, 1920, 2000, 1000, 'contain'); expect(f.w).toBe(1080); expect(f.h).toBe(540); expect(f.y).toBe((1920 - 540) / 2);
-});
-
-test('a day keeps its own copy of the post', () => {
-  const p = blankPost('Sneaker'); const w = planDay({}, 'Mon', p); p.headline = 'changed';
-  expect(w.Mon.headline).toBe('Sneaker'); expect(planned(w)).toBe(1); expect(FORMATS).toHaveLength(3); expect(DAYS).toHaveLength(7);
-});
+import PocWire, { parseDays, replyAfter, flowState, browseAsk } from './PocWire';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+beforeEach(() => { try { localStorage.clear(); } catch { /* no store */ } });
 const $ = (el, id) => el.querySelector(`[data-testid="${id}"]`);
-const type = (input, v) => { const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value').set; set.call(input, v); input.dispatchEvent(new Event('input', { bubbles: true })); };
 
-test('the board edits words, switches format and plans days', () => {
-  const onClose = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  act(() => root.render(<PocWire src={null} from="m1" title="Sneaker" onClose={onClose} />));
-  expect($(el, 'pwr-headline').value).toBe('Sneaker');
-  act(() => type($(el, 'pwr-headline'), 'Drop day'));
-  expect(el.textContent).toContain('Drop day');
-  act(() => $(el, 'pwr-fmt-billboard').click());
-  expect($(el, 'pwr-fmt-billboard').getAttribute('aria-checked')).toBe('true');
-  act(() => $(el, 'pwr-day-Wed').click());
-  expect(el.textContent).toContain('1/7 planned'); expect(el.textContent).toContain('Editing Wed · 1920×1080');
-  act(() => $(el, 'pwr-rm-Wed').click());
-  expect(el.textContent).toContain('0/7 planned');
-  act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))); expect(onClose).toHaveBeenCalled();
+test('the week is read from the agent reply, one card per day, in week order', () => {
+  expect(parseDays('Here you go:\n**Fri:** Check demo links\nMon - Draft 3 hooks\nWednesday: Record a street clip\nMon: again')).toEqual([{ d: 'Mon', text: 'Draft 3 hooks' }, { d: 'Wed', text: 'Record a street clip' }, { d: 'Fri', text: 'Check demo links' }]);
+  expect(parseDays('no days here')).toEqual([]);
+});
+
+test('each step reads its state from the real doc: asked → running → done', () => {
+  const doc = { messages: [{ by: 'you', at: '100', text: 'x' }], busy: { at: 100 } };
+  expect(flowState({ mode: 'ai' }, doc, true)).toMatchObject({ char: 'done', browse: 'todo', at: 1 });
+  expect(flowState({ mode: 'ai', browseAt: 100 }, doc, true)).toMatchObject({ browse: 'running', at: 1 });
+  const done = { messages: [...doc.messages, { by: 'Mind A', at: '130', text: '1. hook' }] };
+  expect(flowState({ mode: 'ai', browseAt: 100 }, done, true)).toMatchObject({ browse: 'done', draft: 'todo', review: 'waiting', at: 2 });
+  expect(replyAfter(done, 200)).toBeNull();
+  expect(flowState({ mode: 'ai', browseAt: 100, draftAt: 140, days: [{ d: 'Mon', text: 'a' }], approvedAt: 150 }, done, true).at).toBe(4);
+  expect(flowState({ mode: 'self', browseDone: true }, {}, true)).toMatchObject({ browse: 'done', at: 2 });
+});
+
+test('Browse sends the agent its real ask; Plan myself never calls a model', async () => {
+  const work = jest.fn(async () => ({ doc: { id: 'w1', messages: [], busy: { at: 1 } } })); const setDoc = jest.fn();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<PocWire src="/p.png" from="m1" title="Bishop" cat={{ id: 'c' }} doc={{ id: 'w1', messages: [] }} work={work} setDoc={setDoc} onClose={() => {}} />));
+  expect($(el, 'cwf-here').textContent).toContain('2/4');
+  await act(async () => $(el, 'cwf-browse').click());
+  expect(work).toHaveBeenCalledWith('c', { op: 'ws_build', job: 'w1', text: browseAsk('Bishop'), to: 'both' }); expect(setDoc).toHaveBeenCalled();
+  work.mockClear();
+  await act(async () => $(el, 'cwf-mode-self').click());
+  await act(async () => root.render(<PocWire src="/p.png" from="m1" title="Bishop" cat={{ id: 'c' }} doc={{ id: 'w1', messages: [] }} work={work} setDoc={setDoc} onClose={() => {}} />));
+  await act(async () => $(el, 'cwf-browse').click());
+  await act(async () => $(el, 'cwf-draft').click());
+  expect($(el, 'cwf-day-Mon')).not.toBeNull(); expect(work).not.toHaveBeenCalled();
   act(() => root.unmount()); el.remove();
 });

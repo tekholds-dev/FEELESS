@@ -44,7 +44,7 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       {canPlay ? <button type="button" className="m-btn" onClick={() => setPlay(true)} data-testid="media-play"
         data-tip="Open it in the playground: move, crop, add text and badges, put it on a phone or billboard, then save a new version">🎨 Playground</button> : null}
       {canPlay && md.kind === 'image' ? <button type="button" className="m-btn m-go" onClick={() => setWire(true)} data-testid="media-wire"
-        data-tip="The content board: the picture laid out as a phone story, feed post and billboard with its words, then planned Mon–Sun">🧩 Content board</button> : null}
+        data-tip="The creator workflow: this character, then the agent browses sources, drafts the week, and you approve it">✏️ Creator workflow</button> : null}
       {canLife ? <button type="button" className="m-btn" disabled={busy} aria-pressed={isChar} data-testid="media-char"
         data-tip={isChar ? 'He stops leading this folder\'s videos' : 'Every video made in this folder starts from him: one consistent guy for all your content'}
         onClick={() => run({ op: 'media_char', job: doc.id, text: isChar ? '' : md.id })}>{isChar ? '👤 Unset character' : '👤 Make him the character'}</button> : null}
@@ -53,7 +53,7 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
     {play ? createPortal(<Suspense fallback={<div className="ppl ppl-wait" role="status">Opening the playground…</div>}>
       <PocPlay src={apiUrl(md.url)} kind={md.kind} from={md.id} title={md.label || 'Picture'} media={pics} onSave={savePlay} onClose={() => setPlay(false)} /></Suspense>, document.body) : null}
     {wire ? createPortal(<Suspense fallback={<div className="pwr pwr-wait" role="status">Opening the board…</div>}>
-      <PocWire src={apiUrl(md.url)} kind={md.kind} from={md.id} title={md.label || 'Picture'} onSave={savePlay} onClose={() => setWire(false)} /></Suspense>, document.body) : null}
+      <PocWire src={apiUrl(md.url)} kind={md.kind} from={md.id} title={doc?.name || md.label || 'Picture'} cat={cat} doc={doc} work={work} setDoc={setDoc} onClose={() => setWire(false)} /></Suspense>, document.body) : null}
     {md.status === 'done' && md.kept === false ? <small className="mst-note">{md.why}</small> : null}
   </figure>;
 }

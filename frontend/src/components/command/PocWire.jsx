@@ -1,163 +1,180 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { Bookmark, Heart, MessageCircle, Send, X, Download, Save, Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import rough from 'roughjs';
+import { Check, Send, X } from 'lucide-react';
 import '../../styles/pocWire.css';
 
-// 🧩 THE POC CONTENT BOARD (owner 2026-11-13: "wireframe a week of content"; 2026-11-15 the Excalidraw canvas read as "wtf … try new styles and
-// better components"). One picture, laid out as the real post on three drawn surfaces (phone story, feed post, street billboard), with its words on
-// it, then planned Mon–Sun: drag the post onto a day (or tap +), each day keeps its own copy. Save files the post itself (no device chrome) back
-// into the proof as a NEW version; the original stays. The board is kept in this browser per picture.
-export const FORMATS = [['story', 'Story 9:16', 1080, 1920], ['feed', 'Feed 1:1', 1080, 1080], ['billboard', 'Billboard 16:9', 1920, 1080]];
-export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const SPOTS = [['top', 'Top'], ['bottom', 'Bottom']];
-const FITS = [['cover', 'Fill'], ['contain', 'Fit']];
-const FOCI = ['0% 0%', '50% 0%', '100% 0%', '0% 50%', '50% 50%', '100% 50%', '0% 100%', '50% 100%', '100% 100%'];
-const KEY = id => `feeless:pocwire2:${id}`;
+// ✏️ CREATOR WORKFLOW (owner 2026-11-15, his IMG4: "IMG4 IS KINDA WHAT IMG3 SHOULD BE"). The PoC picture is step 1; the agent then browses sources,
+// drafts the week and waits for your approval, drawn by hand (roughjs strokes, Excalidraw's own hand font). Every step is real: Browse and Draft
+// send this proof's agent its normal paid PoC ask (op ws_build), its replies land in the chat box, and the week is read from its own words.
+// Plan myself = no model calls, you write the days. AI draft = you press each step. Auto-plan weekly = Browse → Draft run on their own, again
+// each time the board opens 7+ days after the last approved week. The board state is kept in this browser per picture.
+export const STEPS = [['char', 'Character PoC'], ['browse', 'Browse sources'], ['draft', 'Draft the week'], ['review', 'Review & approve']];
+export const MODES = [['self', 'Plan myself', 'You write the week yourself. No model calls.'], ['ai', 'AI draft', 'The agent browses and drafts when you press each step. Paid model calls.'], ['auto', 'Auto-plan weekly', 'Browse and Draft run on their own, and again each week you open this. Paid model calls.']];
+const DAY_RE = /^\W*(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*[:\-–—]\s*(.+)$/i;
+const DAY_KEY = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+const WEEK = Object.values(DAY_KEY);
+const WEEK_S = 7 * 86400;
+const KEY = (doc, pic) => `feeless:pocflow:${doc || 'x'}:${pic || 'x'}`;
+export const browseAsk = t => `Browse YouTube for hook patterns and TikTok for clip formats that would fit ${t} (the character in this proof). Reply with 3 hooks and 3 clip formats, one line each, and name the site each came from.`;
+export const draftAsk = t => `Draft a week of posts for ${t}, using the hooks and formats you found. One line per post day, each line starting with the day, like "Mon: …", "Wed: …", "Fri: …". Three to five days.`;
+const blankWeek = () => [{ d: 'Mon', text: '' }, { d: 'Wed', text: '' }, { d: 'Fri', text: '' }];
 
-export const blankPost = (title = 'Picture') => ({ fmt: 'story', headline: String(title).slice(0, 48), caption: '', handle: 'feeless', cta: 'Tap in', fit: 'cover', spot: 'bottom', focus: '50% 50%', time: '18:00' });
-
-// Pure (tested): where the picture lands inside a W×H post — cover crops to fill, contain fits whole; focus picks which part of a crop stays.
-export function placePic(W, H, iw, ih, fit = 'cover', focus = '50% 50%') {
-  const r = fit === 'contain' ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih);
-  const w = iw * r; const h = ih * r; const [fx, fy] = String(focus).split(' ').map(v => (parseFloat(v) || 0) / 100);
-  return { x: (W - w) * (Number.isFinite(fx) ? fx : 0.5) + 0, y: (H - h) * (Number.isFinite(fy) ? fy : 0.5) + 0, w, h };
+// Pure (tested): the week, read from the agent's own reply. "**Mon:** Draft 3 hooks" → { d: 'Mon', text: 'Draft 3 hooks' }; one line per day, first wins.
+export function parseDays(text) {
+  const out = []; const seen = new Set();
+  String(text || '').replace(/\*\*|__/g, '').split(/\n+/).forEach(l => { const m = l.match(DAY_RE); if (!m) return; const d = DAY_KEY[m[1].toLowerCase()]; if (seen.has(d)) return; seen.add(d); out.push({ d, text: m[2].trim().slice(0, 140) }); });
+  return out.sort((a, b) => WEEK.indexOf(a.d) - WEEK.indexOf(b.d));
+}
+// Pure (tested): the agent's answer to an ask sent at `at` (seconds): its newest worded message after it.
+export function replyAfter(doc, at) {
+  if (!at) return null;
+  const rows = (doc?.messages || []).filter(m => m && m.by !== 'you' && !m.media && String(m.text || '').trim() && Number(m.at) >= at - 1);
+  return rows.length ? rows[rows.length - 1] : null;
+}
+// Pure (tested): each step's state from the board record + the live doc → { char, browse, draft, review: 'done'|'running'|'todo'|'waiting', at: the current step }
+export function flowState(rec, doc, picReady) {
+  const busy = !!doc?.busy; const s = { char: picReady ? 'done' : 'todo' };
+  const bRep = replyAfter(doc, rec.browseAt); const dRep = replyAfter(doc, rec.draftAt);
+  s.browse = rec.mode === 'self' ? (rec.browseDone ? 'done' : 'todo') : !rec.browseAt ? 'todo' : rec.draftAt || (rec.days || []).length ? 'done' : busy ? 'running' : bRep ? 'done' : 'todo';
+  s.draft = (rec.days || []).length ? 'done' : !rec.draftAt ? 'todo' : busy ? 'running' : dRep ? 'done' : 'todo';
+  s.review = rec.approvedAt ? 'done' : s.draft === 'done' ? 'todo' : 'waiting';
+  const at = STEPS.findIndex(([k]) => s[k] !== 'done');
+  return { ...s, at: at < 0 ? STEPS.length : at, bRep, dRep };
 }
 
-// Pure (tested): the board after placing a post on a day (a copy, so editing the stage later never rewrites the day).
-export function planDay(week, day, post) { return { ...week, [day]: { ...post } }; }
-export const planned = week => DAYS.filter(d => week[d]).length;
-
-const wrap = (ctx, text, maxW) => {   // words to lines that fit maxW
-  const out = []; let line = '';
-  String(text || '').split(/\s+/).filter(Boolean).forEach(w => { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
-  if (line) out.push(line); return out;
-};
-const cssVar = (n, d) => { try { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d; } catch { return d; } };
-
-// The post itself as a PNG data URL, drawn at full size on a canvas (what gets saved / downloaded).
-export async function renderPost(img, post) {
-  const [, , W, H] = FORMATS.find(f => f[0] === post.fmt) || FORMATS[0];
-  const c = document.createElement('canvas'); c.width = W; c.height = H; const ctx = c.getContext('2d');
-  ctx.fillStyle = cssVar('--m-bg', 'black'); ctx.fillRect(0, 0, W, H);
-  if (img) { const p = placePic(W, H, img.naturalWidth || 1, img.naturalHeight || 1, post.fit, post.focus); ctx.drawImage(img, p.x, p.y, p.w, p.h); }
-  const top = post.spot === 'top'; const band = H * 0.42;
-  const g = ctx.createLinearGradient(0, top ? 0 : H - band, 0, top ? band : H);
-  g.addColorStop(top ? 0 : 1, 'rgba(0,0,0,.78)'); g.addColorStop(top ? 1 : 0, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, top ? 0 : H - band, W, band);
-  const pad = Math.round(W * 0.06); const hs = Math.round(Math.min(W, H) * 0.085); const cs = Math.round(hs * 0.42);
-  ctx.textBaseline = 'top'; ctx.fillStyle = 'white';
-  ctx.font = `800 ${hs}px Unbounded, sans-serif`; const hl = wrap(ctx, String(post.headline || '').toUpperCase(), W - pad * 2).slice(0, 3);
-  ctx.font = `500 ${cs}px Sora, sans-serif`; const cl = wrap(ctx, post.caption, W - pad * 2).slice(0, 3);
-  const ctaH = post.cta ? Math.round(cs * 2.1) : 0;
-  const block = hl.length * hs * 1.08 + (cl.length ? cs * 0.6 + cl.length * cs * 1.3 : 0) + (ctaH ? cs + ctaH : 0);
-  let y = top ? pad : H - pad - block;
-  ctx.font = `800 ${hs}px Unbounded, sans-serif`; hl.forEach(l => { ctx.fillText(l, pad, y); y += hs * 1.08; });
-  if (cl.length) { y += cs * 0.6; ctx.font = `500 ${cs}px Sora, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.86)'; cl.forEach(l => { ctx.fillText(l, pad, y); y += cs * 1.3; }); }
-  if (ctaH) {
-    y += cs; ctx.font = `700 ${cs}px Sora, sans-serif`; const tw = ctx.measureText(post.cta).width + cs * 2.4;
-    ctx.fillStyle = cssVar('--m-accent', 'white'); ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(pad, y, tw, ctaH, ctaH / 2) : ctx.rect(pad, y, tw, ctaH)); ctx.fill();
-    ctx.fillStyle = cssVar('--m-accent-ink', 'black'); ctx.fillText(post.cta, pad + cs * 1.2, y + (ctaH - cs) / 2);
-  }
-  ctx.font = `600 ${Math.round(cs * 0.8)}px "JetBrains Mono", monospace`; ctx.fillStyle = 'rgba(255,255,255,.7)';
-  ctx.fillText(`@${post.handle || 'feeless'}`, pad, top ? H - pad - cs : pad);
-  return c.toDataURL('image/png');
+function useSketch(draw, deps) {   // a hand-drawn layer that redraws when its box resizes
+  const box = useRef(null); const svg = useRef(null);
+  useLayoutEffect(() => {
+    const el = box.current; const s = svg.current; if (!el || !s) return undefined;
+    const go = () => { const w = el.offsetWidth; const h = el.offsetHeight; if (w < 8 || h < 8) return; s.setAttribute('width', w); s.setAttribute('height', h); s.setAttribute('viewBox', `0 0 ${w} ${h}`); while (s.firstChild) s.removeChild(s.firstChild); try { draw(rough.svg(s), w, h, s); } catch { /* no SVG layout here (tests): the box still shows */ } };
+    go(); const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(go) : null; ro?.observe(el); return () => ro?.disconnect();
+  }, deps);   // eslint-disable-line react-hooks/exhaustive-deps
+  return [box, svg];
 }
-
-const loadImg = url => new Promise(ok => { if (!url) return ok(null); const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => ok(null); i.src = url; });
-
-function Words({ post, size }) {   // the words on the post, as they will print
-  return <div className={`pwr-words is-${post.spot} is-${size}`}>
-    {post.headline ? <b>{post.headline}</b> : null}{post.caption ? <p>{post.caption}</p> : null}{post.cta ? <i>{post.cta}</i> : null}
-  </div>;
+const rr = (x, y, w, h, r) => `M${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${x + r} Q${x},${y + h} ${x},${y + h - r} V${y + r} Q${x},${y} ${x + r},${y} Z`;
+function Box({ seed = 1, hot = false, r = 18, className = '', children, ...rest }) {
+  const [box, svg] = useSketch((rc, w, h, s) => { s.appendChild(rc.path(rr(3, 3, w - 6, h - 6, r), { seed, roughness: 1.15, bowing: 1.4, strokeWidth: hot ? 3 : 2, stroke: 'currentColor' })); }, [seed, hot, r]);
+  return <div ref={box} className={`cwf-box${hot ? ' is-hot' : ''} ${className}`} {...rest}><svg ref={svg} className="cwf-ink" aria-hidden="true" />{children}</div>;
 }
-function Pic({ src, post }) { return src ? <img src={src} alt="" draggable={false} style={{ objectFit: post.fit, objectPosition: post.focus }} /> : <span className="pwr-nopic">No picture</span>; }
-
-// The three drawn surfaces. Pure presentation: phone story with bezel + progress, feed card with its action row, billboard on posts with lamps.
-function Surface({ src, post, mini = false }) {
-  if (post.fmt === 'feed') return <div className={`pwr-feed${mini ? ' is-mini' : ''}`}>
-    {mini ? null : <header><span className="pwr-av" /><b>{post.handle || 'feeless'}</b><small>Sponsored</small></header>}
-    <div className="pwr-shot"><Pic src={src} post={post} /><Words post={post} size={mini ? 's' : 'm'} /></div>
-    {mini ? null : <footer><span><Heart size={18} /><MessageCircle size={18} /><Send size={18} /></span><Bookmark size={18} /><p><b>{post.handle || 'feeless'}</b> {post.caption || 'Your caption shows here.'}</p></footer>}
-  </div>;
-  if (post.fmt === 'billboard') return <div className={`pwr-bill${mini ? ' is-mini' : ''}`}>
-    {mini ? null : <span className="pwr-lamps" aria-hidden="true"><i /><i /><i /></span>}
-    <div className="pwr-shot"><Pic src={src} post={post} /><Words post={post} size={mini ? 's' : 'l'} /></div>
-    {mini ? null : <span className="pwr-legs" aria-hidden="true"><i /><i /></span>}
-  </div>;
-  return <div className={`pwr-phone${mini ? ' is-mini' : ''}`}>
-    <div className="pwr-shot"><Pic src={src} post={post} />
-      {mini ? null : <><span className="pwr-bars" aria-hidden="true"><i className="is-done" /><i className="is-now" /><i /></span>
-        <span className="pwr-who"><span className="pwr-av" /><b>{post.handle || 'feeless'}</b><small>2h</small></span></>}
-      <Words post={post} size={mini ? 's' : 'm'} /></div>
-    {mini ? null : <span className="pwr-notch" aria-hidden="true" />}
-  </div>;
+function Pill({ children, seed = 3, tone = '' }) {
+  const [box, svg] = useSketch((rc, w, h, s) => { s.appendChild(rc.path(rr(2, 2, w - 4, h - 4, (h - 4) / 2), { seed, roughness: .9, strokeWidth: 1.6, stroke: 'currentColor' })); }, [seed]);
+  return <span ref={box} className={`cwf-pill ${tone}`}><svg ref={svg} className="cwf-ink" aria-hidden="true" />{children}</span>;
 }
+function Arrow({ seed = 7 }) {   // → between steps (↓ on a phone, turned by CSS)
+  const [box, svg] = useSketch((rc, w, h, s) => {
+    const o = { seed, roughness: 1, strokeWidth: 2.2, stroke: 'currentColor' }; const y = h / 2;
+    s.appendChild(rc.line(4, y, w - 6, y, o)); s.appendChild(rc.line(w - 6, y, w - 16, y - 9, o)); s.appendChild(rc.line(w - 6, y, w - 16, y + 9, o));
+  }, [seed]);
+  return <div ref={box} className="cwf-arrow" aria-hidden="true"><svg ref={svg} className="cwf-ink" /></div>;
+}
+function Branch({ n, seed = 11 }) {   // the week plan forks to each day
+  const [box, svg] = useSketch((rc, w, h, s) => {
+    const o = { seed, roughness: 1.1, strokeWidth: 2.2, stroke: 'currentColor' }; const cx = w / 2;
+    for (let i = 0; i < n; i += 1) { const x = (w / n) * (i + 0.5); s.appendChild(rc.curve([[cx, 2], [cx + (x - cx) * 0.55, h * 0.35], [x, h - 6]], o)); s.appendChild(rc.line(x, h - 3, x - 8, h - 13, o)); s.appendChild(rc.line(x, h - 3, x + 8, h - 13, o)); }
+  }, [n, seed]);
+  return <div ref={box} className="cwf-branch" aria-hidden="true"><svg ref={svg} className="cwf-ink" /></div>;
+}
+function Underline({ seed = 5 }) {
+  const [box, svg] = useSketch((rc, w, h, s) => { s.appendChild(rc.curve([[2, h * 0.6], [w * 0.4, h * 0.2], [w - 2, h * 0.7]], { seed, roughness: 1.4, strokeWidth: 2.4, stroke: 'currentColor' })); }, [seed]);
+  return <span ref={box} className="cwf-under" aria-hidden="true"><svg ref={svg} className="cwf-ink" /></span>;
+}
+const Status = ({ st, run }) => <Pill tone={`is-${st}`}>{st === 'done' ? 'Done' : st === 'running' ? run : 'To do'}</Pill>;
 
-export default function PocWire({ src, kind = 'image', from = null, title = 'Picture', onSave, onClose }) {
-  const [post, setPost] = useState(() => blankPost(title)); const [week, setWeek] = useState({}); const [day, setDay] = useState('');
-  const [err, setErr] = useState(''); const [done, setDone] = useState(''); const [busy, setBusy] = useState(''); const [over, setOver] = useState('');
-  const img = useRef(null); const pic = kind === 'image' ? src : null;
-  useEffect(() => {   // this picture's kept board, else a fresh one
-    try { const kept = JSON.parse(localStorage.getItem(KEY(from)) || 'null'); if (kept?.post) { setPost({ ...blankPost(title), ...kept.post }); setWeek(kept.week || {}); } } catch { /* blocked or empty: start fresh */ }
-  }, [from, title]);
-  useEffect(() => { try { localStorage.setItem(KEY(from), JSON.stringify({ post, week })); } catch { /* full or blocked: the board still works */ } }, [from, post, week]);
-  useEffect(() => { let on = true; loadImg(pic).then(i => { if (on) { img.current = i; if (pic && !i) setErr('The picture could not be read here, so it cannot be drawn into the export.'); } }); return () => { on = false; }; }, [pic]);
+export default function PocWire({ src, kind = 'image', from = null, title = 'Picture', cat = null, doc = null, work = null, setDoc = null, onClose }) {
+  const [rec, setRec] = useState(() => { try { return { mode: 'ai', ...(JSON.parse(localStorage.getItem(KEY(doc?.id, from)) || 'null') || {}) }; } catch { return { mode: 'ai' }; } });
+  const [ask, setAsk] = useState(''); const [err, setErr] = useState(''); const [sending, setSending] = useState(false);
+  const pic = kind === 'image' ? src : null; const live = !!(cat && doc && work);
+  useEffect(() => { try { localStorage.setItem(KEY(doc?.id, from), JSON.stringify(rec)); } catch { /* blocked: the board still works */ } }, [rec, doc?.id, from]);
   useEffect(() => { document.body.classList.add('has-pwr'); const k = e => { if (e.key === 'Escape') onClose?.(); }; window.addEventListener('keydown', k); return () => { document.body.classList.remove('has-pwr'); window.removeEventListener('keydown', k); }; }, [onClose]);
-  const set = patch => { setPost(p => { const n = { ...p, ...patch }; if (day) setWeek(w => planDay(w, day, n)); return n; }); setDone(''); };
-  const place = d => { setWeek(w => planDay(w, d, post)); setDay(d); setDone(''); };
-  const open = d => { setDone(''); if (week[d]) { setPost({ ...week[d] }); setDay(d); } else place(d); };
-  const drop = d => { const { [d]: _gone, ...rest } = week; setWeek(rest); if (day === d) setDay(''); };
-  const fmt = FORMATS.find(f => f[0] === post.fmt) || FORMATS[0]; const n = planned(week);
-  const name = `${fmt[1]}${day ? ` · ${day}` : ''} · ${title}`.slice(0, 60);
-  const exportNow = async () => { if (!img.current && pic) throw new Error('The picture is still loading.'); return renderPost(img.current, post); };
-  const save = async () => { setErr(''); setDone(''); setBusy('save'); try { await onSave?.(await exportNow(), 'wire', from); setDone(`Saved "${name}" into the proof as a new version. The original stays.`); } catch (e) { setErr(e.message || 'Could not save the post.'); } setBusy(''); };
-  const download = async () => { setErr(''); try { const a = document.createElement('a'); a.href = await exportNow(); a.download = `${name.replace(/[^\w-]+/g, '-').slice(0, 40)}.png`; a.click(); } catch (e) { setErr(e.message || 'Could not export the post.'); } };
-  const field = (k, label, ph, max, area) => <label className="pwr-field"><span className="m-label">{label}</span>
-    {area ? <textarea className="m-input" rows={3} maxLength={max} value={post[k]} placeholder={ph} onChange={e => set({ [k]: e.target.value })} data-testid={`pwr-${k}`} />
-      : <input className="m-input" maxLength={max} value={post[k]} placeholder={ph} onChange={e => set({ [k]: e.target.value })} data-testid={`pwr-${k}`} />}</label>;
-  const seg = (k, opts, label) => <div className="m-seg" role="radiogroup" aria-label={label}>{opts.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={post[k] === v} className={post[k] === v ? 'active' : ''} onClick={() => set({ [k]: v })} data-testid={`pwr-${k}-${v}`} data-tip={`${label}: ${l}`}>{l}</button>)}</div>;
-  const dragProps = useMemo(() => ({ draggable: true, onDragStart: e => { e.dataTransfer.setData('text/plain', 'pwr-post'); e.dataTransfer.effectAllowed = 'copy'; } }), []);
+  const st = useMemo(() => flowState(rec, doc, !!src), [rec, doc, src]);
+  useEffect(() => {   // the agent's reply to Draft becomes the week (once; your edits after that stay yours)
+    if (st.dRep && !doc?.busy && !(rec.days || []).length && !rec.draftRead) { const days = parseDays(st.dRep.text); setRec(r => ({ ...r, draftRead: true, days: days.length ? days : blankWeek(), draftLoose: !days.length })); }
+  }, [st.dRep, doc?.busy]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {   // while it works, read its page every 4 s
+    if (!live || !doc?.busy) return undefined;
+    const t = setInterval(() => { if (!document.hidden) work(cat.id, { op: 'ws_open', text: doc.id }).then(j => j?.doc && setDoc?.(j.doc)).catch(() => {}); }, 4000);
+    return () => clearInterval(t);
+  }, [live, doc?.busy, doc?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const send = useCallback(async text => {
+    if (!live) { setErr('Open this from a PoC folder to talk to its agent.'); return false; }
+    setErr(''); setSending(true);
+    try { const j = await work(cat.id, { op: 'ws_build', job: doc.id, text, to: 'both' }); if (j?.doc) setDoc?.(j.doc); setSending(false); return true; } catch (e) { setErr(e.message || 'The agent could not take that.'); setSending(false); return false; }
+  }, [live, cat?.id, doc?.id, work, setDoc]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const now = () => Date.now() / 1000;
+  const browse = async () => { if (rec.mode === 'self') { setRec(r => ({ ...r, browseDone: true })); return; } const at = now(); if (await send(browseAsk(title))) setRec(r => ({ ...r, browseAt: at, draftAt: null, days: [], draftRead: false, approvedAt: null })); };
+  const draft = async () => { if (rec.mode === 'self') { setRec(r => ({ ...r, days: blankWeek(), approvedAt: null })); return; } const at = now(); if (await send(draftAsk(title))) setRec(r => ({ ...r, draftAt: at, days: [], draftRead: false, approvedAt: null })); };
+  useEffect(() => {   // 🔁 Auto-plan weekly: Browse → Draft on their own; a week after the last approval it starts over
+    if (rec.mode !== 'auto' || !live || doc?.busy || sending) return;
+    if (rec.approvedAt && now() - rec.approvedAt > WEEK_S) { setRec(r => ({ ...r, browseAt: null, draftAt: null, days: [], approvedAt: null, draftRead: false })); return; }
+    if (st.char === 'done' && st.browse === 'todo' && !rec.browseAt) browse(); else if (st.browse === 'done' && st.draft === 'todo' && !rec.draftAt) draft();
+  }, [rec.mode, st.browse, st.draft, doc?.busy]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const setDay = (i, text) => setRec(r => ({ ...r, approvedAt: null, days: r.days.map((x, k) => (k === i ? { ...x, text } : x)) }));
+  const addDay = () => setRec(r => { const used = new Set((r.days || []).map(x => x.d)); const d = WEEK.find(x => !used.has(x)); return d ? { ...r, days: [...(r.days || []), { d, text: '' }].sort((a, b) => WEEK.indexOf(a.d) - WEEK.indexOf(b.d)) } : r; });
+  const approve = () => setRec(r => ({ ...r, approvedAt: now() }));
+  const askNow = async e => { e.preventDefault(); const q = ask.trim(); if (!q) return; if (await send(`About the "${STEPS[Math.min(st.at, 3)][1]}" step for ${title}: ${q}`)) setAsk(''); };
+  const lastSaid = [...(doc?.messages || [])].reverse().find(m => m && m.by !== 'you' && !m.media && String(m.text || '').trim());
+  const days = rec.days || []; const self = rec.mode === 'self'; const working = !!doc?.busy || sending;
+  const here = Math.min(st.at, 3); const hot = k => STEPS[here][0] === k && st.at < 4;
+  const tag = k => (st[k] === 'done' ? 'DONE' : st[k] === 'running' || hot(k) ? 'NOW' : st[k] === 'waiting' ? 'WAITING' : 'NEXT');
+  const hooks = st.bRep ? String(st.bRep.text).split(/\n+/).map(l => l.replace(/^\W+/, '').replace(/\*\*/g, '').trim()).filter(l => l.length > 6).slice(0, 3) : [];
 
-  return <div className="pwr" role="dialog" aria-modal="true" aria-label={`Content board: ${title}`} data-testid="poc-wire">
-    <header className="pwr-h">
-      <span className="pwr-t"><span className="m-label">PoC · content board</span><b>{title}</b></span>
-      <div className="m-seg pwr-fmts" role="radiogroup" aria-label="Format">{FORMATS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={post.fmt === k} className={post.fmt === k ? 'active' : ''} onClick={() => set({ fmt: k })} data-testid={`pwr-fmt-${k}`} data-tip={`Lay the post out as a ${l}`}>{l}</button>)}</div>
-      <span className="pwr-acts">
-        <button type="button" className="m-btn" disabled={!!busy} onClick={download} data-tip="Downloads this post as a full-size PNG" data-testid="pwr-download"><Download size={14} /> PNG</button>
-        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Files this post into the proof as a new version; the original stays" data-testid="pwr-save"><Save size={14} /> {busy === 'save' ? 'Saving…' : 'Save to proof'}</button>
-        <button type="button" className="m-btn pwr-x" onClick={onClose} aria-label="Close" data-tip="Close (Esc)" data-testid="pwr-close"><X size={16} /></button></span>
+  return <div className="pwr cwf" role="dialog" aria-modal="true" aria-label={`Creator workflow: ${title}`} data-testid="poc-wire">
+    <header className="cwf-head">
+      <h2 className="cwf-title">CREATOR WORKFLOW<Underline /></h2>
+      <div className="cwf-modes" role="radiogroup" aria-label="How the week is planned">{MODES.map(([k, l, tip], i) => <button key={k} type="button" role="radio" aria-checked={rec.mode === k} className={`cwf-mode${rec.mode === k ? ' is-on' : ''}`} onClick={() => setRec(r => ({ ...r, mode: k }))} data-tip={tip} data-testid={`cwf-mode-${k}`}><Box seed={20 + i} r={14} hot={rec.mode === k}>{l}</Box></button>)}</div>
+      <button type="button" className="cwf-x" onClick={onClose} aria-label="Close" data-tip="Close (Esc)" data-testid="pwr-close"><X size={20} /></button>
     </header>
-    {err ? <p className="pwr-note is-bad" role="alert">⚠ {err}</p> : done ? <p className="pwr-note" role="status" data-testid="pwr-done">{done}</p> : null}
-    <div className="pwr-body">
-      <section className="pwr-stage m-live" aria-label="Post preview">
-        <span className="pwr-tag m-chip ok">{day ? `Editing ${day}` : 'Draft'} · {fmt[2]}×{fmt[3]}</span>
-        <AnimatePresence mode="wait"><motion.div key={post.fmt} className="pwr-surface" {...dragProps} data-tip="Drag onto a day to plan it" data-testid="pwr-surface"
-          initial={{ opacity: 0, scale: 0.96, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: -8 }} transition={{ duration: 0.2 }}>
-          <Surface src={pic} post={post} /></motion.div></AnimatePresence>
-      </section>
-      <aside className="pwr-side m-card" aria-label="Words and framing">
-        {field('headline', 'Headline', 'Big words on the post', 48)}
-        {field('caption', 'Caption', 'What the post says under it', 160, true)}
-        <div className="pwr-two">{field('handle', 'Handle', 'feeless', 24)}{field('cta', 'Button', 'Tap in', 18)}</div>
-        <div className="pwr-row"><span className="m-label">Picture</span>{seg('fit', FITS, 'Picture')}</div>
-        <div className="pwr-row"><span className="m-label">Words</span>{seg('spot', SPOTS, 'Words')}</div>
-        <div className="pwr-row"><span className="m-label">Keep in view</span>
-          <div className="pwr-focus" role="radiogroup" aria-label="Keep in view">{FOCI.map(f => <button key={f} type="button" role="radio" aria-checked={post.focus === f} className={post.focus === f ? 'active' : ''} onClick={() => set({ focus: f })} data-tip={`Crop around ${f}`} aria-label={`Crop around ${f}`} />)}</div></div>
-        {day ? <label className="pwr-field"><span className="m-label">Posts at ({day})</span><input type="time" className="m-input" value={post.time} onChange={e => set({ time: e.target.value })} data-testid="pwr-time" /></label> : null}
-      </aside>
+    {err ? <p className="cwf-err" role="alert">⚠ {err}</p> : null}
+    <div className="cwf-board">
+      <p className="cwf-here" style={{ '--col': st.at >= 4 ? 5 : here * 2 + 1 }} data-testid="cwf-here"><i aria-hidden="true">≈</i>{st.at >= 4 ? 'WEEK APPROVED · 4/4' : `YOU ARE HERE · ${here + 1}/4`}<i aria-hidden="true">≈</i></p>
+      <div className="cwf-flow">
+        <Box seed={2} className="cwf-char" hot={hot('char')} data-testid="cwf-step-char">
+          {pic ? <img src={pic} alt="" draggable={false} /> : <span className="cwf-nopic">{kind === 'video' ? 'Video' : 'No picture'}</span>}
+          <span className="cwf-cap">{String(title).slice(0, 22)} · {st.char === 'done' ? 'Ready' : 'Not ready'}</span>
+          {st.char === 'done' ? <span className="cwf-tick" aria-label="Ready"><Check size={16} strokeWidth={3.5} /></span> : null}
+        </Box>
+        <Arrow seed={31} />
+        <Box seed={4} className="cwf-step" hot={hot('browse')} data-testid="cwf-step-browse">
+          <b className="cwf-h">Browse sources</b>
+          <ul className="cwf-src">
+            {[['YouTube', 'Find hook patterns'], ['TikTok', 'Compare clip formats']].map(([site, job]) => <li key={site}><span className={`cwf-chk is-${st.browse}`} aria-hidden="true">{st.browse === 'done' ? <Check size={14} strokeWidth={3.5} /> : null}</span><span className="cwf-job">{site} · {job}</span><Status st={st.browse} run="Browsing" /></li>)}
+          </ul>
+          {hooks.length ? <ol className="cwf-found" data-testid="cwf-found">{hooks.map((h, i) => <li key={i}>{h.slice(0, 90)}</li>)}</ol> : null}
+          {st.browse !== 'running' ? <button type="button" className="cwf-go" disabled={working || st.char !== 'done'} onClick={browse} data-tip={self ? 'Mark it done: you browsed yourself' : 'The agent browses YouTube and TikTok for this character. Paid model call'} data-testid="cwf-browse">{self ? (st.browse === 'done' ? 'Browsed ✓' : 'I browsed') : st.browse === 'done' ? 'Browse again' : 'Browse now'}</button> : null}
+        </Box>
+        <Arrow seed={33} />
+        <Box seed={6} className="cwf-step" hot={hot('draft')} data-testid="cwf-step-draft">
+          <Pill seed={41}>{tag('draft')}</Pill><b className="cwf-h">Draft the week</b>
+          {st.draft !== 'running' ? <button type="button" className="cwf-go" disabled={working || (!self && st.browse !== 'done')} onClick={draft} data-tip={self ? 'Start Mon / Wed / Fri cards to write yourself' : 'The agent drafts the week from what it found. Paid model call'} data-testid="cwf-draft">{self ? 'Write it' : days.length ? 'Draft again' : 'Draft it'}</button> : <small className="cwf-wait">Drafting…</small>}
+        </Box>
+        <Arrow seed={35} />
+        <Box seed={8} className="cwf-step" hot={hot('review')} data-testid="cwf-step-review">
+          <Pill seed={43} tone={st.review === 'done' ? 'is-done' : ''}>{st.review === 'done' ? 'APPROVED' : tag('review')}</Pill><b className="cwf-h">Review &amp; approve</b>
+          {st.review !== 'waiting' ? <button type="button" className="cwf-go" disabled={!days.some(x => x.text.trim())} onClick={approve} data-tip="Locks this week. Editing a day opens it again" data-testid="cwf-approve">{st.review === 'done' ? 'Approved ✓' : 'Approve week'}</button> : null}
+        </Box>
+      </div>
+      <div className="cwf-lower">
+        <div className="cwf-chatcol"><span className="cwf-stem" aria-hidden="true" />
+          <Box seed={12} className="cwf-chat" data-testid="cwf-chat">
+            <b className="cwf-h is-s">Chat with agent</b>
+            <p className="cwf-said" data-testid="cwf-said">{working ? 'Working on it…' : lastSaid ? String(lastSaid.text).replace(/\*\*/g, '').slice(0, 220) : live ? 'Nothing said yet. Ask it about this step.' : 'Open this from a PoC folder to talk to its agent.'}</p>
+            <form className="cwf-ask" onSubmit={askNow}><Box seed={14} r={12}><input value={ask} onChange={e => setAsk(e.target.value)} placeholder="Ask about this step…" aria-label="Ask about this step" disabled={!live || working} data-testid="cwf-ask" />
+              <button type="submit" disabled={!live || working || !ask.trim()} aria-label="Send" data-tip="Sends it to this proof's agent. Paid model call" data-testid="cwf-send"><Send size={18} /></button></Box></form>
+          </Box>
+        </div>
+        <div className="cwf-weekcol">
+          <span className="cwf-stem" aria-hidden="true" />
+          <p className="cwf-wk"><i aria-hidden="true">≈</i>Week plan · {st.review === 'done' ? 'approved' : days.length ? 'draft' : 'empty'}<i aria-hidden="true">≈</i></p>
+          {days.length ? <><Branch n={days.length} />
+            <div className="cwf-days" style={{ '--n': days.length }}>{days.map((x, i) => <Box key={x.d} seed={50 + i} r={14} className="cwf-day" data-testid={`cwf-day-${x.d}`}>
+              <b>{x.d}<Underline seed={60 + i} /></b>
+              <textarea value={x.text} onChange={e => setDay(i, e.target.value)} rows={3} maxLength={140} placeholder="What goes out" aria-label={`${x.d} post`} />
+            </Box>)}</div>
+            {days.length < 7 ? <button type="button" className="cwf-add" onClick={addDay} data-tip="Add another post day" data-testid="cwf-add">+ day</button> : null}
+            {rec.draftLoose ? <small className="cwf-wait">It did not write the days as "Mon: …", so the cards start empty. Its reply is in the chat.</small> : null}</>
+            : <small className="cwf-wait">{st.draft === 'running' ? 'Drafting the week…' : 'The week shows here once it is drafted.'}</small>}
+        </div>
+      </div>
     </div>
-    <section className="pwr-week" aria-label="Week of content">
-      <header><span className="m-label">Week of content <em>{n}/7 planned</em></span><span className="pwr-meter" aria-hidden="true"><i style={{ transform: `scaleX(${n / 7})` }} /></span></header>
-      <ol>{DAYS.map((d, i) => { const p = week[d];
-        return <li key={d} style={{ '--i': i }} className={`${p ? 'is-set' : ''}${day === d ? ' is-on' : ''}${over === d ? ' is-over' : ''}`}
-          onDragOver={e => { e.preventDefault(); setOver(d); }} onDragLeave={() => setOver('')} onDrop={e => { e.preventDefault(); setOver(''); place(d); }}>
-          <button type="button" className="pwr-day" onClick={() => open(d)} data-testid={`pwr-day-${d}`} data-tip={p ? `Edit ${d}'s post` : `Plan this post on ${d}`}>
-            <span className="pwr-dh"><b>{d}</b>{p ? <small>{p.time}</small> : null}</span>
-            {p ? <span className="pwr-thumb"><Surface src={pic} post={p} mini /></span> : <span className="pwr-empty"><Plus size={16} /><small>Drop or tap</small></span>}
-            {p ? <small className="pwr-dl">{(FORMATS.find(f => f[0] === p.fmt) || FORMATS[0])[1]}</small> : null}
-          </button>
-          {p ? <button type="button" className="pwr-rm" onClick={() => drop(d)} aria-label={`Clear ${d}`} data-tip={`Clear ${d}`} data-testid={`pwr-rm-${d}`}><Trash2 size={13} /></button> : null}
-        </li>; })}</ol>
-    </section>
   </div>;
 }
