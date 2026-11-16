@@ -278,3 +278,24 @@ def run_of(folders, new):
         more = [f for f in rows if any(same_game(f, x) for x in file_)]
         rows = [f for f in rows if f not in more]; file_ += more; grew = bool(more)
     return len(file_)
+
+
+def period_of(status):
+    """🏀 The period a live status is in: '8:41 - 1st' / 'End of 1st' → '1st', 'Halftime' → 'Half', '2:10 - OT' → 'OT'. Pure.
+    Owner 2026-11-15: 'End of 1st' and 'Halftime' each posted a fresh score line for a period already said."""
+    t = str(status or '')
+    m = re.search(r'(\d+(?:st|nd|rd|th)|OT\d*|Half)', t, re.I)
+    return (m.group(1).capitalize() if m.group(1).lower().startswith('half') else m.group(1)) if m else t.split(' - ')[-1].strip()
+
+
+def dedupe_scores(chat):
+    """🧹 A chat without repeated score lines: a 🏟 line whose exact words were already said is dropped; every other line stays, in order. Pure."""
+    seen = set(); out = []
+    for m in chat or []:
+        t = str((m or {}).get('text') or '')
+        if t.startswith('🏟'):
+            if t in seen:
+                continue
+            seen.add(t)
+        out.append(m)
+    return out

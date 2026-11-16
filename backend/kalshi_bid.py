@@ -344,7 +344,7 @@ def room_view(k):
     return {'ticker': k.get('ticker'), 'side': k.get('side'), 'title': k.get('title'), 'price': px or None, 'count': k.get('count'), 'filled': n, 'cost': cost,
             'now': now, 'pnl': round(now - cost, 2) if now is not None and n else None, 'livePx': live, 'status': k.get('status'), 'outcome': k.get('outcome'),
             'placed': bool(k.get('orderId')), 'offer': k.get('offer'), 'conf': k.get('conf'), 'why': k.get('why') if isinstance(k.get('why'), str) else None,
-            'hist': [[int(t), round(n * float(v), 2)] for t, v in (k.get('pxHist') or [])[-48:] if v is not None] if n else [], 'warn': k.get('warn'),
+            'hist': [[int(t), round(n * float(v), 2)] for t, v in (k.get('pxHist') or [])[-48:] if v is not None] if n else [], 'warn': k.get('warn'), 'idxWarn': k.get('idxWarn'),
             'kind': k.get('kind') or 'single', 'legs': [{x: g.get(x) for x in ('title', 'side', 'price')} for g in k.get('legs') or []], 'maxPx': k.get('maxPx')}
 
 
@@ -367,6 +367,8 @@ def outcome_line(k, has_key, closed=None):
         return f" Parlay not bought: {k.get('why') or k.get('status')}."
     if k.get('orderId'):
         return f" 🎯 Real Kalshi bid placed: {side}, {k.get('count')} × {float(k.get('price') or 0):.2f} = ${float(k.get('usd') or 0):.2f}. Open its game to watch it live."
+    if k.get('idxWarn') and k.get('status') == 'waiting':   # 💵 its index is short: said before the tap, not after a refusal
+        return f" ⚠ {k['idxWarn']}" + outcome_line({**k, 'idxWarn': None}, has_key, closed)
     if k.get('warn') and k.get('status') == 'waiting':
         return f" ⚠ {k['warn']}" + outcome_line({**k, 'warn': None}, has_key)
     if k.get('status') == 'waiting' and k.get('offer'):
@@ -536,6 +538,24 @@ def shard_dollars(j, market=None):
         if ix is not None and row.get('exchange_index') == ix:
             return round(float(row.get('balance') or 0), 2)
     return round(float((j or {}).get('balance') or 0) / 100, 2)
+
+
+def index_short(c, balance_usd, price, market=None):
+    """⚠ Before he taps Approve: the words when this game's exchange index cannot cover the bid plus his floor, else None. Pure.
+    Owner 2026-11-15: PoB #17 died at send with insufficient_shard_balance; now he sees it on the ticket first."""
+    c = cfg(c)
+    try:
+        px = float(price); bal = float(balance_usd)
+    except (TypeError, ValueError):
+        return None
+    if not 0 < px < 1:
+        return None
+    usd = round(max(1, int(c['bidUsd'] // px)) * px, 2)
+    if bal - usd >= c['floorUsd']:
+        return None
+    ix = (market or {}).get('exchange_index'); where = f'exchange index {ix}' if ix is not None else 'your Kalshi account'
+    return (f"Only ${bal:.2f} on {where}, and this bid needs ${usd:.2f} plus your ${c['floorUsd']:.2f} floor. "
+            f"Move money onto {where} at kalshi.com › Account › Exchange Indexes before you tap Approve.")
 
 
 def plain_why(why):

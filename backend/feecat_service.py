@@ -5454,6 +5454,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
         base['kalshi'] = _kb.ticket(kb_pick_, next(m for m in kb_rows_ if m['ticker'] == kb_pick_['ticker']), rid, now)
         if _kb.sends_now(kb_cfg_, by_):   # 🎯 he asked for this PoB: it bids now, inside his caps (an auto run only when AUTO is on)
             await _kalshi_send(cat, base['kalshi'])
+    if base.get('kalshi') and base['kalshi'].get('status') == 'waiting' and not base['kalshi'].get('legs'):   # ⚠ a ticket waiting for his tap says first when its index is short
+        await _kalshi_index_warn(cat, base['kalshi'])
     try:   # 🏈 the real games it is about, so it can update live and be graded from the final score
         async with httpx.AsyncClient(timeout=10) as http_g:
             boards_ = await asyncio.gather(*(_tools.sport_board(http_g, s) for s in _tools.SPORTS))
@@ -5467,6 +5469,21 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
     run_ = _pob.run_of(cat.get('pobFolders'), {**base, 'topic': rd['topic'], 'at': base.get('at') or now})   # 🗂 a refile is the next reading in its game's file
     legs_ = _pob.legs_of(rd['topic']); _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost, **({'parlay': {'legs': legs_, 'agreed': len(both), 'whole': len(both) >= legs_}} if legs_ else {})}, f"🎲 PoB on {rd['topic']} is filed{f' as reading {run_} in its file' if run_ > 1 else ''}: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on." + (f" A {legs_} leg parlay: {'all legs agreed' if len(both) >= legs_ else 'not enough agreed legs, so no parlay'}." if legs_ else '') + _kb.outcome_line(base.get('kalshi'), bool(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR)), base.get('closedGame')))
+
+
+async def _kalshi_index_warn(cat, tk):
+    """⚠ Read only: this ticket's market index balance vs the bid + his floor. Sets tk['idxWarn'] when he must move money first; never sends or moves anything."""
+    kid_, pem_ = _kb.split_key(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR) or '')
+    if not kid_ or not tk.get('ticker'):
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as h_:
+            mk_ = await _kb.market(h_, tk['ticker']); bal_ = await _kb.balance(h_, kid_, pem_, mk_)
+        w_ = _kb.index_short(cat.get('kalshiCfg'), bal_, tk.get('price'), mk_)
+        if w_:
+            tk['idxWarn'] = w_
+    except Exception as e:   # noqa: BLE001 — the ticket still shows; the send-time check still guards
+        print(f'[kalshi] index read: {str(e)[:80]}')
 
 
 async def _pob_tick(http, cat, now):
@@ -9350,6 +9367,11 @@ async def _pob_grade_pass(http, store, now):
         await _kalshi_settle_pass(http, store, now)
     except Exception as e:   # noqa: BLE001 — the scoreboard pass still runs
         print(f'[kalshi] settle: {str(e)[:100]}')
+    for c_ in store['cats'].values():   # 🧹 repeated score lines leave the chat (owner 2026-11-15: 5 copies of one score)
+        if c_.get('chat'):
+            kept_ = _pob.dedupe_scores(c_['chat'])
+            if len(kept_) != len(c_['chat']):
+                c_['chat'] = kept_
     open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and f.get('gradedBy') not in _stamp.OUTSIDE]   # 🔒 a hand mark never stops the scoreboard
     owner_of = {id(f): c for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:]}
     for sport in {g.get('sport') for f in open_ for g in f['games'] if g.get('sport')}:
@@ -9362,7 +9384,7 @@ async def _pob_grade_pass(http, store, now):
                         f.setdefault('ownerMark', f['graded'])   # the hand mark from before the results stays, as a note
                     f['graded'], f['gradedBy'] = grade, 'scoreboard'
                 for g_ in f['games']:   # 🏀 once a quarter or period, the score lands in its chat
-                    per_ = str(g_.get('status') or '').split(' - ')[-1].strip()   # '8:41 - 1st' → '1st' (it took the clock, so it posted on every pass)
+                    per_ = _pob.period_of(g_.get('status'))   # '8:41 - 1st' / 'End of 1st' → '1st' (it took the clock, so it posted on every pass)
                     if g_.get('state') == 'in' and per_ and g_.get('said') != per_:
                         g_['said'] = per_; c_ = owner_of.get(id(f))
                         key_ = f"{g_.get('id')}:{per_}"; said_ = c_.setdefault('scoreSaid', []) if c_ is not None else []

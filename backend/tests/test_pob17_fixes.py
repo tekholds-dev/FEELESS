@@ -90,3 +90,21 @@ def test_team_logos_only_from_espn():
                                                 {'team': {'displayName': 'Bad', 'logos': [{'href': 'https://evil.example/x.png'}]}}]}]}]}
     got = pt.parse_teams(data)
     assert got['thunder'].endswith('okc.png') and got['oklahoma city thunder'] == got['thunder'] and 'bad' not in got
+
+
+def test_index_short_warns_before_the_tap():
+    import kalshi_bid as kb
+    c = {'bidUsd': 2, 'dayUsd': 2, 'floorUsd': 2}
+    w = kb.index_short(c, 0.0, 0.40, {'exchange_index': 3})
+    assert w and 'exchange index 3' in w and '$1.60' in w and 'before you tap Approve' in w
+    assert kb.index_short(c, 5.0, 0.40, {'exchange_index': 3}) is None
+    assert kb.index_short(c, None, 0.40) is None
+    line = kb.outcome_line({'status': 'waiting', 'idxWarn': 'Only $0.00 on exchange index 3', 'side': 'yes', 'title': 'T'}, True)
+    assert 'Only $0.00 on exchange index 3' in line
+
+
+def test_score_periods_and_duplicate_lines():
+    import pob
+    assert pob.period_of('8:41 - 1st') == '1st' and pob.period_of('End of 1st') == '1st' and pob.period_of('Halftime') == 'Half' and pob.period_of('2:10 - OT') == 'OT'
+    chat = [{'text': '🏟 A: 1 - 0 · 8:41 - 1st.'}, {'text': 'hi'}, {'text': '🏟 A: 1 - 0 · 8:41 - 1st.'}, {'text': '🏟 A: 2 - 0 · 2nd.'}, {'text': 'hi'}]
+    assert [m['text'] for m in pob.dedupe_scores(chat)] == ['🏟 A: 1 - 0 · 8:41 - 1st.', 'hi', '🏟 A: 2 - 0 · 2nd.', 'hi']
