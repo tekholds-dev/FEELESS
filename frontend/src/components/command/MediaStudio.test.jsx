@@ -118,6 +118,22 @@ test('📎 a reference is added by link and an image keeps the picked reference'
   act(() => root.unmount());
 });
 
+test('✏ FLUX Video Edit: your clip + your words on OpenRouter, no character needed, and it waits for what to change', async () => {
+  const SWAP = [{ id: 'fal-wan-replace', label: 'Wan 2.2 Animate · Replace', why: 'swap', rate: 0.06, by: 'frames', provider: 'fal', needsChar: true, ready: false }, { id: 'or-flux-edit', label: 'FLUX Video Edit', why: 'edit', rate: 0.03, by: 'seconds', provider: 'openrouter', needsChar: false, ready: true }];
+  const work = jest.fn(async (id, b) => (b.op === 'media_models' ? { models: MODELS, linked: ['openrouter'], pick: {}, providers: { ...PROV, openrouter: { name: 'OpenRouter', signup: 'https://openrouter.ai', keys: 'https://openrouter.ai/settings/keys' } }, swap: SWAP, swapMaxS: 15 } : { doc: { messages: [] } }));
+  const doc = { messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Street', secs: 10, fps: 30 } }] };   // no character picture
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('swap-model-fal-wan-replace').disabled).toBe(true);   // fal.ai is not linked: its swaps cannot be picked
+  expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('Say what to change');
+  await act(async () => { const el = q('swap-note'); Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, 'make it night with neon signs'); el.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(q('media-swap').textContent).toContain('about $0.30 on your OpenRouter');   // 10 s × $0.03
+  expect(q('swap-go').textContent).toContain('Edit the clip');
+  await act(async () => q('swap-go').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'make it night with neon signs', tools: { swap: 'or-flux-edit', clip: 'mclip' } });
+  await act(async () => root.unmount());
+});
+
 test('🎭 swap into a clip: the price comes from the clip, the rights tick gates adding one, and Swap sends the clip + model', async () => {
   const SWAP = [{ id: 'fal-wan-replace', label: 'Wan 2.2 Animate · Replace', why: 'swap', rate: 0.06, by: 'frames', ready: true }, { id: 'fal-kling3-motion', label: 'Kling 3.0 Motion Control', why: 'moves', rate: 0.126, by: 'seconds', ready: true }];
   const work = jest.fn(async (id, b) => (b.op === 'media_models' ? { models: MODELS, linked: ['fal'], pick: { image: 'fal-flux-schnell', video: 'fal-wan22-5b' }, providers: PROV, swap: SWAP, swapMaxS: 15 } : { doc: { messages: [] } }));

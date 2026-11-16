@@ -94,7 +94,18 @@ V2V = {
                         'Swaps the person in your clip for the character: same scene, camera, light and moves', 0.06, 'frames'),   # 580p: $0.06 per 16 frames
     'fal-kling3-motion': ('fal-ai/kling-video/v3/standard/motion-control', 'Kling 3.0 Motion Control',
                           "The character does your clip's exact moves, in the character picture's own scene", 0.126, 'seconds'),
+    # ✏ owner 2026-11-16 ("we could do vid to vid through openrouter using flux edit"): read 2026-11-16 from OpenRouter's /videos/models
+    # ($0.03 per output second) and the model's llms.txt: POST /videos with input_references [{type: video_url, video_url: {url}}] and a prompt.
+    # Your clip in, edited by your words (add, remove or replace things, restyle the scene); it keeps the clip's length and sound. No character.
+    'or-flux-edit': ('black-forest-labs/flux-video-edit', 'FLUX Video Edit',
+                     'Edits your own clip from your words: add, remove or replace things, restyle the scene. Same length and sound', 0.03, 'seconds'),
 }
+V2V_PROVIDER = {'or-flux-edit': 'openrouter'}   # every other swap runs on fal.ai
+V2V_NO_CHAR = {'or-flux-edit'}                  # an edit needs your words, not a character picture
+
+
+def v2v_provider(model_id):
+    return V2V_PROVIDER.get(model_id, 'fal')
 V2V_RES = '580p'          # Wan: 480p $0.04 · 580p $0.06 · 720p $0.08 per billed second (16 frames)
 MAX_CLIP_S = 15           # a clip longer than this is refused (cost stays under ~$2 a swap)
 
@@ -109,8 +120,13 @@ def v2v_cost(model_id, seconds, fps=30):
 def v2v_req(model_id, key, image, video, prompt=''):
     """→ (method, url, headers, json) for one swap. `image` / `video` = data URLs or https URLs. Pure."""
     if model_id not in V2V:
-        raise ValueError('Pick Wan Replace or Kling Motion Control.')
+        raise ValueError('Pick Wan Replace, Kling Motion Control or FLUX Video Edit.')
     ep = V2V[model_id][0]
+    if model_id == 'or-flux-edit':
+        if not str(prompt or '').strip():
+            raise ValueError('Say what to change in the clip.')
+        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
+            'model': ep, 'prompt': str(prompt)[:1500], 'input_references': [{'type': 'video_url', 'video_url': {'url': video}}]}
     body = {'image_url': image, 'video_url': video}
     if model_id == 'fal-wan-replace':
         body.update(resolution=V2V_RES, video_quality='high')
@@ -120,7 +136,8 @@ def v2v_req(model_id, key, image, video, prompt=''):
 
 
 def v2v_list(linked):
-    return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'ready': 'fal' in linked} for k, (_e, lb, why, rate, by) in V2V.items()]
+    return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'provider': v2v_provider(k), 'needsChar': k not in V2V_NO_CHAR, 'ready': v2v_provider(k) in linked}
+            for k, (_e, lb, why, rate, by) in V2V.items()]
 
 
 ORDER = ('fal', 'replicate', 'openrouter')

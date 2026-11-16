@@ -30,7 +30,7 @@ def test_requests_match_fal_schemas_and_costs_follow_each_models_billing():
         mg.v2v_req('or-seedance-fast', 'k', 'I', 'V')
     assert mg.v2v_cost('fal-wan-replace', 10, 32) == 1.2        # 10 s × 32 fps / 16 = 20 billed s × $0.06
     assert mg.v2v_cost('fal-kling3-motion', 10, 60) == 1.26     # Kling bills real seconds
-    assert {r['id']: r['ready'] for r in mg.v2v_list({'openrouter'})} == {'fal-wan-replace': False, 'fal-kling3-motion': False}
+    assert {r['id']: r['ready'] for r in mg.v2v_list({'openrouter'})} == {'fal-wan-replace': False, 'fal-kling3-motion': False, 'or-flux-edit': True}
     assert mg.catalog({'fal'})['swapMaxS'] == 15
 
 
@@ -123,3 +123,57 @@ def test_no_fal_no_swap_and_no_character_no_swap(monkeypatch, tmp_path):
     d = fs._ws_load('g', ws); d.pop('character', None); d['messages'] = [m for m in d['messages'] if m['media']['kind'] != 'image']; fs._ws_save('g', d)
     r = post(op='media_make', job=ws, text='', tools={'swap': 'fal-kling3-motion', 'clip': clip['id']})
     assert r.status_code == 400 and 'character' in r.json()['detail']
+
+
+OR_KEY = 'sk-or-v1-' + 'a' * 40
+
+
+def test_flux_edit_request_matches_openrouters_videos_schema():
+    """✏ owner 2026-11-16: FLUX Video Edit on OpenRouter (read from /api/v1/videos/models + the model's llms.txt the same day)."""
+    _, url, h, b = mg.v2v_req('or-flux-edit', OR_KEY, None, 'data:video/mp4;base64,BB', 'make it night')
+    assert url == 'https://openrouter.ai/api/v1/videos' and h['Authorization'] == f'Bearer {OR_KEY}'
+    assert b == {'model': 'black-forest-labs/flux-video-edit', 'prompt': 'make it night', 'input_references': [{'type': 'video_url', 'video_url': {'url': 'data:video/mp4;base64,BB'}}]}
+    with pytest.raises(ValueError):
+        mg.v2v_req('or-flux-edit', OR_KEY, None, 'V', '  ')   # an edit with no words is refused before any call
+    assert mg.v2v_cost('or-flux-edit', 10) == 0.3 and mg.v2v_provider('or-flux-edit') == 'openrouter' and mg.v2v_provider('fal-wan-replace') == 'fal'
+
+
+def test_flux_edit_runs_on_openrouter_with_the_clip_and_no_character(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); ws = _folder(fs, store, tmp_path, fal=False); real = fs._media_run
+    post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', **kw})
+    async def clip_len(p):
+        return 10.0, 30.0
+    async def no_run(*a):
+        return None
+    monkeypatch.setattr(fs, '_clip_len', clip_len); monkeypatch.setattr(fs, '_media_run', no_run)
+    d = fs._ws_load('g', ws); d.pop('character', None); fs._ws_save('g', d)   # no character: an edit does not need one
+    clip = post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True}).json()['doc']['messages'][-1]['media']
+    r = post(op='media_make', job=ws, text='make it night', tools={'swap': 'or-flux-edit', 'clip': clip['id']})
+    assert r.status_code == 400 and 'Link OpenRouter' in r.json()['detail']
+    ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
+    r = post(op='media_make', job=ws, text='', tools={'swap': 'or-flux-edit', 'clip': clip['id']})
+    assert r.status_code == 400 and 'what to change' in r.json()['detail']
+    r = post(op='media_make', job=ws, text='make it night, neon signs', tools={'swap': 'or-flux-edit', 'clip': clip['id']})
+    assert r.status_code == 200, r.text
+    md = r.json()['doc']['messages'][-1]['media']
+    assert md['provider'] == 'openrouter' and md['usd'] == 0.3 and 'fromImg' not in md and md['fromClip']['mid'] == clip['id']
+    sent = []
+    class H:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def request(self, meth, url, headers=None, json=None):
+            sent.append((url, headers, json))
+            return _R(202, {'id': 'vid1', 'polling_url': 'https://openrouter.ai/api/v1/videos/vid1', 'status': 'pending'})
+        async def get(self, url, headers=None):
+            return _R(200, {'status': 'completed'})
+        def stream(self, meth, url, **kw):
+            sent.append((url, kw.get('headers'), None))
+            return _R(200, None, b'EDITED')
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **kw: H()); monkeypatch.setattr(fs._mg, 'POLL_S', 0)
+    asyncio.run(real('g', ws, md['id']))
+    url, heads, body = sent[0]
+    assert url == 'https://openrouter.ai/api/v1/videos' and heads['Authorization'] == f'Bearer {OR_KEY}' and body['model'] == 'black-forest-labs/flux-video-edit'
+    assert base64.b64decode(body['input_references'][0]['video_url']['url'].split(',', 1)[1]) == MP4 and body['prompt'].endswith('make it night, neon signs')
+    assert sent[-1][0] == 'https://openrouter.ai/api/v1/videos/vid1/content'
+    done = [m for m in fs._ws_load('g', ws)['messages'] if m.get('media')][-1]['media']
+    assert done['status'] == 'done' and (tmp_path / 'media' / 'g' / f"{md['id']}.mp4").read_bytes() == b'EDITED'

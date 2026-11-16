@@ -8351,25 +8351,28 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
     without fal.ai linked; the list-price estimate rides on the card before it starts."""
     mid_ = str(t_.get('swap') or '')
     if mid_ not in _mg.V2V:
-        raise HTTPException(400, 'Pick Wan Replace or Kling Motion Control.')
-    if 'fal' not in linked:
-        raise HTTPException(400, 'Link fal.ai first: the swap runs on your own fal.ai account.')
+        raise HTTPException(400, 'Pick Wan Replace, Kling Motion Control or FLUX Video Edit.')
+    prov_ = _mg.v2v_provider(mid_); edit_ = mid_ in _mg.V2V_NO_CHAR
+    if prov_ not in linked:
+        raise HTTPException(400, f"Link {_mg.PROVIDERS[prov_]['name']} first: this runs on your own {_mg.PROVIDERS[prov_]['name']} account.")
     cmd_ = (_media_msg(doc_, str(t_.get('clip') or '')) or {}).get('media') or {}
     if not cmd_.get('clip') or cmd_.get('status') != 'done' or not str(cmd_.get('url') or '').startswith('/api/cats/media/'):
         raise HTTPException(400, 'Add your clip to this folder first.')
-    img_ = str(t_.get('img') or (doc_.get('character') or {}).get('mid') or '')
-    smd_ = (_media_msg(doc_, img_) or {}).get('media') or {}
-    if smd_.get('status') != 'done' or smd_.get('kind') != 'image' or not str(smd_.get('url') or '').startswith('/api/cats/media/'):
+    if edit_ and not str(text or '').strip():
+        raise HTTPException(400, 'Say what to change in the clip, e.g. "make it night, neon signs".')
+    img_ = '' if edit_ else str(t_.get('img') or (doc_.get('character') or {}).get('mid') or '')
+    smd_ = (_media_msg(doc_, img_) or {}).get('media') or {} if img_ else {}
+    if not edit_ and (smd_.get('status') != 'done' or smd_.get('kind') != 'image' or not str(smd_.get('url') or '').startswith('/api/cats/media/')):
         raise HTTPException(400, 'Make or pick the character picture first (👤 Make him the character).')
     if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
         raise HTTPException(429, 'Three are already making. Wait for one to finish.')
     ep_, label_ = _mg.V2V[mid_][:2]; usd_ = _mg.v2v_cost(mid_, cmd_.get('secs') or _mg.MAX_CLIP_S, cmd_.get('fps') or 30)
     note_ = re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time())
-    words_ = f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else '')
+    words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
     doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': words_, 'at': now_,
-        'media': {'id': jid, 'kind': 'video', 'provider': 'fal', 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
-                  'status': 'queued', 'at': now_, 'swap': True, 'fromImg': {'mid': img_, 'url': smd_['url']}, 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}}}]
+        'media': {'id': jid, 'kind': 'video', 'provider': prov_, 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
+                  'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}}}]
     _ws_save(cat_id, doc_)
     asyncio.create_task(_media_run(cat_id, ws_id, jid))
     return {'doc': _ws_view(cat_id, ws_id)}
