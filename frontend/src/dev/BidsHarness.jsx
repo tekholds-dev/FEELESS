@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ProofTools } from '../components/command/ProofTools';
 import { PobShelf } from '../components/command/CatWorkbench';
+import { LiveBidCard } from '../components/command/LiveBidCard';
 import '../styles/meta.css';
 import '../styles/terminal.css';
 
@@ -23,6 +24,7 @@ function FileShelf() {
 }
 export default function BidsHarness() {
   const [said, setSaid] = useState([]);
+  if (window.location.search.includes('watch')) return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}><section className="cwb" style={{ maxWidth: 720 }}><LiveBidCard f={{ ...FILE[3], games: [{ id: new URLSearchParams(window.location.search).get('watch') || '401909993', sport: 'nba', side: 'Oklahoma City Thunder', state: 'pre' }] }} onClose={() => {}} /></section></main>;   // `?watch=<espn id>`: the 📺 card on a real game
   if (window.location.search.includes('file')) return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}><FileShelf /></main>;
   return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}>
     <ProofTools kind="bids" onCommand={t => setSaid(x => [t, ...x].slice(0, 5))} loadCalls={window.location.search.includes('slip') ? () => Promise.resolve(SLIP) : window.location.search.includes('bid') ? () => Promise.resolve(BID) : null} />

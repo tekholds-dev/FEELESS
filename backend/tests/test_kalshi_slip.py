@@ -165,7 +165,17 @@ def test_a_pob_with_teams_asks_team_or_parlay_then_files_the_answer(monkeypatch)
     assert r.status_code == 200, r.text
     assert cat['chat'][-1]['ask']['chips'] == ['Team to win', 'Parlay slip'] and not cat.get('pobAsk')   # nothing starts before he answers
     c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'Parlay slip'})
-    assert cat['pobAsk'] == 'rockets vs wizards parlay slip' and 'One parlay slip' in cat['chat'][-1]['text'] and not cat.get('pobModeAsk')
+    assert not cat.get('pobAsk') and not cat.get('pobModeAsk') and cat['chat'][-1]['ask']['chips'] == kb.LEG_CHIPS   # then: how many legs
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'Max legs (4)'})
+    assert cat['pobAsk'] == 'rockets vs wizards parlay slip 4 legs' and 'One parlay slip' in cat['chat'][-1]['text'] and not cat.get('pobLegsAsk')
+    cat.pop('pobAsk'); fs._POB_WANT.pop('g', None)
+    # 🧩 its team to win already bid on this game today: the refile offers only the parlay slip
+    cat['pobFolders'] = [{'id': 'f1', 'at': __import__('time').time(), 'topic': 'Rockets vs Wizards team to win', 'kalshi': {'id': 'kb1', 'title': 'Houston wins', 'status': 'filled', 'orderId': 'o1'}}]
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob rockets vs wizards'})
+    assert cat['chat'][-1]['ask']['chips'] == ['Parlay slip'] and 'Houston wins' in cat['chat'][-1]['text']
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'Parlay slip'})
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': '3 legs'})
+    assert cat['pobAsk'] == 'rockets vs wizards parlay slip 3 legs'
     cat.pop('pobAsk'); fs._POB_WANT.pop('g', None)
     c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob rockets vs wizards team to win'})
     assert cat['pobAsk'] == 'rockets vs wizards team to win'   # he already said which: no question

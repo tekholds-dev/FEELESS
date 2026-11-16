@@ -5131,6 +5131,16 @@ async def _kalshi_slip_send_raw(cat, tk):
     return tk
 
 
+def _pob_team_bid(cat, topic, now=None):
+    """The team-to-win bid already on Kalshi for this game today (its title), or ''. Same game = the desk's own rule (pob.same_game). Pure."""
+    me_ = {'topic': topic, 'at': now or time.time()}
+    for f_ in reversed(cat.get('pobFolders') or []):
+        k_ = f_.get('kalshi') if isinstance(f_.get('kalshi'), dict) else None
+        if k_ and k_.get('kind') != 'parlay' and _kb.reached(k_) and _pob.same_game(f_, me_):
+            return str(k_.get('title') or k_.get('ticker') or 'a real bid')
+    return ''
+
+
 async def _kalshi_go(cat, tk):
     """A ticket's one door to Kalshi: a slip takes the quote path, a single market the order path."""
     return await (_kalshi_slip_send if tk.get('kind') == 'parlay' else _kalshi_send)(cat, tk)
@@ -5491,7 +5501,13 @@ async def _pob_tick(http, cat, now):
                 kb_first_ = await _kb.markets_for(http, topic)
             except Exception as e:   # noqa: BLE001 — research goes on; the final call reads Kalshi again
                 print(f'[pob] kalshi first: {str(e)[:100]}')
-        why = _read_start(cat, _kb.first_note(kb_first_) + _pob.topic_goal(topic, sites), who, 'pob')
+        legs_first_ = []
+        if kb_first_ and _kb.mode_of(topic) == 'parlay':   # 🧩 a parlay: the legs Kalshi will price go in the research goal too
+            try:
+                legs_first_ = await _kb.legs_menu(http, kb_first_)
+            except Exception as e:   # noqa: BLE001 — research goes on; the final call reads the legs again
+                print(f'[pob] kalshi legs first: {str(e)[:100]}')
+        why = _read_start(cat, _kb.first_note(kb_first_, legs_first_) + _pob.topic_goal(topic, sites), who, 'pob')
         by_ = cat.pop('pobBy', None) or 'you'   # 🎯 who asked travels with this run, never left on the agent for the next one
         if why:
             cat.pop('proofHosts', None)
@@ -5499,7 +5515,7 @@ async def _pob_tick(http, cat, now):
             return
         t_ = _WORK[cat['id']]['task']; t_['keepShots'] = True
         if len(t_.get('jobs') or []) > 1:   # 👣 each mind has its own sites and angle, so they never run one search twice
-            t_['jobs'] = [_kb.first_note(kb_first_) + _pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
+            t_['jobs'] = [_kb.first_note(kb_first_, legs_first_) + _pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
         cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites, 'by': by_, 'kalshi': [m.get('ticker') for m in kb_first_][:6]}
         kb_say_ = _kb.first_say(kb_first_, kb_key_)
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🌐 Researching {topic}: {', '.join(sites[:3])} and more, in its own windows. Snapshots go in the folder.{kb_say_}", 'at': now, 'open': 'bids'}])[-200:]
@@ -12167,6 +12183,11 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         pob_topic_ = _pob.topic_of(p.text) if not (site_cmd_ and not site_cmd_.get('why')) else None
+        ask_l_ = cat.get('pobLegsAsk') or {}
+        if not pob_topic_ and ask_l_.get('topic') and time.time() - float(ask_l_.get('at') or 0) < 900:   # 🧩 his answer to "how many legs?"
+            n_l_ = _kb.legs_answer(p.text)
+            if n_l_:
+                pob_topic_ = f"{ask_l_['topic']} {n_l_} legs"; cat.pop('pobLegsAsk', None)
         ask_m_ = cat.get('pobModeAsk') or {}
         if not pob_topic_ and ask_m_.get('topic') and time.time() - float(ask_m_.get('at') or 0) < 900:   # 🎯 his answer to "team to win, or a parlay slip?"
             mode_ = _kb.mode_of(p.text)
@@ -12174,7 +12195,15 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 pob_topic_ = f"{ask_m_['topic']} {'parlay slip' if mode_ == 'parlay' else 'team to win'}"; cat.pop('pobModeAsk', None)
         if pob_topic_ and not p.auto and not _kb.mode_of(pob_topic_) and _kb.teams_in(pob_topic_) and _ck.key_for(cat, 'kalshi', data_dir=DATA_DIR):
             cat['pobModeAsk'] = {'topic': pob_topic_, 'at': time.time()}   # 🎯 ask first (owner 2026-11-15 'they should ask what kind of PoB like a team or leg parlay')
-            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🎯 {pob_topic_}: a real bid on the team to win, or one parlay slip (the team plus its players, every leg must hit)?", 'at': time.time(), 'ask': {'chips': ['Team to win', 'Parlay slip']}}])[-200:]
+            bid_ = _pob_team_bid(cat, pob_topic_)   # 🧩 its team to win is already bid on this game: the one option left is a parlay slip
+            say_m_ = (f"🎯 {pob_topic_}: the team to win is already bid on this game ({bid_}), so the play left is one parlay slip (its players, spreads, totals; every leg must hit)."
+                      if bid_ else f"🎯 {pob_topic_}: a real bid on the team to win, or one parlay slip (the team plus its players, every leg must hit)?")
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_m_, 'at': time.time(), 'ask': {'chips': ['Parlay slip'] if bid_ else ['Team to win', 'Parlay slip']}}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        if pob_topic_ and not p.auto and _kb.mode_of(pob_topic_) == 'parlay' and not _kb.legs_said(pob_topic_) and _ck.key_for(cat, 'kalshi', data_dir=DATA_DIR):
+            cat['pobLegsAsk'] = {'topic': pob_topic_, 'at': time.time()}   # 🧩 how many legs (owner 2026-11-15 'leg parlay -> max legs')
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🧩 {pob_topic_}: how many legs? Every leg must hit; Kalshi takes up to {_kb.SLIP_MAX} in one slip.", 'at': time.time(), 'ask': {'chips': list(_kb.LEG_CHIPS)}}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         if not pob_topic_ and not site_cmd_ and re.match(r'^\s*(?:file|make|start)\s+a\s+pob\s*$', str(p.text or ''), re.I):   # no topic: it loops the best games on the board right now

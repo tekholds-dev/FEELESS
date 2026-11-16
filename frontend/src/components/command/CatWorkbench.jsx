@@ -2,6 +2,7 @@ import { useOnScreen } from '../../lib/fxPause';
 import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
 import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
 import { pobGroups, runLabel, gameName } from '../../lib/pobGroups';
+import { LiveBidCard } from './LiveBidCard';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -634,7 +635,8 @@ function useTypeIn(text, on) {
     raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [text, on]);
   return text.slice(0, n);
 }
-function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip, job = null, duel, onDuel }) {
+export const pobFiledLine = m => m?.by !== 'you' && m?.open === 'bids' && /^🎲 PoB on .+ is filed/.test(String(m?.text || ''));   // 📺 the brains are done: this line can be watched live
+function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip, job = null, duel, onDuel, onWatch }) {
   const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]); const tags = parts.tags;
   const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
@@ -648,6 +650,7 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip, job = n
       {m.ask?.chips?.length && fresh && onChip ? <span className="cwb-chips" data-testid="chat-chips">{m.ask.chips.map(c => <button key={c} type="button" className="m-chip" onClick={() => onChip(c)} data-tip="Answers its question" data-testid={`chat-chip-${c}`}>{c}</button>)}</span> : null}
       {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow"><Ic3 e="⛏" /> Open the PoW folder</button> : null}
       {m.open === 'bids' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('bids')} data-tip="Its Bids desk on the Desktop, with its PoB folders" data-testid="cwb-open-bids"><Ic3 e="🎲" /> Open the Bids desk</button> : null}
+      {onWatch && pobFiledLine(m) ? <button type="button" className="m-btn m-go cwb-open-pow cwb-watch" onClick={onWatch} data-tip="Pin this game to the top of the chat: live plays, new clips, its bid % and P&L" data-testid="cwb-watch">📺 Watch it live here</button> : null}
       {m.approve && onOpen ? <button type="button" className="m-btn m-go cwb-open-pow cwb-approve" onClick={() => onOpen('approve')} data-tip="The redo spends model usage: it waits in the Approve inbox for your tap" data-testid="cwb-approve">✅ Review the redo · Approve inbox</button> : null}
       {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop"><Ic3 e="📉" /> Open the PoP desk</button> : null}</div></li>;
 }
@@ -1676,6 +1679,9 @@ function WorkbenchLive({ cat }) {
   useEffect(() => { if (stagePick && !kinds.includes(stagePick)) setStagePick(null); }, [kinds.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPeek(false); }, [liveKind, d?.task?.id]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
+  const watchKey = `fl.watch.${cat?.id}`; const [watch, setWatch] = useState(() => { try { return localStorage.getItem(watchKey) || ''; } catch { return ''; } });   // 📺 the PoB pinned live in chat
+  const pin = id => { setWatch(id || ''); try { if (id) localStorage.setItem(watchKey, id); else localStorage.removeItem(watchKey); } catch { /* private window */ } };
+  const watched = watch ? [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])].find(f => f.id === watch) : null;
   const seen = useOnScreen(dash); seenRef.current = seen; const wasSeen = useRef(true); useEffect(() => { if (seen && !wasSeen.current) load(); wasSeen.current = seen; }, [seen, load]);   // back on screen: fresh at once
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
@@ -1718,9 +1724,10 @@ function WorkbenchLive({ cat }) {
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     {liveKind && !peek ? <ProofLive d={d} wins={wins} spent={spent} name={cat.name} kind={liveKind} onShowChat={() => setPeek(true)} />
     : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
+    {watched?.games?.length ? <LiveBidCard f={watched} onClose={() => pin('')} /> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
-      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} duel={d?.duels?.[m.tid]} onDuel={i => act('duel', { text: m.tid, job: String(i) })} onChip={c => act('ask', { text: c, to })} />)}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} onWatch={() => { const c = chatProof(d, 'bids', m.at); if (c?.id) pin(c.id); }} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} duel={d?.duels?.[m.tid]} onDuel={i => act('duel', { text: m.tid, job: String(i) })} onChip={c => act('ask', { text: c, to })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
