@@ -368,9 +368,16 @@ def chosen(calls, ids):
     return {'ticker': t, 'side': s, 'conf': [a[(t, s)].get('confidence') or 0, b[(t, s)].get('confidence') or 0], 'why': [a[(t, s)].get('why') or '', b[(t, s)].get('why') or '']}
 
 
+def reached(b):
+    """A ledger row that reached Kalshi's book: it has Kalshi's order id, or a sent/resting/filled status. A refused or failed send with no order id
+    never did (PoB #16, 2026-11-15: a 410 'failed' row blocked the next bid on that market for 24 h; and a placed order whose read-back failed
+    was 'failed' and left out of today's cap). Pure."""
+    return bool((b or {}).get('orderId')) or (b or {}).get('status') in ('sent', 'filled', 'resting')
+
+
 def spent_today(bids, now=None):
     now = now or time.time()
-    return round(sum(float(b.get('usd') or 0) for b in bids or [] if b.get('status') in ('sent', 'filled', 'resting') and now - float(b.get('at') or 0) < 86400), 2)
+    return round(sum(float(b.get('usd') or 0) for b in bids or [] if reached(b) and now - float(b.get('at') or 0) < 86400), 2)
 
 
 def sends_now(c, by):
@@ -391,7 +398,7 @@ def check(c, market, pick, bids, balance_usd, now=None):
     price = price_of(market, pick.get('side'))
     if price is None or not MIN_PRICE <= price <= MAX_PRICE:
         return False, 'Its price is outside 5¢ to 95¢, so it is not bid.', 0, price
-    if any(b.get('ticker') == pick['ticker'] and now - float(b.get('at') or 0) < SAME_MARKET_S and b.get('status') != 'refused' for b in bids or []):
+    if any(b.get('ticker') == pick['ticker'] and now - float(b.get('at') or 0) < SAME_MARKET_S and reached(b) for b in bids or []):
         return False, 'It already bid on this market in the last 24 hours.', 0, price
     left = round(c['dayUsd'] - spent_today(bids, now), 2)
     budget = min(c['bidUsd'], left)
@@ -716,7 +723,7 @@ def slip_check(c, fresh, tk, bids, balance_usd, now=None):
     if not 0.01 <= float(tk.get('price') or 0) <= SLIP_FAIR_MAX:
         return False, 'The slip is priced outside 1¢ to 90¢, so it is not bid.', 0
     key = slip_key(legs)
-    if any(slip_key(b.get('legs')) == key and now - float(b.get('at') or 0) < SAME_MARKET_S and b.get('status') != 'refused' for b in bids or [] if b.get('legs')):
+    if any(slip_key(b.get('legs')) == key and now - float(b.get('at') or 0) < SAME_MARKET_S and reached(b) for b in bids or [] if b.get('legs')):
         return False, 'It already bid this exact slip in the last 24 hours.', 0
     budget = round(min(c['bidUsd'], float(tk.get('budgetUsd') or c['bidUsd']), c['dayUsd'] - spent_today(bids, now)), 2)   # a smaller retry asks for less
     if budget < 0.10:

@@ -207,6 +207,34 @@ _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an ol
 _DELETED_CATS: set = set()
 
 
+# 🔒 REAL BIDS ARE NEVER FORGOTTEN (owner 2026-11-15 'no bugs … no real money kalshi trade'): the engine saves its whole copy minutes after it
+# loaded it, so a bid sent by his tap meanwhile could lose its ledger row (and its ticket fall back to 'waiting'), and today's cap and the
+# 24 h already-bid guard would not see it. Every ledger row a send writes is remembered here; each save adds back any row a copy lacks and
+# never lets a ticket that reached Kalshi read 'waiting' again. Rows are only added, never removed or edited.
+_KB_LEDGER: dict = {}
+
+
+def _kb_remember(cat, row):
+    if row and row.get('id'):
+        _KB_LEDGER.setdefault(cat['id'], {})[row['id']] = json.loads(json.dumps(row))
+
+
+def _kb_merge(store):
+    for cid, rows in _KB_LEDGER.items():
+        c = (store.get('cats') or {}).get(cid)
+        if not c:
+            continue
+        have = {(b or {}).get('id') for b in c.get('kalshiBids') or []}
+        miss = [r for i, r in rows.items() if i not in have]
+        if miss:
+            c['kalshiBids'] = (list(c.get('kalshiBids') or []) + [json.loads(json.dumps(r)) for r in miss])[-100:]
+        for f in c.get('pobFolders') or []:
+            tk = f.get('kalshi') if isinstance(f.get('kalshi'), dict) else None
+            r = rows.get((tk or {}).get('id'))
+            if r and tk.get('status') == 'waiting':
+                tk.update({k: r.get(k) for k in ('status', 'orderId', 'count', 'price', 'usd', 'filled', 'why', 'kalshiStatus') if r.get(k) is not None})
+
+
 def keep_owned(cat):
     """Remember the owner's fields of `cat` as they stand now (after an owner's action)."""
     _KEPT[cat['id']] = json.loads(json.dumps({k: cat[k] for k in OWNER_KEYS if k in cat}))
@@ -241,6 +269,7 @@ def _save(store: dict):
     for path, cid in _DELETED_CATS:
         if path == path_key:
             store.setdefault('cats', {}).pop(cid, None)
+    _kb_merge(store)   # 🔒 a real bid's ledger row survives any older copy's save
     for cid, kept in _KEPT.items():
         c = (store.get('cats') or {}).get(cid)
         if not c:
@@ -5001,7 +5030,7 @@ async def _pop_tick(http, cat, now):
                 await _pop_open(http, cat, rd.get('do'), rd.get('who'), now, notes, why)
 
 
-async def _kalshi_send(cat, tk):
+async def _kalshi_send_raw(cat, tk):
     """🎯 The only place a real Kalshi order is sent: re-read the market and his balance, run every guard, then ONE limit order on his own key.
     The ticket and his bid ledger (cat['kalshiBids']) record what happened, refused or sent."""
     kid_, pem_ = _kb.split_key(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR) or '')
@@ -5027,13 +5056,13 @@ async def _kalshi_send(cat, tk):
         except Exception as e:   # noqa: BLE001 — a refused or failed call is shown, never retried by itself
             tk.update(status='failed', why=str(e)[:200])
     tk['doneAt'] = round(time.time())
-    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]
+    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]; _kb_remember(cat, cat['kalshiBids'][-1])
     if tk.get('orderId'):
         _kalshi_say(cat, tk)
     return tk
 
 
-async def _kalshi_slip_send(cat, tk):
+async def _kalshi_slip_send_raw(cat, tk):
     """🧩 The only place a real Kalshi PARLAY goes out: every leg re-read, every guard, then the slip's combo market, ONE quote request, and ONE
     accept of the cheapest quote at or under the ticket's most-per-contract. No quote, or none cheap enough → nothing is bought. Never retried."""
     kid_, pem_ = _kb.split_key(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR) or '')
@@ -5096,7 +5125,7 @@ async def _kalshi_slip_send(cat, tk):
     if stop_:   # ⚡ the feed ends with the send, whatever happened
         stop_.set(); feed_.cancel()
     tk['doneAt'] = round(time.time())
-    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]
+    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]; _kb_remember(cat, cat['kalshiBids'][-1])
     if tk.get('orderId'):
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"✅ Kalshi filled my slip: {tk.get('title')} · {tk.get('count'):g} × {float(tk.get('price') or 0):.3f} = ${float(tk.get('usd') or 0):.2f}.", 'at': time.time(), 'open': 'bids'}])[-200:]
     return tk
@@ -5105,6 +5134,38 @@ async def _kalshi_slip_send(cat, tk):
 async def _kalshi_go(cat, tk):
     """A ticket's one door to Kalshi: a slip takes the quote path, a single market the order path."""
     return await (_kalshi_slip_send if tk.get('kind') == 'parlay' else _kalshi_send)(cat, tk)
+
+
+# 🔒 ONE SEND PER TICKET, EVER (owner 2026-11-15 'no bugs where multiple filings get made'): two Approve taps landing together both saw 'waiting'
+# before the first order came back, so both would have sent. Every send path takes this lock first; a ticket id that was ever sent (or is
+# being sent) is refused with nothing sent. One server process, so the lock is this set. Ids are kept, never released.
+_KB_SENT: dict = {}
+
+
+class AlreadySent(Exception):
+    pass
+
+
+def _kb_claim(tid, cat=None):
+    """Claim a ticket id for its one send, or raise AlreadySent. Pure apart from the set."""
+    if not tid or tid in _KB_SENT or any((b or {}).get('id') == tid for b in (cat or {}).get('kalshiBids') or []):
+        raise AlreadySent('That ticket was already sent. Nothing more was sent.')
+    _KB_SENT[tid] = time.time()
+    if len(_KB_SENT) > 5000:
+        for k_ in sorted(_KB_SENT, key=_KB_SENT.get)[:1000]:
+            _KB_SENT.pop(k_, None)
+
+
+def _kb_once(fn):
+    async def run(cat, tk):
+        _kb_claim(tk.get('id'), cat)
+        return await fn(cat, tk)
+    run.__name__ = fn.__name__; run.__wrapped__ = fn
+    return run
+
+
+_kalshi_send = _kb_once(_kalshi_send_raw)
+_kalshi_slip_send = _kb_once(_kalshi_slip_send_raw)
 
 
 _KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf')
@@ -10763,6 +10824,10 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             new_, why_s_ = _kb.smaller(f_k_['kalshi'], cat.get('kalshiCfg'))
             if not new_:
                 raise HTTPException(409, why_s_)
+            try:   # 🔒 two 'Try smaller' taps: the old ticket is claimed once, so only one smaller slip is ever sent
+                _kb_claim(f"smaller:{p.job}")
+            except AlreadySent as e:
+                raise HTTPException(409, str(e))
             f_k_['kalshiTries'] = (list(f_k_.get('kalshiTries') or []) + [f_k_['kalshi']])[-4:]; f_k_['kalshi'] = new_
             await _kalshi_slip_send(cat, new_)
             keep_owned(cat); _save(store)
@@ -10778,7 +10843,10 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             if p.op == 'kalshi_skip':
                 tk_.update(status='skipped', doneAt=round(time.time()))
             else:
-                await _kalshi_go(cat, tk_)
+                try:
+                    await _kalshi_go(cat, tk_)
+                except AlreadySent as e:   # 🔒 a second tap: nothing sent
+                    raise HTTPException(409, str(e))
             keep_owned(cat); _save(store)
             return {**_kalshi_view(cat), 'ticket': tk_, 'pobFolders': _pob_view(cat)}
         out_ = _kalshi_view(cat)
