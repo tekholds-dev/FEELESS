@@ -1,93 +1,163 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Excalidraw, MainMenu, convertToExcalidrawElements, exportToBlob, restoreElements } from '@excalidraw/excalidraw';
-import '@excalidraw/excalidraw/index.css';
+import { AnimatePresence, motion } from 'motion/react';
+import { Bookmark, Heart, MessageCircle, Send, X, Download, Save, Plus, Trash2 } from 'lucide-react';
 import '../../styles/pocWire.css';
 
-// 🧩 THE POC WIREFRAME BOARD (owner 2026-11-13: "a live canvas wireframe for their AI images and videos … wireframe a week of content";
-// 2026-11-14: "a true live realtime wireframe from a good free and new source"). Excalidraw (MIT, free, open source): an infinite live canvas,
-// frames, shapes, arrows, text, images, its own wireframe libraries, undo / redo, zoom, dark mode, export PNG / SVG. It opens with the picture already
-// placed in a phone post, a square post and a billboard frame, plus a Mon–Sun week of empty post frames to plan around it. Save files ONE frame (or
-// the whole board) back into the proof as a NEW version; the original stays. The board itself is kept in this browser per picture.
-export const FRAMES = [['phone', 'Phone post 9:16', 270, 480], ['square', 'Square post 1:1', 360, 360], ['billboard', 'Billboard 16:9', 640, 360]];
+// 🧩 THE POC CONTENT BOARD (owner 2026-11-13: "wireframe a week of content"; 2026-11-15 the Excalidraw canvas read as "wtf … try new styles and
+// better components"). One picture, laid out as the real post on three drawn surfaces (phone story, feed post, street billboard), with its words on
+// it, then planned Mon–Sun: drag the post onto a day (or tap +), each day keeps its own copy. Save files the post itself (no device chrome) back
+// into the proof as a NEW version; the original stays. The board is kept in this browser per picture.
+export const FORMATS = [['story', 'Story 9:16', 1080, 1920], ['feed', 'Feed 1:1', 1080, 1080], ['billboard', 'Billboard 16:9', 1920, 1080]];
 export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEK_Y = 560;   // the week row sits under the tallest frame (phone, 480)
-const KEY = id => `feeless:pocwire:${id}`;
+const SPOTS = [['top', 'Top'], ['bottom', 'Bottom']];
+const FITS = [['cover', 'Fill'], ['contain', 'Fit']];
+const FOCI = ['0% 0%', '50% 0%', '100% 0%', '0% 50%', '50% 50%', '100% 50%', '0% 100%', '50% 100%', '100% 100%'];
+const KEY = id => `feeless:pocwire2:${id}`;
 
-// The starting board, as Excalidraw skeletons. Pure (tested): frames in a row, the picture fitted inside each, the week below.
-export function startBoard(fileId, w = 1, h = 1, title = 'Picture') {
-  const out = []; let x = 0;
-  FRAMES.forEach(([k, label, fw, fh]) => {
-    const r = Math.min((fw - 24) / w, (fh - 24) / h); const iw = Math.round(w * r); const ih = Math.round(h * r);
-    const img = `img-${k}`;
-    const scr = `screen-${k}`;   // the frame's full screen: Excalidraw sizes a frame to its children, so this keeps the true 9:16 / 1:1 / 16:9 shape
-    out.push({ type: 'rectangle', id: scr, x, y: 0, width: fw, height: fh, roundness: { type: 3 } });
-    if (fileId) out.push({ type: 'image', id: img, fileId, x: x + (fw - iw) / 2, y: (fh - ih) / 2, width: iw, height: ih });
-    out.push({ type: 'frame', id: `frame-${k}`, name: `${label} · ${title}`.slice(0, 60), children: fileId ? [scr, img] : [scr], x, y: 0, width: fw, height: fh });
-    x += fw + 60;
-  });
-  DAYS.forEach((d, i) => {
-    const fx = i * 190; const id = `day-${d}`;
-    out.push({ type: 'rectangle', id: `${id}-card`, x: fx, y: WEEK_Y, width: 170, height: 210, strokeColor: 'transparent' });   // keeps the day frame full size
-    out.push({ type: 'rectangle', id: `${id}-post`, x: fx + 12, y: WEEK_Y + 12, width: 146, height: 146, strokeStyle: 'dashed', label: { text: 'post' } });
-    out.push({ type: 'rectangle', id: `${id}-cap`, x: fx + 12, y: WEEK_Y + 164, width: 146, height: 34, strokeColor: 'transparent', label: { text: 'caption · time', fontSize: 13, fontFamily: 2, strokeColor: 'black' } });   // a label, so it is measured once the font loads
-    out.push({ type: 'frame', id, name: `${d} · week of content`, children: [`${id}-card`, `${id}-post`, `${id}-cap`], x: fx, y: WEEK_Y, width: 170, height: 210 });
-  });
-  return out;
+export const blankPost = (title = 'Picture') => ({ fmt: 'story', headline: String(title).slice(0, 48), caption: '', handle: 'feeless', cta: 'Tap in', fit: 'cover', spot: 'bottom', focus: '50% 50%', time: '18:00' });
+
+// Pure (tested): where the picture lands inside a W×H post — cover crops to fill, contain fits whole; focus picks which part of a crop stays.
+export function placePic(W, H, iw, ih, fit = 'cover', focus = '50% 50%') {
+  const r = fit === 'contain' ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih);
+  const w = iw * r; const h = ih * r; const [fx, fy] = String(focus).split(' ').map(v => (parseFloat(v) || 0) / 100);
+  return { x: (W - w) * (Number.isFinite(fx) ? fx : 0.5) + 0, y: (H - h) * (Number.isFinite(fy) ? fy : 0.5) + 0, w, h };
 }
 
-// Excalidraw's dark theme inverts the canvas colours, so a white board shows near-black in dark mode and exports the same way.
-const BOARD = 'white';
-const toDataUrl = blob => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
-const sizeOf = url => new Promise(ok => { const i = new Image(); i.onload = () => ok([i.naturalWidth || 1, i.naturalHeight || 1]); i.onerror = () => ok([1, 1]); i.src = url; });
+// Pure (tested): the board after placing a post on a day (a copy, so editing the stage later never rewrites the day).
+export function planDay(week, day, post) { return { ...week, [day]: { ...post } }; }
+export const planned = week => DAYS.filter(d => week[d]).length;
+
+const wrap = (ctx, text, maxW) => {   // words to lines that fit maxW
+  const out = []; let line = '';
+  String(text || '').split(/\s+/).filter(Boolean).forEach(w => { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
+  if (line) out.push(line); return out;
+};
+const cssVar = (n, d) => { try { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d; } catch { return d; } };
+
+// The post itself as a PNG data URL, drawn at full size on a canvas (what gets saved / downloaded).
+export async function renderPost(img, post) {
+  const [, , W, H] = FORMATS.find(f => f[0] === post.fmt) || FORMATS[0];
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const ctx = c.getContext('2d');
+  ctx.fillStyle = cssVar('--m-bg', 'black'); ctx.fillRect(0, 0, W, H);
+  if (img) { const p = placePic(W, H, img.naturalWidth || 1, img.naturalHeight || 1, post.fit, post.focus); ctx.drawImage(img, p.x, p.y, p.w, p.h); }
+  const top = post.spot === 'top'; const band = H * 0.42;
+  const g = ctx.createLinearGradient(0, top ? 0 : H - band, 0, top ? band : H);
+  g.addColorStop(top ? 0 : 1, 'rgba(0,0,0,.78)'); g.addColorStop(top ? 1 : 0, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, top ? 0 : H - band, W, band);
+  const pad = Math.round(W * 0.06); const hs = Math.round(Math.min(W, H) * 0.085); const cs = Math.round(hs * 0.42);
+  ctx.textBaseline = 'top'; ctx.fillStyle = 'white';
+  ctx.font = `800 ${hs}px Unbounded, sans-serif`; const hl = wrap(ctx, String(post.headline || '').toUpperCase(), W - pad * 2).slice(0, 3);
+  ctx.font = `500 ${cs}px Sora, sans-serif`; const cl = wrap(ctx, post.caption, W - pad * 2).slice(0, 3);
+  const ctaH = post.cta ? Math.round(cs * 2.1) : 0;
+  const block = hl.length * hs * 1.08 + (cl.length ? cs * 0.6 + cl.length * cs * 1.3 : 0) + (ctaH ? cs + ctaH : 0);
+  let y = top ? pad : H - pad - block;
+  ctx.font = `800 ${hs}px Unbounded, sans-serif`; hl.forEach(l => { ctx.fillText(l, pad, y); y += hs * 1.08; });
+  if (cl.length) { y += cs * 0.6; ctx.font = `500 ${cs}px Sora, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.86)'; cl.forEach(l => { ctx.fillText(l, pad, y); y += cs * 1.3; }); }
+  if (ctaH) {
+    y += cs; ctx.font = `700 ${cs}px Sora, sans-serif`; const tw = ctx.measureText(post.cta).width + cs * 2.4;
+    ctx.fillStyle = cssVar('--m-accent', 'white'); ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(pad, y, tw, ctaH, ctaH / 2) : ctx.rect(pad, y, tw, ctaH)); ctx.fill();
+    ctx.fillStyle = cssVar('--m-accent-ink', 'black'); ctx.fillText(post.cta, pad + cs * 1.2, y + (ctaH - cs) / 2);
+  }
+  ctx.font = `600 ${Math.round(cs * 0.8)}px "JetBrains Mono", monospace`; ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.fillText(`@${post.handle || 'feeless'}`, pad, top ? H - pad - cs : pad);
+  return c.toDataURL('image/png');
+}
+
+const loadImg = url => new Promise(ok => { if (!url) return ok(null); const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = () => ok(null); i.src = url; });
+
+function Words({ post, size }) {   // the words on the post, as they will print
+  return <div className={`pwr-words is-${post.spot} is-${size}`}>
+    {post.headline ? <b>{post.headline}</b> : null}{post.caption ? <p>{post.caption}</p> : null}{post.cta ? <i>{post.cta}</i> : null}
+  </div>;
+}
+function Pic({ src, post }) { return src ? <img src={src} alt="" draggable={false} style={{ objectFit: post.fit, objectPosition: post.focus }} /> : <span className="pwr-nopic">No picture</span>; }
+
+// The three drawn surfaces. Pure presentation: phone story with bezel + progress, feed card with its action row, billboard on posts with lamps.
+function Surface({ src, post, mini = false }) {
+  if (post.fmt === 'feed') return <div className={`pwr-feed${mini ? ' is-mini' : ''}`}>
+    {mini ? null : <header><span className="pwr-av" /><b>{post.handle || 'feeless'}</b><small>Sponsored</small></header>}
+    <div className="pwr-shot"><Pic src={src} post={post} /><Words post={post} size={mini ? 's' : 'm'} /></div>
+    {mini ? null : <footer><span><Heart size={18} /><MessageCircle size={18} /><Send size={18} /></span><Bookmark size={18} /><p><b>{post.handle || 'feeless'}</b> {post.caption || 'Your caption shows here.'}</p></footer>}
+  </div>;
+  if (post.fmt === 'billboard') return <div className={`pwr-bill${mini ? ' is-mini' : ''}`}>
+    {mini ? null : <span className="pwr-lamps" aria-hidden="true"><i /><i /><i /></span>}
+    <div className="pwr-shot"><Pic src={src} post={post} /><Words post={post} size={mini ? 's' : 'l'} /></div>
+    {mini ? null : <span className="pwr-legs" aria-hidden="true"><i /><i /></span>}
+  </div>;
+  return <div className={`pwr-phone${mini ? ' is-mini' : ''}`}>
+    <div className="pwr-shot"><Pic src={src} post={post} />
+      {mini ? null : <><span className="pwr-bars" aria-hidden="true"><i className="is-done" /><i className="is-now" /><i /></span>
+        <span className="pwr-who"><span className="pwr-av" /><b>{post.handle || 'feeless'}</b><small>2h</small></span></>}
+      <Words post={post} size={mini ? 's' : 'm'} /></div>
+    {mini ? null : <span className="pwr-notch" aria-hidden="true" />}
+  </div>;
+}
 
 export default function PocWire({ src, kind = 'image', from = null, title = 'Picture', onSave, onClose }) {
-  const [init, setInit] = useState(null); const [err, setErr] = useState(''); const [done, setDone] = useState(''); const [busy, setBusy] = useState('');
-  const api = useRef(null); const dark = useMemo(() => !document.documentElement.classList.contains('light'), []);
-  useEffect(() => {   // the saved board for this picture, else a fresh one with the picture placed in every frame
-    let on = true;
-    (async () => {
-      try { const kept = JSON.parse(localStorage.getItem(KEY(from)) || 'null'); if (kept?.elements?.length) { if (on) setInit({ ...kept, appState: { ...(kept.appState || {}), collaborators: new Map() }, scrollToContent: true }); return; } } catch { /* a blocked or empty store: start fresh */ }
-      let files = {}; let fileId = null; let wh = [1, 1];
-      if (src && kind === 'image') {
-        try { const blob = await (await fetch(src)).blob(); const dataURL = await toDataUrl(blob); wh = await sizeOf(dataURL); fileId = `poc-${from || 'pic'}`; files = { [fileId]: { id: fileId, dataURL, mimeType: blob.type || 'image/png', created: Date.now() } }; }
-        catch { if (on) setErr('The picture could not be read here, so the board starts without it. Add it with the image tool.'); }
-      }
-      if (on) setInit({ elements: convertToExcalidrawElements(startBoard(fileId, wh[0], wh[1], title)), files, appState: { viewBackgroundColor: BOARD }, scrollToContent: true });
-    })();
-    return () => { on = false; };
-  }, [src, kind, from, title]);
-  const ready = a => {   // fit the board in view; once Excalidraw's hand font is in, re-measure the text (it was measured with a fallback font)
-    api.current = a;
-    setTimeout(() => { try { a.scrollToContent(undefined, { fitToContent: true }); } catch { /* opens where it was */ } }, 60);
-    Promise.race([document.fonts?.load('20px Excalifont', 'caption · time post Mon Sun'), new Promise(r => setTimeout(r, 3000))]).then(() => {
-      try { if (api.current === a) a.updateScene({ elements: restoreElements(a.getSceneElements(), null, { refreshDimensions: true }) }); } catch { /* the board still works */ }
-    }, () => {});
-  };
-  const keep = (elements, appState, files) => { try { localStorage.setItem(KEY(from), JSON.stringify({ elements, files, appState: { viewBackgroundColor: appState.viewBackgroundColor } })); } catch { /* full or blocked: the board still works */ } };
-  const exportPick = async () => {   // the selected frame, or the whole board when none is selected
-    const a = api.current; if (!a) throw new Error('The board is still opening.');
-    const all = a.getSceneElements(); const sel = a.getAppState().selectedElementIds || {};
-    const frame = all.find(e => e.type === 'frame' && sel[e.id]);
-    const elements = frame ? all.filter(e => e.id === frame.id || e.frameId === frame.id) : all;
-    const blob = await exportToBlob({ elements, files: a.getFiles(), appState: { ...a.getAppState(), exportBackground: true, exportWithDarkMode: dark, viewBackgroundColor: a.getAppState().viewBackgroundColor || BOARD }, mimeType: 'image/png', exportPadding: frame ? 0 : 24 });
-    return [await toDataUrl(blob), frame?.name || 'board'];
-  };
-  const save = async () => {
-    setErr(''); setDone(''); setBusy('save');
-    try { const [url, name] = await exportPick(); await onSave?.(url, 'wire', from); setDone(`Saved "${name}" into the proof as a new version. The original stays.`); } catch (e) { setErr(e.message || 'Could not export the board.'); }
-    setBusy('');
-  };
-  const download = async () => {
-    setErr(''); try { const [url, name] = await exportPick(); const a = document.createElement('a'); a.href = url; a.download = `${String(name).replace(/[^\w-]+/g, '-').slice(0, 40)}.png`; a.click(); } catch (e) { setErr(e.message || 'Could not export the board.'); }
-  };
-  return <div className="pwr" role="dialog" aria-modal="true" aria-label={`Wireframe board: ${title}`} data-testid="poc-wire">
-    <header className="pwr-h"><span><b>🧩 WIREFRAME BOARD</b><small>Live canvas (Excalidraw, free and open source). Select a frame, then Save files just that frame. Your board stays in this browser.</small></span>
-      <span className="pwr-acts"><button type="button" className="m-btn" disabled={!init || !!busy} onClick={download} data-tip="Downloads the selected frame, or the whole board, as a PNG" data-testid="pwr-download">Download PNG</button>
-        <button type="button" className="m-btn m-go" disabled={!init || !!busy} onClick={save} data-tip="Files the selected frame (or the whole board) into the proof as a new version" data-testid="pwr-save">{busy === 'save' ? 'Saving…' : 'Save to proof'}</button>
-        <button type="button" className="m-btn" onClick={onClose} aria-label="Close" data-tip="Close" data-testid="pwr-close">✕</button></span></header>
+  const [post, setPost] = useState(() => blankPost(title)); const [week, setWeek] = useState({}); const [day, setDay] = useState('');
+  const [err, setErr] = useState(''); const [done, setDone] = useState(''); const [busy, setBusy] = useState(''); const [over, setOver] = useState('');
+  const img = useRef(null); const pic = kind === 'image' ? src : null;
+  useEffect(() => {   // this picture's kept board, else a fresh one
+    try { const kept = JSON.parse(localStorage.getItem(KEY(from)) || 'null'); if (kept?.post) { setPost({ ...blankPost(title), ...kept.post }); setWeek(kept.week || {}); } } catch { /* blocked or empty: start fresh */ }
+  }, [from, title]);
+  useEffect(() => { try { localStorage.setItem(KEY(from), JSON.stringify({ post, week })); } catch { /* full or blocked: the board still works */ } }, [from, post, week]);
+  useEffect(() => { let on = true; loadImg(pic).then(i => { if (on) { img.current = i; if (pic && !i) setErr('The picture could not be read here, so it cannot be drawn into the export.'); } }); return () => { on = false; }; }, [pic]);
+  useEffect(() => { document.body.classList.add('has-pwr'); const k = e => { if (e.key === 'Escape') onClose?.(); }; window.addEventListener('keydown', k); return () => { document.body.classList.remove('has-pwr'); window.removeEventListener('keydown', k); }; }, [onClose]);
+  const set = patch => { setPost(p => { const n = { ...p, ...patch }; if (day) setWeek(w => planDay(w, day, n)); return n; }); setDone(''); };
+  const place = d => { setWeek(w => planDay(w, d, post)); setDay(d); setDone(''); };
+  const open = d => { setDone(''); if (week[d]) { setPost({ ...week[d] }); setDay(d); } else place(d); };
+  const drop = d => { const { [d]: _gone, ...rest } = week; setWeek(rest); if (day === d) setDay(''); };
+  const fmt = FORMATS.find(f => f[0] === post.fmt) || FORMATS[0]; const n = planned(week);
+  const name = `${fmt[1]}${day ? ` · ${day}` : ''} · ${title}`.slice(0, 60);
+  const exportNow = async () => { if (!img.current && pic) throw new Error('The picture is still loading.'); return renderPost(img.current, post); };
+  const save = async () => { setErr(''); setDone(''); setBusy('save'); try { await onSave?.(await exportNow(), 'wire', from); setDone(`Saved "${name}" into the proof as a new version. The original stays.`); } catch (e) { setErr(e.message || 'Could not save the post.'); } setBusy(''); };
+  const download = async () => { setErr(''); try { const a = document.createElement('a'); a.href = await exportNow(); a.download = `${name.replace(/[^\w-]+/g, '-').slice(0, 40)}.png`; a.click(); } catch (e) { setErr(e.message || 'Could not export the post.'); } };
+  const field = (k, label, ph, max, area) => <label className="pwr-field"><span className="m-label">{label}</span>
+    {area ? <textarea className="m-input" rows={3} maxLength={max} value={post[k]} placeholder={ph} onChange={e => set({ [k]: e.target.value })} data-testid={`pwr-${k}`} />
+      : <input className="m-input" maxLength={max} value={post[k]} placeholder={ph} onChange={e => set({ [k]: e.target.value })} data-testid={`pwr-${k}`} />}</label>;
+  const seg = (k, opts, label) => <div className="m-seg" role="radiogroup" aria-label={label}>{opts.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={post[k] === v} className={post[k] === v ? 'active' : ''} onClick={() => set({ [k]: v })} data-testid={`pwr-${k}-${v}`} data-tip={`${label}: ${l}`}>{l}</button>)}</div>;
+  const dragProps = useMemo(() => ({ draggable: true, onDragStart: e => { e.dataTransfer.setData('text/plain', 'pwr-post'); e.dataTransfer.effectAllowed = 'copy'; } }), []);
+
+  return <div className="pwr" role="dialog" aria-modal="true" aria-label={`Content board: ${title}`} data-testid="poc-wire">
+    <header className="pwr-h">
+      <span className="pwr-t"><span className="m-label">PoC · content board</span><b>{title}</b></span>
+      <div className="m-seg pwr-fmts" role="radiogroup" aria-label="Format">{FORMATS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={post.fmt === k} className={post.fmt === k ? 'active' : ''} onClick={() => set({ fmt: k })} data-testid={`pwr-fmt-${k}`} data-tip={`Lay the post out as a ${l}`}>{l}</button>)}</div>
+      <span className="pwr-acts">
+        <button type="button" className="m-btn" disabled={!!busy} onClick={download} data-tip="Downloads this post as a full-size PNG" data-testid="pwr-download"><Download size={14} /> PNG</button>
+        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Files this post into the proof as a new version; the original stays" data-testid="pwr-save"><Save size={14} /> {busy === 'save' ? 'Saving…' : 'Save to proof'}</button>
+        <button type="button" className="m-btn pwr-x" onClick={onClose} aria-label="Close" data-tip="Close (Esc)" data-testid="pwr-close"><X size={16} /></button></span>
+    </header>
     {err ? <p className="pwr-note is-bad" role="alert">⚠ {err}</p> : done ? <p className="pwr-note" role="status" data-testid="pwr-done">{done}</p> : null}
-    <div className="pwr-stage">{init ? <Excalidraw initialData={init} excalidrawAPI={ready} theme={dark ? 'dark' : 'light'} onChange={keep} name={title}
-      UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}><MainMenu><MainMenu.DefaultItems.Export /><MainMenu.DefaultItems.SaveAsImage /><MainMenu.DefaultItems.ClearCanvas /><MainMenu.DefaultItems.ToggleTheme /><MainMenu.DefaultItems.ChangeCanvasBackground /></MainMenu></Excalidraw>
-      : <p className="pwr-wait" role="status">Opening the board…</p>}</div>
+    <div className="pwr-body">
+      <section className="pwr-stage m-live" aria-label="Post preview">
+        <span className="pwr-tag m-chip ok">{day ? `Editing ${day}` : 'Draft'} · {fmt[2]}×{fmt[3]}</span>
+        <AnimatePresence mode="wait"><motion.div key={post.fmt} className="pwr-surface" {...dragProps} data-tip="Drag onto a day to plan it" data-testid="pwr-surface"
+          initial={{ opacity: 0, scale: 0.96, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: -8 }} transition={{ duration: 0.2 }}>
+          <Surface src={pic} post={post} /></motion.div></AnimatePresence>
+      </section>
+      <aside className="pwr-side m-card" aria-label="Words and framing">
+        {field('headline', 'Headline', 'Big words on the post', 48)}
+        {field('caption', 'Caption', 'What the post says under it', 160, true)}
+        <div className="pwr-two">{field('handle', 'Handle', 'feeless', 24)}{field('cta', 'Button', 'Tap in', 18)}</div>
+        <div className="pwr-row"><span className="m-label">Picture</span>{seg('fit', FITS, 'Picture')}</div>
+        <div className="pwr-row"><span className="m-label">Words</span>{seg('spot', SPOTS, 'Words')}</div>
+        <div className="pwr-row"><span className="m-label">Keep in view</span>
+          <div className="pwr-focus" role="radiogroup" aria-label="Keep in view">{FOCI.map(f => <button key={f} type="button" role="radio" aria-checked={post.focus === f} className={post.focus === f ? 'active' : ''} onClick={() => set({ focus: f })} data-tip={`Crop around ${f}`} aria-label={`Crop around ${f}`} />)}</div></div>
+        {day ? <label className="pwr-field"><span className="m-label">Posts at ({day})</span><input type="time" className="m-input" value={post.time} onChange={e => set({ time: e.target.value })} data-testid="pwr-time" /></label> : null}
+      </aside>
+    </div>
+    <section className="pwr-week" aria-label="Week of content">
+      <header><span className="m-label">Week of content <em>{n}/7 planned</em></span><span className="pwr-meter" aria-hidden="true"><i style={{ transform: `scaleX(${n / 7})` }} /></span></header>
+      <ol>{DAYS.map((d, i) => { const p = week[d];
+        return <li key={d} style={{ '--i': i }} className={`${p ? 'is-set' : ''}${day === d ? ' is-on' : ''}${over === d ? ' is-over' : ''}`}
+          onDragOver={e => { e.preventDefault(); setOver(d); }} onDragLeave={() => setOver('')} onDrop={e => { e.preventDefault(); setOver(''); place(d); }}>
+          <button type="button" className="pwr-day" onClick={() => open(d)} data-testid={`pwr-day-${d}`} data-tip={p ? `Edit ${d}'s post` : `Plan this post on ${d}`}>
+            <span className="pwr-dh"><b>{d}</b>{p ? <small>{p.time}</small> : null}</span>
+            {p ? <span className="pwr-thumb"><Surface src={pic} post={p} mini /></span> : <span className="pwr-empty"><Plus size={16} /><small>Drop or tap</small></span>}
+            {p ? <small className="pwr-dl">{(FORMATS.find(f => f[0] === p.fmt) || FORMATS[0])[1]}</small> : null}
+          </button>
+          {p ? <button type="button" className="pwr-rm" onClick={() => drop(d)} aria-label={`Clear ${d}`} data-tip={`Clear ${d}`} data-testid={`pwr-rm-${d}`}><Trash2 size={13} /></button> : null}
+        </li>; })}</ol>
+    </section>
   </div>;
 }

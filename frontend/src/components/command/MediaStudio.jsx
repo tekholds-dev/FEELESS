@@ -5,7 +5,7 @@ import { agentAuth } from '../../lib/chatSession';
 import '../../styles/mediaStudio.css';
 
 const PocPlay = lazy(() => import('./PocPlay'));   // 🎨 its own chunk: Konva loads only when a playground opens
-const PocWire = lazy(() => import('./PocWire'));   // 🧩 its own chunk: Excalidraw loads only when the wireframe board opens
+const PocWire = lazy(() => import('./PocWire'));   // 🧩 its own chunk: loads only when the content board opens
 
 // 🎬 PoC images and video (owner 2026-11-10): they run on the owner's OWN OpenRouter, fal.ai or Replicate account (staff agents: FEELESS's
 // OpenRouter key, $2 a day). It opens IN the conversation, not over it: first the formats going viral right now, each with a real clip we
@@ -44,7 +44,7 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       {canPlay ? <button type="button" className="m-btn" onClick={() => setPlay(true)} data-testid="media-play"
         data-tip="Open it in the playground: move, crop, add text and badges, put it on a phone or billboard, then save a new version">🎨 Playground</button> : null}
       {canPlay && md.kind === 'image' ? <button type="button" className="m-btn m-go" onClick={() => setWire(true)} data-testid="media-wire"
-        data-tip="The live wireframe board: the picture in phone, square and billboard frames plus a Mon–Sun week to plan, on a free infinite canvas">🧩 Wireframe</button> : null}
+        data-tip="The content board: the picture laid out as a phone story, feed post and billboard with its words, then planned Mon–Sun">🧩 Content board</button> : null}
       {canLife ? <button type="button" className="m-btn" disabled={busy} aria-pressed={isChar} data-testid="media-char"
         data-tip={isChar ? 'He stops leading this folder\'s videos' : 'Every video made in this folder starts from him: one consistent guy for all your content'}
         onClick={() => run({ op: 'media_char', job: doc.id, text: isChar ? '' : md.id })}>{isChar ? '👤 Unset character' : '👤 Make him the character'}</button> : null}

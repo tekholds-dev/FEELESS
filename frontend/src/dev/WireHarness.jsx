@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import '../index.css';
 import { MediaButton, MediaCard } from '../components/command/MediaStudio';
 
-// 🧪 /dev/wire — a finished PoC picture on a fixture proof, so the 🧩 Wireframe board opens on real Excalidraw. Save adds a version locally (no server).
+// 🧪 /dev/wire — a finished PoC picture on a fixture proof, so the 🧩 content board opens on a real picture. Save adds a version locally (no server).
 // ?swap — the composer's 🎭 Swap into a clip panel on fixtures (the character + one clip; fal.ai "linked"); nothing reaches a provider.
 const MD = { id: 'm1', kind: 'image', status: 'done', url: '/kits/remotion.webp', label: 'Launch poster', prompt: 'A neon cat poster for the FEECAT launch week', provider: 'openrouter', at: Date.now() / 1000 };
 const CLIP = { id: 'mclip', kind: 'video', status: 'done', clip: true, label: 'Dance trend', secs: 9.6, fps: 30, provider: 'upload', at: Date.now() / 1000 };
