@@ -499,6 +499,17 @@ async def balance(http, key_id, pem):
     return round(float(r.json().get('balance') or 0) / 100, 2)
 
 
+def plain_why(why):
+    """A Kalshi refusal in the owner's words. Pure."""
+    w = str(why or 'Kalshi did not take it.')
+    if 'insufficient_shard_balance' in w:
+        return ("Kalshi says your money is not on this market's exchange index. Open kalshi.com › Account › Exchange Indexes, move funds onto "
+                "the index this game trades on (or set an allocation so Kalshi keeps it topped up), then tap Approve real bid again. Nothing was sent twice.")
+    if 'insufficient_balance' in w:
+        return "Kalshi says the balance on this market's exchange index does not cover it. Add funds there or bid smaller, then tap Approve again."
+    return w[:240]
+
+
 async def place(http, key_id, pem, body):
     r = await http.post(f'{BASE}{ORDER_PATH}', json=body, headers=headers(key_id, pem, 'POST', ORDER_PATH))
     if r.status_code not in (200, 201):

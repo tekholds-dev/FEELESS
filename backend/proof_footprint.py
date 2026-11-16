@@ -180,7 +180,8 @@ def note(kind, folders, mind=None):
     angle = ''
     if mind is not None:
         a = angle_for(kind, folders, mind); angle = f' Your angle this time: {a[0]} (look at {a[1]}). It changes every proof. The other mind has another angle and other sites, so never run its search.'
-    return f"\nLAST FOOTPRINTS, newest first: {'; '.join(lines)}. Your proof is scored on how different it is. Find what these missed, or use a stronger source, and say what is new.{angle}{fb}"
+    same_ = ' Different means new EVIDENCE, never a different answer: if the facts still back the same side or team, pick it again. Never pass only because an earlier reading picked it.' if kind == 'pob' else ''   # owner 2026-11-15 PoB #17: Mind A passed on OKC "to not repeat a pick"
+    return f"\nLAST FOOTPRINTS, newest first: {'; '.join(lines)}. Your proof is scored on how different it is. Find what these missed, or use a stronger source, and say what is new.{same_}{angle}{fb}"
 
 
 CONVO_KEEP = 14

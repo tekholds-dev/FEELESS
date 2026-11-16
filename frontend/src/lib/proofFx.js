@@ -123,7 +123,7 @@ function talk(c, s) {   // both minds' own words as an ordered transcript: A on 
   lines.forEach((m, i) => { const k = lines.length - 1 - i; const yy = h - 4 - (k + 1) * ch - k * gap; const col = p[m.mind % 2 ? 1 : 0]; const x = m.mind ? w - cw - 10 : 10;
     c.globalAlpha = k === 0 ? 1 : Math.max(0.45, 0.85 - k * 0.15);
     panel(c, x, yy, cw, ch, col, 0.86); c.fillStyle = col; c.fillRect(x, yy + 4, 2.5, ch - 8);
-    txt(c, `MIND ${m.mind ? 'B' : 'A'}`, x + 12, yy + 13, { size: 8.5, weight: 700, color: col });
+    txt(c, m.who ? String(m.who).toUpperCase() : `MIND ${m.mind ? 'B' : 'A'}`, x + 12, yy + 13, { size: 8.5, weight: 700, color: col });
     txt(c, String(m.text || '').replace(/\s+/g, ' '), x + 12, yy + 27, { size: 11.5, font: SANS, weight: 400, color: INK, max: cw - 24 }); });
   c.globalAlpha = 1;
 }

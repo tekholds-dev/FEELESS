@@ -70,7 +70,7 @@ function useRunData(kind, d, wins, spent, steps) {
   const brains = wins.map(w => String(w?.model || '').split('/').pop());
   const mindOf = by => { const b = String(by || ''); if (/^B\b/.test(b)) return 1; if (/^A\b/.test(b)) return 0; const i = brains.findIndex(x => x && b.includes(x.slice(0, 10))); return i < 0 ? 0 : i; };
   const talk = (f?.talk || pob?.talk || []).length ? (f?.talk || pob?.talk).map(t => ({ mind: mindOf(t.by), text: t.text }))
-    : (d?.chat || []).filter(m => m.by !== 'you').slice(-7).map(m => ({ mind: 0, text: m.text }));
+    : (d?.chat || []).filter(m => m.by !== 'you').slice(-7).map(m => ({ mind: 0, who: d?.name || d?.cat?.name || 'Agent', text: m.text }));   // the agent's own chat lines are not Mind A's (owner 2026-11-15 PoB #17)
   const stepRows = wins.flatMap((w, i) => (Array.isArray(w?.steps) ? w.steps : []).filter(x => x && typeof x === 'object').map(x => ({ mind: i, at: x.at || 0, text: `${x.action || 'step'}${x.detail ? ` · ${x.detail}` : x.thought ? ` · ${x.thought}` : ''}` })))
     .sort((a, b) => a.at - b.at);
   const entry = num(f?.entry); const now = num(f?.now); const okEntry = entry && now ? entry > now / 50 && entry < now * 50 : !!entry;
@@ -151,6 +151,6 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
     <div className="pl-minds">{minds.map((w, i) => <div key={i} className={`pl-mind${w?.status === 'working' ? ' is-on' : ''}`} style={{ '--i': i }}>
       <b>{'AB'[i]} · {String(w?.model || '').split('/').pop().replace(':free', '') || 'mind'}</b>
       <small>{w?.bubble || (w?.status === 'working' ? 'working…' : 'waiting its turn')}</small></div>)}</div>
-    {lastSaid ? <p className="pl-said" aria-live="polite"><b>{name || 'It'}:</b> {String(lastSaid).slice(0, 160)}</p> : null}
+    {lastSaid ? <p className="pl-said" aria-live="polite"><b>{name || 'It'}:</b> {String(lastSaid)}</p> : null}
   </div>;
 }

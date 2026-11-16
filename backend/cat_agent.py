@@ -492,7 +492,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = await _divert(task, w, page, wait_human)
                     continue
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
-                seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now.)\n' + str(seen)[:READ_MAX // 2]
+                seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now. A login, sign-up or paywall box over the page, or a page about another game: leave that site now and open another source.)\n' + str(seen)[:READ_MAX // 2]
                 continue
             why_pw = _pow.step(pw, a.get('url') if act == 'open' else page.url) if pw and act in ('open', 'click', 'scroll') else None
             if why_pw:   # ⛏ the PoW's per-site / site budget — refused before it is paid for; the engine moves it on

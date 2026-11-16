@@ -5059,7 +5059,15 @@ async def _kalshi_send_raw(cat, tk):
     cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]; _kb_remember(cat, cat['kalshiBids'][-1])
     if tk.get('orderId'):
         _kalshi_say(cat, tk)
+    else:
+        _kalshi_say_no(cat, tk)
     return tk
+
+
+def _kalshi_say_no(cat, tk):
+    """🛑 A bid that did not go out says so in chat, in plain words (owner 2026-11-15 PoB #17: 'idk if its going through or not')."""
+    t_ = f"🛑 Nothing bought on {tk.get('title') or tk.get('ticker')}: {_kb.plain_why(tk.get('why'))}"
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': t_[:400], 'at': time.time(), 'open': 'bids'}])[-200:]
 
 
 async def _kalshi_slip_send_raw(cat, tk):

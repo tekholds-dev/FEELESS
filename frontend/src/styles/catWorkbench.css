@@ -809,3 +809,5 @@ button.cwb-rpx:hover { border-color: var(--ppl-dg1); color: var(--ppl-dg1); tran
 
 /* 📐 the Bids window tucks its stat row and steps once you scroll its tools (BidsApp) */
 .dfw.is-tucked .dfw-wall, .dfw.is-tucked .phd-steps { display: none; }
+/* 🐞 owner 2026-11-15 PoB #17 'chat glitch': the live proof stage kept its 460px floor inside the fixed-height chat column, so the focus bar and the composer were pushed out of sight. In the column it shares the room like the chat does. */
+.cwb-deck .cwb-talk > .pl { flex: 1 1 auto; min-height: 180px; }
