@@ -518,8 +518,7 @@ test('🎲 the Bids folder opens on a dash, and the USA sites are links that nev
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = t => document.querySelector(`[data-testid="${t}"]`);
-  expect(q('dsk-bids')).not.toBeNull(); expect(q('bd-stats')).toBeNull();   // game folders first; the board + sites are folders of their own
-  await act(async () => { q('bd-dir-board').click(); });
+  expect(q('dsk-bids')).not.toBeNull(); expect(q('pob-file')).not.toBeNull();   // the old home: File a bid, Kalshi, the board and the filings on one screen (owner 2026-11-16)
   expect(q('bd-stats').textContent).toContain('777'); expect(q('bd-live').textContent).toContain('1'); expect(q('dsk-bids').textContent).not.toContain('not an agent');
   await act(async () => { q('bd-sites').click(); });
   const links = [...q('bid-sites').querySelectorAll('a')]; expect(links.length).toBeGreaterThan(7); links.forEach(a => { expect(a.href).toMatch(/^https:\/\//); expect(a.rel).toContain('noopener'); expect(a.target).toBe('_blank'); });
@@ -772,7 +771,8 @@ test('🗂 PoB refiles of one game open as ONE file with separate readings; ↑ 
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = t2 => document.querySelector(`[data-testid="${t2}"]`);
   expect(q('pob-b1')).toBeNull(); expect(q('pob-b2').textContent).toContain('2 readings');
-  await act(async () => { q('pob-b2').click(); });
+  expect(q('ptl-bids')).not.toBeNull(); expect(q('bd-stats')).not.toBeNull();   // the old home: live games, coming up + watch room above the filings
+  await act(async () => { q('pob-b2').click(); }); expect(q('ptl-bids')).toBeNull();   // a filing is its own whole page
   const page = () => document.querySelector('article[data-testid="pob-file"]');
   expect(page().textContent).toContain('Reading 2'); expect(page().textContent).toContain('Reading 1'); expect(q('pob-b2')).toBeNull();   // the game is a whole page: its readings are folders
   await act(async () => { q('pob-readbtn-b1').click(); }); expect(q('pob-read-b1')).not.toBeNull(); expect(q('pob-read-b2')).toBeNull();
@@ -780,6 +780,6 @@ test('🗂 PoB refiles of one game open as ONE file with separate readings; ↑ 
   expect(document.querySelector('.dsk-xpath').textContent).toContain('Thunder vs Kings'); expect(document.querySelector('.dsk-xpath').textContent).toContain('Reading 1');
   await act(async () => { q('pob-up').click(); }); expect(q('pob-read-b1')).not.toBeNull();
   await act(async () => { q('pob-up').click(); }); expect(q('pob-readings')).not.toBeNull();
-  await act(async () => { q('pob-up').click(); }); expect(page()).toBeNull(); expect(q('pob-b2')).not.toBeNull();
+  await act(async () => { q('pob-up').click(); }); expect(page()).toBeNull(); expect(q('pob-b2')).not.toBeNull(); expect(q('ptl-bids')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
 });

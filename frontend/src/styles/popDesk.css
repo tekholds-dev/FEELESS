@@ -150,11 +150,10 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 body.fx-lite :is(.pfl, .pfl-mind, .pfl-body) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.pfl, .pfl-mind, .pfl-body) { animation: none; } }
 body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
-@media (max-width: 640px) { .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } .bd > .dsk-pull > .bd-file { flex-wrap: wrap; } }
-/* 🗂 Bids like the PoW folder (owner 2026-11-16): one file row, game folders, its doors below */
-.bd > .dsk-pull > .bd-file { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; white-space: normal; } .bd-file .pbt-ask { flex: 1; min-width: 0; margin: 0; }
-.bd-filebtn { min-height: 34px; white-space: nowrap; } .bd-dirs { margin-top: 12px; padding-top: 12px; border-top: 1px dashed color-mix(in srgb, var(--m-accent) 22%, transparent); }
+@media (max-width: 640px) { .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } }
+/* 🎲 the Bids home, as it was (owner 2026-11-16 'WHERES MY OLD VIEW'): head + File a bid, the doors, the board, a strip of plain filing folders */
+.bd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; --mg: var(--ppd-wn6); } .bd-head span { display: grid; gap: 2px; } .bd-head b { font: 800 13px var(--f-tech); letter-spacing: .1em; color: var(--ppd-wn7); } .bd-head small { font: 600 11px var(--f-ui); color: var(--ppd-wn8); }
+body.theme-day .bd-head b { color: var(--ppd-wn5); } body.theme-day .bd-head small { color: var(--ppd-ln1); }
+.bd-filebtn { min-height: 36px; white-space: nowrap; }
+.bd-proofs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; scroll-snap-type: x proximity; } .bd-proofs:empty { display: none; } .bd-proofs > * { flex: 0 0 96px; scroll-snap-align: start; }
 .pob-read { display: grid; gap: 10px; } .pob-read > .dsk-xgrid { margin-top: 4px; }
-.pob-gt { position: relative; } .pob-gt > .pfc-teams { position: absolute; top: 21px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: row; width: max-content; pointer-events: none; }
-.pfc-teams.is-s .pfc-team { width: 26px; height: 26px; } .pfc-teams.is-s .pfc-team + .pfc-team { margin-left: -7px; } .pfc-teams.is-s .pfc-team b { font-size: 8px; }
-.pob-gt:has(.pfc-teams) .fa-3d { opacity: .25; }

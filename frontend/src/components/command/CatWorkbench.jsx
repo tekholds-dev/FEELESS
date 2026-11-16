@@ -3,7 +3,6 @@ import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive'
 import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
 import { pobGroups, runLabel, gameName, sportOf, sportLabel, teamsOf } from '../../lib/pobGroups';
 import { useLogos, logoFor } from '../../lib/teamLogos';
-import { FolderArt } from '../../lib/folderArt';
 import { LiveBidCard } from './LiveBidCard';
 import { LiveProofCard } from './LiveProofCard';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
@@ -1299,35 +1298,38 @@ function PobFile({ g, rid, leaf, catId, onMark, setPath }) {
         return <Tile key={r.id} i={i} tone={moneyTone(mo.tone)} ic={mo.tone === 'good' ? '👍' : mo.tone === 'bad' ? '👎' : '📁'} label={`Reading ${g.runs.length - i}`} sub={`#${r.n || '…'} · ${runLabel(r)}`} onOpen={() => setPath(['g', g.key, r.id])} tip={`${runLabel(r)} · ${clock(r.at)}`} testid={`pob-readbtn-${r.id}`} />; })}</div>}
   </article>;
 }
-// 🗃 the game folders (the Bids home, and the dev harness)
-function GameTile({ g, i, onOpen }) {   // 🛡 a game folder: the two teams' logos on the folder, its name, what the money did
-  const x = g.head; const mo = filingMoney(x); const mi = picksOf(x).filter(m => m.pick); const tone = x.status !== 'closed' ? 'live' : moneyTone(mo.tone);
-  return <button type="button" className={`dsk-ico dsk-xt pob-gt is-${tone}`} style={{ '--i': i }} onClick={onOpen} data-tip={`PoB #${x.n || '…'} · ${clock(x.at)}${mi.length ? ` · ${mi.map(m => `${m.mind} ${pickWord(m.pick)}`).join(' · ')}` : ''}`} data-testid={`pob-${x.id}`}>
-    <i className="dsk-ico-art" aria-hidden="true"><FolderArt k="pob" ic="🎲" lit={tone === 'live'} /></i><TeamMarks x={x} size="s" />
-    <span>{fileName(x)}</span><small className="m-num">{sportLabel(sportOf(x))} · {mo.text}{g.runs.length > 1 ? ` · ${g.runs.length} readings` : ''}</small></button>;
-}
-function PobTiles({ groups, onOpen }) {
-  return <div className="dsk-xgrid" data-testid="pob-tiles">{groups.map((g, i) => <GameTile key={g.key} g={g} i={i} onOpen={() => onOpen(g)} />)}</div>;
+// 🗃 a filing on the Bids home: a plain folder, like every other proof folder (owner 2026-11-16: logos on folders were not clean; they live on the game's own page)
+function PobGameTile({ g, i, onOpen }) {
+  const x = g.head; const many = g.runs.length > 1; const mo = filingMoney(x);
+  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={x.status !== 'closed' ? 'live' : moneyTone(mo.tone)} ic="🎲" label={fileName(x).slice(0, 22)} sub={many ? `${g.runs.length} readings` : mo.text} onOpen={onOpen} tip={`${fileName(x)} · PoB #${x.n || '…'} · ${clock(x.at)} · ${mo.text}`} testid={`pob-${x.id}`} />;
 }
 export function PobShelf({ d, open, setOpen, catId, onMark }) {   // eslint-disable-line react/prop-types
   const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows); const [sub, setSub] = useState([]);
   const g = open ? groups.find(x => x.runs.some(r => r.id === open)) : null;
   if (g) return <PobFile g={g} rid={sub[2] || (g.runs.length === 1 ? g.head.id : '')} leaf={sub[3] || ''} catId={catId} onMark={onMark} setPath={setSub} />;
   if (!rows.length) return <p className="dsk-note">No PoB filed yet. Press File a bid.</p>;
-  return <PobTiles groups={groups} onOpen={x => { setSub([]); setOpen(x.head.id); }} />;
+  return <div className="dsk-xgrid" data-testid="pob-tiles">{groups.map((x, i) => <PobGameTile key={x.key} g={x} i={i} onOpen={() => { setSub([]); setOpen(x.head.id); }} />)}</div>;
 }
-const BIDS_DIRS = { money: 'Kalshi & caps', tools: 'Live tools', board: 'Chip board', live: 'Live board', settled: 'Settled', sites: 'Real money · USA' };
+// 🎲 THE BIDS HOME (owner 2026-11-16 "WHERES MY OLD VIEW … make each filing open as a page in PoB, not the whole PoB folder only shows filings"):
+// the old home stays as it was — live games, games coming up and the watch room on top, then File a bid, Kalshi, the sites, the board and the
+// filings strip. The one upgrade: a filing opens as its own whole page (the intro, tools, rail and stat row step aside), with ↑ / breadcrumb back.
+const BIDS_DIRS = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA' };
 function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
   const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState([]); const [m, setM] = useState(null);
-  const box = useRef(null);
+  const box = useRef(null); const strip = useRef(null);
   const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows);
   const g = path[0] === 'g' ? groups.find(x => x.key === path[1]) : null;
   const rid = g ? (path[2] || (g.runs.length === 1 ? g.head.id : '')) : ''; const x = g ? g.runs.find(r => r.id === rid) : null;
   const filing = !!g;
-  useEffect(() => {   // 🗂 an open game is a whole page: the PoB intro, rail and stat row step aside, and it starts at its top
+  useEffect(() => {   // 🗂 an open filing is a whole page: the PoB intro, rail and stat row step aside, and it starts at its top
     const prf = box.current?.closest('.prf'); const win = box.current?.closest('.dfw'); prf?.classList.toggle('prf-filing', filing); win?.classList.toggle('is-tucked', filing); box.current?.closest('.prf-main')?.scrollTo?.({ top: 0 });
     return () => { prf?.classList.remove('prf-filing'); win?.classList.remove('is-tucked'); };
   }, [filing, path.join('/')]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {   // 📐 on the home, scrolled down, the window tucks its stat row so the live tools get the room (owner 2026-11-14)
+    if (filing) return undefined; const main = box.current?.closest('.prf-main'); const win = box.current?.closest('.dfw'); if (!main || !win) return undefined;
+    const on = () => win.classList.toggle('is-tucked', main.scrollTop > 60); main.addEventListener('scroll', on, { passive: true });
+    return () => { main.removeEventListener('scroll', on); win.classList.remove('is-tucked'); };
+  }, [filing]);
   const want = useRef(focus?.id || null); useEffect(() => { if (focus?.id) want.current = focus.id; }, [focus?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!want.current) return; const hit = groups.find(y => y.runs.some(r => r.id === want.current)); if (hit) { setPath(['g', hit.key, want.current]); want.current = null; } });   // a chat link opens its reading once it has loaded
   const [err, setErr] = useState('');
@@ -1337,35 +1339,32 @@ function BidsApp({ cat, d, setD, children, focus = null, tools = null }) {
   const [ask, setAsk] = useState('');
   const mark = (id, job) => work(cat.id, { op: 'pob_folder', text: id, job }).then(j => setD?.(y => ({ ...y, pobFolders: j.pobFolders }))).catch(e => setErr(e.message));
   const file = () => { setErr(''); const text = ask.trim(); work(cat.id, { op: 'pob', ...(text ? { text } : {}) }).then(() => setAsk('')).then(() => setD?.(y => ({ ...y, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
-  const atHome = !path.length; const onBoard = atHome || path[0] === 'board';
-  useEffect(() => { let on = true; const load = () => { if (!document.hidden && onBoard) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(y => on && y && setM(y)).catch(() => {}); };
-    load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, onBoard]);
+  const atHome = !path.length;
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden && atHome) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(y => on && y && setM(y)).catch(() => {}); };
+    load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, atHome]);
   const live = (m?.live || []).filter(y => y.kind === 'agent'); const settled = (m?.settled || []).filter(y => y.kind === 'agent');
-  const closed = rows.filter(y => y.status === 'closed'); const right = closed.filter(y => y.won === true || y.graded === 'right' || y.kalshi?.outcome === 'won').length; const wrong = closed.filter(y => y.won === false || y.graded === 'wrong' || y.kalshi?.outcome === 'lost').length;
   const leafName = { report: 'REPORT', m0: 'Mind A', m1: 'Mind B', shots: 'Snapshots', sites: 'Sites' };
   const crumbs = [['Bids', []], ...(g ? [[fileName(g.head), ['g', g.key]]] : []), ...(g && g.runs.length > 1 && x ? [[`Reading ${g.runs.length - g.runs.indexOf(x)}`, ['g', g.key, x.id]]] : []), ...(g && path[3] ? [[leafName[path[3]] || path[3], path]] : []), ...(BIDS_DIRS[path[0]] ? [[BIDS_DIRS[path[0]], path]] : [])];
   const up = () => setPath(p => (p[0] !== 'g' ? [] : p.length > 3 ? p.slice(0, 3) : p.length === 3 && g && g.runs.length > 1 ? p.slice(0, 2) : []));
   let body;
   if (g) body = <PobFile g={g} rid={rid} leaf={path[3] || ''} catId={cat.id} onMark={mark} setPath={setPath} />;
-  else if (path[0] === 'money') body = <><KalshiDoor cat={cat} work={work} />{children}<SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} /></>;
-  else if (path[0] === 'tools') body = tools || <p className="dsk-note">No live tools right now.</p>;
   else if (path[0] === 'sites') body = <BidSites />;
   else if (path[0] === 'live' || path[0] === 'settled') body = <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path[0]} /></Suspense>;
-  else if (path[0] === 'board') body = <>
-    <div className="bd-strip" data-testid="bd-stats">{[['LIVE', m ? live.length : '…', ['live'], 'Bid free chips on proofs running now', 'bd-live', 'is-live'], ['SETTLED', m ? settled.length : '…', ['settled'], 'How finished proofs ended', 'bd-settled', ''], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—', ['live'], 'Free chips. Nothing here bets real money', 'bd-chips', ''], ['REAL MONEY', `${BID_SITES.length} sites`, ['sites'], 'Links to USA real-money sites, with what each says about automation', 'bd-sites', 'is-money']].map(([k, v, to, tip, id, tone]) => <button key={k} type="button" className={tone} onClick={() => setPath(to)} data-tip={tip} data-testid={id}><em>{k}</em><b className="m-num">{v}</b></button>)}</div>
-    {live.length ? <ul className="bd-live">{live.slice(0, 5).map((y, i) => <li key={y.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath(['live'])} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{y.q}</span></button></li>)}</ul> : null}</>;
   else body = <>
-    <div className="bd-file"><input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) file(); }} placeholder="Game to research, e.g. Thunder vs Kings — or leave empty for the free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
-      <button type="button" className="m-btn m-go bd-filebtn" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Each mind reads major sites, keeps snapshots and calls it blind. With your Kalshi key saved and both minds on one market, it bids inside your caps' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></div>
+    <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, the USA real-money sites, and real Kalshi bids when both minds back one market, inside your caps below.</small></span><button type="button" className="m-btn m-go bd-filebtn" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Both minds read major sites, keep snapshots and call it blind. With your Kalshi key saved and both minds on one market, it bids inside your caps' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
+    <input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !busy) file(); }} placeholder="Game to research, e.g. Thunder vs Kings — or leave empty for the free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
     {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
-    <div className="hv-pow-stats">{[['FILINGS', groups.length], ['REAL BIDS', rows.filter(y => y.kalshi?.orderId).length], ['RIGHT', right], ['WRONG', wrong], ['COST', `$${rows.reduce((a, y) => a + (Number(y.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
-    {groups.length ? <PobTiles groups={groups} onOpen={y => setPath(['g', y.key])} /> : <p className="dsk-note">No PoB filed yet. Type a game above and press File a bid.</p>}
-    <div className="dsk-xgrid bd-dirs">{[['money', '🔑', 'Your Kalshi key, caps and the sites it uses'], ['tools', '📡', 'Live games, parlays, markets and the watch room'], ['board', '🎟', `Free chips on agents' live proofs${m ? ` · ${live.length} live` : ''}`], ['sites', '🇺🇸', 'Links to USA real-money sites, with what each says about automation']].map(([k, ic, tip], i) => <Tile key={k} i={groups.length + i} tone={k === 'money' ? 'live' : 'none'} ic={ic} label={BIDS_DIRS[k]} sub={k === 'sites' ? `${BID_SITES.length} sites` : k === 'board' && m?.bank ? `${m.bank.chips} chips` : ''} onOpen={() => setPath([k])} tip={tip} testid={`bd-dir-${k}`} />)}</div></>;
-  return <div ref={box} className="dsk-pow bd" data-testid="dsk-bids">
+    <KalshiDoor cat={cat} work={work} />
+    {children}
+    <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
+    <div className="bd-strip" data-testid="bd-stats">{[['LIVE', m ? live.length : '…', () => setPath(['live']), 'Bid free chips on proofs running now', 'bd-live', 'is-live'], ['SETTLED', m ? settled.length : '…', () => setPath(['settled']), 'How finished proofs ended', 'bd-settled', ''], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—', () => setPath(['live']), 'Free chips. Nothing here bets real money', 'bd-chips', ''], ['ITS PROOFS', groups.length, () => strip.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' }), 'Every game it filed: each opens as its own page', 'bd-proofs', ''], ['REAL MONEY', `${BID_SITES.length} sites`, () => setPath(['sites']), 'Links to USA real-money sites, with what each says about automation', 'bd-sites', 'is-money']].map(([k, v, go, tip, id, tone]) => <button key={k} type="button" className={tone} onClick={go} data-tip={tip} data-testid={id}><em>{k}</em><b className="m-num">{v}</b></button>)}</div>
+    {live.length ? <ul className="bd-live">{live.slice(0, 5).map((y, i) => <li key={y.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath(['live'])} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{y.q}</span></button></li>)}</ul> : null}
+    <div ref={strip} className="bd-proofs" data-testid="pob-tiles">{groups.map((y, i) => <PobGameTile key={y.key} g={y} i={i} onOpen={() => setPath(['g', y.key])} />)}</div></>;
+  return <>{g ? null : tools}<div ref={box} className="dsk-pow bd" data-testid="dsk-bids">
     {path.length ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={up} aria-label="Up one folder" data-tip="Up one folder" data-testid="pob-up">↑</button>
       {crumbs.map(([l, p], i) => <span key={`${i}${l}`}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}<BackToDesk /></p> : null}
     {err ? <p className="dsk-note" role="alert">{err}</p> : null}
-    <div key={path.join('/')} className="dsk-pull">{body}</div></div>;
+    <div key={path.join('/')} className="dsk-pull">{body}</div></div></>;
 }
 function HoneyPot({ cat, pool, d }) {   // 🫙 Its pot (redo 2026-11-14): AgentPot.jsx draws it; the real send controls + ledger ride in
   const p = pool?.pool || {};

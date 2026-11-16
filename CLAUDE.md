@@ -16,7 +16,7 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 ## 2 · How we work
 - **The owner's ask is the task.** No card, claim or plan step is needed first. `docs/HANDOFF.md` only carries open work between sessions.
 - **Answer first**, short and plain, then do it.
-- **Scope:** build exactly what was asked, fully. Ideas past the ask go in the report under **"Proposed"** (one line each). A bug or security hole found on the way is fixed and named.
+- **Scope:** build exactly what was asked, fully. Ideas past the ask go in the report under **"Proposed"**: every report has one, each line says what, why, and why it is vital. A bug or security hole found on the way is fixed and named.
 - **Keep going:** work every item in order without stopping to ask. If something is unclear, take the safest reading, build it, and list it under **"Judgment calls"** so the owner can flip it. Only §1 stops work.
 - **Big work ships in slices** (never stuck on one thing for more than ~30 min); each slice is finished and says what is left.
 - **Done means:**
