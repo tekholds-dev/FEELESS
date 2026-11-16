@@ -57,4 +57,7 @@ step "3/3 frontend build"
 ( cd frontend && CI=false npx craco build > "$out/build.txt" 2>&1 ) || { tail -40 "$out/build.txt"; echo "✋ GATE RED: build"; exit 1; }
 if grep -rliE "command center|cmd ctr" frontend/build/static/js >/dev/null 2>&1; then echo "✋ GATE RED: HQ name leaked into the bundle"; exit 1; fi
 
+step "live check (read only, warns only)"   # 📡 owner 2026-11-16: a Jupiter quote never swapped, Kalshi, ESPN, DexScreener, our 4 services
+.venv/bin/python scripts/live-check.py || echo "   ⚠ an outside service or one of ours did not answer: read the lines above before a real-money test"
+
 green
