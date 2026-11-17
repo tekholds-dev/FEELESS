@@ -1,5 +1,6 @@
 """FUSE API: admin creates a Fuse (launch prices captured, index 100), list shows live meta + score, a verified buy
 credits the creator once, unverified signatures are refused, payouts reduce what's owed. Network faked."""
+from _svc_src import service_src
 import asyncio
 import time
 
@@ -389,7 +390,7 @@ def test_freeze_keeps_the_engine_off_a_coin_and_card_window_lists_24h_autos(monk
 def test_every_badge_icon_is_unique():
     import re
     import collections
-    s = open(rs.__file__).read()
+    s = service_src()
     icons = collections.defaultdict(set)
     for bid, icon in re.findall(r"'id': '([\w-]+)', 'label': '[^']*', 'icon': '([^']*)'", s):
         icons[icon].add(bid)

@@ -1,4 +1,5 @@
 """⚙ The command kernel: one MintState per mint, one candidate lifecycle, one ten-agent brain, four hunter lanes, singleflight RPC."""
+from _svc_src import service_src
 import asyncio
 import time
 from pathlib import Path
@@ -9,7 +10,7 @@ import trench_kernel.kernel as tk
 import trench_kernel.lifecycle as tl
 import trench_kernel.state as ts
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def row(m='M', age=0.05, mc=40_000, d5=6.0, buy=62, liq=20_000, v5=8_000, pace=2.0, px=1.0, **k):

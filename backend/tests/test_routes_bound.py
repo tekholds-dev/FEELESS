@@ -2,12 +2,13 @@
 Two real breaks found from the logs on 2026-10-13: a helper inserted between a route decorator and its handler bound the public coin
 intel route to the helper (422 on every read for two days), and an owner button called `_audit` with the wrong arguments (500 on
 every click)."""
+from _svc_src import service_src
 import ast
 from pathlib import Path
 
 import reputation_service as rs
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src(routes=False)   # the service with its moved sections in place: its own calls
 
 
 def test_no_route_is_bound_to_a_private_helper():

@@ -1,10 +1,11 @@
 """⚡ Open trenching (owner, 2026-10-12): volume + newness + live narrative rank the seats; only execution safety can stop a buy."""
+from _svc_src import service_src
 from pathlib import Path
 
 import office as of
 import opportunity as opp
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def row(m='M', age=0.05, mc=40_000, d5=6.0, buy=62, liq=20_000, v5=8_000, pace=2.0, **k):

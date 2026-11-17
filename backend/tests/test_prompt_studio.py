@@ -1,5 +1,6 @@
 """🎭 Prompt Studio (owner, 2026-10-22): each model's sets are written from its own record, the record names what is wrong, an applied set rides
 every call that model gets — and never changes the desk's rules."""
+from _svc_src import service_src
 import asyncio
 
 import ai_router as ar
@@ -130,7 +131,7 @@ def test_the_auto_switch_runs_on_the_ai_round(monkeypatch):
     assert asyncio.run(rs._studio_auto(50_400)) == 0                                                    # already on this tune
     rs._json_save(rs.PROMPT_STUDIO_PATH, {})
     rs._studio_apply()
-    assert "asyncio.ensure_future(_studio_auto_safe(now))" in open(rs.__file__).read()
+    assert "asyncio.ensure_future(_studio_auto_safe(now))" in service_src()
 
 
 def test_every_call_that_carries_the_mindset_is_stamped(monkeypatch):

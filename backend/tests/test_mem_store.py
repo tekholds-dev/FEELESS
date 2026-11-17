@@ -1,10 +1,11 @@
 """💾 The agents' stores live in memory (owner, 2026-10-12: "storage efficient"): loaded once, written at most every N seconds + on
 shutdown. agents.json (3 MB) used to be parsed AND written on every ~30s pass."""
+from _svc_src import service_src
 from pathlib import Path
 
 import mem_store as ms
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def _store(tmp, every=90.0):

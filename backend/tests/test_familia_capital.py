@@ -1,3 +1,4 @@
+from _svc_src import service_src
 """👑 Fee City in the public world view + the owner's Familia rules route (owner, 2026-10-21)."""
 
 
@@ -35,5 +36,5 @@ def test_points_are_created_before_they_are_read():
     """A family's first errand crashed (KeyError 'pts'): the right-hand side read m['pts'] before setdefault made it (2026-10-21)."""
     import inspect
     import reputation_service as rs
-    src = inspect.getsource(rs)
+    src = service_src()
     assert "int(m['pts'].get(" not in src and "int(m['pts'][" not in src

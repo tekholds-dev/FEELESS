@@ -1,4 +1,5 @@
 """📡 DexScreener pacing: requests wait for a slot instead of bursting, and a 429 pauses the host for its Retry-After."""
+from _svc_src import service_src
 import asyncio
 
 import ds_pace
@@ -48,7 +49,7 @@ def test_acquire_waits_but_never_longer_than_max_wait_and_slow_paths_have_their_
 def test_both_services_install_their_share_under_the_ip_limit():
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[1]
-    assert 'ds_pace.install(110, 20)' in (root / 'reputation_service.py').read_text()
+    assert 'ds_pace.install(110, 20)' in service_src()
     assert 'ds_pace.install(150, 30)' in (root / 'server.py').read_text()
     assert 110 + 150 < 300
 

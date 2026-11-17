@@ -1,4 +1,5 @@
 """📄 Emergency edge audit: agents on paper, a shadow book with a control group, graded after costs at fixed horizons (no hindsight)."""
+from _svc_src import service_src
 import shadow_book as sb
 import arena_prime as ap
 
@@ -9,7 +10,7 @@ def row(m, opp=50, px=1.0):
 
 def test_paper_is_the_default_and_the_tick_never_buys_on_paper():
     assert ap.clean_cfg({})['agentPaper'] is True and ap.clean_cfg({'agentPaper': False})['agentPaper'] is False
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert "if cfg_t.get('agentPaper'):" in src and 'plan_ = []' in src                     # seat fills → shadow book only
     assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                     # switch-ins too (exits still act)
 
@@ -60,12 +61,12 @@ def test_a_held_card_gets_no_engine_replacement_of_any_kind():
     px = {x['pairAddress']: 1.0 for x in held + [chill]}
     out = ap.tick(card, px, [], held, cfg, 500.0, [], {}, {})
     assert 'R9' not in {l.get('mint') for l in out['legs']}
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert "if cur.get('holdBy') in ('proof', 'agents'):   # 🎮 held: the ENGINE swaps nothing in" in src
 
 
 def test_the_owner_put_the_agents_back_on_real_money_once():
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert 'await _agent_real_fix_1012(now)' in src and "'agentPaper': False" in src and 'agentRealFix1012' in src
 
 

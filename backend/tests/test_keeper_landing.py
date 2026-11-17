@@ -1,4 +1,5 @@
 """Real buys / sells must LAND: one signed tx is re-sent to every RPC node (idempotent), and the self-fix never flaps a setting."""
+from _svc_src import service_src
 import asyncio
 
 import chain_rpc
@@ -491,7 +492,7 @@ def test_every_real_buy_gate_reads_jupiter_when_dexscreener_answers_empty(monkey
     ok, why, snap = fw.live_buy_market({'side': 'buy', 'mint': 'M', 'pair': 'P1'}, live['P1'], fw.DEFAULT_CFG)
     assert ok and snap['liq'] == 77000.0
     import pathlib
-    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     assert src.count('_fw.live_buy_market(') == 4 and src.count('await _fw_live_pairs(') == 4     # all three gates + the 🛂 seat pre-check use the helper
 
 

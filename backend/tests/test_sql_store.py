@@ -1,5 +1,6 @@
 """SITE-8: the shared doc store keeps every write when several worker PROCESSES hit the same key at once (the old whole-file JSON pattern
 loses most of them), moves the old JSON in once and leaves it read-only, and its cached all() sees another process's write."""
+from _svc_src import service_src
 import json
 import multiprocessing as mp
 import os
@@ -97,7 +98,7 @@ def test_every_reputation_startup_loop_goes_through_the_leader():
     """👑 No startup handler in reputation_service starts a background loop on its own — only the per-process flushes of THIS worker's writes
     (store, traffic) and the lag catcher's own dump may; everything else waits for the leader."""
     import re
-    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text().split('\n')
+    src = service_src().split('\n')
     allowed = {'_store_flush_loop', '_flush_traffic', '_loop_lag_dump'}
     stray = []
     for s, line in enumerate(src):

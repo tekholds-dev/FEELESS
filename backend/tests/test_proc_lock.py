@@ -1,4 +1,5 @@
 """🔒 SITE-8 slice 4: sql_store.ProcLock — a whole-document JSON store (crews.json) keeps every write when 4 worker processes change it at once."""
+from _svc_src import service_src
 import asyncio
 import json
 import multiprocessing as mp
@@ -49,13 +50,13 @@ def test_inside_one_process_it_is_still_a_plain_async_lock(tmp_path):
 
 
 def test_crews_routes_use_the_proc_lock():
-    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     assert '_crews_lock = _sqls_proc.ProcLock(lambda: CREWS_PATH)' in src
 
 
 def test_every_fuse_hq_and_runners_save_holds_the_cross_process_admin_lock():
     import ast
-    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     assert '_admin_lock = _sqls_proc.ProcLock(lambda: FUSE_HQ_PATH)' in src
     t = ast.parse(src); par = {c: n for n in ast.walk(t) for c in ast.iter_child_nodes(n)}
     for n in ast.walk(t):

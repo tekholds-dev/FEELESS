@@ -1,3 +1,4 @@
+from _svc_src import fn_src
 import fuse_wallet as fw
 
 SOL = fw.SOL_MINT
@@ -518,7 +519,7 @@ def test_execute_never_overwrites_an_existing_pending_signature(monkeypatch):
 def test_secure_quote_refusals_are_attributed_to_the_card_for_benching():
     import inspect
     import reputation_service as rs
-    src = inspect.getsource(rs._fw_execute)
+    src = fn_src('_fw_execute')
     assert "'card': tid" in src
 
 

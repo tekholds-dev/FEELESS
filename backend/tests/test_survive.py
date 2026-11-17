@@ -1,5 +1,6 @@
 """🪫 The agents keep working while the owner sleeps: the brake can't lock the card all morning, the regret ledger can't flip-flop, the patience
 valve fills an empty seat (and closes itself on a losing record), the build queue is read from the file."""
+from _svc_src import service_src
 import capital as cap
 import office_edge as oe
 import regret as rg
@@ -32,7 +33,7 @@ def test_valve_opens_after_ten_minutes_only_for_wait_for_confirmation_and_closes
 
 
 def test_build_queue_reads_the_file_every_time():
-    src = open(__file__.replace('tests/test_survive.py', 'reputation_service.py')).read()
+    src = service_src()
     i = src.index('def _build_state():')
     assert "if _chat.get('build') is None" not in src[i:i + 400]
 

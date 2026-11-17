@@ -1,5 +1,6 @@
 """⚙ ONE BRAIN: the old four-desk call engine (paper_desk.py) has no live authority. The live trench path is
 feeds → senses → the ten-agent kernel → ONE reducer → Warden → the one keeper."""
+from _svc_src import service_src
 import ast
 from pathlib import Path
 
@@ -14,7 +15,7 @@ import trench_kernel.senses as sn
 from kernel_helpers import row, seed
 
 B = Path(__file__).resolve().parent.parent
-SRC = (B / 'reputation_service.py').read_text()
+SRC = service_src()
 # what a live module may NOT take from the paper desk: its decisions, its survival engine, its burn / source-reputation lists
 DECISIONS = {'desk', 'eligible', 'manage', 'investigate', 'evolve', 'survival', 'reckon', 'second_opinion', 'devil', 'devil_args', 'trigger', 'busted_now', 'lane_cap', 'seat_limit', 'power'}
 ALLOWED_BURN = {'reputation_service.py'}   # the practice desk's own burn list is refreshed inside the paper block only

@@ -1,6 +1,7 @@
 """🤖 BOT LADDER + 🧭 phase hunt + 🪑 the 30-second seat (owner, 2026-10-11: "this is obviously a wash/rug chart … agent should be moving fast,
 processing new coins mainly trench, majors once we broke even and doubled … no seat should be empty, 30 secs to choose").
 Pure + source checks — no network, no wallet, no order."""
+from _svc_src import fn_src
 import inspect
 import math
 import random
@@ -80,9 +81,9 @@ def test_an_empty_seat_is_decided_in_thirty_seconds_and_fills_have_their_own_gua
 
 def test_recovery_sends_more_deep_reviews_to_young_coins():
     import reputation_service as rs
-    src = inspect.getsource(rs._agents_tick)
+    src = fn_src('_agents_tick')
     assert 'young_min_' in src and 'OFFICE_CANDLE_NEW + 6' in src                       # 0–12h coins get the extra deep-review slots, whatever the phase
-    assert "_so.universe(_agents.get('money'))" in inspect.getsource(rs._prime_tick_inner)   # the phase still tilts the seat score
+    assert "_so.universe(_agents.get('money'))" in fn_src('_prime_tick_inner')   # the phase still tilts the seat score
     assert math.isclose(so.YOUNG_H, 6.0)
 
 

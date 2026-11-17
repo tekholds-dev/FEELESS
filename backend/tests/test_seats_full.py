@@ -2,6 +2,7 @@
 (1) where a coin was FOUND, its cap band, narrative, launchpad, chart label = context: never a learned rug sign, never Devil's veto;
 (2) an empty seat with NOTHING cleared takes the best near-ready coin after NEAR_PATIENCE_SEC — only coins whose sole open checks are the
 entry moment / ENTER-grade data — at half size (Warden W19). No network, no wallet, no order."""
+from _svc_src import service_src, fn_src
 import paper_desk as ag
 import office as of
 import office_edge as oe
@@ -76,9 +77,9 @@ def test_the_stuck_check_judges_a_new_coin_by_the_keepers_new_seat_floor():
     import inspect
     import fuse_wallet as fw
     import reputation_service as rs
-    src = inspect.getsource(rs._prime_tick_inner)
+    src = fn_src('_prime_tick_inner')
     assert 'buy_pass_at=_FW_BUY_PASS.get(tid' in src and '_fw.NEW_SEAT_MIN if not _fw.held_units(book_s' in src
-    assert '_FW_BUY_PASS[tid] = time.time()' in inspect.getsource(rs._fw_tick_inner if hasattr(rs, '_fw_tick_inner') else rs._fw_tick)
+    assert '_FW_BUY_PASS[tid] = time.time()' in fn_src('_fw_tick_inner' if hasattr(rs, '_fw_tick_inner') else '_fw_tick')
     assert fw.NEW_SEAT_MIN <= 0.05
 
 
@@ -104,7 +105,7 @@ def test_the_hourly_budget_counts_real_buys_not_seats_that_never_bought():
     assert oe.real_buys(ev, led, 'degen', 2000.0 + 3600) == 0                                   # an hour later the window is empty
     import inspect
     import reputation_service as rs
-    src = inspect.getsource(rs._prime_tick_inner)
+    src = fn_src('_prime_tick_inner')
     assert src.count('_oe.real_buys(') >= 2 and "e.get('move') in ('fill', 'swap') and now -" not in src
 
 
@@ -122,7 +123,7 @@ def test_time_exits_wait_while_the_buy_budget_is_used_safety_exits_never_do():
     assert 'no replacement is ready' in r_[0]['deferred'] and 'deferred' not in r_[1]
     import inspect
     import reputation_service as rs
-    assert 'min(fills_left_, len(ready_)) - open_n' in inspect.getsource(rs._prime_tick_inner)                       # READY replacements, after the open seats take theirs
+    assert 'min(fills_left_, len(ready_)) - open_n' in fn_src('_prime_tick_inner')                       # READY replacements, after the open seats take theirs
 
 
 def test_a_deferred_time_exit_reads_hold_on_the_seat_board():
@@ -141,7 +142,7 @@ def test_a_time_exit_is_a_swap_the_weakest_flat_coin_uses_the_one_spare_replacem
     assert all('no replacement is ready' in x['deferred'] for x in r_)
     import inspect
     import reputation_service as rs
-    src = inspect.getsource(rs._prime_tick_inner)
+    src = fn_src('_prime_tick_inner')
     assert "ready_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(" in src and 'min(fills_left_, len(ready_)) - open_n' in src   # a replacement = a coin the KERNEL has READY
 
 
@@ -159,7 +160,7 @@ def test_a_flat_coin_keeps_its_seat_unless_it_is_losing_or_a_clearly_better_coin
     assert {d['pair']: d['action'] for d in of.merge_reaper(dec, [dict(r) for r in rep], buys_left=None, edge=edge)} == {p: 'pull' for p in 'ABCD'}   # engine cards: unchanged
     import inspect
     import reputation_service as rs
-    assert 'spare_, edge=margins_)' in inspect.getsource(rs._prime_tick_inner)
+    assert 'spare_, edge=margins_)' in fn_src('_prime_tick_inner')
 
 
 def test_the_agents_work_three_times_as_fast():
@@ -179,7 +180,7 @@ def test_a_coin_the_agents_just_left_is_not_bought_back():
     assert ap.agent_out(c, 1100.0) == {'RUG', 'OK'}                       # nothing comes straight back
     assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_SEC + 1) == {'RUG'}      # a plain exit: 10 min
     assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_DANGER_SEC + 1) == set()  # a rug exit: 6h
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert 'cool = set(cool) | _agent_blocked(cur, now)' in src and "else _agent_blocked(cur, now)):" in src
 
 
@@ -194,7 +195,7 @@ def test_the_six_second_guard_stops_an_agent_seat_at_reapers_own_line():
     hits = of.fast_reap(legs, {'A': 0.86, 'B': 0.5, 'C': 0.3}, pos, 1000.0)
     assert [h[0] for h in hits] == ['PA']               # B is yours (the card's own stop) · C: −70% in its first 5s = a feed gap
     assert of.fast_reap(legs, {'A': 0.9}, pos, 1000.0) == []
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert '_of.fast_reap(c_.get(\'legs\'), px, _office.get(\'pos\') or {}, now, _office_state(), prev=_reap_prev, ai_words=_ai_exit_words(None, now))' in src
 
 
@@ -206,7 +207,7 @@ def test_a_coin_the_keeper_refused_is_off_the_agents_list():
             'benched': {'BN': {'until': 5000.0}}}
     assert fw.no_buy(book, 1050.0) == {'NR', 'BN'}            # safety refusals + bench; a transient miss is retried
     assert fw.no_buy(book, 1000.0 + fw.REFUSED_SEC + 1) == {'BN'}
-    src = open(__import__('reputation_service').__file__).read()
+    src = service_src()
     assert '_fw.agent_no_buy(b, now)' in src and '_prime.agent_out(card, now, ' in src
 
 

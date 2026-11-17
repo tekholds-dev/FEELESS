@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import pytest
 import rep_markets as rm
 
@@ -83,7 +84,7 @@ def test_new_markets_come_from_the_live_lists():
 
 
 def test_service_uses_its_own_alias():
-    src = open(__import__('pathlib').Path(__file__).resolve().parent.parent / 'reputation_service.py').read()
+    src = service_src()
     assert 'import rep_markets as _repm' in src and 'import rep_markets as _rm' not in src
 
 

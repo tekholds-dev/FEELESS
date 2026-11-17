@@ -1,6 +1,7 @@
 """🕸 ONE DEDUPED LIVE INTAKE (`backend/intake.py` + the service's `_intake_pass`): every existing outlet feeds one registry — dedupe,
 first-seen kept, every source preserved, new unique mints per cycle, per-source funnel, latencies, fresh launches never crowded out.
 No network, no wallet, no order."""
+from _svc_src import fn_src
 import asyncio
 
 import intake as it
@@ -116,8 +117,8 @@ def test_tallys_tape_keeps_at_least_every_coin_the_intake_can_read():
 def test_the_agents_pass_runs_on_its_own_sixty_second_loop_never_behind_the_warm_loop():
     import inspect
     import reputation_service as rs
-    assert '_agents_tick' not in inspect.getsource(rs._fuse_warm)                               # it rode the warm loop and ran every ~3 min
-    src = inspect.getsource(rs._agents_loop)
+    assert '_agents_tick' not in fn_src('_fuse_warm')                               # it rode the warm loop and ran every ~3 min
+    src = fn_src('_agents_loop')
     assert '_agents_tick' in src and '_runner_live' in src
     assert rs.AGENTS_EVERY <= 60
 

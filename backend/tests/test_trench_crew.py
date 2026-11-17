@@ -1,4 +1,5 @@
 """🪖 The trench crew: ten roles, one hard wall at the money boundary; Devil weighs, Warden shrinks, Sherlock's unknown is research."""
+from _svc_src import service_src
 from pathlib import Path
 
 import office as of
@@ -45,5 +46,5 @@ def test_warden_shrinks_in_trench_mode_and_only_execution_can_veto():
 def test_in_trench_mode_reaper_exits_on_the_chart_and_liquidity_not_a_holder_scan():
     src = (ROOT / 'backend' / 'office.py').read_text()
     assert "'R2 hard invalidation'" not in src and "'R3 holders concentrating'" not in src and 'agentOpen' not in src   # no holder-scan / rug-score exit exists, with or without a switch
-    rs = (ROOT / 'backend' / 'reputation_service.py').read_text()
+    rs = service_src()
     assert "a buy the LEDGER shows filled in the last 3 min is not stuck" in rs

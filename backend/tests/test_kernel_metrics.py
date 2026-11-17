@@ -1,4 +1,5 @@
 """📏 Kernel timings: decision → order, order → fill (from the keeper's ledger), wake → decision, age at entry; ORDER_PENDING in the lifecycle."""
+from _svc_src import service_src
 from pathlib import Path
 
 import trench_kernel.kernel as tk
@@ -6,7 +7,7 @@ import trench_kernel.metrics as km
 
 from kernel_helpers import row
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def test_timings_are_bounded_rings_with_percentiles():

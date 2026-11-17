@@ -1,5 +1,6 @@
 """⏱ THE TRENCH DESK (owner's one-and-done spec, 2026-10-12): ≤ 6h · < $200K universe, 5-minute rounds with a three-round decision,
 event wakeups, fresh-first priority, cost-aware sizing, real-money desk records, one execution path."""
+from _svc_src import service_src
 from pathlib import Path
 
 import paper_desk as ag
@@ -11,7 +12,7 @@ import opportunity as opp
 import real_memory as rm
 import trench_rounds as tr
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 FRONT = Path(__file__).resolve().parents[2] / 'frontend' / 'src' / 'components' / 'command'
 
 

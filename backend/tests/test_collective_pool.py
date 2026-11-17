@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import pytest
 import collective_pool as _pool_mod
 _POOL_DEFAULTS = _pool_mod.DEFAULTS
@@ -476,7 +477,7 @@ def test_desk_buys_off_is_kept_by_the_card_settings_and_defaults_off():
 
 
 def test_every_door_the_desk_buys_through_checks_the_switch():
-    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     assert "if (cfg_t.get('agentFeed') or cfg_t.get('agentLearn')) and not cfg_t.get('deskBuysOff'):" in src                         # GO rows into the engine
     assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                                # a switch into a new coin
     assert "g4_seat_ = pol_.get('aiSeat') == 'real' and ((not cfg_t.get('deskBuysOff') and" in src                                    # OSSY and G4's own seat stops; only a Sicario's PoW passes

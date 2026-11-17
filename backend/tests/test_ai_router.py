@@ -294,7 +294,7 @@ def test_the_models_decisions_are_logged_once_each_for_the_page_and_nothing_read
     light = rs._ai_view(light=True)
     assert len(light['log']) == 20 and 'model' in light and not any('key' in k.lower() and k not in ('key', 'keySet') for r in light['providers'] for k in r)
     assert all(isinstance(r.get('keySet'), (bool, type(None))) for r in light['providers'])   # a yes/no, never the key
-    src = open(rs.__file__).read()
+    src = service_src()
     assert "_ai['log']" not in src.split('def _agents_tick')[1].split('def _fuse_warm')[0]   # the agents' pass never reads the model's log
     rs._ai['log'] = []
 

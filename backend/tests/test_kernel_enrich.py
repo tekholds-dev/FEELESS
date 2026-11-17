@@ -1,5 +1,6 @@
 """🔎 The ONE enrichment scheduler (trench_kernel/enrich.py): priority, budget, freshness that survives a restart, negative caching —
 and the proof that a restart cannot start a scan avalanche."""
+from _svc_src import service_src
 import asyncio
 from pathlib import Path
 
@@ -9,8 +10,7 @@ import trench_kernel.kernel as tk
 
 from kernel_helpers import row
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text() + ''.join(   # + the routes SITE-5 moved out
-    p.read_text() for p in sorted((Path(__file__).resolve().parent.parent).glob('rep_*.py')))
+SRC = service_src()   # the whole service: moved sections in place, route modules appended
 P = en.PRIO
 
 

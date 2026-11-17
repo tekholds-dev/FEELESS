@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import pytest
 """Arena Prime: 3 top-tier paper cards, fully auto — 3★+ coins only, a stable major anchor (never rotated / stopped), auto TP
 compounds into the other coins, SL replaced at once, 2 weakest rotate every 6h, a −20% card FLOOR (never −25%), an honest
@@ -2036,7 +2037,7 @@ def test_a_queued_pick_comes_in_early_when_its_coin_is_within_five_points_of_the
 def test_trench_auto_is_a_real_switch_on_by_default():
     assert ap.clean_cfg({})['trenchAuto'] is True and ap.clean_cfg({'trenchAuto': False})['trenchAuto'] is False
     import pathlib
-    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     assert "cfg_t.get('trenchAuto', True) and not (real_t" in src          # the ONLY place trench coins join the engine's candidates
 
 
