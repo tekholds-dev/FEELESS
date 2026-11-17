@@ -96,7 +96,7 @@ def test_the_game_room_only_reads_it_never_bids():
     """Owner 2026-11-15 'prove it only investigates': the room's four doors are GETs, and the code behind them cannot reach an order."""
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[1]
-    svc = (root / 'feecat_service.py').read_text()
+    svc = __import__('_svc_src').service_src(svc='feecat_service')
     for path in ('/api/cats/tools/game/', '/api/cats/tools/team/', '/api/cats/tools/athlete/', '/api/cats/tools/print/'):
         assert re.search(r"@app\.get\('" + re.escape(path), svc) and not re.search(r"@app\.(post|put|delete|patch)\('" + re.escape(path), svc), path
     for f in ('proof_tools.py', 'game_edge.py'):

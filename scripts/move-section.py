@@ -20,6 +20,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / 'backend' / 'reputation_service.py'
+PREFIX = {'reputation_service': 'rep_', 'feecat_service': 'fc_'}   # --svc: the service a section leaves, and its new modules' prefix
 _spec = importlib.util.spec_from_file_location('move_routes', ROOT / 'scripts' / 'move-routes.py'); mr = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(mr)
 VERBS = ('get', 'post', 'put', 'delete', 'patch', 'api_route')
 
@@ -124,8 +125,11 @@ def main():
     ap.add_argument('--from', dest='a', type=int, required=True); ap.add_argument('--to', dest='b', type=int, required=True)
     ap.add_argument('--name', required=True, help='the new module is backend/rep_<name>.py'); ap.add_argument('--apply', action='store_true')
     ap.add_argument('--title', default='', help='one line for the new module docstring')
+    ap.add_argument('--svc', default='reputation_service', choices=sorted(PREFIX))
     o = ap.parse_args()
-    mod = f'rep_{re.sub(r"[^a-z0-9_]", "", o.name.lower())}'; dst = ROOT / 'backend' / f'{mod}.py'
+    global SRC
+    SRC = ROOT / 'backend' / f'{o.svc}.py'; pre = PREFIX[o.svc]
+    mod = f'{pre}{re.sub(r"[^a-z0-9_]", "", o.name.lower())}'; dst = ROOT / 'backend' / f'{mod}.py'
     text = SRC.read_text(); lines = text.splitlines(keepends=True); tree = ast.parse(text); glob = mr.module_globals(tree)
     models = set()
     for _ in range(4):
@@ -135,7 +139,7 @@ def main():
     for n in ast.walk(tree):
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in VERBS and n.args and isinstance(n.args[0], ast.Constant) and str(n.args[0].value).startswith('/') and '{' in n.args[0].value:
             p = n.args[0].value; pats.append((p, re.compile('^' + re.sub(r'\\\{[^}]+\\\}', '[^/]+', re.escape(p)) + '$')))
-    for f in sorted((ROOT / 'backend').glob('rep_*.py')):
+    for f in sorted((ROOT / 'backend').glob(f'{pre}*.py')):
         for p in re.findall(r"@router\.(?:get|post|put|delete|patch|api_route)\('([^']+)'", f.read_text()):
             if '{' in p:
                 pats.append((p, re.compile('^' + re.sub(r'\\\{[^}]+\\\}', '[^/]+', re.escape(p)) + '$')))
@@ -174,12 +178,12 @@ def main():
     body = re.sub(r'\n{4,}', '\n\n\n', ''.join(lines))
     names = [fn.name for fn in moves]
     routes = any(fn.decorator_list for fn in moves)
-    head = (f'"""🧹 {o.title or mod} — moved whole out of reputation_service.py by scripts/move-section.py (owner 2026-11-16 cleanup).\n'
-            'Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches reputation_service still\n'
-            'reaches it, and every function here is still reachable on reputation_service under its own name. Constants, classes and state live in the service."""\n'
-            + ('import reputation_service as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)\n' if routes else '')
+    head = (f'"""🧹 {o.title or mod} — moved whole out of {o.svc}.py by scripts/move-section.py (owner 2026-11-16 cleanup).\n'
+            f'Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches {o.svc} still\n'
+            f'reaches it, and every function here is still reachable on {o.svc} under its own name. Constants, classes and state live in the service."""\n'
+            + (f'import {o.svc} as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)\n' if routes else '')
             + ('from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\nfrom typing import Optional  # noqa: F401\n\nrouter = APIRouter()\n\n\n' if routes else '\n\n')
-            + 'def _rs():\n    import reputation_service\n    return reputation_service\n\n\n')
+            + f'def _rs():\n    import {o.svc}\n    return {o.svc}\n\n\n')
     if dst.exists():
         dst.write_text(dst.read_text().rstrip('\n') + '\n\n\n' + '\n\n'.join(out) + '\n')
     else:

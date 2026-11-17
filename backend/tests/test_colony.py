@@ -70,7 +70,7 @@ def test_pow_colony_reconciles_confirmed_wallet_fills_before_accruing(monkeypatc
     assert f['pnlSol'] == .1 and f['pnlPct'] == round(.1 / .101 * 100, 2)
     assert fs._shares()[0]['sol'] == .02 and fs._shares()[0]['ref'] == 'sell-sig'
     assert fs.share_ok('k1', 20, 1, 'sig', 'W1', now=500) is False   # a stale signature never counts
-    src = open(fs.__file__).read(); i = src.index("if p.op == 'share':"); assert 'share_ok(cat_id, pct_, p.ts, p.sig' in src[i:i + 900]
+    src = __import__('_svc_src').service_src(svc='feecat_service'); i = src.index("if p.op == 'share':"); assert 'share_ok(cat_id, pct_, p.ts, p.sig' in src[i:i + 900]
 
 
 def test_an_entry_is_a_buy_cell_and_an_exit_an_avoid_cell_graded_like_any_other():
@@ -181,7 +181,7 @@ def test_a_blocked_window_can_be_sent_elsewhere_and_every_mind_knows_the_colony(
 def test_the_desks_big_stop_also_stops_running_minds_and_a_third_repeat_read_ends_the_turn():
     """Owner 2026-10-31: 'stop btn not working' (it only stopped trades) · 'it said already read this like 15 times' (each one paid)."""
     import feecat_service as fs, cat_agent as ca
-    src = open(fs.__file__).read(); i = src.index("elif payload.action == 'stop':")
+    src = __import__('_svc_src').service_src(svc='feecat_service'); i = src.index("elif payload.action == 'stop':")
     assert "w_['task']['stop'] = True" in src[i:i + 900] and '_hard_stop(w_)' in src[i:i + 900]
     assert ca.REPEAT_MAX == 3 and "if w['repeats'] >= REPEAT_MAX" in open(ca.__file__).read()
     assert fs.BLOCK_PIVOT_S == 45

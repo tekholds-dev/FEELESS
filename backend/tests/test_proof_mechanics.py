@@ -1,9 +1,8 @@
 """The true mechanics stay wired in. Every proof type: its own loop against what it did before, and the one conversation."""
-from pathlib import Path
 
 import proof_footprint as fp
 
-SRC = (Path(fp.__file__).parent / 'feecat_service.py').read_text()
+SRC = __import__('_svc_src').service_src(svc='feecat_service')
 
 
 def test_every_proof_type_reads_its_last_footprints_and_the_conversation():

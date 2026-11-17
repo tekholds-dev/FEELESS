@@ -28,8 +28,8 @@ def undo(code):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--rev', default='HEAD'); ap.add_argument('mods', nargs='+'); a = ap.parse_args()
-    old = funcs(subprocess.run(['git', 'show', f'{a.rev}:backend/reputation_service.py'], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+    ap = argparse.ArgumentParser(); ap.add_argument('--rev', default='HEAD'); ap.add_argument('--svc', default='reputation_service'); ap.add_argument('mods', nargs='+'); a = ap.parse_args()
+    old = funcs(subprocess.run(['git', 'show', f'{a.rev}:backend/{a.svc}.py'], cwd=ROOT, capture_output=True, text=True, check=True).stdout)
     bad = 0; n = 0
     for m in a.mods:
         for name, code in funcs(pathlib.Path(m).read_text()).items():
@@ -37,7 +37,7 @@ def main():
                 continue
             n += 1
             if name not in old:
-                print(f'✗ {m}: {name} is not in reputation_service@{a.rev}'); bad += 1
+                print(f'✗ {m}: {name} is not in {a.svc}@{a.rev}'); bad += 1
             elif undo(code) != old[name]:
                 print(f'✗ {m}: {name} differs from the original'); bad += 1
     print(f'{n - bad}/{n} moved functions are the original, byte for byte' if n else 'no functions found')

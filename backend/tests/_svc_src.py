@@ -8,7 +8,8 @@ import re
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
-MARK = re.compile(r'^# ↪ moved to (rep_\w+)\.py:(.*)$', re.M)
+MARK = re.compile(r'^# ↪ moved to ((?:rep|fc)_\w+)\.py:(.*)$', re.M)
+PREFIX = {'reputation_service': 'rep_', 'feecat_service': 'fc_'}
 
 
 def _undo(text):
@@ -28,9 +29,10 @@ def _segments(path):
     return out
 
 
-def service_src(routes=True):
-    """routes=False: only the service with its moved sections in place (no appended route modules, which define their own helpers)."""
-    main = (BACKEND / 'reputation_service.py').read_text()
+def service_src(routes=True, svc='reputation_service'):
+    """routes=False: only the service with its moved sections in place (no appended route modules, which define their own helpers).
+    svc='feecat_service': the same for the cats service (its sections moved to fc_*.py)."""
+    main = (BACKEND / f'{svc}.py').read_text()
     seg = {}
 
     def expand(m):
@@ -39,15 +41,15 @@ def service_src(routes=True):
             seg[mod] = _segments(BACKEND / f'{mod}.py')
         return '\n\n'.join(seg[mod][n.strip()] for n in m.group(2).split(',') if n.strip())
     parts = [MARK.sub(expand, main)]
-    for f in sorted(BACKEND.glob('rep_*.py')) if routes else ():
+    for f in sorted(BACKEND.glob(f'{PREFIX[svc]}*.py')) if routes else ():
         if f.stem not in seg:   # a route module: appended, as the route mover left them
             parts.append(_undo(f.read_text()))
     return '\n\n\n'.join(parts)
 
 
-def fn_src(name):
+def fn_src(name, svc='reputation_service'):
     """One function's source, wherever it lives now."""
-    src = service_src(); m = re.search(rf'^(?:async )?def {re.escape(name)}\(', src, re.M)
+    src = service_src(svc=svc); m = re.search(rf'^(?:async )?def {re.escape(name)}\(', src, re.M)
     if not m:
         raise KeyError(name)
     nxt = re.compile(r'\n(?=[^\s#)])').search(src, m.end())   # the next line that starts at column 0 (not a comment, not a closing paren)
