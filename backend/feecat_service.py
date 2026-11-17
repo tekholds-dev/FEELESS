@@ -1457,14 +1457,14 @@ _POC_MEDIA_SEEN: dict = {}   # ws → (at, media): folders filed before media ro
 _WEEK_BUSY: set = set()
 
 
-# ↪ moved to fc_desk.py: _week_file, _poc_file, cat_indicator, pool_rules, pool_project, pool_growth, collective_mine, _convos_public
-# ↪ moved to fc_desk.py: cat_receipt_explorer
+# ↪ moved to fc_tools.py: _week_file, _poc_file, cat_indicator, pool_rules, pool_project, pool_growth, collective_mine, _convos_public
+# ↪ moved to fc_tools.py: cat_receipt_explorer
 
 
 _VALUE = {'at': 0, 'v': None}
 
 
-# ↪ moved to fc_desk.py: proofs_value, stash_web, _web_live_rows
+# ↪ moved to fc_tools.py: proofs_value, stash_web, _web_live_rows
 
 
 @app.get('/api/cats/web/live')
@@ -1479,7 +1479,7 @@ async def cat_web_live(session: str = ''):
 _SOURCE_PRINT = {'at': 0, 'rows': []}
 
 
-# ↪ moved to fc_desk.py: cat_sources_print, cat_sources_web, cat_receipt
+# ↪ moved to fc_tools.py: cat_sources_print, cat_sources_web, cat_receipt
 
 
 @app.get('/api/cats/tools/image')
@@ -1511,19 +1511,19 @@ ATOM_ACTIVE_S = 86400
 ATOMS_FRESH_S = 120
 
 
-# ↪ moved to fc_desk.py: _atoms_public, _short_model, model_prints
+# ↪ moved to fc_tools.py: _atoms_public, _short_model, model_prints
 
 
 _PRINTS = {'at': 0.0, 'rows': []}
 
 
-# ↪ moved to fc_desk.py: asset_thumb, cat_model_prints, collective_atoms
+# ↪ moved to fc_tools.py: asset_thumb, cat_model_prints, collective_atoms
 
 
 _KB_PUBLIC = {'at': 0, 'v': {'minds': [], 'notes': []}}
 
 
-# ↪ moved to fc_desk.py: collective_kalshi, collective_look, cat_tool_team_logos, cat_tool_proof_sources
+# ↪ moved to fc_tools.py: collective_kalshi, collective_look, cat_tool_team_logos, cat_tool_proof_sources
 
 
 @app.get('/api/cats/tools/sourcefile')
@@ -1532,7 +1532,7 @@ async def cat_tool_sourcefile():
     return _feat._sources.view()
 
 
-# ↪ moved to fc_desk.py: cat_tool_team, cat_tool_athlete, cat_tool_print, cat_tool_game, cat_tools, _pob_grade_pass, colony_flow
+# ↪ moved to fc_tools.py: cat_tool_team, cat_tool_athlete, cat_tool_print, cat_tool_game, cat_tools, _pob_grade_pass, colony_flow
 
 
 @app.get('/api/cats/supply')
@@ -1541,8 +1541,8 @@ async def cat_supply():
     return supply_state(_load())
 
 
-# ↪ moved to fc_desk.py: _owner_boosts, cat_colony_internal, internal_supply_set, internal_studio_get, internal_studio_set, internal_rules_get
-# ↪ moved to fc_desk.py: internal_rules_set, _internal_headers, _internal_ok, _internal
+# ↪ moved to fc_tools.py: _owner_boosts, cat_colony_internal, internal_supply_set, internal_studio_get, internal_studio_set, internal_rules_get
+# ↪ moved to fc_tools.py: internal_rules_set, _internal_headers, _internal_ok, _internal
 
 
 class WorkPayload(BaseModel):
@@ -1572,8 +1572,8 @@ _WARM = {}     # 🔥 cat_id → the window the owner just signed in to and clea
 WARM_S = 840   # Steel ends a session at 15 minutes
 
 
-# ↪ moved to fc_desk.py: _challenge_note, _poi_owner_view, _keep_pass, _site_ctx, file_interrupted, heal_site_sessions, _seal_downloads, _warm_for
-# ↪ moved to fc_desk.py: _warm_close, _warm_expire, _signin_close
+# ↪ moved to fc_auto.py: _challenge_note, _poi_owner_view, _keep_pass, _site_ctx, file_interrupted, heal_site_sessions, _seal_downloads, _warm_for
+# ↪ moved to fc_auto.py: _warm_close, _warm_expire, _signin_close
 
 
 # ── 🤖 AGENT-AUTO (agent_auto.py): the owner's `auto <proof>` setup, the sealed config, the scheduler and the kill-switch ─────────────────────────────
@@ -1583,7 +1583,7 @@ AUTO_TICK_S = 30
 _AUTO_RUNKEY = {'pow': 'powRun', 'pop': 'popRun', 'pob': 'pobRun'}
 
 
-# ↪ moved to fc_desk.py: _auto_cfg, _auto_put, _auto_busy, _auto_chat, _auto_fire, _auto_tick, _auto_loop
+# ↪ moved to fc_auto.py: _auto_cfg, _auto_put, _auto_busy, _auto_chat, _auto_fire, _auto_tick, _auto_loop
 
 
 @app.on_event('startup')
@@ -1595,13 +1595,13 @@ async def _start_auto():
 _POST_BUSY = set()
 
 
-# ↪ moved to fc_desk.py: _week_post, cat_work
+# ↪ moved to fc_auto.py: _week_post, cat_work
 
 
 _PICK_KIND = {'pow': 'pow', 'pop': 'pop', 'bids': 'pob', 'poc': 'poc', 'postatic': 'pos'}   # the picker's window → the chat's proof kind
 
 
-# ↪ moved to fc_desk.py: _desk_focus, _cat_work, cat_work_shot
+# ↪ moved to fc_cat_work.py: _desk_focus, _cat_work, cat_work_shot
 
 
 class FilePayload(BaseModel):
@@ -1612,7 +1612,7 @@ class FilePayload(BaseModel):
     pay: Optional[bool] = None         # ⛓ op ipfs: False = the free quote (simulated), True = pay the quote it showed
 
 
-# ↪ moved to fc_desk.py: _owned
+# ↪ moved to fc_cat_work.py: _owned
 
 
 # ☁ ITS CLOUD = ITS OWNER'S (agent_cloud.py): connect Google Drive / Dropbox with their own sign-in, FEELESS keeps the sealed refresh pass only
@@ -1887,6 +1887,12 @@ get_cat = _fc_cloud.get_cat
 
 import fc_desk as _fc_desk   # noqa: E402  🧹 moved by scripts/move-section.py
 app.include_router(_fc_desk.router)
+import fc_tools as _fc_tools   # noqa: E402  🧹 split out of fc_desk.py by scripts/split-module.py
+app.include_router(_fc_tools.router)
+import fc_auto as _fc_auto   # noqa: E402  🧹 split out of fc_desk.py by scripts/split-module.py
+app.include_router(_fc_auto.router)
+import fc_cat_work as _fc_cat_work   # noqa: E402  🧹 split out of fc_desk.py by scripts/split-module.py
+app.include_router(_fc_cat_work.router)
 _feed_detail = _fc_desk._feed_detail
 _or_credit = _fc_desk._or_credit
 proofs_brief = _fc_desk.proofs_brief
@@ -1927,72 +1933,72 @@ _build_3d = _fc_desk._build_3d
 _ws_run = _fc_desk._ws_run
 _poc_media = _fc_desk._poc_media
 _poc_view = _fc_desk._poc_view
-_week_file = _fc_desk._week_file
-_poc_file = _fc_desk._poc_file
-cat_indicator = _fc_desk.cat_indicator
-pool_rules = _fc_desk.pool_rules
-pool_project = _fc_desk.pool_project
-pool_growth = _fc_desk.pool_growth
-collective_mine = _fc_desk.collective_mine
-_convos_public = _fc_desk._convos_public
-cat_receipt_explorer = _fc_desk.cat_receipt_explorer
-proofs_value = _fc_desk.proofs_value
-stash_web = _fc_desk.stash_web
-_web_live_rows = _fc_desk._web_live_rows
-cat_sources_print = _fc_desk.cat_sources_print
-cat_sources_web = _fc_desk.cat_sources_web
-cat_receipt = _fc_desk.cat_receipt
-_atoms_public = _fc_desk._atoms_public
-_short_model = _fc_desk._short_model
-model_prints = _fc_desk.model_prints
-asset_thumb = _fc_desk.asset_thumb
-cat_model_prints = _fc_desk.cat_model_prints
-collective_atoms = _fc_desk.collective_atoms
-collective_kalshi = _fc_desk.collective_kalshi
-collective_look = _fc_desk.collective_look
-cat_tool_team_logos = _fc_desk.cat_tool_team_logos
-cat_tool_proof_sources = _fc_desk.cat_tool_proof_sources
-cat_tool_team = _fc_desk.cat_tool_team
-cat_tool_athlete = _fc_desk.cat_tool_athlete
-cat_tool_print = _fc_desk.cat_tool_print
-cat_tool_game = _fc_desk.cat_tool_game
-cat_tools = _fc_desk.cat_tools
-_pob_grade_pass = _fc_desk._pob_grade_pass
-colony_flow = _fc_desk.colony_flow
-_owner_boosts = _fc_desk._owner_boosts
-cat_colony_internal = _fc_desk.cat_colony_internal
-internal_supply_set = _fc_desk.internal_supply_set
-internal_studio_get = _fc_desk.internal_studio_get
-internal_studio_set = _fc_desk.internal_studio_set
-internal_rules_get = _fc_desk.internal_rules_get
-internal_rules_set = _fc_desk.internal_rules_set
-_internal_headers = _fc_desk._internal_headers
-_internal_ok = _fc_desk._internal_ok
-_internal = _fc_desk._internal
-_challenge_note = _fc_desk._challenge_note
-_poi_owner_view = _fc_desk._poi_owner_view
-_keep_pass = _fc_desk._keep_pass
-_site_ctx = _fc_desk._site_ctx
-file_interrupted = _fc_desk.file_interrupted
-heal_site_sessions = _fc_desk.heal_site_sessions
-_seal_downloads = _fc_desk._seal_downloads
-_warm_for = _fc_desk._warm_for
-_warm_close = _fc_desk._warm_close
-_warm_expire = _fc_desk._warm_expire
-_signin_close = _fc_desk._signin_close
-_auto_cfg = _fc_desk._auto_cfg
-_auto_put = _fc_desk._auto_put
-_auto_busy = _fc_desk._auto_busy
-_auto_chat = _fc_desk._auto_chat
-_auto_fire = _fc_desk._auto_fire
-_auto_tick = _fc_desk._auto_tick
-_auto_loop = _fc_desk._auto_loop
-_week_post = _fc_desk._week_post
-cat_work = _fc_desk.cat_work
-_desk_focus = _fc_desk._desk_focus
-_cat_work = _fc_desk._cat_work
-cat_work_shot = _fc_desk.cat_work_shot
-_owned = _fc_desk._owned
+_week_file = _fc_tools._week_file
+_poc_file = _fc_tools._poc_file
+cat_indicator = _fc_tools.cat_indicator
+pool_rules = _fc_tools.pool_rules
+pool_project = _fc_tools.pool_project
+pool_growth = _fc_tools.pool_growth
+collective_mine = _fc_tools.collective_mine
+_convos_public = _fc_tools._convos_public
+cat_receipt_explorer = _fc_tools.cat_receipt_explorer
+proofs_value = _fc_tools.proofs_value
+stash_web = _fc_tools.stash_web
+_web_live_rows = _fc_tools._web_live_rows
+cat_sources_print = _fc_tools.cat_sources_print
+cat_sources_web = _fc_tools.cat_sources_web
+cat_receipt = _fc_tools.cat_receipt
+_atoms_public = _fc_tools._atoms_public
+_short_model = _fc_tools._short_model
+model_prints = _fc_tools.model_prints
+asset_thumb = _fc_tools.asset_thumb
+cat_model_prints = _fc_tools.cat_model_prints
+collective_atoms = _fc_tools.collective_atoms
+collective_kalshi = _fc_tools.collective_kalshi
+collective_look = _fc_tools.collective_look
+cat_tool_team_logos = _fc_tools.cat_tool_team_logos
+cat_tool_proof_sources = _fc_tools.cat_tool_proof_sources
+cat_tool_team = _fc_tools.cat_tool_team
+cat_tool_athlete = _fc_tools.cat_tool_athlete
+cat_tool_print = _fc_tools.cat_tool_print
+cat_tool_game = _fc_tools.cat_tool_game
+cat_tools = _fc_tools.cat_tools
+_pob_grade_pass = _fc_tools._pob_grade_pass
+colony_flow = _fc_tools.colony_flow
+_owner_boosts = _fc_tools._owner_boosts
+cat_colony_internal = _fc_tools.cat_colony_internal
+internal_supply_set = _fc_tools.internal_supply_set
+internal_studio_get = _fc_tools.internal_studio_get
+internal_studio_set = _fc_tools.internal_studio_set
+internal_rules_get = _fc_tools.internal_rules_get
+internal_rules_set = _fc_tools.internal_rules_set
+_internal_headers = _fc_tools._internal_headers
+_internal_ok = _fc_tools._internal_ok
+_internal = _fc_tools._internal
+_challenge_note = _fc_auto._challenge_note
+_poi_owner_view = _fc_auto._poi_owner_view
+_keep_pass = _fc_auto._keep_pass
+_site_ctx = _fc_auto._site_ctx
+file_interrupted = _fc_auto.file_interrupted
+heal_site_sessions = _fc_auto.heal_site_sessions
+_seal_downloads = _fc_auto._seal_downloads
+_warm_for = _fc_auto._warm_for
+_warm_close = _fc_auto._warm_close
+_warm_expire = _fc_auto._warm_expire
+_signin_close = _fc_auto._signin_close
+_auto_cfg = _fc_auto._auto_cfg
+_auto_put = _fc_auto._auto_put
+_auto_busy = _fc_auto._auto_busy
+_auto_chat = _fc_auto._auto_chat
+_auto_fire = _fc_auto._auto_fire
+_auto_tick = _fc_auto._auto_tick
+_auto_loop = _fc_auto._auto_loop
+_week_post = _fc_auto._week_post
+cat_work = _fc_auto.cat_work
+_desk_focus = _fc_cat_work._desk_focus
+_cat_work = _fc_cat_work._cat_work
+cat_work_shot = _fc_cat_work.cat_work_shot
+_owned = _fc_cat_work._owned
 
 import fc_studio as _fc_studio   # noqa: E402  🧹 moved by scripts/move-section.py
 app.include_router(_fc_studio.router)

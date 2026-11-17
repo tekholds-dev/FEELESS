@@ -2868,11 +2868,11 @@ _chat: dict = {'th': {}, 'ctx': (None, None, 0.0), 'busy': False, 'props': None,
 AI_CHAT_PATH = DATA_DIR / 'ai_chat_state.json'   # 💾 the Brain's threads + saved conversations + settings (text only, small) — survive a restart
 
 
-# ↪ moved to rep_ai.py: _brain_load, _chat_persist, _chat_extra
+# ↪ moved to rep_ai_chat.py: _brain_load, _chat_persist, _chat_extra
 AI_CHAT_CTX_SEC = 20.0   # the compact agent-state context is rebuilt at most this often (and only its text changes the model's input)
 
 
-# ↪ moved to rep_ai.py: _chat_props, _chat_context, _chat_olds, _ai_proposal_apply
+# ↪ moved to rep_ai_chat.py: _chat_props, _chat_context, _chat_olds, _ai_proposal_apply
 
 
 import ai_play as _play   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
@@ -2883,18 +2883,18 @@ AI_RIG_PATH = DATA_DIR / 'ai_rig.json'
 AI_PRESETS_PATH = DATA_DIR / 'ai_presets.json'   # 🔖 per-model rig presets (ai_rig.preset_*)
 
 
-# ↪ moved to rep_ai.py: _rig_apply
+# ↪ moved to rep_ai_chat.py: _rig_apply
 
 
 _lms_reloading: set = set()   # ⚡ models reloading right now (one reload per model at a time)
 LMS_MARK_PATH = DATA_DIR / 'lms_reloading'   # 🚧 scripts/keep-alive.sh's LM watchdog stands down while this file is < 5 min old (no double load mid-reload)
 
 
-# ↪ moved to rep_ai.py: _lms_reload
+# ↪ moved to rep_ai_chat.py: _lms_reload
 _lms_seen: dict = {}   # 🧠 {key: (at, lms_row)} — what each LM Studio REALLY runs (15s cache; a reload clears it)
 
 
-# ↪ moved to rep_ai.py: _lms_states
+# ↪ moved to rep_ai_chat.py: _lms_states
 
 
 # 🧠 THE MODEL DESK (owner, 2026-10-23: "the Models tab should really show it all — server settings, MCP, load, inference … more vitals"):
@@ -2903,7 +2903,7 @@ import model_desk as _mdk   # noqa: E402
 _mdk_seen: dict = {}
 
 
-# ↪ moved to rep_ai.py: _mdk_cached, _mdk_lms, _mdk_mcp, _model_desk_view
+# ↪ moved to rep_ai_chat.py: _mdk_cached, _mdk_lms, _mdk_mcp, _model_desk_view
 
 
 # 🎭 PROMPT STUDIO (owner, 2026-10-22): each model's live context, its record, what the record says is wrong, and four prompt sets written from it
@@ -2912,19 +2912,19 @@ import prompt_studio as _pstu   # noqa: E402
 PROMPT_STUDIO_PATH = DATA_DIR / 'prompt_studio.json'
 
 
-# ↪ moved to rep_ai.py: _studio_apply
+# ↪ moved to rep_ai_chat.py: _studio_apply
 
 
 _studio_lms_note = {}
 
 
-# ↪ moved to rep_ai.py: _studio_lms, _studio_trades, _studio_core
+# ↪ moved to rep_ai_chat.py: _studio_lms, _studio_trades, _studio_core
 
 
 _studio_auto_at = {'t': 0.0}
 
 
-# ↪ moved to rep_ai.py: _studio_auto, _studio_auto_safe, _studio_layer, _studio_view, _studio_fee
+# ↪ moved to rep_ai_chat.py: _studio_auto, _studio_auto_safe, _studio_layer, _studio_view, _studio_fee
 
 
 @app.on_event('startup')
@@ -2942,33 +2942,33 @@ COLONY_PATH = DATA_DIR / 'colony.json'
 POOL_PATH = DATA_DIR / 'collective_pool.json'
 
 
-# ↪ moved to rep_ai.py: _colony_value, _colony_view
+# ↪ moved to rep_ai_chat.py: _colony_value, _colony_view
 
 
 COLONY_POOL_JS = Path(__file__).resolve().parent.parent / 'circle' / 'colony-pool.mjs'
 
 
 POOL_QUOTES = {'SOL': ('So11111111111111111111111111111111111111112', 0.01, 1000), 'USDC': ('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 1, 100000)}
-# ↪ moved to rep_ai.py: _pool_tokens, _colony_pool_build
+# ↪ moved to rep_ai_chat.py: _pool_tokens, _colony_pool_build
 
 
 import chat_evidence as _cev   # noqa: F401  (read by rep_admin_routes, rep_ai as rs._cev)
 _cev_cache: dict = {}
 
 
-# ↪ moved to rep_ai.py: _chat_syms, _chat_coin, _owner_brief, _chat_evidence, _chat_learned
+# ↪ moved to rep_ai_chat.py: _chat_syms, _chat_coin, _owner_brief, _chat_evidence, _chat_learned
 
 
 _CHAT_IMG = _re.compile(r'^/api/reputation/uploads/([0-9a-f]{32}\.(png|jpg|webp|gif))$')
 
 
-# ↪ moved to rep_ai.py: _chat_image, _build_state
+# ↪ moved to rep_ai_chat.py: _chat_image, _build_state
 
 
 _rpc_warned = {'day': ''}
 
 
-# ↪ moved to rep_ai.py: _rpc_quota_notice, _agents_loop, _fuse_warm_loop
+# ↪ moved to rep_ai_chat.py: _rpc_quota_notice, _agents_loop, _fuse_warm_loop
 
 
 _fuse_warm_n = {'n': 0}
@@ -2980,7 +2980,7 @@ import storage_trim as _strim   # noqa: F401  (read by rep_admin_routes, rep_ai 
 _data_clean_last: dict = {}
 
 
-# ↪ moved to rep_ai.py: _data_clean
+# ↪ moved to rep_ai_chat.py: _data_clean
 
 
 INTEL_DISK = DATA_DIR / 'intel_cache.json'
@@ -2990,7 +2990,7 @@ ENRICH_DISK = DATA_DIR / 'enrich_fresh.json'             # the scheduler's fresh
 _intel_saved: dict = {'key': None}
 
 
-# ↪ moved to rep_ai.py: _intel_save, _intel_restore
+# ↪ moved to rep_ai_chat.py: _intel_save, _intel_restore
 
 
 import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority   # noqa: F401  (read by rep_admin_reads, rep_ai as rs._pd)
@@ -3034,13 +3034,13 @@ LIFECYCLE_PATH = FUSE_HQ_PATH.parent / 'agent_lifecycle.json'   # 🧬 the ONE g
 _lc_mem: dict = {'book': None}
 
 
-# ↪ moved to rep_ai.py: _lc_book
+# ↪ moved to rep_coach.py: _lc_book
 
 
 _lc_sh_memo: dict = {}
 
 
-# ↪ moved to rep_ai.py: _lc_shadows, _lc_shadows_raw
+# ↪ moved to rep_coach.py: _lc_shadows, _lc_shadows_raw
 
 
 import evolution_lab as _evo   # noqa: F401  (read by rep_admin_routes, rep_ai as rs._evo)
@@ -3048,14 +3048,14 @@ EVO_PATH = DATA_DIR / 'evolution_lab.json'   # 🧪 COL-11: the lab's OWN append
 _evo_memo: dict = {}
 
 
-# ↪ moved to rep_ai.py: _evo_view, _lifecycle, _lc_evaluate
+# ↪ moved to rep_coach.py: _evo_view, _lifecycle, _lc_evaluate
 
 
 ROUNDS_PATH = FUSE_HQ_PATH.parent / 'trench_rounds.json'   # ⏱ candidates' 5-minute rounds + the round history (trench_rounds.py)
 _rounds: dict = {'state': None}
 
 
-# ↪ moved to rep_ai.py: _rounds_state, _judge_weights, _paper_view, _kernel_view, _edge_rules, _edge_view, _kernel_ctx
+# ↪ moved to rep_coach.py: _rounds_state, _judge_weights, _paper_view, _kernel_view, _edge_rules, _edge_view, _kernel_ctx
 
 
 OWNER_REVIEW_PATH = FUSE_HQ_PATH.parent / 'owner_review.json'   # 👤 the owner's review / track / arm list (owner_review.py)
@@ -3063,7 +3063,7 @@ _owner: dict = {'book': None, 'only': set()}
 _tape_seen: dict = {'ledger': 0.0, 'reap': {}, 'regime': None, 'hub': 0}
 
 
-# ↪ moved to rep_ai.py: _owner_book, _owner_view, _owner_resolve, _owner_act, _tape_flush, _tape_ledger, _tape_reaper
+# ↪ moved to rep_coach.py: _owner_book, _owner_view, _owner_resolve, _owner_act, _tape_flush, _tape_ledger, _tape_reaper
 
 
 ENRICH_TOP = 4      # 🔎 Tier 2: holder / early-wallet scans for the strongest candidates only (Tier 0 = the whole intake, zero RPC)
@@ -3075,13 +3075,13 @@ _FEATS: dict = {}   # 🧪 mint → its audit tags, refreshed every pass
 _SURV: dict = {}   # ⏱ mint → its 1 / 5 / 15-min checkpoints since we first sensed it (survival_watch; memory only, rebuilt from the next passes)
 
 
-# ↪ moved to rep_ai.py: _kernel_pass, _rounds_pass
+# ↪ moved to rep_coach.py: _kernel_pass, _rounds_pass
 SHADOW_PATH = FUSE_HQ_PATH.parent / 'shadow_book.json'   # 📄 paper decisions + controls (shadow_book.py), graded at 30s … 1h
 _shadow: dict = {'book': None, 'cost': None, 'costAt': 0.0, 'dirty': False}
 
 
-# ↪ moved to rep_ai.py: _shadow_cost, _st_med, _shadow_book, _shadow_px, _shadow_note, _shadow_controls, _shadow_real_buys, _shadow_settle
-# ↪ moved to rep_ai.py: _shadow_flush
+# ↪ moved to rep_coach.py: _shadow_cost, _st_med, _shadow_book, _shadow_px, _shadow_note, _shadow_controls, _shadow_real_buys, _shadow_settle
+# ↪ moved to rep_coach.py: _shadow_flush
 
 
 _real_tr: dict = {'at': 0.0, 'rows': []}
@@ -3090,7 +3090,7 @@ _real_tr: dict = {'at': 0.0, 'rows': []}
 _dial_mem: dict = {'at': 0.0, 'v': None}
 
 
-# ↪ moved to rep_ai.py: _dial_lab, _desk_stats_view
+# ↪ moved to rep_coach.py: _dial_lab, _desk_stats_view
 
 
 import night_guard as _ng   # noqa: F401  (read by rep_ai, rep_prime as rs._ng)
@@ -3098,14 +3098,14 @@ NIGHT_PATH = DATA_DIR / 'night_guard.json'
 _night: dict = {'st': None, 'v': None}
 
 
-# ↪ moved to rep_ai.py: _night_check, _real_trades
+# ↪ moved to rep_coach.py: _night_check, _real_trades
 
 
 AFTER_PATH = DATA_DIR / 'after_paths.json'   # 👁 what each coin did in the 30 min AFTER our exit (after_path.py) — the replay's missing half
 _after_mem = _ms.MemStore(lambda: AFTER_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 
 
-# ↪ moved to rep_ai.py: _after_step, _trail_view, _capital_view, _real_mem
+# ↪ moved to rep_coach.py: _after_step, _trail_view, _capital_view, _real_mem
 
 
 COACH_PATH = FUSE_HQ_PATH.parent / 'agent_coach.json'   # 👑 the creator's + the model's live directives (coach.py) — small, written on each change
@@ -3113,7 +3113,7 @@ _coach: dict = {'s': None, 'tapeAt': 0.0, 'tape': None, 'aiAt': 0.0}
 COACH_AI_EVERY = 900.0   # the model coach looks at the last real trades at most every 15 min (one cheap cloud call; never the local model)
 
 
-# ↪ moved to rep_ai.py: _coach_state, _coach_put, _coach_pens, _coach_view, _trade_tape, _coach_grade
+# ↪ moved to rep_coach.py: _coach_state, _coach_put, _coach_pens, _coach_view, _trade_tape, _coach_grade
 
 
 import rule_lab as _rlab   # noqa: F401  (read by rep_ai as rs._rlab)
@@ -3123,13 +3123,13 @@ TEACH_PATH = DATA_DIR / 'agent_teach.json'
 _teach: dict = {'st': None}
 
 
-# ↪ moved to rep_ai.py: _teach_state
+# ↪ moved to rep_coach.py: _teach_state
 
 
 import taught_rules as _trl   # noqa: F401  (read by rep_ai, rep_money_routes as rs._trl)
 
 
-# ↪ moved to rep_ai.py: _taught_rules, _taught_stamp, _taught_view
+# ↪ moved to rep_coach.py: _taught_rules, _taught_stamp, _taught_view
 import regret as _rg   # noqa: F401  (read by rep_ai, rep_predict as rs._rg)
 import capital as _cap   # noqa: F401  (read by rep_ai, rep_predict as rs._cap)
 import after_path as _ap   # noqa: F401  (read by rep_ai, rep_predict as rs._ap)
@@ -3137,7 +3137,7 @@ REGRET_PATH = DATA_DIR / 'regret.json'
 _regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
 
 
-# ↪ moved to rep_ai.py: _regret_book, _regret_note, _regret_limits, _regret_tick
+# ↪ moved to rep_coach.py: _regret_book, _regret_note, _regret_limits, _regret_tick
 
 
 LAB_PATH = DATA_DIR / 'rule_lab.json'
@@ -3145,7 +3145,7 @@ LAB_EVERY, LAB_JUDGE_EVERY = 3600.0, 600.0
 _lab: dict = {'st': None, 'at': 0.0, 'judgedAt': 0.0, 'said': None}
 
 
-# ↪ moved to rep_ai.py: _lab_state, _lab_tick, _lab_view, _coach_ai
+# ↪ moved to rep_coach.py: _lab_state, _lab_tick, _lab_view, _coach_ai
 
 
 _reap_prev: dict = {}   # mint → (at, px): the fast stop guard's previous live read (office.spike_held)
@@ -3154,7 +3154,7 @@ _reap_prev: dict = {}   # mint → (at, px): the fast stop guard's previous live
 GERM_REBUY_SEC = 7200.0   # 🦠 a Gstop sale is watched this long for a new germ floor
 
 
-# ↪ moved to rep_ai.py: _germ_rebuy_step, _germ_of, _agent_blocked, _g4_blocked, _seat_refusals
+# ↪ moved to rep_coach.py: _germ_rebuy_step, _germ_of, _agent_blocked, _g4_blocked, _seat_refusals
 
 
 AGENT_NOROUTE_SEC = 1800.0   # no way back to SOL / no route at all: 30 min (a curve coin's route does not appear in two)
@@ -3164,7 +3164,7 @@ _seat_pre_ok = {}       # mint → (at, {liq, px}): coins that passed the pre-ch
 _agent_refused = {}     # mint → (until, why, at): the 🛂 seat pre-check's own refusals (memory only)
 
 
-# ↪ moved to rep_ai.py: _seat_precheck, _agents_tick
+# ↪ moved to rep_coach.py: _seat_precheck, _agents_tick
 
 
 import office as _of   # noqa: F401  (read by rep_ai, rep_money_routes as rs._of)
@@ -3173,7 +3173,7 @@ ARCHIVE_PATH = FUSE_HQ_PATH.parent / 'agent_archive.json'   # 🗄 hash-chained 
 _verify_memo: dict = {}
 
 
-# ↪ moved to rep_ai.py: _arch_verify
+# ↪ moved to rep_coach.py: _arch_verify
 _office: dict = {'state': None, 'pos': {}, 'exiting': [], 'gone': [], 'lat': {}, 'sized': {}, 'reports': [], 'warden': None, 'courier': None, 'payload': None, 'last': None, 'vetoAt': {},
                  'charts': {}, 'theses': {}, 'candles': {}, 'cmeta': {}, 'load': {}, 'boot': {'at': time.time(), 'passes': 0, 'coins': 0, 'reconciled': False}, 'seatWakeAt': 0.0, 'seatWakes': 0, 'ticks': [], 'candleStat': {'req': 0, 'cached': 0, 'merged': 0, 'dup': 0, 'ms': 0.0, 'coins': 0}}
 import chart_intel as _ci   # noqa: F401  (read by rep_ai, rep_coin_edge as rs._ci)
@@ -3181,19 +3181,19 @@ import market_data as _md   # noqa: F401  (read by rep_ai as rs._md)
 import office_edge as _oe   # noqa: F401  (read by rep_ai, rep_money_routes as rs._oe)
 import seat_ops as _so   # noqa: F401  (read by rep_ai, rep_predict as rs._so)
 OFFICE_CANDLE_TTL = 12.0    # 👁 live: the chart is re-read when it is older than this (one batched local call for the whole desk); one read of a coin's 1-minute candles serves every desk for the whole pass (and the tier ticks until the next one)
-# ↪ moved to rep_ai.py: _deep_bucket
+# ↪ moved to rep_office.py: _deep_bucket
 
 
 OFFICE_CANDLE_CASES = 18    # real candles for the held coins + the top of the bench / strongest cases; every other coin is read from Tally's own tape (no request at all)
 OFFICE_CANDLE_NEW = 6       # … + the busiest launches under ~20 min old (local candles service, one request per pool, 50s cache)
 
 
-# ↪ moved to rep_ai.py: _office_candles
+# ↪ moved to rep_office.py: _office_candles
 OFFICE_LAT_N = 120
 OFFICE_REFRESH_MAX = 40     # ⚡ per tier tick (one batched call): at most this many pools get their candles re-read (only those whose read is older than OFFICE_CANDLE_TTL)
 
 
-# ↪ moved to rep_ai.py: _mkt_view, _office_vels
+# ↪ moved to rep_office.py: _mkt_view, _office_vels
 
 
 _wake: dict = {'pos': {}, 'candAt': 0.0, 'log': [], 'n': 0, 'candN': 0}
@@ -3203,7 +3203,7 @@ LIVE_PX_SEC, LIVE_PX_BULK_SEC = 3, 8   # a few held seats answer fast; a 60-coin
 # returned NOTHING for the whole batch, and the graders read that as every coin vanishing (2026-10-13)
 
 
-# ↪ moved to rep_ai.py: _live_px, _wake_note, _market_wake, _office_candle_refresh
+# ↪ moved to rep_office.py: _live_px, _wake_note, _market_wake, _office_candle_refresh
 
 
 CYCLE_LOG_N = 20
@@ -3213,14 +3213,14 @@ INTAKE_JUP = 150            # coins an outlet lists that the board does not carr
 _intake: dict = {'reg': None, 'last': None, 'prev': [], 'saveAt': 0.0}
 
 
-# ↪ moved to rep_ai.py: _intake_reg
+# ↪ moved to rep_office.py: _intake_reg
 
 
 _intake_ds: dict = {}   # mint → (at, DexScreener pair | None) — 45s
 
 
-# ↪ moved to rep_ai.py: _intake_dex, _intake_pass, _intake_after, _intake_view, _office_seat_payload, _office_cycle_log, _office_fresh
-# ↪ moved to rep_ai.py: _office_load_pass
+# ↪ moved to rep_office.py: _intake_dex, _intake_pass, _intake_after, _intake_view, _office_seat_payload, _office_cycle_log, _office_fresh
+# ↪ moved to rep_office.py: _office_load_pass
 
 
 import social_research as _sr   # noqa: F401  (read by rep_ai as rs._sr)
@@ -3230,28 +3230,28 @@ SOCIAL_V = 4   # bump when the parser changes (v2: mints from visible text only 
 _social: dict = {'cache': None, 'busy': False, 'searched': {}}
 
 
-# ↪ moved to rep_ai.py: _social_cache, _social_flush, _research_tick, _seat_wake_maybe, _office_state, _office_lat, _office_ledger, _office_real
-# ↪ moved to rep_ai.py: _office_ctx, _office_warden, _office_reap, _office_chart_view, _office_bars, _office_positions
+# ↪ moved to rep_office.py: _social_cache, _social_flush, _research_tick, _seat_wake_maybe, _office_state, _office_lat, _office_ledger, _office_real
+# ↪ moved to rep_office.py: _office_ctx, _office_warden, _office_reap, _office_chart_view, _office_bars, _office_positions
 
 
 _DELTA_DROP = ('ages', 'decidedAgo')      # relative ages tick every second: the stream sends absolute `times` / `decidedAt` instead
 _POS_DROP = ('bars',)                      # a position's candles are the snapshot's (and the charts' own stream) — never re-sent per tick
 
 
-# ↪ moved to rep_ai.py: _hub_publish
+# ↪ moved to rep_office.py: _hub_publish
 
 
 _SSE = {'connects': 0, 'disconnects': 0, 'resyncs': 0, 'active': 0, 'since': time.time()}   # 📡 measured: live streams + reconnects
 
 
-# ↪ moved to rep_ai.py: _net_stats
+# ↪ moved to rep_office.py: _net_stats
 
 
 STREAM_MAX_SEC = 1800.0     # a stream ends after 30 min (the page reconnects with its last sequence — nothing is lost)
 STREAM_BEAT_SEC = 15.0
 
 
-# ↪ moved to rep_ai.py: _office_light, _office_pass, _agents_real, _kernel_row, _agent_inherit_rows, _agents_go_rows, _agents_snapshot
+# ↪ moved to rep_office.py: _office_light, _office_pass, _agents_real, _kernel_row, _agent_inherit_rows, _agents_go_rows, _agents_snapshot
 
 
 # ⚡ WHAT THE PAGE GETS: the snapshot minus the sections no screen draws (they fed the retired room / seat views — 2026-10-12: ~350 KB of a
@@ -3265,14 +3265,14 @@ _agents_page: dict = {'key': None, 'body': b'{}'}
 _duo_tape_c: dict = {'at': 0.0, 'v': ([], [])}
 
 
-# ↪ moved to rep_ai.py: _duo_tape, _duo_totals, _duo_rooms, _duo_holding, _duo_card_legs, _duo_coin_rooms
+# ↪ moved to rep_duo.py: _duo_tape, _duo_totals, _duo_rooms, _duo_holding, _duo_card_legs, _duo_coin_rooms
 
 
 DUO_PIN_PER, DUO_PIN_CARD = 8, 60   # 📣 chart comments kept per coin: 8 for coins off the card, the WHOLE history (≤ 60) for coins on it
 _duo_cap_seen: dict = {}            # a line written without a cap keeps the cap of the moment it was first shown (never today's cap on an old pin)
 
 
-# ↪ moved to rep_ai.py: _duo_pin_cap
+# ↪ moved to rep_duo.py: _duo_pin_cap
 
 
 def _duo_chart_rows(log, per=DUO_PIN_PER, card=None):
@@ -3287,14 +3287,14 @@ def _duo_chart_rows(log, per=DUO_PIN_PER, card=None):
     return out[::-1]
 
 
-# ↪ moved to rep_ai.py: _duo_cap, _duo_phase, _duo_view, _agents_page_dict, _agents_page_body, _fuse_warm
+# ↪ moved to rep_duo.py: _duo_cap, _duo_phase, _duo_view, _agents_page_dict, _agents_page_body, _fuse_warm
 
 
 _runner_disc_cache = {'at': 0.0, 'data': None}
 
 
-# ↪ moved to rep_ai.py: _round_move, _scenario_stage, _pg_pick_ok, _engine_auto, _engine_nudge, _top_anchor, _pg_scenario_cards, _pg_battle_view
-# ↪ moved to rep_ai.py: _pg_battle_tick
+# ↪ moved to rep_duo.py: _round_move, _scenario_stage, _pg_pick_ok, _engine_auto, _engine_nudge, _top_anchor, _pg_scenario_cards, _pg_battle_view
+# ↪ moved to rep_duo.py: _pg_battle_tick
 
 
 import pg_sim as _pgs   # noqa: F401  (read by rep_ai as rs._pgs)
@@ -3308,7 +3308,7 @@ EDGE_PATH = FUSE_HQ_PATH.parent / 'edge.json'
 _edge_state: dict = {}
 
 
-# ↪ moved to rep_ai.py: _edge_load, _pg_sim_tick, _brain_patch, _engine_self_fix
+# ↪ moved to rep_duo.py: _edge_load, _pg_sim_tick, _brain_patch, _engine_self_fix
 
 
 import verdict as _verdict   # noqa: F401  (read by rep_ai, rep_money_routes as rs._verdict)
@@ -3319,7 +3319,7 @@ VERDICT_PATH = DATA_DIR / 'fuse_verdict.json'
 SIM_KEYS = {'minDrop': 'rotateMinDrop', 'confirm': 'rotateConfirm', 'rideAt': 'rideAt', 'trail': 'rideTrail', 'tp': 'tp', 'sl': 'sl'}
 
 
-# ↪ moved to rep_ai.py: _verdict_acts, _retired, _verdict_build, _verdict_tick
+# ↪ moved to rep_duo.py: _verdict_acts, _retired, _verdict_build, _verdict_tick
 
 
 class VerdictActIn(BaseModel):
@@ -5851,6 +5851,10 @@ edge_memory = _rep_money_routes.edge_memory
 admin_numbers = _rep_money_routes.admin_numbers
 
 import rep_ai as _rep_ai   # noqa: E402  🧹 moved by scripts/move-section.py
+import rep_ai_chat as _rep_ai_chat   # noqa: E402  🧹 split out of rep_ai.py by scripts/split-module.py
+import rep_coach as _rep_coach   # noqa: E402  🧹 split out of rep_ai.py by scripts/split-module.py
+import rep_office as _rep_office   # noqa: E402  🧹 split out of rep_ai.py by scripts/split-module.py
+import rep_duo as _rep_duo   # noqa: E402  🧹 split out of rep_ai.py by scripts/split-module.py
 _ai_book = _rep_ai._ai_book
 _ai_quote = _rep_ai._ai_quote
 _ai_brief = _rep_ai._ai_brief
@@ -5911,181 +5915,181 @@ _ai_pause = _rep_ai._ai_pause
 _g4_loop = _rep_ai._g4_loop
 _ai_loop = _rep_ai._ai_loop
 _ai_general_context = _rep_ai._ai_general_context
-_brain_load = _rep_ai._brain_load
-_chat_persist = _rep_ai._chat_persist
-_chat_extra = _rep_ai._chat_extra
-_chat_props = _rep_ai._chat_props
-_chat_context = _rep_ai._chat_context
-_chat_olds = _rep_ai._chat_olds
-_ai_proposal_apply = _rep_ai._ai_proposal_apply
-_rig_apply = _rep_ai._rig_apply
-_lms_reload = _rep_ai._lms_reload
-_lms_states = _rep_ai._lms_states
-_mdk_cached = _rep_ai._mdk_cached
-_mdk_lms = _rep_ai._mdk_lms
-_mdk_mcp = _rep_ai._mdk_mcp
-_model_desk_view = _rep_ai._model_desk_view
-_studio_apply = _rep_ai._studio_apply
-_studio_lms = _rep_ai._studio_lms
-_studio_trades = _rep_ai._studio_trades
-_studio_core = _rep_ai._studio_core
-_studio_auto = _rep_ai._studio_auto
-_studio_auto_safe = _rep_ai._studio_auto_safe
-_studio_layer = _rep_ai._studio_layer
-_studio_view = _rep_ai._studio_view
-_studio_fee = _rep_ai._studio_fee
-_colony_value = _rep_ai._colony_value
-_colony_view = _rep_ai._colony_view
-_pool_tokens = _rep_ai._pool_tokens
-_colony_pool_build = _rep_ai._colony_pool_build
-_chat_syms = _rep_ai._chat_syms
-_chat_coin = _rep_ai._chat_coin
-_owner_brief = _rep_ai._owner_brief
-_chat_evidence = _rep_ai._chat_evidence
-_chat_learned = _rep_ai._chat_learned
-_chat_image = _rep_ai._chat_image
-_build_state = _rep_ai._build_state
-_rpc_quota_notice = _rep_ai._rpc_quota_notice
-_agents_loop = _rep_ai._agents_loop
-_fuse_warm_loop = _rep_ai._fuse_warm_loop
-_data_clean = _rep_ai._data_clean
-_intel_save = _rep_ai._intel_save
-_intel_restore = _rep_ai._intel_restore
-_lc_book = _rep_ai._lc_book
-_lc_shadows = _rep_ai._lc_shadows
-_lc_shadows_raw = _rep_ai._lc_shadows_raw
-_evo_view = _rep_ai._evo_view
-_lifecycle = _rep_ai._lifecycle
-_lc_evaluate = _rep_ai._lc_evaluate
-_rounds_state = _rep_ai._rounds_state
-_judge_weights = _rep_ai._judge_weights
-_paper_view = _rep_ai._paper_view
-_kernel_view = _rep_ai._kernel_view
-_edge_rules = _rep_ai._edge_rules
-_edge_view = _rep_ai._edge_view
-_kernel_ctx = _rep_ai._kernel_ctx
-_owner_book = _rep_ai._owner_book
-_owner_view = _rep_ai._owner_view
-_owner_resolve = _rep_ai._owner_resolve
-_owner_act = _rep_ai._owner_act
-_tape_flush = _rep_ai._tape_flush
-_tape_ledger = _rep_ai._tape_ledger
-_tape_reaper = _rep_ai._tape_reaper
-_kernel_pass = _rep_ai._kernel_pass
-_rounds_pass = _rep_ai._rounds_pass
-_shadow_cost = _rep_ai._shadow_cost
-_st_med = _rep_ai._st_med
-_shadow_book = _rep_ai._shadow_book
-_shadow_px = _rep_ai._shadow_px
-_shadow_note = _rep_ai._shadow_note
-_shadow_controls = _rep_ai._shadow_controls
-_shadow_real_buys = _rep_ai._shadow_real_buys
-_shadow_settle = _rep_ai._shadow_settle
-_shadow_flush = _rep_ai._shadow_flush
-_dial_lab = _rep_ai._dial_lab
-_desk_stats_view = _rep_ai._desk_stats_view
-_night_check = _rep_ai._night_check
-_real_trades = _rep_ai._real_trades
-_after_step = _rep_ai._after_step
-_trail_view = _rep_ai._trail_view
-_capital_view = _rep_ai._capital_view
-_real_mem = _rep_ai._real_mem
-_coach_state = _rep_ai._coach_state
-_coach_put = _rep_ai._coach_put
-_coach_pens = _rep_ai._coach_pens
-_coach_view = _rep_ai._coach_view
-_trade_tape = _rep_ai._trade_tape
-_coach_grade = _rep_ai._coach_grade
-_teach_state = _rep_ai._teach_state
-_taught_rules = _rep_ai._taught_rules
-_taught_stamp = _rep_ai._taught_stamp
-_taught_view = _rep_ai._taught_view
-_regret_book = _rep_ai._regret_book
-_regret_note = _rep_ai._regret_note
-_regret_limits = _rep_ai._regret_limits
-_regret_tick = _rep_ai._regret_tick
-_lab_state = _rep_ai._lab_state
-_lab_tick = _rep_ai._lab_tick
-_lab_view = _rep_ai._lab_view
-_coach_ai = _rep_ai._coach_ai
-_germ_rebuy_step = _rep_ai._germ_rebuy_step
-_germ_of = _rep_ai._germ_of
-_agent_blocked = _rep_ai._agent_blocked
-_g4_blocked = _rep_ai._g4_blocked
-_seat_refusals = _rep_ai._seat_refusals
-_seat_precheck = _rep_ai._seat_precheck
-_agents_tick = _rep_ai._agents_tick
-_arch_verify = _rep_ai._arch_verify
-_deep_bucket = _rep_ai._deep_bucket
-_office_candles = _rep_ai._office_candles
-_mkt_view = _rep_ai._mkt_view
-_office_vels = _rep_ai._office_vels
-_live_px = _rep_ai._live_px
-_wake_note = _rep_ai._wake_note
-_market_wake = _rep_ai._market_wake
-_office_candle_refresh = _rep_ai._office_candle_refresh
-_intake_reg = _rep_ai._intake_reg
-_intake_dex = _rep_ai._intake_dex
-_intake_pass = _rep_ai._intake_pass
-_intake_after = _rep_ai._intake_after
-_intake_view = _rep_ai._intake_view
-_office_seat_payload = _rep_ai._office_seat_payload
-_office_cycle_log = _rep_ai._office_cycle_log
-_office_fresh = _rep_ai._office_fresh
-_office_load_pass = _rep_ai._office_load_pass
-_social_cache = _rep_ai._social_cache
-_social_flush = _rep_ai._social_flush
-_research_tick = _rep_ai._research_tick
-_seat_wake_maybe = _rep_ai._seat_wake_maybe
-_office_state = _rep_ai._office_state
-_office_lat = _rep_ai._office_lat
-_office_ledger = _rep_ai._office_ledger
-_office_real = _rep_ai._office_real
-_office_ctx = _rep_ai._office_ctx
-_office_warden = _rep_ai._office_warden
-_office_reap = _rep_ai._office_reap
-_office_chart_view = _rep_ai._office_chart_view
-_office_bars = _rep_ai._office_bars
-_office_positions = _rep_ai._office_positions
-_hub_publish = _rep_ai._hub_publish
-_net_stats = _rep_ai._net_stats
-_office_light = _rep_ai._office_light
-_office_pass = _rep_ai._office_pass
-_agents_real = _rep_ai._agents_real
-_kernel_row = _rep_ai._kernel_row
-_agent_inherit_rows = _rep_ai._agent_inherit_rows
-_agents_go_rows = _rep_ai._agents_go_rows
-_agents_snapshot = _rep_ai._agents_snapshot
-_duo_tape = _rep_ai._duo_tape
-_duo_totals = _rep_ai._duo_totals
-_duo_rooms = _rep_ai._duo_rooms
-_duo_holding = _rep_ai._duo_holding
-_duo_card_legs = _rep_ai._duo_card_legs
-_duo_coin_rooms = _rep_ai._duo_coin_rooms
-_duo_pin_cap = _rep_ai._duo_pin_cap
-_duo_cap = _rep_ai._duo_cap
-_duo_phase = _rep_ai._duo_phase
-_duo_view = _rep_ai._duo_view
-_agents_page_dict = _rep_ai._agents_page_dict
-_agents_page_body = _rep_ai._agents_page_body
-_fuse_warm = _rep_ai._fuse_warm
-_round_move = _rep_ai._round_move
-_scenario_stage = _rep_ai._scenario_stage
-_pg_pick_ok = _rep_ai._pg_pick_ok
-_engine_auto = _rep_ai._engine_auto
-_engine_nudge = _rep_ai._engine_nudge
-_top_anchor = _rep_ai._top_anchor
-_pg_scenario_cards = _rep_ai._pg_scenario_cards
-_pg_battle_view = _rep_ai._pg_battle_view
-_pg_battle_tick = _rep_ai._pg_battle_tick
-_edge_load = _rep_ai._edge_load
-_pg_sim_tick = _rep_ai._pg_sim_tick
-_brain_patch = _rep_ai._brain_patch
-_engine_self_fix = _rep_ai._engine_self_fix
-_verdict_acts = _rep_ai._verdict_acts
-_retired = _rep_ai._retired
-_verdict_build = _rep_ai._verdict_build
-_verdict_tick = _rep_ai._verdict_tick
+_brain_load = _rep_ai_chat._brain_load
+_chat_persist = _rep_ai_chat._chat_persist
+_chat_extra = _rep_ai_chat._chat_extra
+_chat_props = _rep_ai_chat._chat_props
+_chat_context = _rep_ai_chat._chat_context
+_chat_olds = _rep_ai_chat._chat_olds
+_ai_proposal_apply = _rep_ai_chat._ai_proposal_apply
+_rig_apply = _rep_ai_chat._rig_apply
+_lms_reload = _rep_ai_chat._lms_reload
+_lms_states = _rep_ai_chat._lms_states
+_mdk_cached = _rep_ai_chat._mdk_cached
+_mdk_lms = _rep_ai_chat._mdk_lms
+_mdk_mcp = _rep_ai_chat._mdk_mcp
+_model_desk_view = _rep_ai_chat._model_desk_view
+_studio_apply = _rep_ai_chat._studio_apply
+_studio_lms = _rep_ai_chat._studio_lms
+_studio_trades = _rep_ai_chat._studio_trades
+_studio_core = _rep_ai_chat._studio_core
+_studio_auto = _rep_ai_chat._studio_auto
+_studio_auto_safe = _rep_ai_chat._studio_auto_safe
+_studio_layer = _rep_ai_chat._studio_layer
+_studio_view = _rep_ai_chat._studio_view
+_studio_fee = _rep_ai_chat._studio_fee
+_colony_value = _rep_ai_chat._colony_value
+_colony_view = _rep_ai_chat._colony_view
+_pool_tokens = _rep_ai_chat._pool_tokens
+_colony_pool_build = _rep_ai_chat._colony_pool_build
+_chat_syms = _rep_ai_chat._chat_syms
+_chat_coin = _rep_ai_chat._chat_coin
+_owner_brief = _rep_ai_chat._owner_brief
+_chat_evidence = _rep_ai_chat._chat_evidence
+_chat_learned = _rep_ai_chat._chat_learned
+_chat_image = _rep_ai_chat._chat_image
+_build_state = _rep_ai_chat._build_state
+_rpc_quota_notice = _rep_ai_chat._rpc_quota_notice
+_agents_loop = _rep_ai_chat._agents_loop
+_fuse_warm_loop = _rep_ai_chat._fuse_warm_loop
+_data_clean = _rep_ai_chat._data_clean
+_intel_save = _rep_ai_chat._intel_save
+_intel_restore = _rep_ai_chat._intel_restore
+_lc_book = _rep_coach._lc_book
+_lc_shadows = _rep_coach._lc_shadows
+_lc_shadows_raw = _rep_coach._lc_shadows_raw
+_evo_view = _rep_coach._evo_view
+_lifecycle = _rep_coach._lifecycle
+_lc_evaluate = _rep_coach._lc_evaluate
+_rounds_state = _rep_coach._rounds_state
+_judge_weights = _rep_coach._judge_weights
+_paper_view = _rep_coach._paper_view
+_kernel_view = _rep_coach._kernel_view
+_edge_rules = _rep_coach._edge_rules
+_edge_view = _rep_coach._edge_view
+_kernel_ctx = _rep_coach._kernel_ctx
+_owner_book = _rep_coach._owner_book
+_owner_view = _rep_coach._owner_view
+_owner_resolve = _rep_coach._owner_resolve
+_owner_act = _rep_coach._owner_act
+_tape_flush = _rep_coach._tape_flush
+_tape_ledger = _rep_coach._tape_ledger
+_tape_reaper = _rep_coach._tape_reaper
+_kernel_pass = _rep_coach._kernel_pass
+_rounds_pass = _rep_coach._rounds_pass
+_shadow_cost = _rep_coach._shadow_cost
+_st_med = _rep_coach._st_med
+_shadow_book = _rep_coach._shadow_book
+_shadow_px = _rep_coach._shadow_px
+_shadow_note = _rep_coach._shadow_note
+_shadow_controls = _rep_coach._shadow_controls
+_shadow_real_buys = _rep_coach._shadow_real_buys
+_shadow_settle = _rep_coach._shadow_settle
+_shadow_flush = _rep_coach._shadow_flush
+_dial_lab = _rep_coach._dial_lab
+_desk_stats_view = _rep_coach._desk_stats_view
+_night_check = _rep_coach._night_check
+_real_trades = _rep_coach._real_trades
+_after_step = _rep_coach._after_step
+_trail_view = _rep_coach._trail_view
+_capital_view = _rep_coach._capital_view
+_real_mem = _rep_coach._real_mem
+_coach_state = _rep_coach._coach_state
+_coach_put = _rep_coach._coach_put
+_coach_pens = _rep_coach._coach_pens
+_coach_view = _rep_coach._coach_view
+_trade_tape = _rep_coach._trade_tape
+_coach_grade = _rep_coach._coach_grade
+_teach_state = _rep_coach._teach_state
+_taught_rules = _rep_coach._taught_rules
+_taught_stamp = _rep_coach._taught_stamp
+_taught_view = _rep_coach._taught_view
+_regret_book = _rep_coach._regret_book
+_regret_note = _rep_coach._regret_note
+_regret_limits = _rep_coach._regret_limits
+_regret_tick = _rep_coach._regret_tick
+_lab_state = _rep_coach._lab_state
+_lab_tick = _rep_coach._lab_tick
+_lab_view = _rep_coach._lab_view
+_coach_ai = _rep_coach._coach_ai
+_germ_rebuy_step = _rep_coach._germ_rebuy_step
+_germ_of = _rep_coach._germ_of
+_agent_blocked = _rep_coach._agent_blocked
+_g4_blocked = _rep_coach._g4_blocked
+_seat_refusals = _rep_coach._seat_refusals
+_seat_precheck = _rep_coach._seat_precheck
+_agents_tick = _rep_coach._agents_tick
+_arch_verify = _rep_coach._arch_verify
+_deep_bucket = _rep_office._deep_bucket
+_office_candles = _rep_office._office_candles
+_mkt_view = _rep_office._mkt_view
+_office_vels = _rep_office._office_vels
+_live_px = _rep_office._live_px
+_wake_note = _rep_office._wake_note
+_market_wake = _rep_office._market_wake
+_office_candle_refresh = _rep_office._office_candle_refresh
+_intake_reg = _rep_office._intake_reg
+_intake_dex = _rep_office._intake_dex
+_intake_pass = _rep_office._intake_pass
+_intake_after = _rep_office._intake_after
+_intake_view = _rep_office._intake_view
+_office_seat_payload = _rep_office._office_seat_payload
+_office_cycle_log = _rep_office._office_cycle_log
+_office_fresh = _rep_office._office_fresh
+_office_load_pass = _rep_office._office_load_pass
+_social_cache = _rep_office._social_cache
+_social_flush = _rep_office._social_flush
+_research_tick = _rep_office._research_tick
+_seat_wake_maybe = _rep_office._seat_wake_maybe
+_office_state = _rep_office._office_state
+_office_lat = _rep_office._office_lat
+_office_ledger = _rep_office._office_ledger
+_office_real = _rep_office._office_real
+_office_ctx = _rep_office._office_ctx
+_office_warden = _rep_office._office_warden
+_office_reap = _rep_office._office_reap
+_office_chart_view = _rep_office._office_chart_view
+_office_bars = _rep_office._office_bars
+_office_positions = _rep_office._office_positions
+_hub_publish = _rep_office._hub_publish
+_net_stats = _rep_office._net_stats
+_office_light = _rep_office._office_light
+_office_pass = _rep_office._office_pass
+_agents_real = _rep_office._agents_real
+_kernel_row = _rep_office._kernel_row
+_agent_inherit_rows = _rep_office._agent_inherit_rows
+_agents_go_rows = _rep_office._agents_go_rows
+_agents_snapshot = _rep_office._agents_snapshot
+_duo_tape = _rep_duo._duo_tape
+_duo_totals = _rep_duo._duo_totals
+_duo_rooms = _rep_duo._duo_rooms
+_duo_holding = _rep_duo._duo_holding
+_duo_card_legs = _rep_duo._duo_card_legs
+_duo_coin_rooms = _rep_duo._duo_coin_rooms
+_duo_pin_cap = _rep_duo._duo_pin_cap
+_duo_cap = _rep_duo._duo_cap
+_duo_phase = _rep_duo._duo_phase
+_duo_view = _rep_duo._duo_view
+_agents_page_dict = _rep_duo._agents_page_dict
+_agents_page_body = _rep_duo._agents_page_body
+_fuse_warm = _rep_duo._fuse_warm
+_round_move = _rep_duo._round_move
+_scenario_stage = _rep_duo._scenario_stage
+_pg_pick_ok = _rep_duo._pg_pick_ok
+_engine_auto = _rep_duo._engine_auto
+_engine_nudge = _rep_duo._engine_nudge
+_top_anchor = _rep_duo._top_anchor
+_pg_scenario_cards = _rep_duo._pg_scenario_cards
+_pg_battle_view = _rep_duo._pg_battle_view
+_pg_battle_tick = _rep_duo._pg_battle_tick
+_edge_load = _rep_duo._edge_load
+_pg_sim_tick = _rep_duo._pg_sim_tick
+_brain_patch = _rep_duo._brain_patch
+_engine_self_fix = _rep_duo._engine_self_fix
+_verdict_acts = _rep_duo._verdict_acts
+_retired = _rep_duo._retired
+_verdict_build = _rep_duo._verdict_build
+_verdict_tick = _rep_duo._verdict_tick
 
 import rep_hq as _rep_hq   # noqa: E402  🧹 moved by scripts/move-section.py
 _admin_wallets = _rep_hq._admin_wallets
