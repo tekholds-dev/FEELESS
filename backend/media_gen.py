@@ -103,22 +103,39 @@ V2V = {
     # API reference: input_references takes image, audio AND video references, and video references are honoured by Seedance 2.0 and newer.
     # Your clip = video 1, the folder's character = image 1, the prompt says keep everything of the clip but the main character. Priced from
     # /videos/models (video_tokens_with_video_input) × Seedance's tokens (width × height × 24 fps × seconds / 1024): ~$1.39 / 15 s at 720p.
-    'or-seedance-swap': ('bytedance/seedance-2.0', 'Seedance 2.0 · Replace',
-                         'Puts your character into your clip: same scene, moves, camera and timing, your clip\'s own sound. The clean one', 0.0000043, 'tokens'),
-    'or-seedance-fast-swap': ('bytedance/seedance-2.0-fast', 'Seedance 2.0 Fast · Replace',
-                              'The same swap, quicker and about 40% cheaper, a little softer', 0.000002475, 'tokens'),
 }
-V2V_PROVIDER = {'or-flux-edit': 'openrouter', 'or-seedance-swap': 'openrouter', 'or-seedance-fast-swap': 'openrouter'}   # the rest run on fal.ai
-SEEDANCE_SWAP = {'or-seedance-swap', 'or-seedance-fast-swap'}
+# 🎭 2026-11-17 (owner: "choose from recommended, top used … the latest ai video generators ppl using on ig and tiktok"): every model on
+# OpenRouter's live /videos/models (read 2026-11-17, 33 models) that is billed `video_tokens_with_video_input` = takes YOUR clip as a video
+# reference. → id: (model, label, why, $ per token with a video input, longest it makes in s, the day OpenRouter added it, rank in Recommended)
+SEEDANCE = {
+    'or-seedance-swap': ('bytedance/seedance-2.0', 'Seedance 2.0 · Replace', 'The clean one: ByteDance built it to keep one face the same in every frame', 0.0000043, 15, '2026-04-14', 1),
+    'or-seedance25-flash-swap': ('bytedance/seedance-2.5-flash', 'Seedance 2.5 Flash · Replace', 'The newest Seedance, fast tier: up to 30 s, so a whole 17 s reel fits', 0.0000043, 30, '2026-11-15', 2),
+    'or-seedance25-swap': ('bytedance/seedance-2.5', 'Seedance 2.5 · Replace', 'ByteDance\'s top tier, built for video editing: up to 30 s, sharpest result, costs the most', 0.0000064, 30, '2026-08-07', 3),
+    'or-seedance-fast-swap': ('bytedance/seedance-2.0-fast', 'Seedance 2.0 Fast · Replace', 'The 2.0 swap, quicker and about 40% cheaper, a little softer', 0.000002475, 15, '2026-04-14', 4),
+    'or-seedance-mini-swap': ('bytedance/seedance-2.0-mini', 'Seedance 2.0 Mini · Replace', 'The cheapest swap: fine for a test, softer faces', 0.0000021, 15, '2026-08-11', 5),
+}
+V2V.update({k: (v[0], v[1], v[2], v[3], 'tokens') for k, v in SEEDANCE.items()})
+SEEDANCE_SWAP = set(SEEDANCE)
+V2V_PROVIDER = {'or-flux-edit': 'openrouter', **{k: 'openrouter' for k in SEEDANCE}}   # the rest run on fal.ai
+SWAP_CAP_USD = 3.0        # 💵 one swap never costs more than this unless the owner raises his own cap (0.5 to 50)
+CLIP_KEEP_S = 30          # a clip is kept up to 30 s (the longest a swap model makes); a model that makes less uses the first part
 SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the reference image) is the character. Keep EVERYTHING of video 1: the same scene, background, camera moves, framing, timing, actions, '
              'gestures and lighting, frame by frame. Replace only the main character of video 1 with the character in image 1: the same face, '
              'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
 SEEDANCE_PX = 921600      # 720p in every aspect Seedance offers (1280×720, 720×1280, 960×960 …)
-SEEDANCE_MIN_S = 4        # Seedance 2.0 makes 4 to 15 s
+SEEDANCE_MIN_S = 4        # Seedance makes 4 s at least
 
 
-def swap_auto(linked):
-    """The swap a chat ask ("replace the main character with Bishop") runs on: OpenRouter's clean Seedance first, else fal.ai's Wan Replace."""
+def swap_max(model_id):
+    """The longest a swap model makes, in seconds (Seedance 2.5: 30; the rest 15)."""
+    return SEEDANCE[model_id][4] if model_id in SEEDANCE else MAX_CLIP_S
+
+
+def swap_auto(linked, last=None):
+    """The swap a chat ask ("replace the main character with Bishop") runs on: the one this agent used last (if it can run), else OpenRouter's
+    clean Seedance, else fal.ai's Wan Replace."""
+    if last in V2V and last not in V2V_NO_CHAR and v2v_provider(last) in linked:
+        return last
     return 'or-seedance-swap' if 'openrouter' in linked else 'fal-wan-replace' if 'fal' in linked else None
 V2V_NO_CHAR = {'or-flux-edit'}                  # an edit needs your words, not a character picture
 
@@ -133,14 +150,14 @@ def v2v_cost(model_id, seconds, fps=30):
     """The list-price estimate for one swap, from the clip's real length and frame rate. Pure."""
     ep, _l, _w, rate, by = V2V[model_id]
     if by == 'tokens':
-        return round(SEEDANCE_PX * 24 * seedance_len(seconds) / 1024 * rate, 2)
+        return round(SEEDANCE_PX * 24 * seedance_len(seconds, swap_max(model_id)) / 1024 * rate, 2)
     billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else float(seconds)
     return round(billed * rate, 2)
 
 
-def seedance_len(seconds):
-    """The length Seedance makes for a clip: its own length, whole seconds, 4 to 15."""
-    return max(SEEDANCE_MIN_S, min(MAX_CLIP_S, int(round(float(seconds or SEEDANCE_MIN_S)))))
+def seedance_len(seconds, most=MAX_CLIP_S):
+    """The length Seedance makes for a clip: its own length in whole seconds, 4 to the model's longest (15, or 30 on 2.5)."""
+    return max(SEEDANCE_MIN_S, min(int(most), int(round(float(seconds or SEEDANCE_MIN_S)))))
 
 
 def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
@@ -153,7 +170,7 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
             raise ValueError('A swap needs your clip and the character picture.')
         note = ' '.join(str(prompt or '').split())[:400]
         return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
-            'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'duration': seedance_len(seconds), 'resolution': '720p',
+            'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'duration': seedance_len(seconds, swap_max(model_id)), 'resolution': '720p',
             'aspect_ratio': aspect or '9:16', 'generate_audio': False,
             'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
     if model_id == 'or-flux-edit':
@@ -170,7 +187,8 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
 
 
 def v2v_list(linked):
-    return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'provider': v2v_provider(k), 'needsChar': k not in V2V_NO_CHAR, 'ready': v2v_provider(k) in linked}
+    return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'provider': v2v_provider(k), 'needsChar': k not in V2V_NO_CHAR, 'ready': v2v_provider(k) in linked,
+             'maxS': swap_max(k), **({'added': SEEDANCE[k][5], 'rec': SEEDANCE[k][6]} if k in SEEDANCE else {})}
             for k, (_e, lb, why, rate, by) in V2V.items()]
 
 
@@ -196,7 +214,7 @@ def catalog(linked, house=False):
     pick = {kd: next((DEFAULT[(p, kd)] for p in ORDER if _ready(p, linked, house)), None) for kd in KINDS}
     presets = [{**x, 'sample': (TESTED.get(x['model']) or (None,))[0], 'secs': (TESTED.get(x['model']) or (None, None))[1], 'usd': MODELS[x['model']][5], 'modelLabel': MODELS[x['model']][3],
                 'ready': _ready(MODELS[x['model']][0], linked, house)} for x in PRESETS]
-    return {'models': rows, 'linked': sorted(linked), 'house': bool(house), 'pick': pick, 'providers': PROVIDERS, 'presets': presets, 'swap': v2v_list(linked), 'swapMaxS': MAX_CLIP_S}
+    return {'models': rows, 'linked': sorted(linked), 'house': bool(house), 'pick': pick, 'providers': PROVIDERS, 'presets': presets, 'swap': v2v_list(linked), 'swapMaxS': CLIP_KEEP_S}
 
 
 def choose(model_id, kind, linked, house=False):

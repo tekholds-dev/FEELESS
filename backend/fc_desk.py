@@ -223,7 +223,7 @@ async def _media_run(cat_id, ws_id, mid):
                         f_clip = rs._media_dir() / cat_id / str(md['fromClip']['url']).rsplit('/', 1)[-1]; ext_c = f_clip.suffix.lstrip('.').lower()
                         clip_du = f"data:video/{'quicktime' if ext_c == 'mov' else ext_c};base64,{rs.base64.b64encode(f_clip.read_bytes()).decode()}"
                         if md.get('modelId') in rs._mg.SEEDANCE_SWAP:   # 🎭 OpenRouter: light copies ride in the request (clip ≤720p, no sound; picture ≤1280 px)
-                            clip_du, img_du = await rs._swap_refs(cat_id, f_clip, rs._media_dir() / cat_id / str(md['fromImg']['url']).rsplit('/', 1)[-1])
+                            clip_du, img_du = await rs._swap_refs(cat_id, f_clip, rs._media_dir() / cat_id / str(md['fromImg']['url']).rsplit('/', 1)[-1], rs._mg.swap_max(md['modelId']))
                         meth, url, heads, body = rs._mg.v2v_req(md['modelId'], key, img_du, clip_du, md.get('note') or '', md.get('secs'), md.get('aspect'))
                     except (OSError, KeyError, ValueError) as e:
                         rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=f'Its clip could not be used: {str(e)[:120]}'); return
@@ -281,7 +281,7 @@ async def _media_run(cat_id, ws_id, mid):
 
 async def _clip_add(cat_id, ws_id, doc_, text, tools):
     """🎞 One clip into a PoC folder (owner 2026-11-17 "add a viral video clip in there and ask them to replace the main character"): an upload
-    (data URL), a Bluesky post, or a direct https video link. Longer than 15 s, or a start picked → cut to 15 s from that start (exact, H.264)."""
+    (data URL), a Bluesky post, or a direct https video link. Longer than 30 s, or a start picked → cut to 30 s from that start (exact, H.264)."""
     rs = _rs()
     from urllib.parse import unquote as _unq, urlparse as _host
     if not tools.get('rights'):
@@ -330,9 +330,9 @@ async def _clip_add(cat_id, ws_id, doc_, text, tools):
         secs_, _f = (None, None) if stream else await rs._clip_len(src_)
         if not stream and secs_ is None:
             raise rs.HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
-        cut_ = stream or start > 0 or secs_ > rs._mg.MAX_CLIP_S + 0.5 or rs.Path(str(src_)).suffix.lower() != '.mp4'
+        cut_ = stream or start > 0 or secs_ > rs._mg.CLIP_KEEP_S + 0.5 or rs.Path(str(src_)).suffix.lower() != '.mp4'
         if cut_:
-            if (await rs._ffmpeg(rs._cs.cut_args(src_, out, start, rs._mg.MAX_CLIP_S, stream=stream), 240))[0] != 0 or not out.is_file() or not out.stat().st_size:
+            if (await rs._ffmpeg(rs._cs.cut_args(src_, out, start, rs._mg.CLIP_KEEP_S, stream=stream), 240))[0] != 0 or not out.is_file() or not out.stat().st_size:
                 out.unlink(missing_ok=True)
                 raise rs.HTTPException(400, 'That clip could not be cut. Try another start, or export it again as an MP4.' if not stream else 'Bluesky\'s video did not come through. Try again in a minute.')
         else:
@@ -373,16 +373,32 @@ async def _clip_size(path):
         return None, None
 
 
-async def _swap_refs(cat_id, clip, img):
-    """🎭 Light copies for an OpenRouter swap (the request carries them): the clip ≤720p without sound, the picture as a ≤1280 px JPEG → data URLs."""
+def _public_site():
+    """The site's public https address (PUBLIC_SITE_URL, e.g. the owner's tunnel), or '' when there is none."""
+    u = str(_rs().os.getenv('PUBLIC_SITE_URL') or '').strip().rstrip('/')
+    return u if u.startswith('https://') and '.' in u.split('/')[2] else ''
+
+
+async def _swap_refs(cat_id, clip, img, max_s=None):
+    """🎭 Light copies for an OpenRouter swap: the clip ≤720p without sound (only the part the model makes), the picture as a ≤1280 px JPEG.
+    With a public https site (PUBLIC_SITE_URL) they go as 2-hour links (OpenRouter's own advice); without one, inside the request (data URLs)."""
     rs = _rs()
     tmp = rs._media_dir() / cat_id / 'tmp'; tmp.mkdir(parents=True, exist_ok=True); tag = rs.uuid.uuid4().hex[:8]
     rc, ri = tmp / f'{tag}.mp4', tmp / f'{tag}.jpg'
     try:
-        if (await rs._ffmpeg(rs._cs.ref_args(clip, rc)))[0] != 0 or not rc.is_file():
+        if (await rs._ffmpeg(rs._cs.ref_args(clip, rc, max_s)))[0] != 0 or not rc.is_file():
             raise ValueError('your clip could not be prepared (export it again as an MP4)')
         if (await rs._ffmpeg(rs._cs.img_args(img, ri), 60))[0] != 0 or not ri.is_file():
             raise ValueError('the character picture could not be prepared')
+        site = rs._public_site()
+        if site:
+            pub = rs._media_dir() / cat_id / 'pub'; pub.mkdir(exist_ok=True)
+            for old in pub.iterdir():   # the expired ones go
+                if rs.time.time() - old.stat().st_mtime > PUBREF_S:
+                    old.unlink(missing_ok=True)
+            names = [f'{rs.secrets.token_urlsafe(24)}.{x}' for x in ('mp4', 'jpg')]
+            rc.replace(pub / names[0]); ri.replace(pub / names[1])
+            return tuple(f'{site}/api/cats/pubref/{cat_id}/{n}' for n in names)
         return (f'data:video/mp4;base64,{rs.base64.b64encode(rc.read_bytes()).decode()}', f'data:image/jpeg;base64,{rs.base64.b64encode(ri.read_bytes()).decode()}')
     finally:
         rc.unlink(missing_ok=True); ri.unlink(missing_ok=True)
@@ -499,13 +515,13 @@ async def _clip_len(path):
         return None, None
 
 
-async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
+async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=None):
     """🎭 V2V: a clip already in this folder + a finished picture (the folder's character unless one is picked) → one fal.ai job. Nothing runs
     without fal.ai linked; the list-price estimate rides on the card before it starts."""
     rs = _rs()
     mid_ = str(t_.get('swap') or '')
     if mid_ == 'auto':   # 💬 a chat ask ("replace the main character with Bishop"): OpenRouter's clean Seedance when linked, else fal.ai's Wan
-        mid_ = rs._mg.swap_auto(linked) or ''
+        mid_ = rs._mg.swap_auto(linked, (cat or {}).get('swapLast')) or ''
         if not mid_:
             raise rs.HTTPException(400, 'Link your OpenRouter key first: the swap runs on your own OpenRouter account (Seedance 2.0).')
     if mid_ not in rs._mg.V2V:
@@ -527,15 +543,20 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
         raise rs.HTTPException(400, 'Make or pick the character picture first (👤 Make him the character).')
     if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
         raise rs.HTTPException(429, 'Three are already making. Wait for one to finish.')
-    seed_ = mid_ in rs._mg.SEEDANCE_SWAP; shape_ = {}
+    seed_ = mid_ in rs._mg.SEEDANCE_SWAP; shape_ = {}; most_ = rs._mg.swap_max(mid_)
+    if not seed_ and float(cmd_.get('secs') or 0) > most_ + 0.5:
+        raise rs.HTTPException(400, f'{rs._mg.V2V[mid_][1]} takes {most_} s at most. That clip is {float(cmd_.get("secs") or 0):.0f} s: pick a Seedance swap, or add it again with a start.')
     if seed_:
         if float(cmd_.get('secs') or 0) < rs._mg.SEEDANCE_MIN_S - 0.5:
-            raise rs.HTTPException(400, f'Seedance makes {rs._mg.SEEDANCE_MIN_S} to {rs._mg.MAX_CLIP_S} s. That clip is {float(cmd_.get("secs") or 0):.1f} s: add a longer one.')
+            raise rs.HTTPException(400, f'Seedance makes {rs._mg.SEEDANCE_MIN_S} to {most_} s. That clip is {float(cmd_.get("secs") or 0):.1f} s: add a longer one.')
         w_, h_ = cmd_.get('w'), cmd_.get('h')
         if not (w_ and h_):
             w_, h_ = await rs._clip_size(rs._media_dir() / cat_id / str(cmd_['url']).rsplit('/', 1)[-1])
-        shape_ = {'aspect': rs._cs.nearest_aspect(w_, h_), 'secs': cmd_.get('secs'), 'keepSound': True}
-    ep_, label_ = rs._mg.V2V[mid_][:2]; usd_ = rs._mg.v2v_cost(mid_, cmd_.get('secs') or rs._mg.MAX_CLIP_S, cmd_.get('fps') or 30)
+        shape_ = {'aspect': rs._cs.nearest_aspect(w_, h_), 'secs': min(float(cmd_.get('secs') or most_), most_), 'keepSound': True}
+    ep_, label_ = rs._mg.V2V[mid_][:2]; usd_ = rs._mg.v2v_cost(mid_, min(float(cmd_.get('secs') or most_), most_), cmd_.get('fps') or 30)
+    cap_ = float((cat or {}).get('swapCapUsd') or rs._mg.SWAP_CAP_USD)   # 💵 the owner's own cap per swap
+    if usd_ > cap_ + 1e-9:
+        raise rs.HTTPException(400, f'This swap is about ${usd_:.2f}, over your ${cap_:.2f} cap per swap. Raise the cap under the swap button, or pick a cheaper model or a shorter clip.')
     note_ = rs.re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + rs.uuid.uuid4().hex[:12]; now_ = round(rs.time.time())
     words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
@@ -543,8 +564,28 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
         'media': {'id': jid, 'kind': 'video', 'provider': prov_, 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
                   'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}, **shape_}}]
     rs._ws_save(cat_id, doc_)
+    if cat is not None and store is not None and not edit_:   # 📊 "most used" + the chat's next auto pick
+        used_ = dict(cat.get('swapUsed') or {}); used_[mid_] = int(used_.get(mid_) or 0) + 1
+        cat['swapUsed'] = used_; cat['swapLast'] = mid_; rs.keep_owned(cat); rs._save(store)
     rs.asyncio.create_task(rs._media_run(cat_id, ws_id, jid))
     return {'doc': rs._ws_view(cat_id, ws_id)}
+
+
+PUBREF_S = 2 * 3600   # a public reference link lives 2 hours: long enough for the provider to fetch it, then it is gone
+
+
+@router.get('/api/cats/pubref/{cat_id}/{name}')
+async def cat_pubref(cat_id: str, name: str):
+    """🔗 A swap's reference copy (clip ≤720p without sound, or the character JPEG) for the video provider to fetch (OpenRouter asks for public
+    https links). The name is a random 32-character token: the link is the permission, and it stops working after 2 hours."""
+    rs = _rs()
+    from starlette.responses import FileResponse
+    if not rs.re.fullmatch(r'[A-Za-z0-9_-]{1,64}', cat_id) or not rs.re.fullmatch(r'[A-Za-z0-9_-]{32}\.(mp4|jpg)', name):
+        raise rs.HTTPException(404, 'No such file.')
+    f_ = rs._media_dir() / cat_id / 'pub' / name
+    if not f_.is_file() or rs.time.time() - f_.stat().st_mtime > PUBREF_S:
+        raise rs.HTTPException(404, 'No such file.')
+    return FileResponse(f_, headers={'Cache-Control': 'no-store'})
 
 
 @router.get('/api/cats/media/{cat_id}/{name}')

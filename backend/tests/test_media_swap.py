@@ -31,8 +31,9 @@ def test_requests_match_fal_schemas_and_costs_follow_each_models_billing():
         mg.v2v_req('or-seedance-fast', 'k', 'I', 'V')
     assert mg.v2v_cost('fal-wan-replace', 10, 32) == 1.2        # 10 s × 32 fps / 16 = 20 billed s × $0.06
     assert mg.v2v_cost('fal-kling3-motion', 10, 60) == 1.26     # Kling bills real seconds
-    assert {r['id']: r['ready'] for r in mg.v2v_list({'openrouter'})} == {'fal-wan-replace': False, 'fal-kling3-motion': False, 'or-flux-edit': True, 'or-seedance-swap': True, 'or-seedance-fast-swap': True}
-    assert mg.catalog({'fal'})['swapMaxS'] == 15
+    assert {r['id']: r['ready'] for r in mg.v2v_list({'openrouter'})} == {'fal-wan-replace': False, 'fal-kling3-motion': False, 'or-flux-edit': True, 'or-seedance-swap': True, 'or-seedance-fast-swap': True,
+        'or-seedance25-flash-swap': True, 'or-seedance25-swap': True, 'or-seedance-mini-swap': True}
+    assert mg.catalog({'fal'})['swapMaxS'] == 30   # a clip is kept up to 30 s (Seedance 2.5 makes 30)
 
 
 def test_an_iphone_mov_is_a_real_clip():
@@ -66,7 +67,7 @@ def test_a_clip_needs_the_rights_tick_a_real_video_and_15_s_at_most(monkeypatch,
     assert post(op='media_clip', job=ws, text=du('mp4', MP4), tools={}).status_code == 400              # no rights tick
     assert post(op='media_clip', job=ws, text='data:image/png;base64,AAAA', tools={'rights': True}).status_code == 400
     ran = []
-    async def ffmpeg(args, timeout=180):   # 2026-11-17: a long clip is CUT to 15 s from its start (it used to be refused)
+    async def ffmpeg(args, timeout=180):   # 2026-11-17: a long clip is CUT to 30 s from its start (it used to be refused)
         ran.append(args)
         if args[0] == 'ffmpeg':
             pathlib.Path(args[-1]).write_bytes(b'CUT')
@@ -78,7 +79,7 @@ def test_a_clip_needs_the_rights_tick_a_real_video_and_15_s_at_most(monkeypatch,
     md = r.json()['doc']['messages'][-1]['media']
     assert md['cutFrom'] == 4.0 and (tmp_path / 'media' / 'g' / md['url'].rsplit('/', 1)[-1]).read_bytes() == b'CUT'
     cut = [a for a in ran if a[0] == 'ffmpeg'][0]
-    assert cut[cut.index('-ss') + 1] == '4.00' and cut[cut.index('-t') + 1] == '15.00' and '-protocol_whitelist' not in cut   # a file never gets network protocols
+    assert cut[cut.index('-ss') + 1] == '4.00' and cut[cut.index('-t') + 1] == '30.00' and '-protocol_whitelist' not in cut   # a file never gets network protocols
     assert not list((tmp_path / 'media' / 'g' / 'tmp').iterdir())   # the upload's raw copy is gone
     lens['v'] = (9.5, 30.0)
     r = post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True, 'name': 'Dance trend'})

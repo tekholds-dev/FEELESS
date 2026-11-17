@@ -60,9 +60,9 @@ def cut_args(src, out, start=0.0, max_s=15, stream=False):
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', str(out)])
 
 
-def ref_args(src, out):
-    """A light copy of a clip for a reference upload: the short side at most 720 px, no sound, ~1–3 MB for 15 s."""
-    return ['ffmpeg', '-v', 'error', '-nostdin', '-y', '-i', str(src), '-map', '0:v:0', '-an',
+def ref_args(src, out, max_s=None):
+    """A light copy of a clip for a reference upload: the short side at most 720 px, no sound, ~1–3 MB for 15 s; at most `max_s` seconds."""
+    return ['ffmpeg', '-v', 'error', '-nostdin', '-y', '-i', str(src), *(['-t', f'{float(max_s):.2f}'] if max_s else []), '-map', '0:v:0', '-an',
             '-vf', "scale='if(gt(iw,ih),-2,min(720,iw))':'if(gt(iw,ih),min(720,ih),-2)'",
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(out)]
 

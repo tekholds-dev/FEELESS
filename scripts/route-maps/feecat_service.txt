@@ -29,6 +29,7 @@ GET       /api/cats/pool/rules                                         → pool_
 GET       /api/cats/pow                                                → pow_feed
 GET       /api/cats/pow/archive                                        → pow_archive
 GET       /api/cats/proofs/value                                       → proofs_value
+GET       /api/cats/pubref/x1y/x1y                                     → cat_pubref
 GET       /api/cats/receipt/x1y                                        → cat_receipt
 GET       /api/cats/receipt/x1y/explorer                               → cat_receipt_explorer
 GET       /api/cats/scores/x1y                                         → scores_board

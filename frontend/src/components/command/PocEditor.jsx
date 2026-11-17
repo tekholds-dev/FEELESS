@@ -74,7 +74,7 @@ export function VideoEditor({ cat, work, incoming, onFiled, samples, onSample })
     try { const next = []; for (const c of p.clips) { const b = await blobOf(c.src); if (!b) { next.push(c); continue; } let spans = []; try { const buf = await ac.decodeAudioData(await b.arrayBuffer()); spans = quietSpans(buf.getChannelData(0), buf.sampleRate); } catch (_) { spans = []; } const parts = dropSpans(c, spans, uid); cut += clipLen(c) - parts.reduce((s2, x) => s2 + clipLen(x), 0); next.push(...parts); }
       const after = { ...p, clips: next }; if (cut < 0.05) { setSaid('No dead air found: every pause is under 0.6 s.'); return; } change(() => after); setT(0); shown(before, after, `Cut ${cut.toFixed(1)} s of dead air on this device, $0.`); } finally { ac.close?.(); } };
   const send = async e => { e.preventDefault(); setBusy('ask'); setErr(''); setSaid(''); setChanges(null); try {
-    if (SWAP_HERE.test(ask)) { setSaid('Swaps run in a PoC folder: press 📤 Post to put this edit and its source clip in one, then ask there: "replace the main character with …".'); setBusy(''); return; }
+    if (SWAP_HERE.test(ask)) { await swapHere(); setBusy(''); return; }
     if (DEAD_AIR.test(ask) && p.clips.length) { await cutAir(); setAsk(''); setBusy(''); return; }
     const before = p; const j = await work(cat.id, { op: 'playc_ask', job: 'video', text: ask, tools: { project: p } }); const after = { ...EMPTY, ...j.project }; change(() => after); setAsk(''); setT(0); shown(before, after, `${j.say || 'Done.'}${j.learned ? ' It saw how you edit.' : ''}${j.usd ? ` Cost $${j.usd.toFixed(4)}.` : ''}`); } catch (x) { setErr(x.message); } setBusy(''); };
   // 💬 captions for the clip under the playhead, on your own OpenRouter key (only its sound is sent)
@@ -82,6 +82,17 @@ export function VideoEditor({ cat, work, incoming, onFiled, samples, onSample })
     const j = await work(cat.id, { op: 'playc_captions', text: await readUrl(b), tools: { max: Math.min(60, Math.ceil(c.out)) } }); let off = 0; for (const x of p.clips) { if (x.id === c.id) break; off += clipLen(x); }
     const rows = captionTexts(j.captions, c, off, p.aspect).map(x => ({ ...x, id: uid('t') })); if (!rows.length) { setSaid('No speech found in that clip.'); setBusy(''); return; }
     const after = { ...p, texts: [...p.texts.filter(x => !(x.cap && x.at >= off && x.at < off + clipLen(c))), ...rows] }; change(() => after); shown(before, after, `${rows.length} caption lines from ${j.model}${j.usd != null ? `, cost $${Number(j.usd).toFixed(4)}` : ''}.`); } catch (x) { setErr(x.message); } setBusy(''); };
+  // 🎭 swap straight from the editor (owner 2026-11-17 proposal 3): the clip under the playhead goes into the PoC folder picked in Post, then
+  // that folder's character is swapped in on the model you picked last there. The folder and the rights tick come from the Post box.
+  const swapHere = async () => { const c = hit?.clip || p.clips.find(x => x.id === sel);
+    if (!c) { setSaid('Add a clip first.'); return; }
+    if (!postTo || !postRights) { setPosting(true); setSaid('Pick the PoC folder with your character under 📤 Post and tick the rights box, then ask again.'); return; }
+    const b = await blobOf(c.src); if (!b) throw new Error('That clip is not on this device any more.'); if (b.size > 48 * 1048576) throw new Error('That clip is over 48 MB. Split it, or export a shorter one.');
+    const nm = names[c.src] || 'clip';
+    await work(cat.id, { op: 'media_clip', job: postTo, text: await readUrl(b), tools: { rights: true, name: nm, start: c.in } });
+    const j = await work(cat.id, { op: 'media_make', job: postTo, text: ask, tools: { swap: 'auto', clip: 'last' } });
+    const m = [...(j.doc?.messages || [])].reverse().find(x => x.media?.kind === 'video')?.media || {}; setAsk('');
+    setSaid(`Swap started in “${(info.pocs || []).find(f2 => f2.id === postTo)?.name || 'your PoC folder'}” on ${m.label || 'your swap model'}${m.usd != null ? `, about $${Number(m.usd).toFixed(2)}` : ''}. It lands there in a few minutes.`); onFiled?.(); };
   const addHook = () => { const n = { id: uid('t'), ...hookFor(p.aspect, 0) }; change(cur => ({ ...cur, texts: [...cur.texts, n] })); setSel(n.id); setT(0); };
   // 🖐 drops: files from your computer, or a card from a shelf above
   const onDrop = e => { e.preventDefault(); setOver(false); if (e.dataTransfer.types.includes(DRAG_MADE) && dragUse) { const fn = dragUse; dragUse = null; Promise.resolve(fn()).catch(x => setErr(x.message)); return; } const fs = [...(e.dataTransfer.files || [])].filter(f => /^(video|audio)\//.test(f.type)); if (fs.length) addFiles(fs); };

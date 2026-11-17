@@ -100,17 +100,41 @@ export const SWAP_SPOT = 'feeless.swapClip';   // a Spot clip handed to the stud
 const forgetSpot = () => { try { localStorage.removeItem(SWAP_SPOT); } catch { /* private */ } };
 export function swapEst(m, c) {   // the price before you press: tokens = 720p pixels × 24 fps × whole seconds (4–15) / 1024 (OpenRouter's Seedance billing)
   if (!m || !c) return null; const s = Number(c.secs) || 0;
-  if (m.by === 'tokens') return 921600 * 24 * Math.min(15, Math.max(4, Math.round(s || 4)))   /* = media_gen.seedance_len */ / 1024 * m.rate;
+  if (m.by === 'tokens') return 921600 * 24 * Math.min(m.maxS || 15, Math.max(4, Math.round(s || 4)))   /* = media_gen.seedance_len */ / 1024 * m.rate;
   return (m.by === 'frames' ? s * Number(c.fps || 30) / 16 : s) * m.rate;
+}
+// 🏷 the picker (owner 2026-11-17: "choose from recommended, top used etc … the latest ai video generators ppl using"): every swap model OpenRouter
+// takes your clip on, sorted four ways. Most used = what YOU ran here (no public chart of video-model use exists to read).
+const SORTS = [['rec', 'Recommended'], ['new', 'Newest'], ['cheap', 'Cheapest'], ['used', 'Most used']];
+const DAY = 86400000;
+export function sortSwaps(list, how, used = {}, clip = null) {
+  const r = [...list];
+  const by = { rec: (a, b) => (a.rec || 99) - (b.rec || 99), new: (a, b) => String(b.added || '').localeCompare(String(a.added || '')),
+    cheap: (a, b) => (swapEst(a, clip || { secs: 15 }) ?? 99) - (swapEst(b, clip || { secs: 15 }) ?? 99), used: (a, b) => (used[b.id] || 0) - (used[a.id] || 0) || (a.rec || 99) - (b.rec || 99) };
+  return r.sort((a, b) => Number(b.ready) - Number(a.ready) || by[how](a, b));
+}
+const isNew = (x, now = Date.now()) => !!x.added && now - Date.parse(x.added) < 45 * DAY;
+function SwapPicker({ list, m, setModel, c, used }) {
+  const [how, setHow] = useState('rec'); const rows = sortSwaps(list, how, used, c);
+  return <div className="mst-pick" data-testid="swap-picker">
+    <div className="m-seg" role="tablist" aria-label="Sort the swap models">{SORTS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={how === k} className={how === k ? 'active' : ''} onClick={() => setHow(k)} data-testid={`swap-sort-${k}`}>{l}</button>)}</div>
+    <ol className="mst-picklist" role="radiogroup" aria-label="Swap model">{rows.map((x, i) => { const est = c ? swapEst(x, c) : null; const long = c && x.maxS && Number(c.secs) > x.maxS + 0.5; const no = long && !x.rec;   /* only Seedance cuts a long clip itself */
+      return <li key={x.id} style={{ '--i': i }}><button type="button" role="radio" aria-checked={m?.id === x.id} className={m?.id === x.id ? 'is-on' : ''} disabled={!x.ready || no} onClick={() => setModel(x.id)} data-testid={`swap-model-${x.id}`}
+        data-tip={x.ready ? x.why : `Link ${x.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai'} first. ${x.why}`}>
+        <b>{x.label}{isNew(x) ? <em className="mst-new">NEW</em> : null}{how === 'rec' && x.rec === 1 ? <em className="mst-new is-rec">PICK</em> : null}</b>
+        <small>{x.why}</small>
+        <span className="m-num">{est != null ? `$${est.toFixed(2)}` : rateTip(x)}{x.maxS ? ` · up to ${x.maxS} s` : ''}{used[x.id] ? ` · used ${used[x.id]}×` : ''}{no ? ` · takes ${x.maxS} s at most` : long ? ` · makes the first ${x.maxS} s` : ''}</span></button></li>; })}</ol></div>;
 }
 const rateTip = m => (m.by === 'tokens' ? `about $${swapEst(m, { secs: 15 }).toFixed(2)} per 15 s` : m.by === 'frames' ? `$${m.rate} per 16 frames` : `$${m.rate}/s`);
 function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   const clips = (doc?.messages || []).map(m => m.media).filter(m => m && m.clip && m.status === 'done');
-  const [clip, setClip] = useState(''); const [model, setModel] = useState('or-seedance-swap'); const [rights, setRights] = useState(false);
+  const [clip, setClip] = useState(''); const [model, setModel] = useState(d?.swapLast || 'or-seedance-swap'); const [rights, setRights] = useState(false);
+  const [cap, setCap] = useState(d?.swapCapUsd ?? 3); const [capBusy, setCapBusy] = useState(false);
+  const saveCap = async v => { setCapBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_cap', text: String(v) }); setCap(j.swapCapUsd); } catch (e) { setErr(e.message); } setCapBusy(false); };
   const [note, setNote] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [link, setLink] = useState(''); const [start, setStart] = useState('');
   const [spot, setSpot] = useState(() => { try { return JSON.parse(localStorage.getItem(SWAP_SPOT) || 'null'); } catch { return null; } });
   const c = clips.find(x => x.id === clip) || clips[clips.length - 1]; const list = d?.swap || []; const m = list.find(x => x.id === model && x.ready) || list.find(x => x.ready) || list[0];
-  const est = swapEst(m, c); const short = m?.by === 'tokens' && c && Number(c.secs) < 3.5;
+  const est = swapEst(m, c); const short = m?.by === 'tokens' && c && Number(c.secs) < 3.5; const over = est != null && est > Number(cap) + 1e-9; const tooLong = !!(m && !m.rec && m.maxS && c && Number(c.secs) > m.maxS + 0.5);
   const hasChar = !!doc?.character?.mid; const ready = list.some(x => x.ready); const edit = m?.needsChar === false; const where = m?.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai';   // ✏ FLUX Video Edit: your clip + your words, on OpenRouter (owner 2026-11-16)
   const added = j => { setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (last) setClip(last.id); };
   const addSrc = async (src, name) => { setBusy('up'); setErr(''); try { added(await work(cat.id, { op: 'media_clip', job: row.id, text: src, tools: { rights: true, ...(name ? { name } : {}), ...(Number(start) > 0 ? { start: Number(start) } : {}) } })); return true; } catch (er) { setErr(er.message); return false; } finally { setBusy(''); } };
@@ -122,22 +146,23 @@ function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   const fromSpot = async () => { if (await addSrc(spot.url, String(spot.title || '').slice(0, 60))) { forgetSpot(); setSpot(null); } };
   const go = async () => { setBusy('go'); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: note, tools: { swap: m.id, clip: c.id } }); setDoc(j.doc); setNote(''); } catch (e) { setErr(e.message); } setBusy(''); };
   return <div className="mst-swap" data-testid="media-swap">
-    <p className="mst-h">🎭 Swap your character into a clip <small>Seedance 2.0 on your OpenRouter keeps the scene, moves and sound · {d?.swapMaxS || 15} s max</small></p>
+    <p className="mst-h">🎭 Swap your character into a clip <small>{m ? m.label.split(' · ')[0] : 'Seedance'} on your {m?.provider === 'fal' ? 'fal.ai' : 'OpenRouter'} keeps the scene, moves and sound · clips up to {d?.swapMaxS || 15} s</small></p>
     {!ready ? <p className="mst-note">Swaps run on your OpenRouter key (Seedance 2.0, FLUX Video Edit) or fal.ai. Link OpenRouter above to use them.</p> : <>
       <label className="mst-rights"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} data-testid="swap-rights" />It is my clip, or I have the rights to use it</label>
       {spot?.url ? <p className="mst-spot" data-testid="swap-spot"><b>From Spot</b><span>{spot.title || spot.url}</span><button type="button" className="m-btn" disabled={!rights || !!busy} onClick={fromSpot} data-tip={rights ? "Adds 15 s of that post's video" : 'Tick the rights box first'} data-testid="swap-spot-add">Add it</button>
         <button type="button" className="fea-back-btn" onClick={() => { forgetSpot(); setSpot(null); }} aria-label="Forget the Spot clip">✕</button></p> : null}
-      <span className="mst-refadd"><label className="m-btn" aria-disabled={!rights || !!busy} data-tip={rights ? 'MP4, MOV or WebM. Longer than 15 s: 15 s from Start ($0 to add)' : 'Tick the rights box first'}>{busy === 'up' ? 'Adding…' : 'Add your clip'}
+      <span className="mst-refadd"><label className="m-btn" aria-disabled={!rights || !!busy} data-tip={rights ? 'MP4, MOV or WebM, a saved reel is fine. Longer than 30 s: 30 s from Start ($0 to add)' : 'Tick the rights box first'}>{busy === 'up' ? 'Adding…' : 'Add your clip'}
         <input type="file" accept="video/mp4,video/webm,video/quicktime" hidden disabled={!rights || !!busy} onChange={onFile} data-testid="swap-file" /></label>
         <form className="mst-swaplink" onSubmit={onLink}><input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="…or paste a Bluesky post or an .mp4 link" aria-label="Clip link" data-testid="swap-link" />
-          <input className="m-input mst-start" type="number" min="0" max="3600" step="0.5" inputMode="decimal" value={start} onChange={e => setStart(e.target.value)} placeholder="Start s" aria-label="Start at, in seconds" data-tip="Where the 15 s starts" data-testid="swap-start" />
+          <input className="m-input mst-start" type="number" min="0" max="3600" step="0.5" inputMode="decimal" value={start} onChange={e => setStart(e.target.value)} placeholder="Start s" aria-label="Start at, in seconds" data-tip="Where the clip starts (it keeps up to 30 s)" data-testid="swap-start" />
           <button type="submit" className="m-btn" disabled={!rights || !!busy || !link.trim()} data-testid="swap-link-add">Add</button></form>
         {clips.length ? <select className="m-input" value={c?.id || ''} onChange={e => setClip(e.target.value)} aria-label="Which clip" data-testid="swap-clip">{clips.map(x => <option key={x.id} value={x.id}>{x.label} · {Number(x.secs).toFixed(1)} s{x.source ? ` · ${x.source}` : ''}</option>)}</select> : null}</span>
-      <div className="m-seg" role="radiogroup" aria-label="Swap model">{list.map(x => <button key={x.id} type="button" role="radio" aria-checked={m?.id === x.id} className={m?.id === x.id ? 'active' : ''} onClick={() => setModel(x.id)} disabled={!x.ready} data-tip={x.ready ? `${x.why} · ${rateTip(x)}` : `Link ${x.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai'} first. ${x.why}`} data-testid={`swap-model-${x.id}`}>{x.label}</button>)}</div>
+      <SwapPicker list={list} m={m} setModel={setModel} c={c} used={d?.swapUsed || {}} />
       <input className="m-input" value={note} onChange={e => setNote(e.target.value)} maxLength={500} placeholder={edit ? 'What to change, e.g. make it night with neon signs' : m?.by === 'tokens' ? 'Optional: what to keep, e.g. keep his gold chain' : m?.id === 'fal-kling3-motion' ? 'Optional: what the scene looks like' : 'Optional note for the card'} aria-label={edit ? 'What to change' : 'Note'} data-testid="swap-note" />
-      <span className="mst-go"><small>{!edit && !hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? `Add a clip to ${edit ? 'edit' : 'swap into'}` : short ? 'Seedance needs a clip of 4 s or more' : edit && !note.trim() ? 'Say what to change' : `about $${est.toFixed(2)} on your ${where} (${rateTip(m)})`}</small>
-        <button type="button" className="m-btn m-go" disabled={!!busy || !c || !m?.ready || short || (edit ? !note.trim() : !hasChar)} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : edit ? '✏ Edit the clip' : '🎭 Swap in the character'}</button></span>
-      <small className="mst-note">Or ask in the chat: "replace the main character with {doc?.title || doc?.name || 'him'}".</small></>}
+      <span className="mst-go"><small>{!edit && !hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? `Add a clip to ${edit ? 'edit' : 'swap into'}` : short ? 'Seedance needs a clip of 4 s or more' : edit && !note.trim() ? 'Say what to change' : tooLong ? `${m.label.split(' · ')[0]} takes ${m.maxS} s at most: add the clip again with a start, or pick a Seedance swap` : over ? `about $${est.toFixed(2)}: over your $${Number(cap).toFixed(2)} cap per swap` : `about $${est.toFixed(2)} on your ${where} (${rateTip(m)})`}</small>
+        <button type="button" className="m-btn m-go" disabled={!!busy || !c || !m?.ready || short || over || tooLong || (edit ? !note.trim() : !hasChar)} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : edit ? '✏ Edit the clip' : '🎭 Swap in the character'}</button></span>
+      <label className="mst-cap" data-tip="No swap starts above this. You set it; $0.50 to $50"><small>CAP PER SWAP $</small><input className="m-input m-num" type="number" min="0.5" max="50" step="0.5" value={cap} onChange={e => setCap(e.target.value)} onBlur={e => { const v = Number(e.target.value); if (v !== d?.swapCapUsd && v >= 0.5 && v <= 50) saveCap(v); }} disabled={capBusy} aria-label="Cap per swap in dollars" data-testid="swap-cap" /></label>
+      <small className="mst-note">Or ask in the chat: "replace the main character with {doc?.title || doc?.name || 'him'}" (it uses the model you picked last).{d?.publicRefs ? '' : ' Your clip rides inside the request: set PUBLIC_SITE_URL (your https tunnel) to send it as a 2-hour link instead.'}</small></>}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </div>;
 }

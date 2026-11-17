@@ -1916,6 +1916,7 @@ _swap_refs = _fc_desk._swap_refs
 _with_sound = _fc_desk._with_sound
 _edit_post = _fc_desk._edit_post
 _edit_captions = _fc_desk._edit_captions
+_public_site = _fc_desk._public_site
 cat_media_file = _fc_desk.cat_media_file
 _general_mind = _fc_desk._general_mind
 _popular_builds = _fc_desk._popular_builds

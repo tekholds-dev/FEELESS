@@ -59,17 +59,38 @@ test('🧾 an agent edit is shown line by line before you keep it, and Undo all 
   await act(async () => root.unmount());
 });
 
-test('🎭 a swap ask in the editor points to Post; + Hook adds words in the safe area; Post lists your PoC folders and needs the rights tick', async () => {
+test('🎭 a swap ask in the editor opens Post first; + Hook adds words in the safe area; Post lists your PoC folders and needs the rights tick', async () => {
   const work = jest.fn(async (_c, b) => (b.op === 'playc_get' ? { project: PROJ, files: [], canAsk: true, canPaid: false, pocs: [{ id: 'w1', name: 'Bishop' }] } : { ok: true }));
   const { box, root } = await editor(work);
   await typeIn(q(box, 'pce-ask'), 'swap the guy for my character');
   await act(async () => q(box, 'pce-send').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-  expect(q(box, 'pce-said').textContent).toContain('📤 Post'); expect(work.mock.calls.some(([, b]) => b.op === 'playc_ask')).toBe(false);
+  expect(q(box, 'pce-said').textContent).toContain('📤 Post'); expect(q(box, 'pce-post-box')).not.toBeNull(); expect(work.mock.calls.some(([, b]) => b.op === 'playc_ask')).toBe(false);
+  await act(async () => q(box, 'pce-post').click());
   expect(q(box, 'pce-captions').disabled).toBe(true);   // no OpenRouter key on this agent
   await act(async () => q(box, 'pce-hook').click()); expect(q(box, 'pce-words').value).toBe('THE PAYOFF FIRST');
   await act(async () => q(box, 'pce-post').click());
   expect([...q(box, 'pce-post-to').options].map(o => o.textContent)).toEqual(['A new PoC folder named “Video edit”', 'Bishop']);
   expect(q(box, 'pce-post-go').disabled).toBe(true); await act(async () => q(box, 'pce-post-rights').click()); expect(q(box, 'pce-post-go').disabled).toBe(false);
   await act(async () => q(box, 'pce-safe').click()); expect(q(box, 'pce-safe-zones')).toBeNull();
+  await act(async () => root.unmount());
+});
+
+test('🎭 with a folder and the rights tick, a swap ask sends the clip under the playhead there and starts the swap', async () => {
+  const media = { 'c:s1': new Blob(['x'], { type: 'video/mp4' }) };
+  URL.createObjectURL = jest.fn(() => 'blob:x'); URL.revokeObjectURL = jest.fn();
+  jest.spyOn(require('../../lib/mediaStore'), 'getMedia').mockImplementation(async k => media[k] || null);
+  const work = jest.fn(async (_c, b) => (b.op === 'playc_get' ? { project: PROJ, files: [], canAsk: true, canPaid: true, pocs: [{ id: 'w1', name: 'Bishop' }] }
+    : b.op === 'media_make' ? { doc: { messages: [{ media: { kind: 'video', label: 'Seedance 2.5 Flash · Replace', usd: 1.58 } }] } } : { ok: true }));
+  const { box, root } = await editor(work);
+  await act(async () => q(box, 'pce-post').click());
+  await act(async () => { const s2 = q(box, 'pce-post-to'); s2.value = 'w1'; s2.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => q(box, 'pce-post-rights').click());
+  await typeIn(q(box, 'pce-ask'), 'replace the guy with bishop');
+  await act(async () => q(box, 'pce-send').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await act(async () => { await new Promise(r => setTimeout(r, 30)); });   // the clip is read as a data URL first
+  const clip = work.mock.calls.find(([, b]) => b.op === 'media_clip')[1]; const make = work.mock.calls.find(([, b]) => b.op === 'media_make')[1];
+  expect(clip.job).toBe('w1'); expect(clip.tools).toEqual({ rights: true, name: 'street.mp4', start: 0 }); expect(clip.text).toMatch(/^data:video\/mp4;base64,/);
+  expect(make).toEqual({ op: 'media_make', job: 'w1', text: 'replace the guy with bishop', tools: { swap: 'auto', clip: 'last' } });
+  expect(q(box, 'pce-said').textContent).toBe('Swap started in “Bishop” on Seedance 2.5 Flash · Replace, about $1.58. It lands there in a few minutes.');
   await act(async () => root.unmount());
 });

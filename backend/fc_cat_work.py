@@ -1221,7 +1221,17 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         return {'powFolders': (cat.get('powFolders') or [])[::-1]}
     if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked OpenRouter / fal.ai / Replicate (+ the viral presets)
         linked = {r['provider'] for r in rs._ck.public(cat) if r.get('saved') and r['provider'] in rs._mg.PROVIDERS}
-        return {**rs._mg.catalog(linked, rs._media_house(cat)), 'houseLeftUsd': round(max(0.0, rs._mg.HOUSE_DAILY_USD - rs._media_house_spent()), 2) if rs._media_house(cat) else None}
+        return {**rs._mg.catalog(linked, rs._media_house(cat)), 'swapCapUsd': float(cat.get('swapCapUsd') or rs._mg.SWAP_CAP_USD), 'swapUsed': dict(cat.get('swapUsed') or {}),
+                'swapLast': cat.get('swapLast'), 'publicRefs': bool(rs._public_site()), 'houseLeftUsd': round(max(0.0, rs._mg.HOUSE_DAILY_USD - rs._media_house_spent()), 2) if rs._media_house(cat) else None}
+    if p.op == 'media_cap':   # 💵 the owner's own cap per swap (he names the value; 0.5 to 50 dollars)
+        try:
+            v_ = float(p.text)
+        except (TypeError, ValueError):
+            raise rs.HTTPException(400, 'Say the cap in dollars, e.g. 3.')
+        if not 0.5 <= v_ <= 50:
+            raise rs.HTTPException(400, 'The cap per swap goes from $0.50 to $50.')
+        cat['swapCapUsd'] = round(v_, 2); rs.keep_owned(cat); rs._save(store)
+        return {'swapCapUsd': cat['swapCapUsd']}
     if p.op == 'media_make':   # 🎬 one image or video in a PoC folder, on the owner's own key; the page polls ws_open for its state
         doc_ = rs._ws_load(cat_id, p.job)
         if not doc_ or doc_.get('kind') != 'content':
@@ -1230,7 +1240,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         t_ = p.tools if isinstance(p.tools, dict) else {}
         house_ = rs._media_house(cat)
         if t_.get('swap'):   # 🎭 a clip in this folder + its character → one swap on the owner's own fal.ai key
-            return await rs._media_swap(cat_id, p.job, doc_, t_, linked, p.text)
+            return await rs._media_swap(cat_id, p.job, doc_, t_, linked, p.text, cat, store)
         try:
             text_, want_model, want_kind = (rs._mg.fill(str(t_['preset']), p.text) if t_.get('preset') else (p.text, str(t_.get('model') or '') or None, str(t_.get('kind') or '')))
             mid_, prov_, model_, kind_ = rs._mg.choose(want_model, want_kind, linked, house_)

@@ -185,3 +185,30 @@ test('🎭 Seedance refuses a clip under 4 s before any call', async () => {
   expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('4 s or more');
   await act(async () => root.unmount());
 });
+
+test('🏷 the picker: a 17 s reel priced per model, four sorts, the model used last picked, and your cap greys out a swap above it', async () => {
+  const S = (id, label, rate, maxS, added, rec) => ({ id, label, why: label, rate, by: 'tokens', provider: 'openrouter', needsChar: true, ready: true, maxS, added, rec });
+  const SWAP = [S('or-seedance-swap', 'Seedance 2.0', 0.0000043, 15, '2026-04-14', 1), S('or-seedance25-flash-swap', 'Seedance 2.5 Flash', 0.0000043, 30, '2026-11-15', 2),
+    S('or-seedance25-swap', 'Seedance 2.5', 0.0000064, 30, '2026-08-07', 3), S('or-seedance-mini-swap', 'Seedance 2.0 Mini', 0.0000021, 15, '2026-08-11', 5)];
+  const work = jest.fn(async (id, b) => (b.op === 'media_cap' ? { swapCapUsd: Number(b.text) }
+    : { models: MODELS, linked: ['openrouter'], pick: {}, providers: { ...PROV, openrouter: { name: 'OpenRouter', keys: 'https://openrouter.ai/settings/keys' } }, swap: SWAP, swapMaxS: 30,
+      swapCapUsd: 2, swapUsed: { 'or-seedance-mini-swap': 3, 'or-seedance25-flash-swap': 1 }, swapLast: 'or-seedance25-flash-swap', publicRefs: false }));
+  const doc = { title: 'Bishop', character: { mid: 'mc', url: '/x.png' }, messages: [{ media: { id: 'm17', clip: true, status: 'done', kind: 'video', label: 'IG reel', secs: 17, fps: 30 } }] };
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const order = () => [...document.querySelectorAll('[data-testid^="swap-model-"]')].map(x => x.dataset.testid.replace('swap-model-', ''));
+  expect(order()).toEqual(['or-seedance-swap', 'or-seedance25-flash-swap', 'or-seedance25-swap', 'or-seedance-mini-swap']);
+  expect(q('swap-model-or-seedance25-flash-swap').getAttribute('aria-checked')).toBe('true');   // the one used last
+  expect(q('swap-model-or-seedance25-flash-swap').textContent).toContain('$1.58 · up to 30 s · used 1×');   // the whole 17 s
+  expect(q('swap-model-or-seedance-swap').textContent).toContain('makes the first 15 s');
+  await act(async () => q('swap-sort-new').click()); expect(order()[0]).toBe('or-seedance25-flash-swap');
+  await act(async () => q('swap-sort-cheap').click()); expect(order()[0]).toBe('or-seedance-mini-swap');
+  await act(async () => q('swap-sort-used').click()); expect(order().slice(0, 2)).toEqual(['or-seedance-mini-swap', 'or-seedance25-flash-swap']);
+  expect(q('media-swap').textContent).toContain('PUBLIC_SITE_URL');
+  await act(async () => q('swap-model-or-seedance25-swap').click());   // $2.35 > the $2 cap
+  expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('over your $2.00 cap per swap');
+  const cap = q('swap-cap'); await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(cap, '3'); cap.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { cap.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
+  expect(work).toHaveBeenCalledWith('c1', { op: 'media_cap', text: '3' }); expect(q('media-swap').textContent).not.toContain('over your');
+  await act(async () => root.unmount());
+});

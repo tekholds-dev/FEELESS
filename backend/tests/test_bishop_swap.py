@@ -245,3 +245,54 @@ def test_post_puts_the_edit_and_its_source_clip_in_a_poc_folder(monkeypatch, tmp
     r = post(op='playc_post', job='Fresh one', text=du('mp4', edit), tools={'rights': True})   # no folder picked → a new PoC folder named after it
     assert r.status_code == 200 and r.json()['ws'] != ws and fs._ws_load('g', r.json()['ws'])['kind'] == 'content'
     assert any(p['id'] == r.json()['ws'] for p in post(op='playc_get').json()['pocs'])
+
+
+# ── 2026-11-17 round 2: the model picker, the cap, a 17 s reel, public links ────────────────────────────────────────────────────────────────
+def test_every_seedance_swap_takes_the_clip_and_the_longest_it_makes():
+    rows = {r['id']: r for r in mg.v2v_list({'openrouter'})}
+    assert {k for k, r in rows.items() if r.get('rec')} == set(mg.SEEDANCE) and rows['or-seedance-swap']['rec'] == 1
+    assert rows['or-seedance25-flash-swap']['maxS'] == 30 and rows['or-seedance-swap']['maxS'] == 15 and rows['or-seedance25-flash-swap']['added'] == '2026-11-15'
+    b = mg.v2v_req('or-seedance25-flash-swap', OR_KEY, 'I', 'V', '', 17.2, '9:16')[3]
+    assert b['model'] == 'bytedance/seedance-2.5-flash' and b['duration'] == 17          # a whole 17 s reel on 2.5
+    assert mg.v2v_req('or-seedance-swap', OR_KEY, 'I', 'V', '', 17.2, '9:16')[3]['duration'] == 15   # 2.0 makes its first 15 s
+    assert mg.v2v_cost('or-seedance25-flash-swap', 17) == 1.58 and mg.v2v_cost('or-seedance25-swap', 17) == 2.35
+    assert mg.swap_auto({'openrouter'}, 'or-seedance25-swap') == 'or-seedance25-swap' and mg.swap_auto({'openrouter'}, 'fal-wan-replace') == 'or-seedance-swap'
+    assert cs.ref_args('/c.mp4', '/o.mp4', 15)[cs.ref_args('/c.mp4', '/o.mp4', 15).index('-t') + 1] == '15.00'
+
+
+def test_a_17_s_reel_is_kept_whole_and_the_cap_and_most_used_follow_the_owner(monkeypatch, tmp_path):
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=17.2); _fake_ffmpeg(monkeypatch, fs, [])
+    async def no_run(*a):
+        return None
+    monkeypatch.setattr(fs, '_media_run', no_run)
+    ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
+    md = post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True}).json()['doc']['messages'][-1]['media']
+    assert 'cutFrom' not in md   # 17 s is under 30: kept whole, nothing cut
+    assert post(op='media_cap', text='0.2').status_code == 400 and post(op='media_cap', text='2').json()['swapCapUsd'] == 2.0
+    r = post(op='media_make', job=ws, text='swap him for bishop', tools={'swap': 'or-seedance25-swap', 'clip': 'last'})
+    assert r.status_code == 400 and 'over your $2.00 cap' in r.json()['detail']   # $2.35 > $2.00: refused before anything runs
+    r = post(op='media_make', job=ws, text='swap him for bishop', tools={'swap': 'or-seedance25-flash-swap', 'clip': 'last'})
+    assert r.status_code == 200, r.text
+    made = r.json()['doc']['messages'][-1]['media']
+    assert made['usd'] == 1.58 and made['secs'] == 17.2 and made['modelId'] == 'or-seedance25-flash-swap'
+    cat = fs._load()['cats']['g']
+    assert cat['swapUsed'] == {'or-seedance25-flash-swap': 1} and cat['swapLast'] == 'or-seedance25-flash-swap'
+    m = post(op='media_models').json()
+    assert m['swapCapUsd'] == 2.0 and m['swapUsed'] == {'or-seedance25-flash-swap': 1} and m['publicRefs'] is False
+    r = post(op='media_make', job=ws, text='replace the main character with bishop', tools={'swap': 'auto', 'clip': 'last'})
+    assert r.json()['doc']['messages'][-1]['media']['modelId'] == 'or-seedance25-flash-swap'   # the chat uses the one picked last
+
+
+def test_with_a_public_site_the_references_go_as_2_hour_links(monkeypatch, tmp_path):
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path); _fake_ffmpeg(monkeypatch, fs, [])
+    monkeypatch.setenv('PUBLIC_SITE_URL', 'https://feeless.example.com/')
+    clip = tmp_path / 'media' / 'g' / 'c.mp4'; clip.write_bytes(MP4)
+    v, i = asyncio.run(fs._swap_refs('g', clip, tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png', 15))
+    assert v.startswith('https://feeless.example.com/api/cats/pubref/g/') and v.endswith('.mp4') and i.endswith('.jpg')
+    got = c.get(v.replace('https://feeless.example.com', ''))
+    assert got.status_code == 200 and got.content == b'REF'
+    assert c.get('/api/cats/pubref/g/' + 'x' * 32 + '.mp4').status_code == 404 and c.get('/api/cats/pubref/g/..%2Fc.mp4').status_code == 404
+    f = tmp_path / 'media' / 'g' / 'pub' / v.rsplit('/', 1)[-1]; import os; os.utime(f, (1, 1))
+    assert c.get(v.replace('https://feeless.example.com', '')).status_code == 404   # after 2 hours it is gone
+    monkeypatch.setenv('PUBLIC_SITE_URL', 'http://localhost:3000')
+    assert asyncio.run(fs._swap_refs('g', clip, tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png'))[0].startswith('data:video/mp4;base64,')   # not public https → inside the request
