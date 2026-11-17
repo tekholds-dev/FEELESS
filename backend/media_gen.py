@@ -130,7 +130,11 @@ CLIP_KEEP_S = 30          # a clip is kept up to 30 s (the longest a swap model 
 SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the reference image) is the character. Keep EVERYTHING of video 1: the same scene, background, camera moves, framing, timing, actions, '
              'gestures and lighting, frame by frame. Replace only the main character of video 1 with the character in image 1: the same face, '
              'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
-SEEDANCE_PX = 921600      # 720p in every aspect Seedance offers (1280×720, 720×1280, 960×960 …)
+ALEPH_PROMPT_MAX = 1000   # Runway's promptText limit
+ALEPH_RULE = ('Replace the main person in this video with the person in the keyframe picture: their face, hair, skin, build and outfit, '
+              'in every frame, moving exactly as the original person moves. Keep everything else of the video the same: the scene, '
+              'background, other people, camera moves, framing, timing, actions and lighting.')
+SEEDANCE_PX = 921600     # 720p in every aspect Seedance offers (1280×720, 720×1280, 960×960 …)
 SEEDANCE_MIN_S = 4        # Seedance makes 4 s at least
 
 
@@ -182,12 +186,18 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
             'aspect_ratio': aspect or '9:16', 'generate_audio': False,
             'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
     if model_id in ALEPH:
+        # 🎬 owner's real run 2026-11-17: OpenRouter turned an image in input_references into Runway's `references`, and Aleph 2 answered
+        # 'Unrecognized key: "references"'. Runway's own schema (docs.dev.runwayml.com/openapi.json, read 2026-11-17): Aleph 2 takes guidance
+        # pictures ONLY as `keyframes: [{uri, seconds}]` (≤ 5, https or data URI) and a promptText of at most 1000 characters. OpenRouter lists
+        # `keyframes` as Aleph 2's passthrough; passthrough goes under provider.options.<provider slug> ("runway", read from its /endpoints).
         if not image or not video:
             raise ValueError('A swap needs your clip and the character picture.')
-        note = ' '.join(str(prompt or '').split())[:400]
+        note = ' '.join(str(prompt or '').split())
+        text = (ALEPH_RULE + (f' Where these words differ from the above, follow them: {note}' if note else ''))[:ALEPH_PROMPT_MAX]
         return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
-            'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'aspect_ratio': aspect or '9:16',
-            'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
+            'model': ep, 'prompt': text, 'aspect_ratio': aspect or '9:16',
+            'input_references': [{'type': 'video_url', 'video_url': {'url': video}}],
+            'provider': {'options': {'runway': {'keyframes': [{'uri': image, 'seconds': 0}]}}}}
     if model_id == 'or-flux-edit':
         if not str(prompt or '').strip():
             raise ValueError('Say what to change in the clip.')

@@ -94,3 +94,21 @@ def test_every_engine_kit_passes_the_real_playtest():
             r = asyncio.run(gf.playtest(gf.kit_of(eng), chromium))
         assert r['ok'] or (fps_only(r) and (r['facts'].get('fps') or 0) > 0), (eng, r['why'])   # it must still start, move, change and draw
         assert 'GAME LOGIC GOES HERE' in gf.kit_of(eng) and 'window.__game' in gf.kit_of(eng)
+
+
+def test_a_game_that_exists_is_changed_not_redesigned(monkeypatch):
+    # owner's real run 2026-11-17: "fix the game so it actually works" came back as a new design "Game Fix Needed … send the game code"
+    import feecat_service as fs
+    monkeypatch.setattr(fs, '_ws_save', lambda *a: None); monkeypatch.setattr(fs, '_parts_used', lambda *a: [])
+    asks = []
+    async def ask(*a):
+        asks.append('design'); return json.dumps(DESIGN), 0.0, False
+    async def page(cat, model, sys_, user_, tokens, on_part=None):
+        asks.append(('change', 'THE GAME ALREADY EXISTS' in sys_ and 'fix the jump' in sys_, '<b>MY GAME</b>' in user_)); return '<!doctype html><html><body>new</body></html>', 0.01, False
+    async def play(html, chromium):
+        return {'ok': True, 'why': [], 'facts': {'fps': 60, 'changed': 900, 'after': {'state': 'play'}}}
+    monkeypatch.setattr(fs, '_ws_ask', ask); monkeypatch.setattr(fs, '_ws_page', page); monkeypatch.setattr(fs._forge, 'playtest', play); monkeypatch.setattr(fs._fb, 'chromium_path', lambda: 'x')
+    d = gf.design_of(json.dumps(DESIGN))
+    doc = {'id': 'w', 'messages': [], 'versions': [{'html': '<!doctype html><html><b>MY GAME</b></html>'}], 'game': {'design': d, 'engine': d['engine']}}
+    _c, why, _o = asyncio.run(fs._build_game({'id': 'c'}, doc, 'fix the jump', ['a', 'b'], [0, 1], lambda i: 'Mind ' + 'AB'[i], 'both'))
+    assert why is None and asks == [('change', True, True)] and len(doc['versions']) == 2   # no new design call; his file went in

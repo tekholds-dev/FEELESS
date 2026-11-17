@@ -349,8 +349,14 @@ def test_the_tunnel_server_serves_only_fresh_token_files(tmp_path):
 # ── 2026-11-17 round 3: the owner's real IG reel was refused by Seedance ("may contain real person") → Runway Aleph 2 ─────────────────────────
 def test_real_footage_goes_to_runway_aleph_with_the_character_and_only_its_listed_fields(monkeypatch, tmp_path):
     b = mg.v2v_req('or-aleph-swap', OR_KEY, 'https://t.trycloudflare.com/g/pub/i.jpg', 'https://t.trycloudflare.com/g/pub/v.mp4', 'keep his chain', 17.2, '9:16')[3]
-    assert set(b) == {'model', 'prompt', 'aspect_ratio', 'input_references'} and b['model'] == 'runway/aleph-2'   # its page lists no duration / resolution
-    assert b['input_references'] == [{'type': 'video_url', 'video_url': {'url': 'https://t.trycloudflare.com/g/pub/v.mp4'}}, {'type': 'image_url', 'image_url': {'url': 'https://t.trycloudflare.com/g/pub/i.jpg'}}]
+    assert set(b) == {'model', 'prompt', 'aspect_ratio', 'input_references', 'provider'} and b['model'] == 'runway/aleph-2'   # its page lists no duration / resolution
+    # owner's real run 2026-11-17: an image in input_references became Runway's `references` → 400 'Unrecognized key'. Only the clip goes there;
+    # the character is Aleph 2's keyframe (Runway's schema: [{uri, seconds}]) under provider.options.runway (OpenRouter's passthrough).
+    assert b['input_references'] == [{'type': 'video_url', 'video_url': {'url': 'https://t.trycloudflare.com/g/pub/v.mp4'}}]
+    assert b['provider'] == {'options': {'runway': {'keyframes': [{'uri': 'https://t.trycloudflare.com/g/pub/i.jpg', 'seconds': 0}]}}}
+    assert 'keep his chain' in b['prompt'] and "'references'" not in str(b)
+    long_ = mg.v2v_req('or-aleph-swap', OR_KEY, 'https://a.b/i.jpg', 'https://a.b/v.mp4', 'x ' * 900, 10, '9:16')[3]
+    assert len(long_['prompt']) <= 1000   # Runway refuses a promptText over 1000 characters
     assert mg.v2v_cost('or-aleph-swap', 17.2) == 2.8 and mg.v2v_cost('or-aleph-swap', 6) == 1.68   # $0.28 per second it makes, the first 10 s
     fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=17.2); ran = []; _fake_ffmpeg(monkeypatch, fs, ran)
     async def no_run(*a):

@@ -35,6 +35,12 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       : <img src={apiUrl(md.url)} alt={md.prompt} loading="lazy" data-testid="media-image" />) : null}
     {live ? <div className="mst-wait" role="status"><span>{STEP_WORD[md.step] || STEP_WORD[md.status] || md.step || 'working'} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</span><i aria-hidden="true"><u /></i></div> : null}
     {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'} Nothing more is charged.</p> : null}
+    {md.status === 'failed' && md.swap && md.fromClip?.mid && cat && doc && work && setDoc ? <span className="mst-acts" data-testid="media-retry">
+      {/real person/i.test(md.why || '') && md.modelId !== 'or-aleph-swap' ? <button type="button" className="m-btn m-go" disabled={busy} data-testid="media-retry-aleph"
+        data-tip="ByteDance's Seedance refuses clips with real people. Runway Aleph 2 is made for real footage: same clip, same character, about $0.28 a second on your OpenRouter"
+        onClick={() => run({ op: 'media_make', job: doc.id, text: md.note || '', tools: { swap: 'or-aleph-swap', clip: md.fromClip.mid } })}>{busy ? 'Starting…' : '🎬 Try Runway Aleph 2 (real footage)'}</button> : null}
+      <button type="button" className="m-btn" disabled={busy} data-testid="media-retry-same" data-tip="The same swap again, same clip and model. Nothing was charged for the one that failed"
+        onClick={() => run({ op: 'media_make', job: doc.id, text: md.note || '', tools: { swap: md.modelId, clip: md.fromClip.mid } })}>Try again</button></span> : null}
     {md.prompt && md.prompt !== md.label ? <p className="mst-prompt">{md.prompt}</p> : null}
     {md.status === 'done' && md.url ? <span className="mst-acts">
       <a className="m-btn" href={apiUrl(md.url)} download target="_blank" rel="noopener noreferrer" data-tip="Save the file" data-testid="media-save">Save</a>
@@ -128,7 +134,7 @@ function SwapPicker({ list, m, setModel, c, used }) {
 const rateTip = m => (m.by === 'tokens' ? `about $${swapEst(m, { secs: 15 }).toFixed(2)} per 15 s` : m.by === 'frames' ? `$${m.rate} per 16 frames` : `$${m.rate}/s`);
 function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   const clips = (doc?.messages || []).map(m => m.media).filter(m => m && m.clip && m.status === 'done');
-  const [clip, setClip] = useState(''); const [model, setModel] = useState(d?.swapLast || 'or-seedance-swap'); const [rights, setRights] = useState(false);
+  const [clip, setClip] = useState(''); const [model, setModel] = useState(d?.swapLast || 'or-aleph-swap');   /* real footage first: Seedance refuses a clip with a real person in it */ const [rights, setRights] = useState(false);
   const [cap, setCap] = useState(d?.swapCapUsd ?? 3); const [capBusy, setCapBusy] = useState(false);
   const saveCap = async v => { setCapBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_cap', text: String(v) }); setCap(j.swapCapUsd); } catch (e) { setErr(e.message); } setCapBusy(false); };
   const [note, setNote] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [link, setLink] = useState(''); const [start, setStart] = useState('');
@@ -167,8 +173,11 @@ function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   </div>;
 }
 
-export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
-  const [open, setOpen] = useState(false); const [d, setD] = useState(null); const [kind, setKind] = useState('video'); const [model, setModel] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+// 🧭 owner 2026-11-17 ("clicking img and video shows a cluttered section"): the maker opens as its own sheet over the page with three tabs, so
+// each job shows only its own tools: Make (formats, model, words, character), Swap a person (your clip → your character), References.
+const MEDIA_TABS = [['make', 'Make', 'Pick a format or a model and say what to make'], ['swap', 'Swap a person', "Put this folder's character into a real clip"], ['refs', 'References', 'Pictures and clips the maker can copy the look of']];
+export function MediaButton({ cat, row, work, doc, setDoc, seed = '', start = 'make', label = null, testid = 'media-open', tile = false }) {
+  const [open, setOpen] = useState(false); const [tab, setTab] = useState(start); const [allModels, setAllModels] = useState(false); const [d, setD] = useState(null); const [kind, setKind] = useState('video'); const [model, setModel] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const load = () => work(cat.id, { op: 'media_models' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message));
   useEffect(() => { if (open) { load(); if (!text && seed) setText(seed.slice(0, 600)); } }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
@@ -183,30 +192,38 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
   const make = async () => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text, tools: { kind, model: pick, ...(noChar ? { noChar: true } : {}), ...(kind === 'image' && ref ? { ref } : {}) } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const makePreset = async x => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: text || seed || '', tools: { preset: x.id } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const making = (doc?.messages || []).filter(m => ['queued', 'running'].includes(m.media?.status)).length;
+  const close = () => setOpen(false);
+  const doOpen = () => { setTab(start); setOpen(o => !o); };
+  const tabs = MEDIA_TABS.map(([k, l, t]) => [k, k === 'refs' && pics.length ? `${l} ${pics.length}` : l, t]);
   return <>
-    <button type="button" className={`m-btn mst-open${open ? ' is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="media-open" data-tip="Turn this folder into a viral-format image or video, right here in the chat">🎬 Image / video{making ? <em>{making} making</em> : null}</button>
-    {open ? <div className="mst-inline" role="region" aria-label="Image or video" data-testid="media-pop">
-      <section className="mst-pop m-pop">
-        <header><b>🎬 Image / video</b><small>{d?.linked?.length && d.providers ? `on your ${d.linked.map(k => d.providers[k].name).join(' + ')}` : d?.house ? `FEELESS key · $${d.houseLeftUsd ?? 0} left today` : 'link your own account first'}</small><button type="button" className="m-btn" onClick={() => setOpen(false)} aria-label="Close" data-testid="media-close">✕</button></header>
+    <button type="button" className={`${tile ? 'poc-tile' : 'm-btn'} mst-open${open ? ' is-on' : ''}`} aria-expanded={open} onClick={doOpen} data-testid={testid} data-tip={start === 'swap' ? 'Put your character into a real clip: your clip, his face, the same scene and sound' : 'Turn this folder into a viral-format image or video, right here in the chat'}>{label || '🎬 Image / video'}{making && start !== 'swap' ? <em>{making} making</em> : null}</button>
+    {open ? createPortal(<div className="mst-sheet-wrap" data-testid="media-sheet"><button type="button" className="mst-scrim" aria-label="Close the maker" onClick={close} tabIndex={-1} />
+      <section className="mst-pop mst-sheet m-pop" role="dialog" aria-modal="true" aria-label="Image and video maker" data-testid="media-pop">
+        <header className="mst-sheet-h"><span><b>Media studio</b><small>{d?.linked?.length && d.providers ? `on your ${d.linked.map(k => d.providers[k].name).join(' + ')}` : d?.house ? `FEELESS key · $${d.houseLeftUsd ?? 0} left today` : 'link your own account first'}{making ? ` · ${making} making` : ''}</small></span><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="media-close">✕</button></header>
         {!d?.providers ? <p className="mst-lead">{err ? `⚠ ${err}` : 'Reading your providers…'}</p> : !(d.linked || []).length && !d.house ? <LinkSteps cat={cat} d={d} onLinked={load} /> : <>
-          {(d.presets || []).length ? <><p className="mst-h">🔥 Viral right now <small>real results we made on each model · one tap makes it from this folder</small></p>
-            <ul className="mst-presets">{d.presets.map((x, i) => <Preset key={x.id} x={x} i={i} busy={busy} onMake={makePreset} />)}</ul>
-            <p className="mst-h">Or your own <small>any model, your words</small></p></> : null}
-          <div className="m-seg" role="radiogroup" aria-label="Image or video">{[['video', '🎬 Video'], ['image', '🖼 Image']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'is-on' : ''} onClick={() => { setKind(k); setModel(''); }} data-testid={`media-kind-${k}`}>{l}</button>)}</div>
-          <ul className="mst-models">{rows.map((m, i) => <li key={m.id} style={{ '--i': i }}><button type="button" disabled={!m.ready} aria-pressed={pick === m.id} className={pick === m.id ? 'is-on' : ''} onClick={() => setModel(m.id)} data-testid={`media-model-${m.id}`}
-            data-tip={m.ready ? m.why : `Link ${m.providerName} to use this`}><b>{m.label}</b><small>{m.providerName}{m.id === d.pick?.[kind] ? ' · cheap pick' : ''}</small><em>{usd(m.usd) || `price on ${m.providerName}`}</em></button></li>)}</ul>
-          <textarea className="m-input" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder={kind === 'video' ? 'A chrome rat dances on a tombstone at night, slow camera push, neon green rim light' : 'A chrome tombstone that reads GONE, studio light, black background'} aria-label="What to make" data-testid="media-prompt" />
-          <div className="mst-refs" data-testid="media-refs"><p className="mst-h">📎 References <small>{kind === 'image' ? 'pick one and the picture keeps its exact look' : 'upload or link; make one the character to lead videos'}</small></p>
-            {kind === 'image' && pics.length ? <span className="mst-refpick" role="radiogroup" aria-label="Reference picture">{pics.slice(-8).map(m => <button key={m.id} type="button" role="radio" aria-checked={ref === m.id} className={ref === m.id ? 'is-on' : ''} onClick={() => setRef(r => (r === m.id ? '' : m.id))} data-tip={m.prompt || m.label} data-testid={`media-ref-${m.id}`}><img src={apiUrl(m.url)} alt="" loading="lazy" /></button>)}</span> : null}
+          <div className="m-seg mst-tabs" role="tablist" aria-label="What to do">{tabs.map(([k, l, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={t} data-testid={`media-tab-${k}`}>{l}</button>)}</div>
+          <div className="mst-sheet-body" role="tabpanel">
+          {tab === 'make' ? <>
+            {(d.presets || []).length ? <><p className="mst-h">🔥 Viral right now <small>one tap makes it from this folder</small></p>
+              <ul className="mst-presets">{d.presets.map((x, i) => <Preset key={x.id} x={x} i={i} busy={busy} onMake={makePreset} />)}</ul>
+              <p className="mst-h">Or your own <small>any model, your words</small></p></> : null}
+            <div className="m-seg" role="radiogroup" aria-label="Image or video">{[['video', '🎬 Video'], ['image', '🖼 Image']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'is-on' : ''} onClick={() => { setKind(k); setModel(''); }} data-testid={`media-kind-${k}`}>{l}</button>)}</div>
+            <ul className="mst-models">{rows.filter(m => m.ready || allModels).map((m, i) => <li key={m.id} style={{ '--i': i }}><button type="button" disabled={!m.ready} aria-pressed={pick === m.id} className={pick === m.id ? 'is-on' : ''} onClick={() => setModel(m.id)} data-testid={`media-model-${m.id}`}
+              data-tip={m.ready ? m.why : `Link ${m.providerName} to use this`}><b>{m.label}</b><small>{m.providerName}{m.id === d.pick?.[kind] ? ' · cheap pick' : ''}</small><em>{usd(m.usd) || `price on ${m.providerName}`}</em></button></li>)}</ul>
+            {rows.some(m => !m.ready) ? <button type="button" className="fea-back-btn mst-more" onClick={() => setAllModels(v => !v)} data-tip="Models on accounts you have not linked" data-testid="media-more">{allModels ? 'Hide models you cannot use' : `Show ${rows.filter(m => !m.ready).length} more (not linked)`}</button> : null}
+            <textarea className="m-input" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder={kind === 'video' ? 'A chrome rat dances on a tombstone at night, slow camera push, neon green rim light' : 'A chrome tombstone that reads GONE, studio light, black background'} aria-label="What to make" data-testid="media-prompt" />
+            {kind === 'image' && pics.length ? <div className="mst-refs"><p className="mst-h">Keep the look of <small>pick one and the picture copies it exactly</small></p><span className="mst-refpick" role="radiogroup" aria-label="Reference picture">{pics.slice(-8).map(m => <button key={m.id} type="button" role="radio" aria-checked={ref === m.id} className={ref === m.id ? 'is-on' : ''} onClick={() => setRef(r => (r === m.id ? '' : m.id))} data-tip={m.prompt || m.label} data-testid={`media-ref-${m.id}`}><img src={apiUrl(m.url)} alt="" loading="lazy" /></button>)}</span></div> : null}
+            {doc?.character?.mid && !(kind === 'image' && ref) ? <p className={`mst-charline${charOn ? ' is-on' : ''}`} data-testid="media-charline"><img src={apiUrl(doc.character.url)} alt="The folder's character" loading="lazy" /><b>{charOn ? (kind === 'image' ? 'Keeps your character exactly' : 'Starts from your character') : 'Your character sits this one out'}</b>
+              <button type="button" className="m-btn" onClick={() => setNoChar(v => !v)} data-tip={charOn ? 'This video is made from the words alone' : 'This video starts from his image again'} data-testid="media-nochar">{charOn ? 'Not this time' : 'Use him'}</button></p> : null}
+            <div className="mst-go"><small>{(d.linked || []).length < 2 ? <>Also have the other one? <button type="button" className="fea-back-btn" onClick={() => setD({ ...d, linked: [] })}>Link it</button></> : 'Both linked'}</small>
+              <button type="button" className="m-btn m-go" disabled={busy || !pick || text.trim().length < 3} onClick={make} data-testid="media-make">{busy ? 'Starting…' : `Make the ${kind}`}</button></div></> : null}
+          {tab === 'refs' ? <div className="mst-refs" data-testid="media-refs"><p className="mst-h">📎 References <small>upload or link a picture or clip; it joins this folder ($0)</small></p>
+            {pics.length ? <span className="mst-refpick is-wall">{pics.slice(-12).map(m => <img key={m.id} src={apiUrl(m.url)} alt={m.prompt || m.label || 'Reference'} loading="lazy" />)}</span> : <p className="mst-note">No pictures in this folder yet.</p>}
             <span className="mst-refadd"><label className="m-btn" data-tip="Upload a picture or clip as a reference ($0)">Upload<input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" hidden onChange={onRefFile} data-testid="media-ref-file" /></label>
-              <form onSubmit={e => { e.preventDefault(); if (/^https:\/\//.test(refLink.trim())) addRef(refLink.trim()); else setErr('Paste a link that starts with https://'); }}><input className="m-input" value={refLink} onChange={e => setRefLink(e.target.value)} placeholder="…or paste a picture / video link" aria-label="Reference link" data-testid="media-ref-link" /><button type="submit" className="m-btn" disabled={busy || !refLink.trim()}>Add</button></form></span></div>
-          {doc?.character?.mid && !(kind === 'image' && ref) ? <p className={`mst-charline${charOn ? ' is-on' : ''}`} data-testid="media-charline"><img src={apiUrl(doc.character.url)} alt="The folder's character" loading="lazy" /><b>{charOn ? (kind === 'image' ? 'Keeps your character exactly' : 'Starts from your character') : 'Your character sits this one out'}</b>
-            <button type="button" className="m-btn" onClick={() => setNoChar(v => !v)} data-tip={charOn ? 'This video is made from the words alone' : 'This video starts from his image again'} data-testid="media-nochar">{charOn ? 'Not this time' : 'Use him'}</button></p> : null}
-          <div className="mst-go"><small>{(d.linked || []).length < 2 ? <>Also have the other one? <button type="button" className="fea-back-btn" onClick={() => setD({ ...d, linked: [] })}>Link it</button></> : 'Both linked'}</small>
-            <button type="button" className="m-btn m-go" disabled={busy || !pick || text.trim().length < 3} onClick={make} data-testid="media-make">{busy ? 'Starting…' : `Make the ${kind}`}</button></div>
-          {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
-          <SwapPanel cat={cat} row={row} work={work} doc={doc} setDoc={setDoc} d={d} /></>}
-      </section></div> : null}
+              <form onSubmit={e => { e.preventDefault(); if (/^https:\/\//.test(refLink.trim())) addRef(refLink.trim()); else setErr('Paste a link that starts with https://'); }}><input className="m-input" value={refLink} onChange={e => setRefLink(e.target.value)} placeholder="…or paste a picture / video link" aria-label="Reference link" data-testid="media-ref-link" /><button type="submit" className="m-btn" disabled={busy || !refLink.trim()}>Add</button></form></span></div> : null}
+          {tab === 'swap' ? <SwapPanel cat={cat} row={row} work={work} doc={doc} setDoc={setDoc} d={d} /> : null}
+          {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div></>}
+      </section></div>, document.body) : null}
   </>;
 }
 

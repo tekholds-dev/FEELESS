@@ -832,16 +832,24 @@ async def _build_game(cat, doc, text, brains, order, name, to):
     rs = _rs()
     cat_id = cat.get('id'); cost = 0.0; own = False; lead, other = order[0], order[-1]
     stage = lambda st, by=None, **x: rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': st, 'spent': round(cost, 6), **({'by': by} if by else {}), **x}})
-    stage('suggest', name(lead))
-    raw, usd, own = await rs._ws_ask(cat, brains[lead], rs._forge.DESIGN_SYS, f'The owner wants: {text}', 900); cost += usd
-    try:
-        design = rs._forge.design_of(raw)
-    except ValueError as e:
-        rs._feat.add_msg(doc, name(lead), f'I could not design it: {e}', rs.time.time()); return cost, str(e), own
-    eng = rs._forge.ENGINES[design['engine']]
-    rs._feat.add_msg(doc, name(lead), f"THE DESIGN · {design['title']} · {design['genre']} on {eng['name']}\n{design['pitch']}\nLoop: {design['coreLoop']}\nControls: {design['controls']['keys']} / touch: {design['controls']['touch']}\nWin: {design['win']} · Lose: {design['lose']}", rs.time.time())
-    stage('build', name(lead))
-    raw, usd, own = await rs._ws_page(cat, brains[lead], rs._forge.build_sys(design), text, 12000); cost += usd
+    cur_ = (doc.get('versions') or [{}])[-1].get('html') or ''; had_ = (doc.get('game') or {}).get('design')
+    if had_ and cur_ and had_.get('engine') in rs._forge.ENGINES:
+        # 🎮 owner's real run 2026-11-17 ("fix the game so it actually works"): a game that already exists is changed, never re-designed from
+        # the ask alone (that sent 'Game Fix Needed … send the game code' and threw his game away). Its design stays; the current file + the ask go in.
+        design = had_; eng = rs._forge.ENGINES[design['engine']]
+        stage('build', name(lead))
+        raw, usd, own = await rs._ws_page(cat, brains[lead], rs._forge.change_sys(design, text), f'{text}\n\nTHE CURRENT FILE (change it as asked, keep what works):\n{cur_[:60000]}', 12000); cost += usd
+    else:
+        stage('suggest', name(lead))
+        raw, usd, own = await rs._ws_ask(cat, brains[lead], rs._forge.DESIGN_SYS, f'The owner wants: {text}', 900); cost += usd
+        try:
+            design = rs._forge.design_of(raw)
+        except ValueError as e:
+            rs._feat.add_msg(doc, name(lead), f'I could not design it: {e}', rs.time.time()); return cost, str(e), own
+        eng = rs._forge.ENGINES[design['engine']]
+        rs._feat.add_msg(doc, name(lead), f"THE DESIGN · {design['title']} · {design['genre']} on {eng['name']}\n{design['pitch']}\nLoop: {design['coreLoop']}\nControls: {design['controls']['keys']} / touch: {design['controls']['touch']}\nWin: {design['win']} · Lose: {design['lose']}", rs.time.time())
+        stage('build', name(lead))
+        raw, usd, own = await rs._ws_page(cat, brains[lead], rs._forge.build_sys(design), text, 12000); cost += usd
     html = rs._forge.html_of(raw); by = name(lead); report = {'ok': False, 'why': ['it wrote no page']}
     for n in range(rs._forge.MAX_FIX + 1):
         if '<' not in html:
@@ -985,14 +993,16 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     rs._OR_PLUGINS.set(tuple(rs._feat.or_plugins(rs._feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and rs._play.wants_game(text) and not doc.get('scene3d') and not doc.get('ad'):   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template (an ad's brief reads like a game: 'plays by itself in a loop'; it is a page)
-            usd_, stop_why, paid_own = await rs._build_game(cat, doc, text, brains, order, name, to)
+        if kind == 'build' and (rs._play.wants_game(text) or (doc.get('game') or {}).get('design')) and not doc.get('scene3d') and not doc.get('ad'):   # 🎮 a folder that holds a game: every ask ("Finish it.", "fix marked area") changes that game through the playtest, never as text patches that missed 6 times on 2026-11-17   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template (an ad's brief reads like a game: 'plays by itself in a loop'; it is a page)
+            usd_, stop_why, paid_own = await rs._build_game(cat, doc, text + rs._feat.region_note(region), brains, order, name, to)
             cost += usd_
-        elif kind == 'build' and not doc.get('ad') and (rs._assets.wants_3d(text) or rs._play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
+        elif kind == 'build' and not doc.get('ad') and rs._play.wants_scene_builder(text, doc):   # 🧊 owner 2026-11-17 ("regardless of model it chooses the same 3D layout"): the photoscan set builder is for a scene he asks for by name; every other 3D or page ask is written by the picked minds themselves   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
             lead_ = len(doc.get('versions') or []) % len(order) if to == 'both' and len(order) > 1 else 0   # 🧠🧠 owner 2026-11-07 "only ONE mind seems to work": with both picked, the minds take turns leading a 3D round and the other checks it
             usd_, stop_why, paid_own = await rs._build_3d(cat, doc, text, brains, order[lead_:] + order[:lead_], name, to)
             cost += usd_
         elif kind == 'build':
+            if doc.get('scene3d'):
+                doc['pageOwned'] = True   # the minds now own this page: the set builder comes back only when an ask names the scene (play_studio.wants_scene_builder)
             cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = rs._feat.build_cfg(doc); pl_ = doc.get('plan') or {}
             read_ = ''
             if not cur:   # a new page learns from the best first. An edit already has its page
@@ -1032,6 +1042,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             if rs._feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
                 user += rs._feat.live_line(await rs._live_feed(cat), page=True)
             mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', text, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_
+            if (rs._assets.wants_3d(text) or doc.get('scene3d')) and 'three' not in picks_ and not doc.get('ad'):   # 🧊 a 3D ask written by the minds: real three.js, their own design
+                picks_ = ['three', *picks_]
             picks_ = list(rs._ads.KITS) if doc.get('ad') else picks_   # 🎬 an ad gets GSAP, never a game kit (Phaser dragged in the game playtest and its STATE / SCORE counter, 2026-11-11)
             stash_, doc['kitsStash'] = rs._kits.stash_line(rs.KITS_DIR, 'pos', text, picks_)
             kits_ = rs._kits.use_line(picks_) + stash_ + rs._parts.offer_line(rs._parts.offer(rs._parts_path(), text)) + rs._mark_lessons() + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._recall(cat, 'Code', text) + rs._om.page_line(doc.get('models3d'))   # 🧰 the kits it was told to use reach the build itself, not only the plan
@@ -1054,7 +1066,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if (not html or not rs._feat.page_complete(html)) and cur:
                     html, landed_, said_ = cur, 0, ''
                     for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
-                        patch_raw, patch_usd, patch_own = await rs._ws_ask(cat, brains[i], rs._feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{rs._feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:rs._feat.PAGE_PROMPT_CHARS]}', 1300)
+                        patch_raw, patch_usd, patch_own = await rs._ws_ask(cat, brains[i], rs._feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{rs._feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:rs._feat.PAGE_PROMPT_CHARS]}', rs._feat.EDIT_REPLY_TOKENS)
                         cost += patch_usd; paid_own = patch_own
                         next_, n_, said_ = rs._feat.apply_page_edits(html, patch_raw)
                         if not next_:

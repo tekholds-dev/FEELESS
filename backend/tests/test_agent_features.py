@@ -41,3 +41,12 @@ def test_every_preview_moves_links_inside_the_page():
     import agent_features as af
     out = af.preview('<html><head></head><body><a href="#more0">Go</a><div id="more0"></div></body></html>')
     assert 'feeless-link' in out and "closest('a[href]')" in out and out.index('feeless-link') < out.index('</body>')
+
+
+def test_a_cut_off_edit_reply_still_lands_its_finished_edits():
+    # owner's real runs 2026-11-17: 8 paid edit rounds said "Its changes did not match the page" — the replies were cut at 1,300 tokens mid-JSON
+    page = '<!doctype html><html><body><h1>Old title</h1><p>keep</p></body></html>'
+    raw = '{"edits":[{"find":"<h1>Old title</h1>","replace":"<h1>New title</h1>"},{"find":"<p>keep</p>","replace":"<p>kee'
+    got, n, _left = af.apply_page_edits(page, raw)
+    assert n == 1 and '<h1>New title</h1>' in got and '<p>keep</p>' in got
+    assert af.whole_edits('no json here') == [] and af.EDIT_REPLY_TOKENS >= 4000

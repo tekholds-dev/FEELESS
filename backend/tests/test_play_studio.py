@@ -596,3 +596,17 @@ def test_the_code_studio_lets_the_owner_pick_the_mind_and_keeps_the_thread(monke
     assert [m['by'] for m in j['chat']] == ['you', 'Mind B'] and j['chat'][1]['usd'] == 0.0012
     post('play3d_code', text='again', to='0'); post('play3d_code', text='and again', to='both')
     assert used[1] == 'x/alpha-7b' and len(fs._play_load('g', 'code3d')['chat']) == 6
+
+
+def test_the_set_builder_is_opt_in_so_each_model_writes_its_own_page():
+    # owner 2026-11-17: "regardless of what model i pick, it chooses the same 3D layout and designs"
+    w = ps.wants_scene_builder
+    assert w('Build a 3D landing page for GLINT with a vintage camera and a chair')          # GLINT: real things on a set
+    assert w('a product shot of a sneaker') and w('move the camera lower') and w('a room with three monitors')
+    assert not w('a 3D landing page for my coin FROG, chrome and wild')                       # the minds write it (three.js kit)
+    assert not w('glowing shader background with particles for the hero')
+    assert not w('make a landing page for my coin')
+    studio = {'scene3d': {'objects': [1]}}
+    assert w('make the knight bigger', studio)                                                # a set folder: a set ask stays on the set
+    assert not w('now lets make this a actuall landing page, add lore, add different charts all text must be in chrome silver sans font', studio)
+    assert not w('make the knight bigger', {**studio, 'pageOwned': True}) and w('move the knight on the set', {**studio, 'pageOwned': True})

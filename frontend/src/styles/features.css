@@ -84,14 +84,15 @@ body.fx-lite .fea-steps .is-now, body.fx-lite .fea-set-pop { animation: none; } 
 /* 🛰 PoC station: launch path meter + doors into the next proof */
 .fea-station { display: grid; gap: 10px; padding: 12px; border-radius: 13px; border: 1px solid var(--m-accent, var(--pfea-ac34)); border-color: color-mix(in srgb, var(--m-accent, var(--pfea-ac34)) 40%, transparent); background: var(--pfea-sf8); }
 .fea-station header { display: flex; align-items: center; gap: 10px; } .fea-station header > div { flex: 1; min-width: 0; display: grid; gap: 2px; } .fea-station header strong { font: 700 13.5px var(--f-ui); color: var(--pfea-tx23); }
-.fea-path { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.fea-path li { display: grid; justify-items: center; gap: 4px; padding: 6px 2px; border-radius: 9px; border: 1px solid var(--pfea-tx20); animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 45ms); }
+.fea-path { position: relative; list-style: none; margin: 2px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; }
+.fea-path::before { content: ''; position: absolute; left: 8.3%; right: 8.3%; top: 11px; height: 2px; border-radius: 2px; background: var(--pfea-tx24); }
+.fea-path li { position: relative; display: grid; justify-items: center; gap: 5px; padding: 0 2px; animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 45ms); cursor: help; }
 .fea-path li i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 800 10.5px var(--f-mono); font-style: normal; background: var(--pfea-tx24); color: var(--pfea-mu4); }
 .fea-path li small { font: 700 8.5px var(--f-mono); letter-spacing: .06em; color: var(--pfea-mu4); text-align: center; }
 .fea-path li.is-done i { background: var(--m-accent, var(--pfea-ac34)); color: var(--pfea-bg14); } .fea-path li.is-done small { color: var(--pfea-tx23); }
-.fea-path li.is-next { border-color: var(--m-accent, var(--pfea-ac34)); } .fea-path li.is-next i { color: var(--m-accent, var(--pfea-ac34)); box-shadow: inset 0 0 0 1.5px var(--m-accent, var(--pfea-ac34)); }
+.fea-path li.is-next small { color: var(--m-accent, var(--pfea-ac34)); } .fea-path li.is-next i { color: var(--m-accent, var(--pfea-ac34)); box-shadow: inset 0 0 0 1.5px var(--m-accent, var(--pfea-ac34)); }
 .fea-doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.fea-doors button { min-height: 58px; display: grid; align-content: center; gap: 3px; padding: 8px; border-radius: 10px; border: 1px solid var(--pfea-tx12); background: var(--pfea-tx25); color: var(--pfea-tx23); text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 50ms); }
+.fea-doors button { min-height: 40px; display: grid; align-content: center; gap: 1px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--pfea-tx12); background: var(--pfea-tx25); color: var(--pfea-tx23); text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 50ms); }
 .fea-doors button:hover:not(:disabled) { border-color: var(--m-accent, var(--pfea-ac34)); transform: translateY(-1px); } .fea-doors button:active:not(:disabled) { transform: scale(.98); } .fea-doors button:focus-visible { outline: 2px solid var(--m-accent, var(--pfea-ac34)); outline-offset: 2px; }
 .fea-doors button:disabled { opacity: .45; cursor: not-allowed; } .fea-doors b { font: 700 12.5px var(--f-tech); } .fea-doors small { font-size: 10.5px; color: var(--pfea-mu4); }
 .fea-carry { margin: 0; font-size: 11.5px; color: var(--pfea-tx26); line-height: 1.4; } .fea-carry .m-label { margin-right: 6px; }
@@ -319,7 +320,7 @@ body.theme-day .fea-back-btn { background: var(--pfea-tx10); color: var(--pfea-s
 body.fx-lite .fea-plan.is-stage, body.fx-lite .fea-plan.is-stage li { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-plan.is-stage, .fea-plan.is-stage li { animation: none; } }
 body.theme-day .fea-plan.is-stage { background: var(--pfea-tx10); box-shadow: 0 2px 14px var(--pfea-bg15); } body.theme-day .fea-plan.is-stage .fea-plan-steps li { background: var(--pfea-tx41); border-color: var(--pfea-bg41); color: var(--pfea-sf12); } body.theme-day .fea-plan.is-stage .fea-plan-s { color: var(--pfea-sf13) !important; }
 @media (max-width: 640px) { .fea-plan.is-stage { width: calc(100% - 16px); margin: 8px auto; padding: 14px; } .fea-plan.is-stage .fea-plan-s { font-size: 17px !important; } }
-.fea-poc-new { grid-template-columns: minmax(0, 1fr) auto auto; } @media (max-width: 640px) { .fea-poc-new { grid-template-columns: minmax(0, 1fr) auto; } .fea-poc-new .mst-open { grid-column: 1 / -1; justify-content: center; } }   /* 🎬 the Image / video button sits beside File a PoC */
+.fea-poc-new { grid-template-columns: minmax(0, 1fr) auto; }
 /* 🧩 COL-26 proven parts (PartsShelf.jsx): a strip over the PoStatic desk, opens to the list with each part's family tree */
 .pts { border-radius: 14px; border: 1px solid var(--pfea-ac70); background: linear-gradient(120deg, var(--pfea-sf14), var(--pfea-bg42) 70%); box-shadow: inset 0 1px 0 var(--pfea-tx20); }
 .pts > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 12px; }
@@ -545,3 +546,20 @@ body.fx-lite .fea-side-pane { animation: none; } @media (prefers-reduced-motion:
 .pdr-judge em { grid-column: 1 / -1; font-style: normal; font-size: 11px; color: var(--m-dim); }
 /* 🪦 the 3D models a build carries (owner 2026-11-17) */
 .fea-models { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; } .fea-models .m-chip { display: inline-flex; align-items: center; gap: 5px; } .fea-models .m-chip em { font: inherit; opacity: .7; } .fea-models button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; min-width: 20px; min-height: 20px; } .fea-models button:disabled { opacity: .4; cursor: not-allowed; }
+/* 🧭 PoC Make tab (owner 2026-11-17 "fix and create unique sleek layout of PoC"): the next idea + three makers in one card, each opening its own sheet */
+.poc-make { display: grid; gap: 10px; align-content: start; }
+.poc-compose { position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid var(--pfea-ac33); background: linear-gradient(155deg, var(--pfea-s24), var(--pfea-bg13) 75%); overflow: hidden; }
+.poc-compose header { display: grid; gap: 2px; } .poc-compose header strong { font: 800 17px var(--f-display); letter-spacing: -.01em; color: var(--pfea-tx10); }
+.poc-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.poc-tile { position: relative; min-height: 74px; display: grid; align-content: end; justify-items: start; gap: 3px; padding: 12px; border-radius: 13px; border: 1px solid var(--pfea-tx12); background: var(--pfea-tx25); color: var(--pfea-tx23); text-align: left; cursor: pointer; overflow: hidden; transition: transform .15s var(--m-ease, ease), border-color .15s; }
+.poc-tile::after { content: ''; position: absolute; inset: auto -30% -60% auto; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, var(--pfea-ac33), transparent); opacity: .55; transition: transform .25s var(--m-ease, ease), opacity .25s; pointer-events: none; }
+.poc-tile:hover { transform: translateY(-2px); border-color: var(--m-accent, var(--pfea-ac34)); } .poc-tile:hover::after { transform: scale(1.25); opacity: .9; }
+.poc-tile:active { transform: scale(.98); } .poc-tile:focus-visible { outline: 2px solid var(--m-accent, var(--pfea-ac34)); outline-offset: 2px; }
+.poc-tile.is-on { border-color: var(--m-accent, var(--pfea-ac34)); }
+.poc-tile b { font: 700 13px var(--f-tech); } .poc-tile small { font-size: 10.5px; color: var(--pfea-mu4); } .poc-tile em { position: absolute; top: 8px; right: 8px; font: 800 9px var(--f-mono); font-style: normal; padding: 2px 6px; border-radius: 99px; background: var(--pfea-ac33); color: var(--pfea-tx10); }
+.poc-make .fea-creator { padding: 8px 12px; } .poc-make .fea-creator h4 { display: none; } .poc-make .fea-creator > div { gap: 0; } .poc-make .fea-creator span { padding: 0 10px; border-left: 1px solid var(--pfea-tx20); } .poc-make .fea-creator span:first-child { padding-left: 0; border-left: 0; }
+@media (max-width: 640px) { .poc-tools { grid-template-columns: minmax(0, 1fr); } .poc-tile { min-height: 54px; } .poc-make .fea-creator span { border-left: 0; padding: 0; } }
+body.theme-day .poc-compose { background: var(--pfea-tx10); } body.theme-day .poc-compose header strong, body.theme-day .poc-tile { color: var(--pfea-sf9); }
+body.fx-lite .poc-tile::after { display: none; } @media (prefers-reduced-motion: reduce) { .poc-tile, .poc-tile::after { transition: none; } }
+.poc-tile.mst-open { display: grid; align-items: end; gap: 3px; }
+.fea-doors small { display: none; } .fea-doors b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

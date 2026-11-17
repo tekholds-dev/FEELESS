@@ -81,6 +81,30 @@ ASKS_DASH = re.compile(r"(?i)\b(charts?|dash(board)?|numbers?|stats?|vitals|live
 CODE_WORDS = re.compile(r"(?i)\b(shaders?|glsl|particles?|procedural|react-three|r3f|usefr(ame)?|useframe|three\.js code|collapsing star|nebula|scroll ?= ?gravity)\b")
 
 
+SCENE_ASK = re.compile(r"(?i)\b(photo ?real\w*|photoscans?|real (3d )?(objects|assets|models)|product shot|room with|whole room|walk ?through|showroom|hdri|glb|gltf|3d studio|the scene|on the set|camera angle|move the|rotate the|turn the|swap the (model|object|prop)|props?|hero object|mood)\b")
+
+
+PAGE_ASK = re.compile(r"(?i)\b(lore|sections?|fonts?|typography|copy|text|nav(bar|igation)?|footer|faq|roadmap|tokenomics|bento|cards?|actual landing|real landing|professional|redesign|layout|rewrite|rebuild)\b")
+_THING = re.compile(r"(?i)\b(" + "|".join(sorted(set(SIZES) - {'coin', 'cat', 'box', 'plane'}, key=len, reverse=True)) + r")s?\b")   # every page is a coin page and every agent a cat: those words name no prop
+
+
+def wants_scene_builder(text, doc=None):
+    """🧊 Owner 2026-11-17: "regardless of what model i pick, it chooses the same 3D layout and designs". The photoscan set builder fixes the
+    moods, framing, type and camera in code, so every model's page looked alike. It now runs only for: an ask about a photographed scene or the
+    set itself (room with…, product shot, move the camera, swap the prop); a 3D ask that names real things to stand on the set (GLINT: "a
+    vintage camera and a chair"); or a follow-up in a folder built on the set that is not a page ask (lore, fonts, sections, a real landing
+    page). Everything else, "3D" and shaders included, is written by the picked minds themselves with the three.js kit. Once the minds have
+    taken a set folder's page over (pageOwned), only an ask that names the scene brings the set builder back."""
+    t = str(text or '')
+    if SCENE_ASK.search(t):
+        return True
+    import asset_packs as _ap
+    if _ap.wants_3d(t) and _THING.search(t):
+        return True
+    d = doc or {}
+    return bool(d.get('scene3d')) and not d.get('pageOwned') and not PAGE_ASK.search(t)
+
+
 def wants_code(text):
     """A design no photoscan library holds, a shader or particles or a star that collapses, is written as real three.js by the minds. Library scenes are for real objects (owner 2026-11-07: a collapsing star came back as bare walls)."""
     return bool(CODE_WORDS.search(str(text or '')))

@@ -232,6 +232,7 @@ def build_prompt(text, plan):
 EDIT_SYS = 'You edit one existing HTML page in small exact changes. Return JSON only: {"edits":[{"find":"exact old HTML substring","replace":"new HTML substring"}],"left":"what is still not done, or empty"}. Each find must occur exactly once in the page and be as short as stays unique. Up to 6 edits a reply, smallest first. Keep everything else. Scripts you add must run and every button you touch must work. No explanation.'
 REWRITE_MAX_CHARS = 24000   # a reply stops near 1,500 tokens and a page gets 3 more tries, so a bigger page can no longer be written whole (receipt: 40,996 chars, both minds failed)
 PAGE_PROMPT_CHARS = 90000
+EDIT_REPLY_TOKENS = 4000   # 1,300 cut a reply with real code in it mid-JSON, and nothing landed (owner's runs 2026-11-17)
 _FROM_SCRATCH = re.compile(r'(?i)\b(rebuild|rbuild|from scratch|start over|brand new page)\b')
 _RETRY_WORDS = re.compile(r'(?i)^\s*(please\s+)?(try|do|run)?\s*(it|that|the|your)?\s*(last\s+(request|ask|one)\s*)?(again|finish( it)?|continue|keep going|retry)\s*[.!]*\s*$|^\s*try\s+(the\s+)?last\s+request(\s+again)?\s*[.!]*\s*$')
 
@@ -275,12 +276,31 @@ def is_retry(text):
     return bool(_RETRY_WORDS.match(str(text or '')))
 
 
+def whole_edits(raw):
+    """Every complete {"find": …, "replace": …} object in a reply, even when the reply was cut off before its JSON closed. Pure."""
+    t, dec, out, i = str(raw or ''), json.JSONDecoder(), [], 0
+    while len(out) < 12:
+        m = re.compile(r'\{\s*"find"\s*:').search(t, i)
+        if not m:
+            break
+        try:
+            obj, end = dec.raw_decode(t, m.start())
+        except ValueError:
+            i = m.end(); continue
+        if isinstance(obj, dict) and isinstance(obj.get('find'), str) and isinstance(obj.get('replace'), str):
+            out.append(obj)
+        i = end
+    return out
+
+
 def apply_page_edits(current, raw):
     """Every exact, unique change a reply holds, in order. → (page or None, how many landed, what it says is left). Never runs model code. A change that would break the page is dropped, the rest stay."""
     try:
         patch = json.loads(re.search(r'\{.*\}', str(raw or ''), re.S).group(0))
     except (AttributeError, ValueError):
-        return None, 0, ''
+        patch = {'edits': whole_edits(raw)}   # a reply cut off mid-JSON still holds the edits it finished (owner's real runs 2026-11-17: 8 rounds paid, nothing landed)
+        if not patch['edits']:
+            return None, 0, ''
     rows = patch.get('edits') if isinstance(patch.get('edits'), list) else [patch]
     page, done = current, 0
     for e in rows[:12]:

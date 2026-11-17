@@ -72,6 +72,12 @@ def build_sys(design):
               'Return the complete file.\n' + kit_of(design['engine']))
 
 
+def change_sys(design, ask):
+    """🎮 The owner asks for a change to a game that already exists: the same brief, then his words. The whole file comes back. Pure."""
+    return (build_sys(design) + '\n\nTHE GAME ALREADY EXISTS (its current file is in the message). Do NOT start over from the kit: change the current file '
+            'as the owner asks, keep everything that works, and return the whole file. The owner asks: ' + ' '.join(str(ask or '').split())[:1500])
+
+
 def fix_sys(design, report):
     return (build_sys(design) + '\n\nYOUR LAST BUILD FAILED THE PLAYTEST. Fix every one of these and return the whole file again:\n- ' + '\n- '.join(report['why']))
 

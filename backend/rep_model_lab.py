@@ -707,7 +707,13 @@ def _teach_view(rs):
     lessons = _ct.load(rs.DATA_DIR); todo = _ct.untaught(_ct.blocks(_proof_text(rs)), lessons)
     import os
     return {'teachers': _teachers_live(rs), 'untaught': len(todo), **_ct.summary(lessons), 'recent': [{k: x.get(k) for k in ('model', 'usd', 'at', 'proofHead', 'lesson')} for x in lessons[-6:]][::-1],
-            'job': _TEACH['job'], 'keyOk': bool(os.environ.get('OPENROUTER_API_KEY', '').strip()), 'maxUsd': _ct.MAX_USD, 'maxN': _ct.MAX_N}
+            'job': _TEACH['job'], 'keyOk': bool(os.environ.get('OPENROUTER_API_KEY', '').strip() or _owner_or(rs)), 'maxUsd': _ct.MAX_USD, 'maxN': _ct.MAX_N}
+
+
+def _owner_or(rs):
+    """🔑 True when the owner's own OpenRouter key (saved on any of his agents) can pay: the teach panel said 'no key' while Pay would work."""
+    import cat_keys as _ckeys
+    return bool(_ckeys.owner_key(rs.DATA_DIR / 'feecats.json', 'openrouter', data_dir=rs.DATA_DIR)[0])
 
 
 @router.get('/api/reputation/admin/model-lab/teach')

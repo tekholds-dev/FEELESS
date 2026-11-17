@@ -28,7 +28,8 @@ test('🎬 linked: the cheap pick is chosen, a model on an unlinked provider is 
   const setDoc = jest.fn();
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={{ messages: [] }} setDoc={setDoc} seed="A chrome rat on a tombstone" />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  expect(q('media-model-fal-wan22-5b').getAttribute('aria-pressed')).toBe('true'); expect(q('media-model-rep-wan22-fast').disabled).toBe(true);
+  expect(q('media-model-fal-wan22-5b').getAttribute('aria-pressed')).toBe('true'); expect(q('media-model-rep-wan22-fast')).toBe(null);   // a model you cannot run waits behind Show more
+  await act(async () => q('media-more').click()); expect(q('media-model-rep-wan22-fast').disabled).toBe(true);
   expect(q('media-model-fal-wan22-5b').textContent).toContain('$0.15'); expect(q('media-prompt').value).toBe('A chrome rat on a tombstone');
   await act(async () => q('media-make').click());
   expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'A chrome rat on a tombstone', tools: { kind: 'video', model: 'fal-wan22-5b' } });
@@ -106,9 +107,11 @@ test('📎 a reference is added by link and an image keeps the picked reference'
   const work = jest.fn(async (_id, p) => (p.op === 'media_models' ? { models: MODELS, linked: ['fal'], pick: { image: 'fal-flux-schnell', video: 'fal-wan22-5b' }, providers: PROV } : { doc, id: 'mref2' }));
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-refs').click());
   const link = q('media-ref-link'); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(link, 'https://x.example/hero.png'); link.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => link.form.requestSubmit());
   expect(work).toHaveBeenCalledWith('c1', { op: 'media_ref', job: 'w1', text: 'https://x.example/hero.png' });
+  await act(async () => q('media-tab-make').click());
   await act(async () => q('media-kind-image').click());
   await act(async () => q('media-ref-mref1').click());
   const ta = q('media-text') || document.querySelector('[aria-label="What to make"]');
@@ -124,6 +127,7 @@ test('✏ FLUX Video Edit: your clip + your words on OpenRouter, no character ne
   const doc = { messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Street', secs: 10, fps: 30 } }] };   // no character picture
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-swap').click());
   expect(q('swap-model-fal-wan-replace').disabled).toBe(true);   // fal.ai is not linked: its swaps cannot be picked
   expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('Say what to change');
   await act(async () => { const el = q('swap-note'); Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, 'make it night with neon signs'); el.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -140,6 +144,7 @@ test('🎭 swap into a clip: the price comes from the clip, the rights tick gate
   const doc = { character: { mid: 'mc', url: '/api/cats/media/c1/mc.png' }, messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Dance trend', secs: 10, fps: 32 } }] };
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-swap').click());
   expect(q('media-swap').textContent).toContain('about $1.20');   // 10 s × 32 fps / 16 × $0.06
   expect(q('swap-file').disabled).toBe(true);
   await act(async () => q('swap-rights').click()); expect(q('swap-file').disabled).toBe(false);
@@ -160,6 +165,7 @@ test('🎭 Bishop on OpenRouter: Seedance is the default swap, priced in tokens;
   const doc = { title: 'Bishop', character: { mid: 'mc', url: '/api/cats/media/c1/mc.png' }, messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Street', secs: 9.6, fps: 30 } }] };
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-swap').click());
   expect(q('swap-model-or-seedance-swap').getAttribute('aria-checked')).toBe('true');
   expect(q('media-swap').textContent).toContain('about $0.93 on your OpenRouter');   // 921,600 × 24 × 10 s / 1024 × $0.0000043
   expect(q('media-swap').textContent).toContain('replace the main character with Bishop');
@@ -182,6 +188,7 @@ test('🎭 Seedance refuses a clip under 4 s before any call', async () => {
   const doc = { character: { mid: 'mc', url: '/x.png' }, messages: [{ media: { id: 'm2', clip: true, status: 'done', kind: 'video', label: 'Tiny', secs: 2, fps: 30 } }] };
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-swap').click());
   expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('4 s or more');
   await act(async () => root.unmount());
 });
@@ -196,6 +203,7 @@ test('🏷 the picker: a 17 s reel priced per model, four sorts, the model used 
   const doc = { title: 'Bishop', character: { mid: 'mc', url: '/x.png' }, messages: [{ media: { id: 'm17', clip: true, status: 'done', kind: 'video', label: 'IG reel', secs: 17, fps: 30 } }] };
   const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
   await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  await act(async () => q('media-tab-swap').click());
   const order = () => [...document.querySelectorAll('[data-testid^="swap-model-"]')].map(x => x.dataset.testid.replace('swap-model-', ''));
   expect(order()).toEqual(['or-seedance-swap', 'or-seedance25-flash-swap', 'or-seedance25-swap', 'or-seedance-mini-swap']);
   expect(q('swap-model-or-seedance25-flash-swap').getAttribute('aria-checked')).toBe('true');   // the one used last
@@ -210,5 +218,19 @@ test('🏷 the picker: a 17 s reel priced per model, four sorts, the model used 
   const cap = q('swap-cap'); await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(cap, '3'); cap.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { cap.dispatchEvent(new FocusEvent('focusout', { bubbles: true })); });
   expect(work).toHaveBeenCalledWith('c1', { op: 'media_cap', text: '3' }); expect(q('media-swap').textContent).not.toContain('over your');
+  await act(async () => root.unmount());
+});
+
+test('🎬 a swap Seedance refused for a real person offers Runway Aleph 2 on the same clip, and Try again', async () => {
+  // owner's real run 2026-11-17: "400 … the input video may contain real person" left a dead card
+  const work = jest.fn(async () => ({ doc: { messages: [] } })); const setDoc = jest.fn();
+  const m = { media: { id: 'ms1', kind: 'video', status: 'failed', swap: true, modelId: 'or-seedance25-flash-swap', note: 'same clothes as in video', fromClip: { mid: 'mclip' }, why: "400: HTTP 400: The request failed because the input video 'content[1]' may contain real person.", label: 'Seedance 2.5 Flash · Replace', provider: 'openrouter' } };
+  const { root } = await mount(<MediaCard m={m} cat={{ id: 'c1' }} doc={{ id: 'w1', messages: [] }} work={work} setDoc={setDoc} />);
+  await act(async () => q('media-retry-aleph').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'same clothes as in video', tools: { swap: 'or-aleph-swap', clip: 'mclip' } });
+  await act(async () => q('media-retry-same').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'same clothes as in video', tools: { swap: 'or-seedance25-flash-swap', clip: 'mclip' } });
+  await act(async () => root.render(<MediaCard m={{ media: { ...m.media, modelId: 'or-aleph-swap', why: 'stopped' } }} cat={{ id: 'c1' }} doc={{ id: 'w1', messages: [] }} work={work} setDoc={setDoc} />));
+  expect(q('media-retry-aleph')).toBe(null); expect(q('media-retry-same')).not.toBe(null);
   await act(async () => root.unmount());
 });

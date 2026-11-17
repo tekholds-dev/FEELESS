@@ -33,6 +33,16 @@ def env_keys():
                                                                'LAN_LLM_BASE_URL', 'LAN_LLM_MODEL', 'LAN_LLM_API_KEY')}
 
 
+OR_FLAGSHIP = {'claude': 'anthropic/claude-opus-5.5', 'gpt': 'openai/gpt-4o-mini', 'grok': 'x-ai/grok-4.7'}   # ids read from OpenRouter /models 2026-11-17
+
+
+def owner_openrouter(store_path=None):
+    """The owner's shared OpenRouter key (the one his agents use: cat_keys.owner_key, as COMP's teacher reads it), or ''."""
+    import cat_keys
+    data = Path(__file__).resolve().parent / 'data'
+    return cat_keys.owner_key(store_path or (data / 'feecats.json'), 'openrouter', data_dir=data)[0] or ''
+
+
 def own_minds(keys):
     """🖥 AGX-6: the owner's two judges sit the same exam, each on ITS OWN LM Studio only (never a fallback model, never a paid API):
     OSSY = LM Studio on this Mac, G4 = LM Studio on the desktop Mac (LAN). → [(id, name, base, model, key, why_blocked)]"""
@@ -197,11 +207,19 @@ def main(folder):
              lambda k: openai_style(qs, k, 'https://api.openai.com/v1', keys['OPENAI_MODEL'] or 'gpt-4o-mini')),
             ('grok', keys['XAI_MODEL'] or 'grok-3-mini', 'XAI_API_KEY',
              lambda k: openai_style(qs, k, 'https://api.x.ai/v1', keys['XAI_MODEL'] or 'grok-3-mini')))
+    or_key = owner_openrouter()   # 🔑 owner 2026-11-17: "my openrouter key to be useable with comp": a flagship with no key of its own sits the exam on it
     for eid, name, var, run in flag:
         if not qs:
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'off in your guardrails'}); continue
+        if not keys[var] and or_key:
+            name_ = f'{name} · your OpenRouter'
+            try:
+                put({'id': eid, 'name': name_, 'kind': 'flagship', 'via': 'openrouter', 'score': cv.score(qs, openai_style(qs, or_key, 'https://openrouter.ai/api/v1', OR_FLAGSHIP[eid]))})
+            except Exception as e:   # noqa: BLE001 — one provider failing never stops the exam
+                put({'id': eid, 'name': name_, 'kind': 'flagship', 'blocked': f'call failed: {type(e).__name__}'})
+            continue
         if not keys[var]:
-            put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'no key: add it in HQ › Agents'}); continue
+            put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'no key: add it in HQ › Agents, or save an OpenRouter key on one of your agents'}); continue
         try:
             put({'id': eid, 'name': name, 'kind': 'flagship', 'score': cv.score(qs, run(keys[var]))})
         except Exception as e:   # noqa: BLE001 — one provider failing never stops the exam
