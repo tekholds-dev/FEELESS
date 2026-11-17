@@ -222,7 +222,9 @@ async def _media_run(cat_id, ws_id, mid):
                     try:
                         f_clip = rs._media_dir() / cat_id / str(md['fromClip']['url']).rsplit('/', 1)[-1]; ext_c = f_clip.suffix.lstrip('.').lower()
                         clip_du = f"data:video/{'quicktime' if ext_c == 'mov' else ext_c};base64,{rs.base64.b64encode(f_clip.read_bytes()).decode()}"
-                        meth, url, heads, body = rs._mg.v2v_req(md['modelId'], key, img_du, clip_du, md.get('note') or '')
+                        if md.get('modelId') in rs._mg.SEEDANCE_SWAP:   # 🎭 OpenRouter: light copies ride in the request (clip ≤720p, no sound; picture ≤1280 px)
+                            clip_du, img_du = await rs._swap_refs(cat_id, f_clip, rs._media_dir() / cat_id / str(md['fromImg']['url']).rsplit('/', 1)[-1])
+                        meth, url, heads, body = rs._mg.v2v_req(md['modelId'], key, img_du, clip_du, md.get('note') or '', md.get('secs'), md.get('aspect'))
                     except (OSError, KeyError, ValueError) as e:
                         rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=f'Its clip could not be used: {str(e)[:120]}'); return
                 else:
@@ -267,12 +269,219 @@ async def _media_run(cat_id, ws_id, mid):
                 tmp.unlink(missing_ok=True)
                 rs._media_set(cat_id, ws_id, mid, keep, status='done', url=src, kept=False, why='Too big to keep here: the link is the provider\'s.'); return
             name = f'{mid}.{ext}'; tmp.replace(rs._media_dir() / cat_id / name)
+            if md.get('keepSound') and (md.get('fromClip') or {}).get('url'):   # 🔊 the swap keeps your clip's own sound, same timing
+                got = await rs._with_sound(rs._media_dir() / cat_id / name, rs._media_dir() / cat_id / str(md['fromClip']['url']).rsplit('/', 1)[-1]) or got
             rs._media_set(cat_id, ws_id, mid, keep, status='done', url=f'/api/cats/media/{cat_id}/{name}', kept=True, bytes=got, doneAt=round(rs.time.time()))
             rs._feed_push(cat_id, {'tone': 'done', 'kind': 'PoC', 'text': f"Your {md['kind']} is ready ({md.get('label') or md['model']})", 'ref': ws_id})
     except (rs.httpx.HTTPError, OSError, ValueError, KeyError) as e:
         rs._media_set(cat_id, ws_id, mid, None, status='failed', why=f'{type(e).__name__}: {str(e)[:120]}')
     finally:
         rs._MEDIA_LIVE.discard(mid)
+
+
+async def _clip_add(cat_id, ws_id, doc_, text, tools):
+    """🎞 One clip into a PoC folder (owner 2026-11-17 "add a viral video clip in there and ask them to replace the main character"): an upload
+    (data URL), a Bluesky post, or a direct https video link. Longer than 15 s, or a start picked → cut to 15 s from that start (exact, H.264)."""
+    rs = _rs()
+    from urllib.parse import unquote as _unq, urlparse as _host
+    if not tools.get('rights'):
+        raise rs.HTTPException(400, 'Tick that the clip is yours, or that you have the rights to use it.')
+    try:
+        start = max(0.0, min(3600.0, float(tools.get('start') or 0)))
+    except (TypeError, ValueError):
+        start = 0.0
+    src_ = str(text or '').strip(); jid = 'm' + rs.uuid.uuid4().hex[:12]
+    d_ = rs._media_dir() / cat_id; d_.mkdir(parents=True, exist_ok=True); tmp = d_ / 'tmp'; tmp.mkdir(exist_ok=True)
+    raw_f = tmp / f'{jid}.src'; out = d_ / f'{jid}.mp4'; stream = False; name_ = str(tools.get('name') or '')[:60]; source_ = ''
+    try:
+        if src_.startswith('https://'):
+            try:
+                how = rs._cs.classify(src_)
+                async with rs.httpx.AsyncClient(timeout=25, follow_redirects=False) as h_:
+                    if how[0] == 'bluesky':
+                        r_ = await h_.get(rs._cs.bsky_thread_url(how[1], how[2]), headers={'User-Agent': 'FEELESS/1.0'})
+                        if r_.status_code != 200:
+                            raise ValueError('Bluesky did not find that post.')
+                        src_, words_ = rs._cs.bsky_video(r_.json()); stream = True
+                        name_ = name_ or (f'@{how[1].split(".")[0]}: {words_}' if words_ else f'@{how[1]} on Bluesky')[:60]; source_ = 'Bluesky'
+                    else:
+                        await rs._cp.public_url(how[1]); got = 0
+                        async with h_.stream('GET', how[1], headers={'User-Agent': 'FEELESS/1.0'}) as r_:
+                            if r_.status_code != 200 or not r_.headers.get('content-type', '').startswith('video/'):
+                                raise ValueError('That link did not give a video file.')
+                            with raw_f.open('wb') as f_:
+                                async for ch_ in r_.aiter_bytes():
+                                    got += len(ch_)
+                                    if got > rs._pplay.MAX_CLIP:
+                                        raise ValueError('That video is too big. Use a shorter clip.')
+                                    f_.write(ch_)
+                        src_ = raw_f; name_ = name_ or rs.re.sub(r'\.[A-Za-z0-9]+$', '', _unq(how[1].rsplit('/', 1)[-1]))[:60] or 'Linked clip'
+                        source_ = _host(how[1]).hostname or ''
+            except (ValueError, rs.httpx.HTTPError) as e:
+                raise rs.HTTPException(400, str(e) if isinstance(e, ValueError) else 'That link did not answer. Try again, or add the file.')
+        else:
+            try:
+                raw_, ext_ = rs._pplay.decode(src_)
+            except ValueError as e:
+                raise rs.HTTPException(400, str(e))
+            if rs._pplay.kind_of(ext_) != 'video':
+                raise rs.HTTPException(400, 'Pick a video clip (MP4, MOV or WebM).')
+            raw_f = tmp / f'{jid}.{ext_}'; raw_f.write_bytes(raw_); src_ = raw_f; name_ = name_ or 'Your clip'
+        secs_, _f = (None, None) if stream else await rs._clip_len(src_)
+        if not stream and secs_ is None:
+            raise rs.HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
+        cut_ = stream or start > 0 or secs_ > rs._mg.MAX_CLIP_S + 0.5 or rs.Path(str(src_)).suffix.lower() != '.mp4'
+        if cut_:
+            if (await rs._ffmpeg(rs._cs.cut_args(src_, out, start, rs._mg.MAX_CLIP_S, stream=stream), 240))[0] != 0 or not out.is_file() or not out.stat().st_size:
+                out.unlink(missing_ok=True)
+                raise rs.HTTPException(400, 'That clip could not be cut. Try another start, or export it again as an MP4.' if not stream else 'Bluesky\'s video did not come through. Try again in a minute.')
+        else:
+            rs.shutil.copyfile(src_, out)
+    finally:
+        raw_f.unlink(missing_ok=True)
+    secs_, fps_ = await rs._clip_len(out); w_, h_ = await rs._clip_size(out)
+    if secs_ is None:
+        out.unlink(missing_ok=True); raise rs.HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
+    now_ = round(rs.time.time())
+    doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': name_, 'at': now_,
+        'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your clip', 'label': name_, 'prompt': name_, 'status': 'done', 'clip': True,
+                  'secs': round(secs_, 2), 'fps': round(fps_ or 30, 2), **({'w': w_, 'h': h_} if w_ else {}), 'rights': True, 'url': f'/api/cats/media/{cat_id}/{jid}.mp4',
+                  'kept': True, 'bytes': out.stat().st_size, 'at': now_, **({'cutFrom': round(start, 2)} if cut_ else {}), **({'source': source_} if source_ else {})}}]
+    rs._ws_save(cat_id, doc_)
+    return {'doc': rs._ws_view(cat_id, ws_id)}
+
+
+async def _ffmpeg(args, timeout=180):
+    """One ffmpeg / ffprobe run → (exit code, stdout). Never raises: a missing tool or a timeout is code -1."""
+    rs = _rs()
+    try:
+        pr = await rs.asyncio.create_subprocess_exec(*args, stdout=rs.asyncio.subprocess.PIPE, stderr=rs.asyncio.subprocess.DEVNULL)
+        out, _ = await rs.asyncio.wait_for(pr.communicate(), timeout)
+        return pr.returncode, out or b''
+    except (OSError, rs.asyncio.TimeoutError):
+        return -1, b''
+
+
+async def _clip_size(path):
+    """A clip's width and height (ffprobe) → (w, h), or (None, None)."""
+    rs = _rs()
+    code, out = await rs._ffmpeg(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', str(path)], 15)
+    try:
+        st = (rs.json.loads(out or b'{}').get('streams') or [{}])[0]
+        return (int(st['width']), int(st['height'])) if code == 0 else (None, None)
+    except (ValueError, KeyError, TypeError):
+        return None, None
+
+
+async def _swap_refs(cat_id, clip, img):
+    """🎭 Light copies for an OpenRouter swap (the request carries them): the clip ≤720p without sound, the picture as a ≤1280 px JPEG → data URLs."""
+    rs = _rs()
+    tmp = rs._media_dir() / cat_id / 'tmp'; tmp.mkdir(parents=True, exist_ok=True); tag = rs.uuid.uuid4().hex[:8]
+    rc, ri = tmp / f'{tag}.mp4', tmp / f'{tag}.jpg'
+    try:
+        if (await rs._ffmpeg(rs._cs.ref_args(clip, rc)))[0] != 0 or not rc.is_file():
+            raise ValueError('your clip could not be prepared (export it again as an MP4)')
+        if (await rs._ffmpeg(rs._cs.img_args(img, ri), 60))[0] != 0 or not ri.is_file():
+            raise ValueError('the character picture could not be prepared')
+        return (f'data:video/mp4;base64,{rs.base64.b64encode(rc.read_bytes()).decode()}', f'data:image/jpeg;base64,{rs.base64.b64encode(ri.read_bytes()).decode()}')
+    finally:
+        rc.unlink(missing_ok=True); ri.unlink(missing_ok=True)
+
+
+async def _with_sound(made, clip):
+    """🔊 Lay the original clip's sound on the made video (in place). → the new size, or None when the clip has no sound or ffmpeg fails (the video stays as made)."""
+    if made.suffix.lower() != '.mp4':
+        return None
+    out = made.with_name(made.stem + '.snd.mp4')
+    code, _ = await _rs()._ffmpeg(_rs()._cs.sound_args(made, clip, out))
+    if code != 0 or not out.is_file() or not out.stat().st_size:
+        out.unlink(missing_ok=True); return None
+    out.replace(made); return made.stat().st_size
+
+
+async def _edit_post(cat_id, cat, store, name, video, tools):
+    """📤 One tap Post (owner 2026-11-17, studio proposal 5): the finished edit, rendered on the owner's device, goes into a PoC folder (one he
+    picks, or a new one named after the edit), with its source clip beside it as a 15 s clip the folder can swap a character into.
+    → {'ws', 'name'}. The video must really be a video (poc_play.decode checks the bytes) and at most poc_play.MAX_CLIP."""
+    rs = _rs()
+    if not tools.get('rights'):
+        raise rs.HTTPException(400, 'Tick that the video is yours, or that you have the rights to post it.')
+    try:
+        raw_, ext_ = rs._pplay.decode(video)
+    except ValueError as e:
+        raise rs.HTTPException(400, str(e))
+    if rs._pplay.kind_of(ext_) != 'video':
+        raise rs.HTTPException(400, 'Post a rendered video (MP4 or WebM).')
+    name_ = ' '.join(str(name or '').split())[:60] or 'Your edit'
+    ws_ = str(tools.get('ws') or '')
+    if ws_:
+        doc_ = rs._ws_load(cat_id, ws_)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise rs.HTTPException(400, 'Edits go in a PoC folder.')
+    else:
+        try:
+            row_ = rs._feat.new_folder(cat, 'content', name_[:32], rs.time.time())
+        except ValueError as e:
+            raise rs.HTTPException(409, str(e))
+        doc_ = rs._feat.new_doc(row_); ws_ = row_['id']; rs._ws_save(cat_id, doc_); rs.keep_owned(cat); rs._save(store)
+    src_mid = None
+    if tools.get('source'):   # 🎞 its source clip rides along through the same door as Add your clip (rights, 15 s, H.264)
+        doc_ = (await rs._clip_add(cat_id, ws_, doc_, tools['source'], {'rights': True, 'name': f'Source · {name_}'[:60]})) and rs._ws_load(cat_id, ws_)
+        src_mid = next((m['media']['id'] for m in reversed(doc_.get('messages') or []) if (m.get('media') or {}).get('clip')), None)
+    jid = 'm' + rs.uuid.uuid4().hex[:12]; d_ = rs._media_dir() / cat_id; d_.mkdir(parents=True, exist_ok=True); f_ = d_ / f'{jid}.{ext_ if ext_ != "quicktime" else "mov"}'
+    f_.write_bytes(raw_)
+    secs_, fps_ = await rs._clip_len(f_); w_, h_ = await rs._clip_size(f_)
+    if secs_ is None:
+        f_.unlink(missing_ok=True); raise rs.HTTPException(400, 'That video could not be read. Export it again.')
+    now_ = round(rs.time.time()); clip_ = rs._media_dir() / cat_id
+    edit_ = rs._play.edit_stats(rs._play.clean_project(tools.get('project'))) if isinstance(tools.get('project'), dict) else {}
+    doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': f'Posted: {name_}', 'at': now_,
+        'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your edit', 'label': name_, 'prompt': name_, 'status': 'done', 'posted': True,
+                  'secs': round(secs_, 2), 'fps': round(fps_ or 30, 2), **({'w': w_, 'h': h_} if w_ else {}), 'rights': True, 'url': f'/api/cats/media/{cat_id}/{f_.name}',
+                  'kept': True, 'bytes': f_.stat().st_size, 'at': now_, **({'edit': edit_} if edit_ else {}),
+                  **({'fromClip': {'mid': src_mid, 'url': f'/api/cats/media/{cat_id}/{src_mid}.mp4'}} if src_mid and (clip_ / f'{src_mid}.mp4').is_file() else {})}}]
+    rs._ws_save(cat_id, doc_)
+    rs._feed_push(cat_id, {'tone': 'done', 'kind': 'PoC', 'text': f'Posted your edit: {name_}', 'ref': ws_})
+    return {'ws': ws_, 'name': doc_.get('name') or name_}
+
+
+async def _edit_captions(cat, video, max_s=None):
+    """💬 Auto captions (studio proposal 3) on the agent's OWN OpenRouter key: the clip's sound (≤ 60 s, mono MP3) → an audio-reading model →
+    timed lines. The clip itself never leaves this server; only its sound goes to OpenRouter. → {'captions': [...], 'usd'}."""
+    rs = _rs()
+    key_ = rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR)
+    if not key_:
+        raise rs.HTTPException(400, 'Link your OpenRouter key first: captions run on your own key (about $0.001 a minute).')
+    try:
+        raw_, ext_ = rs._pplay.decode(video)
+    except ValueError as e:
+        raise rs.HTTPException(400, str(e))
+    if rs._pplay.kind_of(ext_) != 'video':
+        raise rs.HTTPException(400, 'Captions read a video clip.')
+    tmp = rs._media_dir() / str(cat.get('id') or 'x') / 'tmp'; tmp.mkdir(parents=True, exist_ok=True); tag = rs.uuid.uuid4().hex[:8]
+    src_, aud_ = tmp / f'{tag}.{ext_ if ext_ != "quicktime" else "mov"}', tmp / f'{tag}.mp3'
+    cap_s = max(1.0, min(float(max_s or rs._cs.CAPTION_MAX_S), rs._cs.CAPTION_MAX_S))
+    try:
+        src_.write_bytes(raw_)
+        if (await rs._ffmpeg(rs._cs.audio_args(src_, aud_, cap_s), 60))[0] != 0 or not aud_.is_file() or not aud_.stat().st_size:
+            raise rs.HTTPException(400, 'That clip has no sound to caption.')
+        b64_ = rs.base64.b64encode(aud_.read_bytes()).decode()
+    finally:
+        src_.unlink(missing_ok=True); aud_.unlink(missing_ok=True)
+    body_ = {'model': rs._cs.CAPTION_MODEL, 'temperature': 0, 'messages': [{'role': 'user', 'content': [
+        {'type': 'text', 'text': rs._cs.CAPTION_ASK}, {'type': 'input_audio', 'input_audio': {'data': b64_, 'format': 'mp3'}}]}]}
+    try:
+        async with rs.httpx.AsyncClient(timeout=90) as h_:
+            r_ = await h_.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f'Bearer {key_}', 'Content-Type': 'application/json'}, json=body_)
+        j_ = r_.json() if r_.headers.get('content-type', '').startswith('application/json') else {}
+    except (rs.httpx.HTTPError, ValueError):
+        raise rs.HTTPException(502, 'OpenRouter did not answer. Nothing changed; try again.')
+    if r_.status_code != 200:
+        why_ = (j_.get('error') or {}).get('message') if isinstance(j_.get('error'), dict) else ''
+        raise rs.HTTPException(502, f'OpenRouter said {r_.status_code}: {str(why_ or "no captions")[:140]}')
+    text_ = (((j_.get('choices') or [{}])[0].get('message') or {}).get('content')) or ''
+    usd_ = (j_.get('usage') or {}).get('cost')
+    return {'captions': rs._cs.parse_captions(text_ if isinstance(text_, str) else '', cap_s), 'usd': round(float(usd_), 5) if usd_ is not None else None, 'model': rs._cs.CAPTION_MODEL}
 
 
 async def _clip_len(path):
@@ -295,12 +504,19 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
     without fal.ai linked; the list-price estimate rides on the card before it starts."""
     rs = _rs()
     mid_ = str(t_.get('swap') or '')
+    if mid_ == 'auto':   # 💬 a chat ask ("replace the main character with Bishop"): OpenRouter's clean Seedance when linked, else fal.ai's Wan
+        mid_ = rs._mg.swap_auto(linked) or ''
+        if not mid_:
+            raise rs.HTTPException(400, 'Link your OpenRouter key first: the swap runs on your own OpenRouter account (Seedance 2.0).')
     if mid_ not in rs._mg.V2V:
-        raise rs.HTTPException(400, 'Pick Wan Replace, Kling Motion Control or FLUX Video Edit.')
+        raise rs.HTTPException(400, 'Pick Seedance Replace, Wan Replace, Kling Motion Control or FLUX Video Edit.')
     prov_ = rs._mg.v2v_provider(mid_); edit_ = mid_ in rs._mg.V2V_NO_CHAR
     if prov_ not in linked:
         raise rs.HTTPException(400, f"Link {rs._mg.PROVIDERS[prov_]['name']} first: this runs on your own {rs._mg.PROVIDERS[prov_]['name']} account.")
-    cmd_ = (rs._media_msg(doc_, str(t_.get('clip') or '')) or {}).get('media') or {}
+    want_clip = str(t_.get('clip') or '')
+    if want_clip == 'last':   # 💬 the chat swaps the newest clip in this folder
+        want_clip = next((str(m['media']['id']) for m in reversed(doc_.get('messages') or []) if (m.get('media') or {}).get('clip') and m['media'].get('status') == 'done'), '')
+    cmd_ = (rs._media_msg(doc_, want_clip) or {}).get('media') or {}
     if not cmd_.get('clip') or cmd_.get('status') != 'done' or not str(cmd_.get('url') or '').startswith('/api/cats/media/'):
         raise rs.HTTPException(400, 'Add your clip to this folder first.')
     if edit_ and not str(text or '').strip():
@@ -311,13 +527,21 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text):
         raise rs.HTTPException(400, 'Make or pick the character picture first (👤 Make him the character).')
     if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
         raise rs.HTTPException(429, 'Three are already making. Wait for one to finish.')
+    seed_ = mid_ in rs._mg.SEEDANCE_SWAP; shape_ = {}
+    if seed_:
+        if float(cmd_.get('secs') or 0) < rs._mg.SEEDANCE_MIN_S - 0.5:
+            raise rs.HTTPException(400, f'Seedance makes {rs._mg.SEEDANCE_MIN_S} to {rs._mg.MAX_CLIP_S} s. That clip is {float(cmd_.get("secs") or 0):.1f} s: add a longer one.')
+        w_, h_ = cmd_.get('w'), cmd_.get('h')
+        if not (w_ and h_):
+            w_, h_ = await rs._clip_size(rs._media_dir() / cat_id / str(cmd_['url']).rsplit('/', 1)[-1])
+        shape_ = {'aspect': rs._cs.nearest_aspect(w_, h_), 'secs': cmd_.get('secs'), 'keepSound': True}
     ep_, label_ = rs._mg.V2V[mid_][:2]; usd_ = rs._mg.v2v_cost(mid_, cmd_.get('secs') or rs._mg.MAX_CLIP_S, cmd_.get('fps') or 30)
     note_ = rs.re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + rs.uuid.uuid4().hex[:12]; now_ = round(rs.time.time())
     words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
     doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': words_, 'at': now_,
         'media': {'id': jid, 'kind': 'video', 'provider': prov_, 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
-                  'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}}}]
+                  'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}, **shape_}}]
     rs._ws_save(cat_id, doc_)
     rs.asyncio.create_task(rs._media_run(cat_id, ws_id, jid))
     return {'doc': rs._ws_view(cat_id, ws_id)}

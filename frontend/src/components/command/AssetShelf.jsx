@@ -22,7 +22,7 @@ function Face({ r, src }) {
   return r.thumb ? <img src={r.thumb} alt="" loading="lazy" /> : <span className="asf-cube" aria-hidden="true">🧊</span>;
 }
 
-export function AssetShelf({ cat, work, kinds = ['image', 'video', 'audio', 'model'], onUse, useKinds = null, useWord = 'Use', title = 'ASSETS' }) {
+export function AssetShelf({ cat, work, kinds = ['image', 'video', 'audio', 'model'], onUse, useKinds = null, useWord = 'Use', title = 'ASSETS', onDragUse = null }) {   // 🖐 onDragUse: drag a card onto the editor (2026-11-17)
   const [side, setSide] = useState('find'); const [kind, setKind] = useState(kinds[0]); const [q, setQ] = useState(''); const [found, setFound] = useState(null); const [down, setDown] = useState(false);
   const [mine, setMine] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [said, setSaid] = useState(''); const [hear, setHear] = useState(null); const audio = useRef(null);
   const list = useCallback(() => work(cat.id, { op: 'assets_list' }).then(setMine).catch(e => setErr(e.message)), [work, cat.id]);
@@ -48,7 +48,7 @@ export function AssetShelf({ cat, work, kinds = ['image', 'video', 'audio', 'mod
     {err ? <p className="asf-err" role="alert">⚠ {err}</p> : said ? <p className="asf-said" role="status">{said}</p> : null}
     {down && side === 'find' ? <p className="asf-err">That library is not answering right now. Try again in a minute.</p> : null}
     {rows == null ? <p className="asf-none">Searching…</p> : rows.length ? <ul className="asf-grid" data-testid="asf-grid">{rows.slice(0, 40).map((r, i) => { const src = side === 'mine' ? fileUrl(cat.id, r.id) : r.url; return <motion.li key={r.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 16) * 0.02 }} data-testid="asf-row">
-      <button type="button" className="asf-face" onClick={() => (r.kind === 'audio' ? play(r.id, src) : r.page ? window.open(r.page, '_blank', 'noopener') : null)} data-tip={r.kind === 'audio' ? (hear === r.id ? 'Stop' : 'Listen') : r.page ? 'Open its page, with the full licence' : r.name}><Face r={r} src={src} />{r.kind === 'audio' ? <em>{hear === r.id ? '■' : '▶'}{r.secs ? ` ${r.secs}s` : ''}</em> : null}</button>
+      <button type="button" className="asf-face" {...(onDragUse && onUse && (side === 'mine' || r.url || r.lib) && (r.lib || (useKinds || kinds).includes(r.kind)) ? { draggable: true, onDragStart: onDragUse(() => use(r, side === 'mine')) } : {})} onClick={() => (r.kind === 'audio' ? play(r.id, src) : r.page ? window.open(r.page, '_blank', 'noopener') : null)} data-tip={r.kind === 'audio' ? (hear === r.id ? 'Stop' : 'Listen') : r.page ? 'Open its page, with the full licence' : r.name}><Face r={r} src={src} />{r.kind === 'audio' ? <em>{hear === r.id ? '■' : '▶'}{r.secs ? ` ${r.secs}s` : ''}</em> : null}</button>
       <b title={r.name}>{r.name}</b><small title={`${r.lic} · ${r.by}`}>{[r.lic, r.by || r.src].filter(Boolean).join(' · ')}{side === 'mine' ? ` · ${mb(r.size)}` : ''}</small>
       <span className="asf-acts">{onUse && (side === 'mine' || r.url || r.lib) && (r.lib || (useKinds || kinds).includes(r.kind)) ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => use(r, side === 'mine')} data-testid="asf-use">{busy === r.id ? '…' : useWord}</button> : null}
         {side === 'find' && r.url ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => keep(r)} data-tip="Save a copy to My files" data-testid="asf-keep">Keep</button> : null}

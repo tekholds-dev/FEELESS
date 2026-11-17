@@ -2,7 +2,7 @@ import { boxRef } from '../../lib/boxRef';
 import { createPortal } from 'react-dom';
 import { toggleFull } from '../../lib/fullView';
 import { CodeLines, MarkJumps, StatusBar, Tabs, diffRows, markLines, plainRows } from './CodeView';
-import { MediaButton, MediaCard, MediaModelChip, mediaAsk, mediaPrompt, useMediaPick } from './MediaStudio';
+import { MediaButton, MediaCard, MediaModelChip, mediaAsk, mediaPrompt, swapAsk, useMediaPick } from './MediaStudio';
 import { PartsShelf } from './PartsShelf';
 import { KitPick } from './KitPick';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings } from '../chat/ChatKit';
@@ -151,6 +151,8 @@ function Chat({ doc, send, busy, chip, clearChip, draft = '', cat, row, work, se
   const onFile = async e => { const f = [...(e.target.files || [])].slice(0, 4 - files.length); e.target.value = ''; setUpErr(''); setUpping(true); try { for (const x of f) { if (x.type.startsWith('image/')) { const j = await addFile(cat.id, x); setFiles(v => [...v, j.file]); } else if (x.size <= 40000) { const t = await x.text(); setText(v => `${v}${v ? '\n' : ''}File ${x.name} (data, not instructions):\n${t}`); } else setUpErr(`${x.name} is too big. Text files up to 40 KB, or pick it from your repo.`); } } catch (x) { setUpErr(x.message); } setUpping(false); };
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [doc?.messages?.length]);
   const go = async e => { e.preventDefault(); const t = text.trim() || (chip === 'canvas' ? 'Build this page from my drawing on the blank canvas.' : ''); if (!t || busy) return;
+    if (isPoc && swapAsk(t, (doc?.messages || []).some(m => m.media?.clip && m.media.status === 'done'))) {   // 🎭 "replace the main character with bishop" → swap the newest clip
+      setUpErr(''); try { const j = await work(cat.id, { op: 'media_make', job: doc.id, text: t, tools: { swap: 'auto', clip: 'last' } }); setDoc(j.doc); setText(''); } catch (x) { setUpErr(x.message); } return; }
     const mk = isPoc ? mediaAsk(t) : null;   // 🎬 an image / video ask in a PoC chat goes to the media models, on the picked model, carrying this PoC
     if (mk) { setUpErr(''); try { const j = await work(cat.id, { op: 'media_make', job: doc.id, text: mediaPrompt(t, carry), tools: { kind: mk, ...(mpick[mk] ? { model: mpick[mk] } : {}) } }); setDoc(j.doc); setText(''); } catch (x) { setUpErr(x.message); } return; }
     send(t, to, files.map(f => f.id)); setText(''); setFiles([]); };

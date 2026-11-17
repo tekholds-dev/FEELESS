@@ -657,8 +657,13 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 raise rs.HTTPException(404, 'No file with that name.')
             rs._play_save(cat_id, 'edit', {**saved_, 'files': files_, 'current': name_, 'project': files_[name_].get('project')})
             return {'project': files_[name_].get('project'), 'current': name_, 'files': list_()}
+        if p.op == 'playc_post':   # 📤 one tap Post: the rendered edit (+ its source clip) into a PoC folder
+            return await rs._edit_post(cat_id, cat, store, p.job, p.text, p.tools if isinstance(p.tools, dict) else {})
+        if p.op == 'playc_captions':   # 💬 auto captions on the agent's own OpenRouter key
+            return await rs._edit_captions(cat, p.text, (p.tools or {}).get('max') if isinstance(p.tools, dict) else None)
         if p.op == 'playc_get':
-            return {'current': cur_, 'files': list_(), 'project': saved_.get('project'), 'notes': ((cat.get('playNotes') or {}).get('edit') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'canPaid': bool(rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR))}
+            return {'pocs': [{'id': w_['id'], 'name': w_.get('name')} for w_ in (cat.get('workspaces') or []) if w_.get('kind') == 'content' and not w_.get('ad')][-30:],
+                    'current': cur_, 'files': list_(), 'project': saved_.get('project'), 'notes': ((cat.get('playNotes') or {}).get('edit') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'canPaid': bool(rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR))}
         if p.op == 'playc_gen':   # 🖼 free needs no key. Better uses the agent's own OpenRouter key and its own balance
             prompt_ = ' '.join(str(p.text or '').split())
             if not prompt_:
@@ -1273,31 +1278,11 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         rs._ws_save(cat_id, doc_)
         rs.asyncio.create_task(rs._media_run(cat_id, p.job, jid))
         return {'doc': rs._ws_view(cat_id, p.job)}
-    if p.op == 'media_clip':   # 🎭 V2V (owner 2026-11-14 "wire the fal vid to vid"): the owner's own clip lands in the PoC folder, ready to swap a character into
-        doc_ = rs._ws_load(cat_id, p.job)
+    if p.op == 'media_clip':   # 🎭 V2V: a clip lands in the PoC folder, ready to swap a character into — an upload, a Bluesky post or a direct video link,
+        doc_ = rs._ws_load(cat_id, p.job)   # cut to 15 s from where the owner says (owner 2026-11-17: "add a viral video clip in there")
         if not doc_ or doc_.get('kind') != 'content':
             raise rs.HTTPException(400, 'Clips go in a PoC folder.')
-        if not (p.tools or {}).get('rights'):
-            raise rs.HTTPException(400, 'Tick that the clip is yours, or that you have the rights to use it.')
-        try:
-            raw_, ext_ = rs._pplay.decode(p.text)
-        except ValueError as e:
-            raise rs.HTTPException(400, str(e))
-        if rs._pplay.kind_of(ext_) != 'video':
-            raise rs.HTTPException(400, 'Pick a video clip (MP4, MOV or WebM).')
-        jid = 'm' + rs.uuid.uuid4().hex[:12]; f_ = rs._media_dir() / cat_id / f'{jid}.{ext_}'
-        f_.parent.mkdir(parents=True, exist_ok=True); f_.write_bytes(raw_)
-        secs_, fps_ = await rs._clip_len(f_)
-        if secs_ is None:
-            f_.unlink(missing_ok=True); raise rs.HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
-        if secs_ > rs._mg.MAX_CLIP_S + 0.5:
-            f_.unlink(missing_ok=True); raise rs.HTTPException(400, f'That clip is {secs_:.0f} s. Trim it to {rs._mg.MAX_CLIP_S} s or less first.')
-        name_ = str((p.tools or {}).get('name') or 'Your clip')[:60]
-        doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': name_, 'at': round(rs.time.time()),
-            'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your clip', 'label': name_, 'prompt': name_, 'status': 'done', 'clip': True,
-                      'secs': round(secs_, 2), 'fps': round(fps_ or 30, 2), 'rights': True, 'url': f'/api/cats/media/{cat_id}/{jid}.{ext_}', 'kept': True, 'bytes': len(raw_), 'at': round(rs.time.time())}}]
-        rs._ws_save(cat_id, doc_)
-        return {'doc': rs._ws_view(cat_id, p.job)}
+        return await rs._clip_add(cat_id, p.job, doc_, p.text, p.tools if isinstance(p.tools, dict) else {})
     if p.op == 'media_play':   # 🎨 POC-PLAY: a playground edit (made free in the browser) filed into the PoC folder as a NEW version; the original stays
         doc_ = rs._ws_load(cat_id, p.job)
         if not doc_ or doc_.get('kind') != 'content':

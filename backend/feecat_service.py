@@ -118,6 +118,7 @@ import datetime as dt   # noqa: F401  (read by fc_desk as rs.dt)
 import postiz as _pz   # 📮 POC-PLAY item 8: a picked week board posts for real through Postiz's official OAuth API   # noqa: F401  (read by fc_desk as rs._pz)
 import week_plan as _wk   # 🗓 POC-PLAY: week boards + brain-made week scenarios, each filed as a PoC   # noqa: F401  (read by fc_desk as rs._wk)
 import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into the PoC as new versions   # noqa: F401  (read by fc_desk as rs._pplay)
+import clip_source as _cs   # 🎞 where a swap clip may come from, and how ffmpeg cuts it (owner 2026-11-17)   # noqa: F401  (read by fc_desk, fc_cat_work as rs._cs)
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key   # noqa: F401  (read by fc_desk, fc_studio as rs._mg)
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered   # noqa: F401  (read by fc_cloud, fc_desk as rs._parts)
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)   # noqa: F401  (read by fc_desk as rs._forge)
@@ -1908,6 +1909,13 @@ _media_refs = _fc_desk._media_refs
 _media_run = _fc_desk._media_run
 _clip_len = _fc_desk._clip_len
 _media_swap = _fc_desk._media_swap
+_clip_add = _fc_desk._clip_add
+_ffmpeg = _fc_desk._ffmpeg
+_clip_size = _fc_desk._clip_size
+_swap_refs = _fc_desk._swap_refs
+_with_sound = _fc_desk._with_sound
+_edit_post = _fc_desk._edit_post
+_edit_captions = _fc_desk._edit_captions
 cat_media_file = _fc_desk.cat_media_file
 _general_mind = _fc_desk._general_mind
 _popular_builds = _fc_desk._popular_builds

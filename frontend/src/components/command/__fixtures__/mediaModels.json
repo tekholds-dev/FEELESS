@@ -363,5 +363,58 @@
    "ready": true
   }
  ],
- "houseLeftUsd": null
+ "houseLeftUsd": null,
+ "swap": [
+  {
+   "id": "fal-wan-replace",
+   "label": "Wan 2.2 Animate · Replace",
+   "why": "Swaps the person in your clip for the character: same scene, camera, light and moves",
+   "rate": 0.06,
+   "by": "frames",
+   "provider": "fal",
+   "needsChar": true,
+   "ready": false
+  },
+  {
+   "id": "fal-kling3-motion",
+   "label": "Kling 3.0 Motion Control",
+   "why": "The character does your clip's exact moves, in the character picture's own scene",
+   "rate": 0.126,
+   "by": "seconds",
+   "provider": "fal",
+   "needsChar": true,
+   "ready": false
+  },
+  {
+   "id": "or-flux-edit",
+   "label": "FLUX Video Edit",
+   "why": "Edits your own clip from your words: add, remove or replace things, restyle the scene. Same length and sound",
+   "rate": 0.03,
+   "by": "seconds",
+   "provider": "openrouter",
+   "needsChar": false,
+   "ready": true
+  },
+  {
+   "id": "or-seedance-swap",
+   "label": "Seedance 2.0 · Replace",
+   "why": "Puts your character into your clip: same scene, moves, camera and timing, your clip's own sound. The clean one",
+   "rate": 4.3e-06,
+   "by": "tokens",
+   "provider": "openrouter",
+   "needsChar": true,
+   "ready": true
+  },
+  {
+   "id": "or-seedance-fast-swap",
+   "label": "Seedance 2.0 Fast · Replace",
+   "why": "The same swap, quicker and about 40% cheaper, a little softer",
+   "rate": 2.475e-06,
+   "by": "tokens",
+   "provider": "openrouter",
+   "needsChar": true,
+   "ready": true
+  }
+ ],
+ "swapMaxS": 15
 }

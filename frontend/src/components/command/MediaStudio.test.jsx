@@ -148,3 +148,40 @@ test('🎭 swap into a clip: the price comes from the clip, the rights tick gate
   expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: '', tools: { swap: 'fal-kling3-motion', clip: 'mclip' } });
   await act(async () => root.unmount());
 });
+
+test('🎭 Bishop on OpenRouter: Seedance is the default swap, priced in tokens; a Bluesky link or a Spot clip adds a clip with its start', async () => {
+  const SWAP = [{ id: 'fal-wan-replace', label: 'Wan 2.2 Animate · Replace', why: 'swap', rate: 0.06, by: 'frames', provider: 'fal', needsChar: true, ready: false },
+    { id: 'or-seedance-swap', label: 'Seedance 2.0 · Replace', why: 'clean', rate: 0.0000043, by: 'tokens', provider: 'openrouter', needsChar: true, ready: true },
+    { id: 'or-seedance-fast-swap', label: 'Seedance 2.0 Fast · Replace', why: 'quick', rate: 0.000002475, by: 'tokens', provider: 'openrouter', needsChar: true, ready: true }];
+  const OR = { ...PROV, openrouter: { name: 'OpenRouter', signup: 'https://openrouter.ai', keys: 'https://openrouter.ai/settings/keys' } };
+  const added = { messages: [{ media: { id: 'mnew', clip: true, status: 'done', kind: 'video', label: '@dancer: the dance', secs: 15, fps: 30, source: 'Bluesky' } }] };
+  const work = jest.fn(async (id, b) => (b.op === 'media_models' ? { models: MODELS, linked: ['openrouter'], pick: {}, providers: OR, swap: SWAP, swapMaxS: 15 } : { doc: added }));
+  localStorage.setItem('feeless.swapClip', JSON.stringify({ url: 'https://bsky.app/profile/dancer.bsky.social/post/3abc', title: '@dancer: the dance' }));
+  const doc = { title: 'Bishop', character: { mid: 'mc', url: '/api/cats/media/c1/mc.png' }, messages: [{ media: { id: 'mclip', clip: true, status: 'done', kind: 'video', label: 'Street', secs: 9.6, fps: 30 } }] };
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('swap-model-or-seedance-swap').getAttribute('aria-checked')).toBe('true');
+  expect(q('media-swap').textContent).toContain('about $0.93 on your OpenRouter');   // 921,600 × 24 × 10 s / 1024 × $0.0000043
+  expect(q('media-swap').textContent).toContain('replace the main character with Bishop');
+  expect(q('swap-spot').textContent).toContain('@dancer'); expect(q('swap-spot-add').disabled).toBe(true);   // the rights tick first
+  await act(async () => q('swap-rights').click());
+  const type = async (id, v) => act(async () => { const el = q(id); Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type('swap-start', '3');
+  await act(async () => q('swap-spot-add').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_clip', job: 'w1', text: 'https://bsky.app/profile/dancer.bsky.social/post/3abc', tools: { rights: true, name: '@dancer: the dance', start: 3 } });
+  expect(localStorage.getItem('feeless.swapClip')).toBe(null); expect(q('swap-spot')).toBe(null);   // used once, then gone
+  await type('swap-link', 'https://cdn.example.com/a.mp4');
+  await act(async () => q('swap-link-add').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_clip', job: 'w1', text: 'https://cdn.example.com/a.mp4', tools: { rights: true, start: 3 } });
+  await act(async () => root.unmount());
+});
+
+test('🎭 Seedance refuses a clip under 4 s before any call', async () => {
+  const SWAP = [{ id: 'or-seedance-swap', label: 'Seedance 2.0 · Replace', why: 'clean', rate: 0.0000043, by: 'tokens', provider: 'openrouter', needsChar: true, ready: true }];
+  const work = jest.fn(async () => ({ models: MODELS, linked: ['openrouter'], pick: {}, providers: { ...PROV, openrouter: { name: 'OpenRouter', keys: 'https://openrouter.ai/settings/keys' } }, swap: SWAP, swapMaxS: 15 }));
+  const doc = { character: { mid: 'mc', url: '/x.png' }, messages: [{ media: { id: 'm2', clip: true, status: 'done', kind: 'video', label: 'Tiny', secs: 2, fps: 30 } }] };
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('4 s or more');
+  await act(async () => root.unmount());
+});

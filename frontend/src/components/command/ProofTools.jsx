@@ -54,10 +54,11 @@ function PowDash({ d, onCommand }) {
 }
 // 📣 THE CREATOR FLOW (owner 2026-11-16, "a better elite creator flow and playground"): Spot what is hot (real viral clips + live topics),
 // one tap writes the filing, the minds script it, the studio (FLUX edit / video models) makes it, you post and report. All data is real.
-const FLOW_STEPS = [['SPOT', 'live clips + topics below'], ['SCRIPT', 'both minds pitch the hook'], ['MAKE', 'studio · FLUX video edit'], ['POST', 'you post · report what it earned']];
+const SWAP_SPOT = 'feeless.swapClip';   // 🎭 the PoC studio's Swap panel reads it (MediaStudio.jsx SWAP_SPOT): same key, no import of the studio here
+const FLOW_STEPS = [['SPOT', 'live clips + topics below'], ['SCRIPT', 'both minds pitch the hook'], ['MAKE', 'studio · swap your character in'], ['POST', 'you post · report what it earned']];
 const compactN = v => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : String(v || 0));
 export function ContentDash({ d, onCommand }) {
-  const [src, setSrc] = useState('all'); const all = d.clips || []; const has = s => all.some(c => (c.src || 'bluesky') === s);
+  const [src, setSrc] = useState('all'); const [sent, setSent] = useState(''); const all = d.clips || []; const has = s => all.some(c => (c.src || 'bluesky') === s);
   const clips = src === 'all' ? all : all.filter(c => (c.src || 'bluesky') === src); const hot = c => (c.views != null ? c.views : c.likes || 0); const maxL = Math.max(1, ...clips.map(hot));
   const topics = Object.entries(d.trends || {}).flatMap(([k, v]) => (v || []).slice(0, 4).map(t => [k, t]));
   return <div className="ptl-cflow" data-testid="ptl-trends">
@@ -68,6 +69,8 @@ export function ContentDash({ d, onCommand }) {
       <p>{c.text || 'No words, just the clip.'}</p>
       <div className="ptl-clip-n">{c.views != null ? <b className="m-num" data-tip="Views">▶ {compactN(c.views)}</b> : <b className="m-num" data-tip="Likes">♥ {compactN(c.likes)}</b>}<Bar v={hot(c) / maxL} />{c.views != null ? (c.likes != null ? <small className="m-num" data-tip="Likes">♥ {compactN(c.likes)}</small> : <small />) :<small className="m-num" data-tip="Reposts">↻ {compactN(c.reposts)}</small>}</div>
       <small className="ptl-clip-by">{c.src === 'youtube' ? '' : '@'}{c.by}{c.src === 'youtube' ? ' · YouTube' : ''}</small>
+      {c.src !== 'youtube' && /^https:\/\/bsky\.app\/profile\/[^/]+\/post\//.test(String(c.url || '')) ? <button type="button" className={`m-btn${sent === c.url ? ' is-on' : ''}`} onClick={() => { try { localStorage.setItem(SWAP_SPOT, JSON.stringify({ url: c.url, title: `@${String(c.by || '').split('.')[0]}: ${String(c.text || '').slice(0, 50)}` })); } catch { /* private */ } setSent(c.url); }}
+        data-tip="Your PoC folder's 🎬 studio gets this clip: open it, tick the rights box, Add it, then Swap. Only clips you have the rights to" data-testid={`ptl-clip-swap-${i}`}>{sent === c.url ? '✓ In your studio' : '🎭 Swap a character in'}</button> : null}
       {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(`file a poc on the angle behind this trending clip: "${String(c.text || '').slice(0, 80)}"`)} data-tip="Puts the filing in the chat box. You press send" data-testid={`ptl-clip-go-${i}`}>Write the angle</button> : null}
     </li>)}</ol> : <p className="ptl-none">No trending clips right now. It tries again in a minute.</p>}
     {topics.length ? <div className="chr-chips ptl-topics" data-testid="ptl-topics">{topics.map(([k, t]) => <button key={k + t} type="button" className="m-chip" onClick={() => onCommand?.(`file a poc about ${t}`)} data-tip={`${k} · puts the filing in the chat box. You press send`}>{String(t).length > 48 ? `${String(t).slice(0, 48)}…` : t}</button>)}</div> : null}

@@ -93,33 +93,51 @@ function Preset({ x, i, onMake, busy }) {
   </li>;
 }
 
-// 🎭 VIDEO → VIDEO (owner 2026-11-14 "wire the fal vid to vid"): your own clip + this folder's character → fal.ai swaps him in (Wan 2.2 Animate
-// Replace keeps the scene; Kling 3.0 Motion Control puts his picture's scene on your clip's moves). The price comes from the clip's real length.
+// 🎭 VIDEO → VIDEO (owner 2026-11-14 "wire the fal vid to vid"; 2026-11-17 "goto my bishop file, add a viral video clip and ask them to replace the
+// main character with bishop … through open router"): your clip (a file, a Bluesky post or a direct .mp4 link) + this folder's character →
+// Seedance 2.0 on YOUR OpenRouter keeps the scene, moves and camera and puts him in; your clip's own sound goes back on. fal.ai stays optional.
+export const SWAP_SPOT = 'feeless.swapClip';   // a Spot clip handed to the studio ({url, title})
+const forgetSpot = () => { try { localStorage.removeItem(SWAP_SPOT); } catch { /* private */ } };
+export function swapEst(m, c) {   // the price before you press: tokens = 720p pixels × 24 fps × whole seconds (4–15) / 1024 (OpenRouter's Seedance billing)
+  if (!m || !c) return null; const s = Number(c.secs) || 0;
+  if (m.by === 'tokens') return 921600 * 24 * Math.min(15, Math.max(4, Math.round(s || 4)))   /* = media_gen.seedance_len */ / 1024 * m.rate;
+  return (m.by === 'frames' ? s * Number(c.fps || 30) / 16 : s) * m.rate;
+}
+const rateTip = m => (m.by === 'tokens' ? `about $${swapEst(m, { secs: 15 }).toFixed(2)} per 15 s` : m.by === 'frames' ? `$${m.rate} per 16 frames` : `$${m.rate}/s`);
 function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   const clips = (doc?.messages || []).map(m => m.media).filter(m => m && m.clip && m.status === 'done');
-  const [clip, setClip] = useState(''); const [model, setModel] = useState('fal-wan-replace'); const [rights, setRights] = useState(false);
-  const [note, setNote] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
+  const [clip, setClip] = useState(''); const [model, setModel] = useState('or-seedance-swap'); const [rights, setRights] = useState(false);
+  const [note, setNote] = useState(''); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [link, setLink] = useState(''); const [start, setStart] = useState('');
+  const [spot, setSpot] = useState(() => { try { return JSON.parse(localStorage.getItem(SWAP_SPOT) || 'null'); } catch { return null; } });
   const c = clips.find(x => x.id === clip) || clips[clips.length - 1]; const list = d?.swap || []; const m = list.find(x => x.id === model && x.ready) || list.find(x => x.ready) || list[0];
-  const est = c && m ? (m.by === 'frames' ? Number(c.secs) * Number(c.fps || 30) / 16 : Number(c.secs)) * m.rate : null;
+  const est = swapEst(m, c); const short = m?.by === 'tokens' && c && Number(c.secs) < 3.5;
   const hasChar = !!doc?.character?.mid; const ready = list.some(x => x.ready); const edit = m?.needsChar === false; const where = m?.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai';   // ✏ FLUX Video Edit: your clip + your words, on OpenRouter (owner 2026-11-16)
+  const added = j => { setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (last) setClip(last.id); };
+  const addSrc = async (src, name) => { setBusy('up'); setErr(''); try { added(await work(cat.id, { op: 'media_clip', job: row.id, text: src, tools: { rights: true, ...(name ? { name } : {}), ...(Number(start) > 0 ? { start: Number(start) } : {}) } })); return true; } catch (er) { setErr(er.message); return false; } finally { setBusy(''); } };
   const onFile = e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setErr('');
     if (!/^video\/(mp4|webm|quicktime)$/.test(f.type)) { setErr('Pick an MP4, MOV or WebM clip.'); return; }
     if (f.size > 48 * 1048576) { setErr('That clip is over 48 MB. Trim it first.'); return; }
-    const r = new FileReader(); r.onload = async () => { setBusy('up'); try { const j = await work(cat.id, { op: 'media_clip', job: row.id, text: r.result, tools: { rights: true, name: f.name.replace(/\.[^.]+$/, '').slice(0, 60) } });
-      setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (last) setClip(last.id); } catch (er) { setErr(er.message); } setBusy(''); };
-    r.onerror = () => setErr('That clip could not be read.'); r.readAsDataURL(f); };
+    const r = new FileReader(); r.onload = () => addSrc(r.result, f.name.replace(/\.[^.]+$/, '').slice(0, 60)); r.onerror = () => setErr('That clip could not be read.'); r.readAsDataURL(f); };
+  const onLink = async e => { e.preventDefault(); const u = link.trim(); if (!/^https:\/\//.test(u)) { setErr('Paste a link that starts with https://'); return; } if (await addSrc(u)) setLink(''); };
+  const fromSpot = async () => { if (await addSrc(spot.url, String(spot.title || '').slice(0, 60))) { forgetSpot(); setSpot(null); } };
   const go = async () => { setBusy('go'); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: note, tools: { swap: m.id, clip: c.id } }); setDoc(j.doc); setNote(''); } catch (e) { setErr(e.message); } setBusy(''); };
   return <div className="mst-swap" data-testid="media-swap">
-    <p className="mst-h">🎭 Swap or edit a clip <small>your clip + the character (fal.ai), or your clip + your words (FLUX Video Edit, OpenRouter) · {d?.swapMaxS || 15} s max</small></p>
-    {!ready ? <p className="mst-note">Swaps run on fal.ai and FLUX Video Edit on OpenRouter. Link one above to use them.</p> : <>
+    <p className="mst-h">🎭 Swap your character into a clip <small>Seedance 2.0 on your OpenRouter keeps the scene, moves and sound · {d?.swapMaxS || 15} s max</small></p>
+    {!ready ? <p className="mst-note">Swaps run on your OpenRouter key (Seedance 2.0, FLUX Video Edit) or fal.ai. Link OpenRouter above to use them.</p> : <>
       <label className="mst-rights"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} data-testid="swap-rights" />It is my clip, or I have the rights to use it</label>
-      <span className="mst-refadd"><label className="m-btn" aria-disabled={!rights || !!busy} data-tip={rights ? 'MP4, MOV or WebM, up to 15 s ($0 to add)' : 'Tick the rights box first'}>{busy === 'up' ? 'Adding…' : 'Add your clip'}
+      {spot?.url ? <p className="mst-spot" data-testid="swap-spot"><b>From Spot</b><span>{spot.title || spot.url}</span><button type="button" className="m-btn" disabled={!rights || !!busy} onClick={fromSpot} data-tip={rights ? "Adds 15 s of that post's video" : 'Tick the rights box first'} data-testid="swap-spot-add">Add it</button>
+        <button type="button" className="fea-back-btn" onClick={() => { forgetSpot(); setSpot(null); }} aria-label="Forget the Spot clip">✕</button></p> : null}
+      <span className="mst-refadd"><label className="m-btn" aria-disabled={!rights || !!busy} data-tip={rights ? 'MP4, MOV or WebM. Longer than 15 s: 15 s from Start ($0 to add)' : 'Tick the rights box first'}>{busy === 'up' ? 'Adding…' : 'Add your clip'}
         <input type="file" accept="video/mp4,video/webm,video/quicktime" hidden disabled={!rights || !!busy} onChange={onFile} data-testid="swap-file" /></label>
-        {clips.length ? <select className="m-input" value={c?.id || ''} onChange={e => setClip(e.target.value)} aria-label="Which clip" data-testid="swap-clip">{clips.map(x => <option key={x.id} value={x.id}>{x.label} · {Number(x.secs).toFixed(1)} s</option>)}</select> : null}</span>
-      <div className="m-seg" role="radiogroup" aria-label="Swap model">{list.map(x => <button key={x.id} type="button" role="radio" aria-checked={m?.id === x.id} className={m?.id === x.id ? 'active' : ''} onClick={() => setModel(x.id)} disabled={!x.ready} data-tip={x.ready ? x.why : `Link ${x.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai'} first. ${x.why}`} data-testid={`swap-model-${x.id}`}>{x.label}</button>)}</div>
-      <input className="m-input" value={note} onChange={e => setNote(e.target.value)} maxLength={500} placeholder={edit ? 'What to change, e.g. make it night with neon signs' : m?.id === 'fal-kling3-motion' ? 'Optional: what the scene looks like' : 'Optional note for the card'} aria-label={edit ? 'What to change' : 'Note'} data-testid="swap-note" />
-      <span className="mst-go"><small>{!edit && !hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? `Add a clip to ${edit ? 'edit' : 'swap into'}` : edit && !note.trim() ? 'Say what to change' : `about $${est.toFixed(2)} on your ${where} (${m.by === 'frames' ? `$${m.rate} per 16 frames` : `$${m.rate}/s`})`}</small>
-        <button type="button" className="m-btn m-go" disabled={!!busy || !c || !m?.ready || (edit ? !note.trim() : !hasChar)} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : edit ? '✏ Edit the clip' : '🎭 Swap in the character'}</button></span></>}
+        <form className="mst-swaplink" onSubmit={onLink}><input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="…or paste a Bluesky post or an .mp4 link" aria-label="Clip link" data-testid="swap-link" />
+          <input className="m-input mst-start" type="number" min="0" max="3600" step="0.5" inputMode="decimal" value={start} onChange={e => setStart(e.target.value)} placeholder="Start s" aria-label="Start at, in seconds" data-tip="Where the 15 s starts" data-testid="swap-start" />
+          <button type="submit" className="m-btn" disabled={!rights || !!busy || !link.trim()} data-testid="swap-link-add">Add</button></form>
+        {clips.length ? <select className="m-input" value={c?.id || ''} onChange={e => setClip(e.target.value)} aria-label="Which clip" data-testid="swap-clip">{clips.map(x => <option key={x.id} value={x.id}>{x.label} · {Number(x.secs).toFixed(1)} s{x.source ? ` · ${x.source}` : ''}</option>)}</select> : null}</span>
+      <div className="m-seg" role="radiogroup" aria-label="Swap model">{list.map(x => <button key={x.id} type="button" role="radio" aria-checked={m?.id === x.id} className={m?.id === x.id ? 'active' : ''} onClick={() => setModel(x.id)} disabled={!x.ready} data-tip={x.ready ? `${x.why} · ${rateTip(x)}` : `Link ${x.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai'} first. ${x.why}`} data-testid={`swap-model-${x.id}`}>{x.label}</button>)}</div>
+      <input className="m-input" value={note} onChange={e => setNote(e.target.value)} maxLength={500} placeholder={edit ? 'What to change, e.g. make it night with neon signs' : m?.by === 'tokens' ? 'Optional: what to keep, e.g. keep his gold chain' : m?.id === 'fal-kling3-motion' ? 'Optional: what the scene looks like' : 'Optional note for the card'} aria-label={edit ? 'What to change' : 'Note'} data-testid="swap-note" />
+      <span className="mst-go"><small>{!edit && !hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? `Add a clip to ${edit ? 'edit' : 'swap into'}` : short ? 'Seedance needs a clip of 4 s or more' : edit && !note.trim() ? 'Say what to change' : `about $${est.toFixed(2)} on your ${where} (${rateTip(m)})`}</small>
+        <button type="button" className="m-btn m-go" disabled={!!busy || !c || !m?.ready || short || (edit ? !note.trim() : !hasChar)} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : edit ? '✏ Edit the clip' : '🎭 Swap in the character'}</button></span>
+      <small className="mst-note">Or ask in the chat: "replace the main character with {doc?.title || doc?.name || 'him'}".</small></>}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </div>;
 }
@@ -183,6 +201,14 @@ export function mediaPrompt(text, carry) {
   const t = String(text || '').replace(/^(video|image|img|pic|photo)\s*:\s*/i, '').trim(); const c = String(carry || '').replace(/\s+/g, ' ').trim();
   const pointing = /\b(this|him|her|it|them|same|that guy|the guy|the person|the character|this poc)\b/i.test(t) || t.split(/\s+/).length < 8;
   return c && pointing ? `${t}\nFrom this PoC: ${c.slice(0, 400)}` : t;
+}
+// 🎭 owner 2026-11-17: "ask for them to replace the main character with bishop". A chat line that asks to swap someone, in a PoC that HAS a clip,
+// runs the swap on the newest clip (OpenRouter's Seedance when linked); the owner's words ride along. A question is never a swap. Pure.
+const SWAP_VERB = /\b(replace|swap|switch|put|drop|stick)\b/i;
+const SWAP_WHO = /\b(main character|character|guy|person|man|woman|girl|boy|dude|him|her|face|dancer|actor|lead|subject|clip|video)\b/i;
+export function swapAsk(text, hasClip) {
+  const t = String(text || '').trim();
+  return !!hasClip && t.length < 400 && SWAP_VERB.test(t) && SWAP_WHO.test(t) && !/\?$/.test(t);
 }
 // the composer's model chip: Auto (cheap pick) or any ready image / video model; remembered per browser
 const MPICK = 'feeless.mediaPick';

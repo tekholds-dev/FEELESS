@@ -99,8 +99,27 @@ V2V = {
     # Your clip in, edited by your words (add, remove or replace things, restyle the scene); it keeps the clip's length and sound. No character.
     'or-flux-edit': ('black-forest-labs/flux-video-edit', 'FLUX Video Edit',
                      'Edits your own clip from your words: add, remove or replace things, restyle the scene. Same length and sound', 0.03, 'seconds'),
+    # 🎭 owner 2026-11-17 ("assure this works through open router as im not adding more funds into a fal key"): read the same day from OpenRouter's
+    # API reference: input_references takes image, audio AND video references, and video references are honoured by Seedance 2.0 and newer.
+    # Your clip = video 1, the folder's character = image 1, the prompt says keep everything of the clip but the main character. Priced from
+    # /videos/models (video_tokens_with_video_input) × Seedance's tokens (width × height × 24 fps × seconds / 1024): ~$1.39 / 15 s at 720p.
+    'or-seedance-swap': ('bytedance/seedance-2.0', 'Seedance 2.0 · Replace',
+                         'Puts your character into your clip: same scene, moves, camera and timing, your clip\'s own sound. The clean one', 0.0000043, 'tokens'),
+    'or-seedance-fast-swap': ('bytedance/seedance-2.0-fast', 'Seedance 2.0 Fast · Replace',
+                              'The same swap, quicker and about 40% cheaper, a little softer', 0.000002475, 'tokens'),
 }
-V2V_PROVIDER = {'or-flux-edit': 'openrouter'}   # every other swap runs on fal.ai
+V2V_PROVIDER = {'or-flux-edit': 'openrouter', 'or-seedance-swap': 'openrouter', 'or-seedance-fast-swap': 'openrouter'}   # the rest run on fal.ai
+SEEDANCE_SWAP = {'or-seedance-swap', 'or-seedance-fast-swap'}
+SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the reference image) is the character. Keep EVERYTHING of video 1: the same scene, background, camera moves, framing, timing, actions, '
+             'gestures and lighting, frame by frame. Replace only the main character of video 1 with the character in image 1: the same face, '
+             'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
+SEEDANCE_PX = 921600      # 720p in every aspect Seedance offers (1280×720, 720×1280, 960×960 …)
+SEEDANCE_MIN_S = 4        # Seedance 2.0 makes 4 to 15 s
+
+
+def swap_auto(linked):
+    """The swap a chat ask ("replace the main character with Bishop") runs on: OpenRouter's clean Seedance first, else fal.ai's Wan Replace."""
+    return 'or-seedance-swap' if 'openrouter' in linked else 'fal-wan-replace' if 'fal' in linked else None
 V2V_NO_CHAR = {'or-flux-edit'}                  # an edit needs your words, not a character picture
 
 
@@ -113,15 +132,30 @@ MAX_CLIP_S = 15           # a clip longer than this is refused (cost stays under
 def v2v_cost(model_id, seconds, fps=30):
     """The list-price estimate for one swap, from the clip's real length and frame rate. Pure."""
     ep, _l, _w, rate, by = V2V[model_id]
+    if by == 'tokens':
+        return round(SEEDANCE_PX * 24 * seedance_len(seconds) / 1024 * rate, 2)
     billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else float(seconds)
     return round(billed * rate, 2)
 
 
-def v2v_req(model_id, key, image, video, prompt=''):
+def seedance_len(seconds):
+    """The length Seedance makes for a clip: its own length, whole seconds, 4 to 15."""
+    return max(SEEDANCE_MIN_S, min(MAX_CLIP_S, int(round(float(seconds or SEEDANCE_MIN_S)))))
+
+
+def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
     """→ (method, url, headers, json) for one swap. `image` / `video` = data URLs or https URLs. Pure."""
     if model_id not in V2V:
-        raise ValueError('Pick Wan Replace, Kling Motion Control or FLUX Video Edit.')
+        raise ValueError('Pick Seedance Replace, Wan Replace, Kling Motion Control or FLUX Video Edit.')
     ep = V2V[model_id][0]
+    if model_id in SEEDANCE_SWAP:
+        if not image or not video:
+            raise ValueError('A swap needs your clip and the character picture.')
+        note = ' '.join(str(prompt or '').split())[:400]
+        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
+            'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'duration': seedance_len(seconds), 'resolution': '720p',
+            'aspect_ratio': aspect or '9:16', 'generate_audio': False,
+            'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
     if model_id == 'or-flux-edit':
         if not str(prompt or '').strip():
             raise ValueError('Say what to change in the clip.')

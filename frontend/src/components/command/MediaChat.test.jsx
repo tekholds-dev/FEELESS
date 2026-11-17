@@ -34,3 +34,13 @@ test('the composer chip lists ready image and video models and remembers the pic
   await act(async () => { document.querySelector('[data-testid="media-chip-video-bytedance/seedance"]').click(); });
   expect(setPick).toHaveBeenCalledWith('video', 'bytedance/seedance');
 });
+
+test('🎭 a swap ask in a PoC with a clip goes to the swap; a question or no clip does not', () => {
+  const { swapAsk } = require('./MediaStudio');
+  expect(swapAsk('replace the main character with bishop', true)).toBe(true);
+  expect(swapAsk('swap the guy for Bishop', true)).toBe(true);
+  expect(swapAsk('put bishop in the clip', true)).toBe(true);
+  expect(swapAsk('replace the main character with bishop', false)).toBe(false);   // nothing to swap into yet
+  expect(swapAsk('can you replace the guy with bishop?', true)).toBe(false);       // a question → the minds answer
+  expect(swapAsk('write 3 hooks for the caption', true)).toBe(false);
+});

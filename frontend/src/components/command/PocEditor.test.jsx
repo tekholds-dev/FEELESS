@@ -38,3 +38,38 @@ test("Happy's public results load with no sign-in, and an empty video editor pla
   expect(q(box, 'pce-empty-made').textContent).toContain('MADE BY HAPPY · Street interview · Veo 3.1 fast'); expect(q(box, 'pce-empty').querySelector('video').getAttribute('src')).toBe('/media/samples/street-interview.mp4');
   await act(async () => { q(box, 'pce-empty-use').click(); }); expect(used).toEqual(['s']);
 });
+
+const PROJ = { aspect: '9:16', sources: [{ id: 's1', name: 'street.mp4', dur: 10, kind: 'video' }, { id: 's2', name: 'intro.mp4', dur: 4, kind: 'video' }],
+  clips: [{ id: 'c1', src: 's1', in: 0, out: 10, speed: 1, fade: 0, mute: false }, { id: 'c2', src: 's2', in: 0, out: 4, speed: 1, fade: 0, mute: false }], texts: [], music: [] };
+async function editor(work) { const box = document.createElement('div'); document.body.appendChild(box); let root; await act(async () => { root = createRoot(box); root.render(<VideoEditor cat={{ id: 'c' }} work={work} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); }); return { box, root }; }
+const typeIn = async (el, v) => act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); });
+
+test('🧾 an agent edit is shown line by line before you keep it, and Undo all brings yours back', async () => {
+  const work = jest.fn(async (_c, b) => (b.op === 'playc_get' ? { project: PROJ, files: [], canAsk: true, canPaid: true, pocs: [{ id: 'w1', name: 'Bishop' }] }
+    : b.op === 'playc_ask' ? { project: { ...PROJ, clips: [{ ...PROJ.clips[0], out: 6 }], texts: [{ id: 't9', at: 0, dur: 2.5, text: 'WAIT FOR IT', y: 0.2, size: 0.07, color: '#ffffff' }] }, say: 'Tighter.', usd: 0.001 } : { ok: true }));
+  const { box, root } = await editor(work);
+  expect(q(box, 'pce-safe-zones').children).toHaveLength(3);   // 9:16: top bar, handle + caption, like · share
+  await typeIn(q(box, 'pce-ask'), 'make it tighter with a hook');
+  await act(async () => q(box, 'pce-send').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  const ch = q(box, 'pce-changes');
+  expect(ch.textContent).toContain('Tighter.'); expect(ch.textContent).toContain('Trimmed street.mp4: 10.0 s → 6.0 s'); expect(ch.textContent).toContain('Cut intro.mp4 (4.0 s)'); expect(ch.textContent).toContain('WAIT FOR IT');
+  expect(q(box, 'pce-clock').textContent).toContain('0:06.0');
+  await act(async () => q(box, 'pce-undo-agent').click());
+  expect(q(box, 'pce-changes')).toBeNull(); expect(q(box, 'pce-clock').textContent).toContain('0:14.0');
+  await act(async () => root.unmount());
+});
+
+test('🎭 a swap ask in the editor points to Post; + Hook adds words in the safe area; Post lists your PoC folders and needs the rights tick', async () => {
+  const work = jest.fn(async (_c, b) => (b.op === 'playc_get' ? { project: PROJ, files: [], canAsk: true, canPaid: false, pocs: [{ id: 'w1', name: 'Bishop' }] } : { ok: true }));
+  const { box, root } = await editor(work);
+  await typeIn(q(box, 'pce-ask'), 'swap the guy for my character');
+  await act(async () => q(box, 'pce-send').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  expect(q(box, 'pce-said').textContent).toContain('📤 Post'); expect(work.mock.calls.some(([, b]) => b.op === 'playc_ask')).toBe(false);
+  expect(q(box, 'pce-captions').disabled).toBe(true);   // no OpenRouter key on this agent
+  await act(async () => q(box, 'pce-hook').click()); expect(q(box, 'pce-words').value).toBe('THE PAYOFF FIRST');
+  await act(async () => q(box, 'pce-post').click());
+  expect([...q(box, 'pce-post-to').options].map(o => o.textContent)).toEqual(['A new PoC folder named “Video edit”', 'Bishop']);
+  expect(q(box, 'pce-post-go').disabled).toBe(true); await act(async () => q(box, 'pce-post-rights').click()); expect(q(box, 'pce-post-go').disabled).toBe(false);
+  await act(async () => q(box, 'pce-safe').click()); expect(q(box, 'pce-safe-zones')).toBeNull();
+  await act(async () => root.unmount());
+});

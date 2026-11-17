@@ -75,3 +75,10 @@ body.theme-day .mst-card { background: var(--ms-tx9); border-color: var(--ms-ac1
 .mst-swap { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--m-line); }
 .mst-rights { display: flex; align-items: center; gap: 8px; font: 600 12px var(--f-ui); color: var(--m-dim); }
 .mst-swap .m-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.mst-swap .mst-refadd { flex-wrap: wrap; }
+.mst-swap .mst-refadd .mst-swaplink { flex: 1 1 100%; order: 2; }
+.mst-swap .mst-refadd > select { flex: 1 1 200px; min-width: 0; order: 1; }
+.mst-swap .mst-swaplink .mst-start { flex: 0 0 76px; }
+.mst-spot { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--ms-ac7); background: var(--ms-ac14); font: 600 12px var(--f-ui); min-width: 0; }
+.mst-spot b { color: var(--m-accent); white-space: nowrap; }
+.mst-spot span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--m-dim); }

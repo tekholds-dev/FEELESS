@@ -102,3 +102,19 @@ body.theme-day .pcm { background: var(--pe-tx1); border-color: var(--pe-bg7); bo
 .pcm-proof.is-happy { background: var(--pce); color: var(--pe-bg5); border-color: transparent; }
 body.fx-lite .pcs-made i, body.fx-lite .pcs-media { animation: none; } @media (prefers-reduced-motion: reduce) { .pcs-made i, .pcs-media { animation: none; } }
 @media (max-width: 640px) { .pcs-card { padding: 10px; } .pcs-card b { font-size: 15px; } .pcs-made { white-space: normal; } }
+/* 🖐 studio 2026-11-17: drops, safe zones, clip reorder, Post, the agent's changes */
+.pce-work.is-drop .pce-stage, .pce-tl.is-drop { outline: 2px dashed var(--pce); outline-offset: 2px; }
+.pce-dropnote { position: absolute; inset: auto 0 45% 0; z-index: 3; text-align: center; font: 800 15px var(--f-ui); color: var(--pe-tx1); text-shadow: 0 1px 6px var(--pe-bg2); pointer-events: none; }
+.pce-safe { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pce-safe i { position: absolute; display: grid; place-items: center; background: repeating-linear-gradient(135deg, var(--pe-bg7) 0 6px, transparent 6px 12px); border: 1px dashed var(--pe-tx3); }
+.pce-safe small { font: 700 9px var(--f-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--pe-tx1); opacity: .75; }
+.pce-clip.is-drag { opacity: .45; }
+.pce-clip[draggable="true"] { cursor: grab; }
+.pce-post, .pce-changes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--pe-tx3); background: var(--pe-bg3); }
+.pce-post label:first-child { display: flex; align-items: center; gap: 6px; flex: 1 1 260px; min-width: 0; } .pce-post select { flex: 1; min-width: 0; }
+.pce-changes { display: grid; gap: 6px; border-color: var(--pce); }
+.pce-changes b { font: 700 13px var(--f-ui); color: var(--pe-tx1); }
+.pce-changes ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.pce-changes li { font: 500 12px var(--f-mono); color: var(--pe-tx1); animation: pceIn .24s var(--m-ease) both; animation-delay: calc(var(--i) * 40ms); }
+.pce-changes li::before { content: '▸ '; color: var(--pce); }
+@media (prefers-reduced-motion: reduce) { .pce-changes li { animation: none; } }
