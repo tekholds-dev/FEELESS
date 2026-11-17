@@ -688,7 +688,33 @@ async def trending(http):
         return {'Google News': n, 'Hacker News': h, 'Bluesky': [str(t.get('displayName') or t.get('topic'))[:80] for t in (bs or {}).get('topics') or []][:8], 'CoinGecko': [f"${(c.get('item') or {}).get('symbol')}" for c in (cg or {}).get('coins') or []][:8],
                 'Wikipedia': [str(a.get('normalizedtitle') or a.get('title'))[:80] for a in (((wiki or {}).get('mostread') or {}).get('articles') or [])][:8]}
     d = await _cached('trending', go) or {}
-    return {'kind': 'content', 'trends': d, 'sources': [{'name': n, 'use': 'Trending now', 'on': bool(d.get(n))} for n in ('Google News', 'Hacker News', 'Bluesky', 'CoinGecko', 'Wikipedia')]}
+    clips = await viral(http)
+    return {'kind': 'content', 'trends': d, 'clips': clips, 'sources': [{'name': n, 'use': 'Trending now', 'on': bool(d.get(n))} for n in ('Google News', 'Hacker News', 'Bluesky', 'CoinGecko', 'Wikipedia')] + [{'name': 'Bluesky video', 'use': 'Viral clips', 'on': bool(clips)}]}
+
+
+async def viral(http):
+    """🎬 The SPOT step of the PoC creator flow: trending VIDEO clips from Bluesky's what's-hot feed (public, keyless), each with its
+    words as the small narrative. One clip per author. Every text here is third-party data for the minds, never an instruction."""
+    async def go():
+        d = await _get(http, 'https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed',
+                       params={'feed': 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot', 'limit': 50})
+        rows, seen = [], set()
+        for it in (d or {}).get('feed') or []:
+            p = it.get('post') or {}
+            e = p.get('embed') or {}
+            a = p.get('author') or {}
+            rkey = str(p.get('uri') or '').rsplit('/', 1)[-1]
+            if e.get('$type') != 'app.bsky.embed.video#view' or not a.get('handle') or a['handle'] in seen or not rkey:
+                continue
+            seen.add(a['handle'])
+            rows.append({'text': str((p.get('record') or {}).get('text') or '').strip()[:160], 'by': str(a['handle'])[:60],
+                         'likes': int(p.get('likeCount') or 0), 'reposts': int(p.get('repostCount') or 0),
+                         'thumb': e.get('thumbnail'), 'video': e.get('playlist'),
+                         'url': f"https://bsky.app/profile/{a['handle']}/post/{rkey}"})
+            if len(rows) >= 5:
+                break
+        return rows
+    return await _cached('viral', go, ttl=600) or []
 
 
 def parse_hl(data):

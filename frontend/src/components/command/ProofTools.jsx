@@ -52,8 +52,24 @@ function PowDash({ d, onCommand }) {
     {col('FEELESS intake', d.intake, r => <button type="button" className="ptl-link" onClick={() => onCommand?.('file a PoW')} data-tip="Puts “file a PoW” in the chat box">{r.sym ? `$${r.sym}` : shortMint(r.mint)}</button>)}
   </div>;
 }
-function ContentDash({ d }) {
-  return <div className="ptl-grid is-3" data-testid="ptl-trends">{Object.entries(d.trends || {}).filter(([, v]) => v?.length).map(([k, v]) => <section key={k}><h4>{k}</h4><ol className="ptl-list">{v.slice(0, 5).map(t => <li key={t}><span>{t}</span></li>)}</ol></section>)}</div>;
+// 📣 THE CREATOR FLOW (owner 2026-11-16, "a better elite creator flow and playground"): Spot what is hot (real viral clips + live topics),
+// one tap writes the filing, the minds script it, the studio (FLUX edit / video models) makes it, you post and report. All data is real.
+const FLOW_STEPS = [['SPOT', 'live clips + topics below'], ['SCRIPT', 'both minds pitch the hook'], ['MAKE', 'studio · FLUX video edit'], ['POST', 'you post · report what it earned']];
+const compactN = v => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : String(v || 0));
+export function ContentDash({ d, onCommand }) {
+  const clips = d.clips || []; const maxL = Math.max(1, ...clips.map(c => c.likes || 0));
+  const topics = Object.entries(d.trends || {}).flatMap(([k, v]) => (v || []).slice(0, 4).map(t => [k, t]));
+  return <div className="ptl-cflow" data-testid="ptl-trends">
+    <ol className="ptl-steps" aria-label="Creator flow">{FLOW_STEPS.map(([t, s], i) => <li key={t} style={{ '--i': i }}><em className="m-num">{i + 1}</em><b>{t}</b><small>{s}</small></li>)}</ol>
+    {clips.length ? <ol className="ptl-clips" data-testid="ptl-clips">{clips.map((c, i) => <li key={c.url} className="ptl-clip" style={{ '--i': i }}>
+      <a href={c.url} target="_blank" rel="noopener noreferrer" className="ptl-clip-t" data-tip="Open the post where it lives" aria-label={`Open the clip by ${c.by}`}>{c.thumb ? <img src={c.thumb} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}<em className="ptl-clip-play" aria-hidden="true">▶</em></a>
+      <p>{c.text || 'No words, just the clip.'}</p>
+      <div className="ptl-clip-n"><b className="m-num">♥ {compactN(c.likes)}</b><Bar v={(c.likes || 0) / maxL} /><small className="m-num">↻ {compactN(c.reposts)}</small></div>
+      <small className="ptl-clip-by">@{c.by}</small>
+      {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(`file a poc on the angle behind this trending clip: "${String(c.text || '').slice(0, 80)}"`)} data-tip="Puts the filing in the chat box. You press send" data-testid={`ptl-clip-go-${i}`}>Write the angle</button> : null}
+    </li>)}</ol> : <p className="ptl-none">No trending clips right now. It tries again in a minute.</p>}
+    {topics.length ? <div className="chr-chips ptl-topics" data-testid="ptl-topics">{topics.map(([k, t]) => <button key={k + t} type="button" className="m-chip" onClick={() => onCommand?.(`file a poc about ${t}`)} data-tip={`${k} · puts the filing in the chat box. You press send`}>{String(t).length > 48 ? `${String(t).slice(0, 48)}…` : t}</button>)}</div> : null}
+  </div>;
 }
 function PopDash({ d, onCommand }) {
   return <><div className="ptl-vitals"><span><em>MOOD</em><b>{d.mood || '—'}</b><small>{d.moodValue}/100</small></span><span><em>BTC SPOT</em><b className="m-num">{d.btcSpot ? `$${Math.round(d.btcSpot).toLocaleString('en-US')}` : '—'}</b></span><span><em>BTC DOMINANCE</em><b className="m-num">{d.btcDom ? `${d.btcDom.toFixed(1)}%` : '—'}</b></span><span><em>PERP VOLUME 24H</em><b className="m-num">{big(d.perpVol24h)}</b></span></div>
@@ -67,7 +83,7 @@ export function ProofTools({ kind, onCommand, loadCalls = null, startOpen = true
   // 📡 only a tap on its header folds it (owner 2026-11-16 "WHERES MY OLD VIEW"): a stray toggle event as the window opened left the games folded shut
   return <details className="ptl" open={open} data-testid={`ptl-${kind}`}><summary onClick={e => { e.preventDefault(); setOpen(o => !o); }} aria-expanded={open} data-testid={`ptl-${kind}-fold`}><b><Ic3 e="🧰" /> LIVE TOOLS</b><Sources rows={d?.sources} /></summary>
     {err && !d ? <p className="ptl-none" role="alert">These sources could not be read. It tries again in a minute.</p> : !d ? <p className="ptl-none">Reading its sources…</p>
-      : kind === 'bids' ? <BidsDash d={d} sport={sport} setSport={setSport} team={team} setTeam={setTeam} onCommand={onCommand} loadCalls={loadCalls} /> : kind === 'pop' ? <PopDash d={d} onCommand={onCommand} /> : kind === 'content' ? <ContentDash d={d} /> : <PowDash d={d} onCommand={onCommand} />}
+      : kind === 'bids' ? <BidsDash d={d} sport={sport} setSport={setSport} team={team} setTeam={setTeam} onCommand={onCommand} loadCalls={loadCalls} /> : kind === 'pop' ? <PopDash d={d} onCommand={onCommand} /> : kind === 'content' ? <ContentDash d={d} onCommand={onCommand} /> :<PowDash d={d} onCommand={onCommand} />}
     {rail ? <div className="prm-rail">{kind === 'bids' ? <WatchRoom onBrowse={onBrowse} /> : <ProofCalc kind={kind} />}</div> : null}
   </details>;
 }
