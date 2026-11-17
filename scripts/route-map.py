@@ -26,14 +26,25 @@ def route_map(svc):
     for method, path in sorted(asks):
         kind = 'websocket' if method == 'WEBSOCKET' else 'http'
         scope = {'type': kind, 'path': path, 'root_path': '', 'method': 'GET' if kind == 'websocket' else method, 'headers': [], 'query_string': b''}
-        hit = '—'
-        for r in app.router.routes:
-            m, child = r.matches(scope)
-            if m == Match.FULL:
-                ep = child.get('endpoint') or getattr(r, 'endpoint', None)
-                hit = getattr(ep, '__name__', repr(ep)); break
-        out[f'{method:<9} {path}'] = hit
+        out[f'{method:<9} {path}'] = _first(app.router.routes, scope, Match) or '—'
     return out
+
+
+def _first(routes, scope, Match):
+    """The function of the first route that fully matches, in order. FastAPI ≥ 0.13x keeps an included router as ONE _IncludedRouter entry
+    (it walks original_router.routes in order); older FastAPI copies its routes in. Both are walked the same way here."""
+    for r in routes:
+        inner = getattr(r, 'original_router', None)
+        if inner is not None:
+            hit = _first(inner.routes, scope, Match)
+            if hit:
+                return hit
+            continue
+        m, child = r.matches(scope)
+        if m == Match.FULL:
+            ep = child.get('endpoint') or getattr(r, 'endpoint', None)
+            return getattr(ep, '__name__', repr(ep))
+    return None
 
 
 def render(m):

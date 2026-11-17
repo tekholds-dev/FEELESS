@@ -12,9 +12,9 @@ SRC = service_src(routes=False)   # the service with its moved sections in place
 
 
 def test_no_route_is_bound_to_a_private_helper():
-    bad = [(r.path, r.endpoint.__name__) for r in rs.app.routes if getattr(r, 'endpoint', None) is not None and r.endpoint.__name__.startswith('_')]
+    bad = [(r.path, r.endpoint.__name__) for r in __import__('_routes').flat_routes(rs.app) if getattr(r, 'endpoint', None) is not None and r.endpoint.__name__.startswith('_')]
     assert not bad, bad
-    intel = [r for r in rs.app.routes if getattr(r, 'path', '') == '/api/reputation/intel/{chain}/{mint}']
+    intel = [r for r in __import__('_routes').flat_routes(rs.app) if getattr(r, 'path', '') == '/api/reputation/intel/{chain}/{mint}']
     assert intel and intel[0].endpoint.__name__ == 'token_intel'
 
 

@@ -201,7 +201,7 @@ def test_confirmed_trade_reports_season_points_exactly_once(engine):
 
     async def fake_landed(order):
         landed.append(order['signature'])
-    route = next(r for r in client.app.routes if getattr(r, 'path', '') == '/api/trading/order/{order_id}')
+    route = next(r for r in __import__('_routes').flat_routes(client.app) if getattr(r, 'path', '') == '/api/trading/order/{order_id}')
     svc = route.endpoint.__closure__ and next(c.cell_contents for c in route.endpoint.__closure__ if isinstance(c.cell_contents, trading.TradingService))
     svc.trade_landed = fake_landed
     assert client.get('/api/trading/order/o1').json()['state'] == 'confirmed'

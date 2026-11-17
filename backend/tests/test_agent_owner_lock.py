@@ -89,7 +89,7 @@ def test_every_owner_door_refuses_a_signed_out_caller(monkeypatch):
     fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
     public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}', '/api/cats/{cat_id}/live', '/api/cats/{cat_id}/record'}   # record: AGT-10 public counts only (test_public_record checks nothing private leaks)
     seen = 0
-    for r in fs.app.routes:
+    for r in __import__('_routes').flat_routes(fs.app):
         path = getattr(r, 'path', '')
         if not path.startswith('/api/cats/{cat_id}') or path in public_ok:
             continue

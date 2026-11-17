@@ -11,6 +11,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 @pytest.mark.parametrize('module', ['reputation_service', 'feecat_service'])
 def test_no_duplicate_routes(module):
     mod = pytest.importorskip(module)
-    seen = Counter((m, r.path) for r in mod.app.routes for m in (getattr(r, 'methods', None) or []))
+    seen = Counter((m, r.path) for r in __import__('_routes').flat_routes(mod.app) for m in (getattr(r, 'methods', None) or []))
     dupes = sorted(f'{m} {p}' for (m, p), n in seen.items() if n > 1)
     assert not dupes, f'duplicate routes: {dupes}'
