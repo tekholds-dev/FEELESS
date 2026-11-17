@@ -22,7 +22,7 @@ def test_viral_keeps_only_videos_one_per_author_capped_at_five(monkeypatch):
     _fake_feed(monkeypatch, feed)
     rows = asyncio.run(t.viral(None))
     assert len(rows) == 5 and [r['by'] for r in rows] == ['a.bsky', 'c0.bsky', 'c1.bsky', 'c2.bsky', 'c3.bsky']
-    assert rows[0] == {'text': 'words', 'by': 'a.bsky', 'likes': 10, 'reposts': 2, 'thumb': 'https://v/1.jpg',
+    assert rows[0] == {'src': 'bluesky', 'text': 'words', 'by': 'a.bsky', 'likes': 10, 'reposts': 2, 'thumb': 'https://v/1.jpg',
                        'video': 'https://v/1.m3u8', 'url': 'https://bsky.app/profile/a.bsky/post/rk1'}
 
 
@@ -40,3 +40,43 @@ def test_trending_carries_the_clips_and_names_the_source(monkeypatch):
     assert d['kind'] == 'content' and len(d['clips']) == 1
     row = [s for s in d['sources'] if s['name'] == 'Bluesky video'][0]
     assert row == {'name': 'Bluesky video', 'use': 'Viral clips', 'on': True}
+
+
+def _yt_fake(monkeypatch, answers):
+    t._cache.clear(); asked = []
+    async def fake(http, url, **kw):
+        asked.append((url, kw.get('params') or {}))
+        for k, v in answers.items():
+            if k in url:
+                return v
+        return None
+    monkeypatch.setattr(t, '_get', fake)
+    return asked
+
+
+def test_youtube_with_a_key_reads_the_24h_most_viewed_and_drops_live(monkeypatch):
+    monkeypatch.setenv('YOUTUBE_API_KEY', 'k')
+    vid = lambda i, views, live='none': {'id': i * 11 if len(i) == 1 else i, 'snippet': {'title': f't{i}', 'channelTitle': 'ch', 'liveBroadcastContent': live, 'thumbnails': {'high': {'url': f'https://i/{i}.jpg'}}}, 'statistics': {'viewCount': str(views), 'likeCount': '7'}}
+    asked = _yt_fake(monkeypatch, {'youtube/v3/search': {'items': [{'id': {'videoId': 'aaaaaaaaaaa'}}, {'id': {'videoId': 'bbbbbbbbbbb'}}, {'id': {'videoId': 'ccccccccccc'}}]},
+                                   'youtube/v3/videos': {'items': [vid('a', 100), vid('b', 900), vid('c', 5000, 'live')]}})
+    rows = asyncio.run(t.yt_trending(None))
+    assert [r['url'][-11:] for r in rows] == ['bbbbbbbbbbb', 'aaaaaaaaaaa'] and rows[0] == {'src': 'youtube', 'text': 'tb', 'by': 'ch', 'views': 900, 'likes': 7, 'thumb': 'https://i/b.jpg', 'video': None, 'url': 'https://www.youtube.com/watch?v=bbbbbbbbbbb'}
+    s = asked[0][1]
+    assert s['order'] == 'viewCount' and s['type'] == 'video' and s['publishedAfter'].endswith('Z') and s['key'] == 'k'
+
+
+def test_youtube_without_a_key_uses_the_mirror_and_skips_live_streams(monkeypatch):
+    monkeypatch.delenv('YOUTUBE_API_KEY', raising=False)
+    _yt_fake(monkeypatch, {'piped': [{'url': '/watch?v=LIVELIVELIV', 'title': 'live', 'duration': -1, 'views': 9999, 'uploaderName': 'x'},
+                                     {'url': '/watch?v=CLIPCLIPCLI', 'title': 'clip', 'duration': 621, 'views': 1534, 'uploaderName': 'y', 'thumbnail': 'https://t/1.jpg'}]})
+    rows = asyncio.run(t.yt_trending(None))
+    assert len(rows) == 1 and rows[0]['text'] == 'clip' and rows[0]['views'] == 1534 and rows[0]['likes'] is None
+
+
+def test_trending_puts_youtube_first_and_says_where_it_came_from(monkeypatch):
+    monkeypatch.delenv('YOUTUBE_API_KEY', raising=False)
+    _yt_fake(monkeypatch, {'piped': [{'url': '/watch?v=CLIPCLIPCLI', 'title': 'clip', 'duration': 60, 'views': 5, 'uploaderName': 'y'}], 'getFeed': {'feed': [_post('a.bsky', 1)]}})
+    d = asyncio.run(t.trending(None))
+    assert [c.get('src', 'bluesky') for c in d['clips']] == ['youtube', 'bluesky']
+    yt = [s for s in d['sources'] if s['name'] == 'YouTube'][0]
+    assert yt['on'] and 'YOUTUBE_API_KEY' in yt['use']

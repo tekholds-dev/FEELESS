@@ -2,6 +2,7 @@
 Every number comes from a source named on screen. "Best" means the market's own odds say it is most likely: never a promise."""
 import asyncio
 import json
+import os
 import re
 import time
 from urllib.parse import quote
@@ -688,8 +689,46 @@ async def trending(http):
         return {'Google News': n, 'Hacker News': h, 'Bluesky': [str(t.get('displayName') or t.get('topic'))[:80] for t in (bs or {}).get('topics') or []][:8], 'CoinGecko': [f"${(c.get('item') or {}).get('symbol')}" for c in (cg or {}).get('coins') or []][:8],
                 'Wikipedia': [str(a.get('normalizedtitle') or a.get('title'))[:80] for a in (((wiki or {}).get('mostread') or {}).get('articles') or [])][:8]}
     d = await _cached('trending', go) or {}
-    clips = await viral(http)
-    return {'kind': 'content', 'trends': d, 'clips': clips, 'sources': [{'name': n, 'use': 'Trending now', 'on': bool(d.get(n))} for n in ('Google News', 'Hacker News', 'Bluesky', 'CoinGecko', 'Wikipedia')] + [{'name': 'Bluesky video', 'use': 'Viral clips', 'on': bool(clips)}]}
+    yt, sky = await asyncio.gather(yt_trending(http), viral(http))
+    return {'kind': 'content', 'trends': d, 'clips': yt[:5] + sky, 'sources': [{'name': n, 'use': 'Trending now', 'on': bool(d.get(n))} for n in ('Google News', 'Hacker News', 'Bluesky', 'CoinGecko', 'Wikipedia')]
+            + [{'name': 'YouTube', 'use': 'Most-viewed videos posted in the last 24 hours' if os.environ.get('YOUTUBE_API_KEY') else 'Trending, through a public mirror (add YOUTUBE_API_KEY for the real 24 h most-viewed)', 'on': bool(yt)},
+               {'name': 'Bluesky video', 'use': 'Viral clips', 'on': bool(sky)}]}
+
+
+def _yt_row(vid, title, by, views, likes, thumb):
+    return {'src': 'youtube', 'text': str(title or '').strip()[:160], 'by': str(by or '')[:60], 'views': int(views or 0), 'likes': int(likes) if likes is not None else None,
+            'thumb': thumb or f'https://i.ytimg.com/vi/{vid}/hqdefault.jpg', 'video': None, 'url': f'https://www.youtube.com/watch?v={vid}'}
+
+
+async def yt_trending(http, region='US'):
+    """🎬 YouTube's hot videos for the PoC SPOT step (owner 2026-11-16 'we need yt trending'). YouTube retired its Trending page in July 2025 and the API's
+    mostPopular chart is now only music, movies and gaming, so with a free YOUTUBE_API_KEY it reads the most-viewed videos posted in the last 24 hours
+    (search 100 units + stats 1 unit, cached 30 min ≈ 4,900 of the free 10,000 a day). Without a key: the public Piped mirror's list, live streams dropped."""
+    key = os.environ.get('YOUTUBE_API_KEY', '').strip()
+
+    async def by_api():
+        since = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time() - 86400))
+        s = await _get(http, 'https://www.googleapis.com/youtube/v3/search', params={'part': 'id', 'type': 'video', 'order': 'viewCount', 'publishedAfter': since,
+                                                                                   'regionCode': region, 'relevanceLanguage': 'en', 'safeSearch': 'moderate', 'maxResults': 12, 'key': key})
+        ids = [(i.get('id') or {}).get('videoId') for i in (s or {}).get('items') or []]
+        ids = [i for i in ids if i]
+        if not ids:
+            return []
+        v = await _get(http, 'https://www.googleapis.com/youtube/v3/videos', params={'part': 'snippet,statistics', 'id': ','.join(ids), 'key': key})
+        rows = [_yt_row(x['id'], (x.get('snippet') or {}).get('title'), (x.get('snippet') or {}).get('channelTitle'), (x.get('statistics') or {}).get('viewCount'),
+                        (x.get('statistics') or {}).get('likeCount'), (((x.get('snippet') or {}).get('thumbnails') or {}).get('high') or {}).get('url'))
+                for x in (v or {}).get('items') or [] if x.get('id') and (x.get('snippet') or {}).get('liveBroadcastContent', 'none') == 'none']
+        return sorted(rows, key=lambda r: -r['views'])[:8]
+
+    async def by_mirror():
+        d = await _get(http, 'https://api.piped.private.coffee/trending', params={'region': region})
+        rows = []
+        for x in d if isinstance(d, list) else []:
+            m = re.search(r'v=([\w-]{11})', str(x.get('url') or ''))
+            if m and (x.get('duration') or 0) > 0 and (x.get('views') or 0) > 0:   # -1 = a live stream, not a clip
+                rows.append(_yt_row(m.group(1), x.get('title'), x.get('uploaderName'), x.get('views'), None, x.get('thumbnail')))
+        return sorted(rows, key=lambda r: -r['views'])[:8]
+    return await _cached('yt:' + ('api' if key else 'mirror') + region, by_api if key else by_mirror, ttl=1800) or []
 
 
 async def viral(http):
@@ -707,7 +746,7 @@ async def viral(http):
             if e.get('$type') != 'app.bsky.embed.video#view' or not a.get('handle') or a['handle'] in seen or not rkey:
                 continue
             seen.add(a['handle'])
-            rows.append({'text': str((p.get('record') or {}).get('text') or '').strip()[:160], 'by': str(a['handle'])[:60],
+            rows.append({'src': 'bluesky', 'text': str((p.get('record') or {}).get('text') or '').strip()[:160], 'by': str(a['handle'])[:60],
                          'likes': int(p.get('likeCount') or 0), 'reposts': int(p.get('repostCount') or 0),
                          'thumb': e.get('thumbnail'), 'video': e.get('playlist'),
                          'url': f"https://bsky.app/profile/{a['handle']}/post/{rkey}"})

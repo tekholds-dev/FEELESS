@@ -8825,6 +8825,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     html_s_, usd_s_, own_s_, n_s_ = await _ws_sections(cat, [brains[j] for j in order], text, read_ + kits_); cost += usd_s_; paid_own = paid_own or own_s_
                     if html_s_:
                         html = html_s_; _feat.add_msg(doc, name(i), f"The whole page did not fit in one reply, so it was built in {n_s_} sections" + (f" shared by {' and '.join(name(j) for j in order)}." if len(order) > 1 else '.'), time.time())
+                if (not html or not _feat.page_complete(html)) and cur and not region and _feat.wants_restyle(text):   # 🎨 a new LOOK on a page too big to write whole: one CSS block that wins, never patches that must match by the letter
+                    css_raw_, css_usd_, css_own_ = await _ws_ask(cat, brains[i], _feat.RESTYLE_SYS + kits_, _feat.restyle_prompt(text, cur), 3200)
+                    cost += css_usd_; paid_own = css_own_; styled_ = _feat.add_css(cur, css_raw_)
+                    html = styled_ if styled_ != cur else None
                 if (not html or not _feat.page_complete(html)) and cur:
                     html, landed_, said_ = cur, 0, ''
                     for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
@@ -8837,7 +8841,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                         if not said_:
                             break
                     html = html if landed_ else None
-                    stop_why = 'Its changes did not match the page.' if not landed_ else stop_why
+                    stop_why = 'Its changes did not match the page. Mark the part to change with +, or say "rebuild" to have it write the whole page new.' if not landed_ else stop_why
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
                     stop_why = 'Its answer was cut off before the page finished.'

@@ -57,15 +57,17 @@ function PowDash({ d, onCommand }) {
 const FLOW_STEPS = [['SPOT', 'live clips + topics below'], ['SCRIPT', 'both minds pitch the hook'], ['MAKE', 'studio · FLUX video edit'], ['POST', 'you post · report what it earned']];
 const compactN = v => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : String(v || 0));
 export function ContentDash({ d, onCommand }) {
-  const clips = d.clips || []; const maxL = Math.max(1, ...clips.map(c => c.likes || 0));
+  const [src, setSrc] = useState('all'); const all = d.clips || []; const has = s => all.some(c => (c.src || 'bluesky') === s);
+  const clips = src === 'all' ? all : all.filter(c => (c.src || 'bluesky') === src); const hot = c => (c.views != null ? c.views : c.likes || 0); const maxL = Math.max(1, ...clips.map(hot));
   const topics = Object.entries(d.trends || {}).flatMap(([k, v]) => (v || []).slice(0, 4).map(t => [k, t]));
   return <div className="ptl-cflow" data-testid="ptl-trends">
     <ol className="ptl-steps" aria-label="Creator flow">{FLOW_STEPS.map(([t, s], i) => <li key={t} style={{ '--i': i }}><em className="m-num">{i + 1}</em><b>{t}</b><small>{s}</small></li>)}</ol>
+    {has('youtube') && has('bluesky') ? <div className="m-seg ptl-csrc" role="tablist" aria-label="Clip source">{[['all', 'All'], ['youtube', 'YouTube'], ['bluesky', 'Bluesky']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => setSrc(k)} data-testid={`ptl-csrc-${k}`}>{l}</button>)}</div> : null}
     {clips.length ? <ol className="ptl-clips" data-testid="ptl-clips">{clips.map((c, i) => <li key={c.url} className="ptl-clip" style={{ '--i': i }}>
       <a href={c.url} target="_blank" rel="noopener noreferrer" className="ptl-clip-t" data-tip="Open the post where it lives" aria-label={`Open the clip by ${c.by}`}>{c.thumb ? <img src={c.thumb} alt="" loading="lazy" /> : <span aria-hidden="true">▶</span>}<em className="ptl-clip-play" aria-hidden="true">▶</em></a>
       <p>{c.text || 'No words, just the clip.'}</p>
-      <div className="ptl-clip-n"><b className="m-num">♥ {compactN(c.likes)}</b><Bar v={(c.likes || 0) / maxL} /><small className="m-num">↻ {compactN(c.reposts)}</small></div>
-      <small className="ptl-clip-by">@{c.by}</small>
+      <div className="ptl-clip-n">{c.views != null ? <b className="m-num" data-tip="Views">▶ {compactN(c.views)}</b> : <b className="m-num" data-tip="Likes">♥ {compactN(c.likes)}</b>}<Bar v={hot(c) / maxL} />{c.views != null ? (c.likes != null ? <small className="m-num" data-tip="Likes">♥ {compactN(c.likes)}</small> : <small />) :<small className="m-num" data-tip="Reposts">↻ {compactN(c.reposts)}</small>}</div>
+      <small className="ptl-clip-by">{c.src === 'youtube' ? '' : '@'}{c.by}{c.src === 'youtube' ? ' · YouTube' : ''}</small>
       {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(`file a poc on the angle behind this trending clip: "${String(c.text || '').slice(0, 80)}"`)} data-tip="Puts the filing in the chat box. You press send" data-testid={`ptl-clip-go-${i}`}>Write the angle</button> : null}
     </li>)}</ol> : <p className="ptl-none">No trending clips right now. It tries again in a minute.</p>}
     {topics.length ? <div className="chr-chips ptl-topics" data-testid="ptl-topics">{topics.map(([k, t]) => <button key={k + t} type="button" className="m-chip" onClick={() => onCommand?.(`file a poc about ${t}`)} data-tip={`${k} · puts the filing in the chat box. You press send`}>{String(t).length > 48 ? `${String(t).slice(0, 48)}…` : t}</button>)}</div> : null}

@@ -102,3 +102,4 @@ body.theme-day :is(.ptl-steps li, .ptl-clip) { background: var(--prooft-tx10); b
 body.fx-lite :is(.ptl-steps li, .ptl-clip) { animation: none; opacity: 1; transform: none; } body.fx-lite .ptl-clip-t img { transition: none; }
 @media (prefers-reduced-motion: reduce) { .ptl-steps li, .ptl-clip { animation: none; opacity: 1; transform: none; } .ptl-clip-t img, .ptl-clip { transition: none; } }
 .ptl-topics .m-chip { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; text-transform: none; letter-spacing: .02em; min-height: 28px; }
+.ptl-csrc { justify-self: start; } .ptl-csrc button { min-height: 32px; padding: 0 12px; font-size: 10.5px; }

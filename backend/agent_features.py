@@ -241,6 +241,36 @@ def wants_rewrite(cur, ask):
     return len(cur or '') <= REWRITE_MAX_CHARS or bool(_FROM_SCRATCH.search(str(ask or '')))
 
 
+_RESTYLE = re.compile(r'(?i)\b(look|looks|style|styling|restyle|alive|vibe|redesign|re-?skin|theme|colou?rs?|glow|animat\w*|motion|modern|polish|prettier|beautif\w*|aesthetic|fonts?|typography|dark mode|light mode|sleek|premium|elite)\b')
+
+
+def wants_restyle(ask):
+    """🎨 The owner asks for a new LOOK (owner 2026-11-16 'upgrade this look, make it look alive' failed twice as tiny patches on a 26K page).
+    A look is CSS: on a page too big to write whole it is answered with one new style block that wins over the old one, so it always lands."""
+    return bool(_RESTYLE.search(str(ask or '')))
+
+
+RESTYLE_SYS = ('You restyle one existing HTML page. Reply with CSS only, no HTML, no <style> tag and no explanation. It is added AFTER the page\'s own CSS, '
+               'so your rules win: use the page\'s real class names, ids and tags (read them from the page). Keep every section, text and script working; '
+               'change the look the owner asks for: palette, type, spacing, depth, hover and focus states, and when they want it alive, real motion '
+               '(@keyframes on transform and opacity only, staggered entrances, a slow ambient layer) with a @media (prefers-reduced-motion: reduce) block that stops it. '
+               'Up to 9000 characters. Never hide or remove content.')
+
+
+def restyle_prompt(ask, page):
+    return f'Owner request: {str(ask)[:1200]}\nThe page (its classes and ids are what you style):\n{str(page)[:PAGE_PROMPT_CHARS]}'
+
+
+def _loose_find(page, find):
+    """A find the model retyped a little (spaces, line breaks, ' vs "): matched once with those ignored, else None. → (start, end)"""
+    toks = [t for t in re.split(r'\s+', str(find).strip()) if t]
+    if not toks or len(''.join(toks)) < 12:
+        return None
+    q = lambda t: re.sub(r'["\']', lambda _m: '["\']', re.escape(t))
+    hits = list(re.finditer(r'\s*'.join(q(t) for t in toks), page))
+    return (hits[0].start(), hits[0].end()) if len(hits) == 1 else None
+
+
 def is_retry(text):
     return bool(_RETRY_WORDS.match(str(text or '')))
 
@@ -257,9 +287,15 @@ def apply_page_edits(current, raw):
         if not isinstance(e, dict):
             continue
         find, replace = e.get('find'), e.get('replace')
-        if not isinstance(find, str) or not isinstance(replace, str) or not find or find == replace or page.count(find) != 1:
+        if not isinstance(find, str) or not isinstance(replace, str) or not find or find == replace:
             continue
-        next_ = page.replace(find, replace, 1)
+        if page.count(find) == 1:
+            next_ = page.replace(find, replace, 1)
+        else:
+            at = _loose_find(page, find) if page.count(find) == 0 else None   # never a find that matches twice: that one is ambiguous
+            if not at:
+                continue
+            next_ = page[:at[0]] + replace + page[at[1]:]
         if page_complete(next_) and (not re.search(r'</html\s*>', page, re.I) or re.search(r'</html\s*>', next_, re.I)):
             page, done = next_, done + 1
     left = patch.get('left') if isinstance(patch.get('left'), str) else ''
