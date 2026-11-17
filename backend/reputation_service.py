@@ -32,7 +32,7 @@ import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
 import threading   # noqa: F401  (read by rep_ai as rs.threading)
-import math
+import math   # noqa: F401  (read by rep_prime as rs.math)
 import contextvars
 import trade_fills   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 import collections
@@ -49,7 +49,7 @@ import httpx
 import ds_pace
 import http_ctx
 http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
-import launchpad_board as _launchpad_board
+import launchpad_board as _launchpad_board   # noqa: F401  (read by rep_ai, rep_fuse as rs._launchpad_board)
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
 from fastapi.responses import JSONResponse, Response, StreamingResponse   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 from urllib.parse import quote   # noqa: F401  (read by rep_public_reads as rs.quote)
@@ -1706,164 +1706,21 @@ _jup_tok_cache: dict = {}   # mint → (at, Jupiter token row) — 60s
 _pair_mint: dict = {}       # pairAddress → mint, learned from every pair answer (the fallback looks coins up by mint)
 
 
-async def _jup_tokens(mints, keyed=False):
-    """📡 Jupiter token rows for these mints (100 per call, cached 60s). The fallback for DexScreener (sitewide data rule: DexScreener, our indexes, Jupiter).
-    The key is spent only for `keyed=True` (the keeper's final buy gate) — see `_jup_prices`."""
-    now, out, need = time.time(), {}, []
-    for m in dict.fromkeys(x for x in mints if x):
-        hit = _jup_tok_cache.get(m)
-        if hit and now - hit[0] < 60:
-            out[m] = hit[1]
-        else:
-            need.append(m)
-    if need:
-        key = os.getenv('JUPITER_API_KEY', '') if keyed else (_jkeys.read_key(os.environ) or '')   # 🔑 reads: the READ key (never the keeper's)
-        srcs = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
-        async with httpx.AsyncClient(timeout=8) as http:
-            async def one(chunk):
-                # every source, twice: a 429 / blip on one (a restart's burst refused OCTO's real buy as "live market unavailable")
-                # falls through to the other instead of reading as "Jupiter doesn't know this coin"
-                for attempt in range(2):
-                    for base, hdr in srcs:
-                        try:
-                            r = await http.get(base, params={'query': ','.join(chunk)}, headers=hdr)
-                            if r.status_code == 200:
-                                rows = r.json()
-                                if isinstance(rows, list):
-                                    return rows
-                        except Exception:
-                            pass
-                    await asyncio.sleep(0.6)
-                return []
-            for rows in await asyncio.gather(*[one(need[i:i + 100]) for i in range(0, len(need), 100)]):
-                for t in rows if isinstance(rows, list) else []:
-                    if t.get('id'):
-                        _jup_tok_cache[t['id']] = (now, t); out[t['id']] = t
-    return out
-
-
-async def _fuse_pairs(legs):
-    """Live pairs for every leg, cached 60s: DexScreener first (30 a call — it used to ask for only the first 30 per chain), and for
-    any Solana pair it could not answer, Jupiter's token data in the same pair shape (`source: 'jupiter'`, keyed by the leg's pair)
-    — 2026-10-07 DexScreener's API answered empty for every pair and live depth, the rug shield and the final buy check went blind."""
-    out, need, mint_of = {}, {}, {}
-    for leg in legs:
-        hit = _fuse_pairs_cache.get(leg['pairAddress'])
-        if hit and time.time() - hit[0] < 60:
-            out[leg['pairAddress']] = hit[1]
-        else:
-            need.setdefault(leg['chainId'], []).append(leg['pairAddress'])
-            m_ = leg.get('mint') or leg.get('baseAddress') or _pair_mint.get(leg['pairAddress'])
-            if m_:
-                mint_of[leg['pairAddress']] = m_
-    if need:
-        async with httpx.AsyncClient(timeout=8) as http:
-            async def one(chain, pairs):
-                try:
-                    r = await http.get(f'https://api.dexscreener.com/latest/dex/pairs/{chain}/{",".join(pairs)}')
-                    return (r.json() or {}).get('pairs') or []
-                except Exception:
-                    return []
-            jobs = [one(c, ps[i:i + 30]) for c, ps in need.items() for i in range(0, len(ps), 30)]
-            for rows in await asyncio.gather(*jobs):
-                for p in rows:
-                    _fuse_pairs_cache[p.get('pairAddress')] = (time.time(), p); out[p.get('pairAddress')] = p
-                    if (p.get('baseToken') or {}).get('address'):
-                        _pair_mint[p.get('pairAddress')] = p['baseToken']['address']
-        miss = {pa: m for pa, m in mint_of.items() if pa not in out and pa in (need.get('solana') or [])}
-        if miss:
-            toks = await _jup_tokens(list(miss.values()))
-            for pa, m in miss.items():
-                jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
-                if jp:
-                    jp = {**jp, 'pairAddress': pa}
-                    _fuse_pairs_cache[pa] = (time.time(), jp); out[pa] = jp
-    return out
-
-
-def _fuse_risky(pair):
-    """Launch-forensics flag from CACHED intel only (never blocks a list): heavy top-10 or repeat-rug funders."""
-    hit = _intel_cache.get((pair.get('baseToken') or {}).get('address'))
-    d = hit[1] if hit else None
-    return bool(d) and ((d.get('top10Pct') or 0) > 60 or bool(d.get('flaggedFunders')))
-
-
-async def _fuse_view(fid, f, store):
-    pairs = await _fuse_pairs(f['legs'])
-    legs = [{**leg, **(_fuse.leg_meta(pairs[leg['pairAddress']]) if pairs.get(leg['pairAddress']) else {'missing': True})} for leg in f['legs']]
-    metas = [leg for leg in legs if not leg.get('missing')]
-    now_px = {leg['pairAddress']: leg.get('priceUsd') for leg in metas}
-    buys = [b for b in store.get('buys', []) if b['fuse'] == fid]
-    earned = round(sum(b['creatorUsd'] for b in buys), 6); paid = round(float((store.get('paid') or {}).get(fid, 0)), 6)
-    return {'id': fid, **{k: f.get(k) for k in ('name', 'emoji', 'tagline', 'creator', 'creatorBps', 'createdAt', 'enabled', 'aura', 'featured', 'arena', 'dial', 'cfg', 'fromScenario')}, 'legs': legs,
-            'index': _fuse.index(f['legs'], f.get('basePrices') or {}, now_px), 'score': _fuse.score(metas, sum(1 for leg in f['legs'] if pairs.get(leg['pairAddress']) and _fuse_risky(pairs[leg['pairAddress']]))),
-            'tvlUsd': round(sum(m['liquidityUsd'] for m in metas)), 'volume24h': round(sum(m['volume24h'] for m in metas)),
-            'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
-            'trust': {'buyers': len({b['wallet'] for b in buys}), 'trusted': len({b['wallet'] for b in buys if not b.get('selfDeal') and not b.get('bot')})},
-            'stats': {'buys': len(buys), 'volumeUsd': round(sum(b['usd'] for b in buys), 2), 'creatorEarnedUsd': earned, 'creatorPaidUsd': paid, 'creatorOwedUsd': round(max(0.0, earned - paid), 6)}}
-
-
-def _creator_warn(c):
-    """One plain line when a scanned launch coin's creator is flagged, else ''."""
-    if not c:
-        return ''
-    if c.get('creatorRep') == 'high':
-        return 'Creator is HIGH risk (blocklist / rug report / serial sniper). The engine will not buy this coin.'
-    if c.get('creatorFlagged') or c.get('creatorRep') == 'suspect':
-        return 'Creator is flagged as suspect. The engine buys it only once the coin proves itself.'
-    return ''
+# ↪ moved to rep_fuse.py: _jup_tokens, _fuse_pairs, _fuse_risky, _fuse_view, _creator_warn
 
 
 _fuse_discover_cache = {}
 FUSE_DISCOVER_Q = {'solana': ('SOL', 'USDC', 'raydium', 'orca', 'meteora', 'pumpswap', 'JUP', 'BONK')}
 
 
-async def _fuse_discover_pairs(chain):
-    """Every existing discovery rail in one deduped pool: DexScreener search/boost plus FEELESS trending/new/launchpad feeds."""
-    hit = _fuse_discover_cache.get(chain)
-    if hit and time.time() - hit[0] < 60:
-        return hit[1]
-    async with httpx.AsyncClient(timeout=8) as http:
-        async def search(q):
-            try:
-                return ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
-            except Exception:
-                return []
-
-        async def boosted():
-            try:
-                toks = [t.get('tokenAddress') for t in (await http.get('https://api.dexscreener.com/token-boosts/top/v1')).json() or [] if t.get('chainId') == chain][:30]
-                return (await http.get(f'https://api.dexscreener.com/tokens/v1/{chain}/{",".join(toks)}')).json() or [] if toks else []
-            except Exception:
-                return []
-        async def feed(kind, page=1, scope=None):
-            try:
-                params = {'kind': kind, 'chain': chain, 'page': page}
-                if scope:
-                    params['scope'] = scope
-                r = await http.get('http://127.0.0.1:5001/api/market/feed', params=params)
-                return r.json().get('pairs') or [] if r.status_code == 200 else []
-            except Exception:
-                return []
-        got = await asyncio.gather(*[search(q) for q in FUSE_DISCOVER_Q.get(chain, (chain,))], boosted(),
-                                   feed('trending'), feed('new'), feed('trending', 2), feed('new', 2),
-                                   feed('trending', scope='launchpads'), feed('new', scope='launchpads'), feed('trending', scope='pump'))
-    pairs = []
-    seen = set()
-    for rows in got:
-        for p in rows if isinstance(rows, list) else []:
-            key = p.get('pairAddress')
-            if key and key not in seen:
-                seen.add(key); pairs.append(p)
-    _fuse_discover_cache[chain] = (time.time(), pairs)
-    return pairs
+# ↪ moved to rep_fuse.py: _fuse_discover_pairs
 
 
 PICK_DEAD_VOL1H = 3_000.0   # a launch coin trading under this an hour is dead for the picker — 6 of the 11 buy-bottom rows were (2026-10-08)
 PICK_SCAN_TOP = 15          # the top rows of the list the owner opens get a holder scan queued (one scan per coin in flight)
 
 
-import coin_clean as _clean
+import coin_clean as _clean   # noqa: F401  (read by rep_fuse as rs._clean)
 
 
 import jup_audit as _ja
@@ -1871,40 +1728,7 @@ _jup_facts: dict = {}   # mint → (at, jup_audit.facts) — Jupiter's audit for
 JUP_FACTS_TTL = 180
 
 
-async def _jup_lite(mints):
-    """🧪 Jupiter audit facts for these coins (batched 100 a call through `_jup_tokens`, each coin re-read at most every 3 min).
-    Owner, 2026-10-08: only ~19 of 271 listed coins were ever holder-scanned (one RPC lane answers), so the lists ran in circles."""
-    now = time.time()
-    need = [m for m in dict.fromkeys(mints) if m and now - _jup_facts.get(m, (0.0, None))[0] > JUP_FACTS_TTL]
-    if need and not os.environ.get('PYTEST_CURRENT_TEST'):
-        try:
-            got = await _jup_tokens(need[:800])
-        except Exception:
-            got = {}
-        for m, t in (got or {}).items():
-            _jup_facts[m] = (now, _ja.facts(t))
-    return {m: _jup_facts[m][1] for m in mints if m in _jup_facts}
-
-
-def _cand_map():
-    return {c.get('mint'): c for c in _runner_cands if c.get('mint')}
-
-
-def _read_for(r, cmap=None, lens=None):
-    """🎢 / 🧲 / 🔥 The read that fits this coin (jup_audit.pick_read), with the runner board's curve %, curve speed and 5-min flow filled in."""
-    m = r.get('mint') or r.get('baseAddress')
-    c = (cmap if cmap is not None else _cand_map()).get(m) or {}
-    x = {k: c.get(k) for k in ('vol5m', 'vol1h', 'chg5m', 'chg1h', 'chg24h', 'txns1h', 'buyShare', 'ageH', 'curveSpeed', 'top10', 'dev', 'insiders') if c.get(k) is not None}
-    x.update({k: v for k, v in r.items() if v is not None})
-    for a_, b_ in (('change5m', 'chg5m'), ('change1h', 'chg1h'), ('change6h', 'chg6h'), ('change24h', 'chg24h'), ('marketCap', 'mcap'), ('volume24h', 'vol24h')):
-        if x.get(b_) is None and x.get(a_) is not None:
-            x[b_] = x[a_]
-    if c.get('stage') == 'curve' and c.get('curve') is not None:
-        x['curvePct'] = c.get('curve')
-    if c.get('bundled') is not None and x.get('bundledN') is None and x.get('scanned') is True:
-        x['bundledN'] = c.get('bundled')
-    jf_ = (_jup_facts.get(m) or (0, None))[1]
-    return _ja.read_for_lens(lens, jf_, x) if lens else _ja.pick_read(jf_, x)
+# ↪ moved to rep_fuse.py: _jup_lite, _cand_map, _read_for
 
 
 _coin_read_cache: dict = {}   # mint → (at, read) — 15s
@@ -1918,14 +1742,7 @@ import consigliere as _cg   # noqa: F401  (read by rep_predict as rs._cg)
 _cw_cache: dict = {}
 
 
-def _up_vital(u):
-    """A Coming up row + 🫀 its vital and, for a coin under 6h / a trench coin, 🗑 the degen read."""
-    jf = (_jup_facts.get(u.get('mint')) or (0, None))[1]
-    out = {**u, 'vital': _ja.verdict(jf, u)} if jf else dict(u)
-    tv = _read_for(u)
-    if tv:
-        out['tv'] = tv
-    return out
+# ↪ moved to rep_fuse.py: _up_vital
 
 
 _PUMP_LINKS: dict = {}   # 🔗 mint → (at, {site, x, tg}) from Pump's own coin record (Jupiter often has none: $UNITS)
@@ -1933,85 +1750,7 @@ PUMP_LINKS_TTL = 3600
 PUMP_LINKS_PER_PASS = 12
 
 
-def _pump_links_put(mint, prof):
-    out = {}
-    for ln in (prof or {}).get('links') or []:
-        k = {'x': 'x', 'twitter': 'x', 'website': 'site', 'telegram': 'tg'}.get(str(ln.get('type') or '').lower())
-        u = str(ln.get('url') or '')
-        if k and u.startswith(('http://', 'https://')) and k not in out:
-            out[k] = u
-    if len(_PUMP_LINKS) > 4000:
-        _PUMP_LINKS.clear()
-    _PUMP_LINKS[mint] = (time.time(), out)
-
-
-async def _pump_links_warm(mints):
-    """🔗 Read Pump's coin record for up to PUMP_LINKS_PER_PASS coins not cached in the last hour (3 at a time) — the socials the
-    creator set at launch. Lists then show them (cache only, never a fetch per row)."""
-    import launchpad_board as _lb
-    todo = [m for m in dict.fromkeys(mints or []) if m and (m not in _PUMP_LINKS or time.time() - _PUMP_LINKS[m][0] > PUMP_LINKS_TTL)][:PUMP_LINKS_PER_PASS]
-    if not todo:
-        return 0
-    sem = asyncio.Semaphore(3)
-    async with httpx.AsyncClient(timeout=6, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-        async def one(m):
-            async with sem:
-                try:
-                    r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}')
-                    _pump_links_put(m, _lb.pump_profile(r.json() if r.status_code == 200 else None, time.time() * 1000))
-                except Exception:
-                    pass
-        await asyncio.gather(*[one(m) for m in todo])
-    return len(todo)
-
-
-def _clean_rows(rows):
-    """🧼 + 🧬 on every pick row: holder facts from the scan cache and the 10-point clean score (cache reads only, never a fetch).
-    + 🫀 `vital` (jup_audit.verdict: grade, 3 deciding facts, 4 bars) and 👥 `crew` from Jupiter's audit when it has been read."""
-    cmap_ = _cand_map()
-    for r in rows or []:
-        m = r.get('baseAddress') or r.get('mint')
-        if not m:
-            continue
-        r.update(_holder_facts(m))
-        hit = _intel_cache.get(m)
-        it = hit[1] if hit else {}
-        rep = None
-        if (it or {}).get('creator'):
-            try:
-                rep = _quick_rep(it['creator']).get('level')
-            except Exception:
-                rep = None
-        r['clean'] = _clean.score(r, it if (it or {}).get('top10Pct') is not None else {}, rep)
-        jf = (_jup_facts.get(m) or (0, None))[1]
-        c_s = cmap_.get(m) or {}
-        for k_ in ('site', 'x', 'tg'):   # 🔗 socials on every list row (they were on 0 of 250 trench rows): the row's own, the runner board's, else Jupiter's
-            if not r.get(k_):
-                v_ = (jf or {}).get(k_) or (_PUMP_LINKS.get(m) or (0, {}))[1].get(k_) or c_s.get(k_)   # Jupiter's / Pump's are real links; the board may only know it exists (True)
-                if v_:
-                    r[k_] = v_
-        if jf:
-            r['vital'] = _ja.verdict(jf, r)
-            r['crew'] = r['vital'].get('crew')
-        tv_ = _read_for(r, cmap_)   # 🎢 curve · 🧲 dip · 🔥 new coin — the read that fits it
-        if tv_:
-            r['tv'] = tv_
-            r['holders'] = r.get('holders') or (jf or {}).get('holders')
-    return rows
-
-
-def _holder_facts(mint):
-    """Holder facts for a picker row from the scan CACHE only (never a fetch): top-10 · dev · insiders · bundled / sniper wallets, or scanned=False."""
-    hit = _intel_cache.get(mint)
-    it = hit[1] if hit else None
-    if not it or it.get('top10Pct') is None:
-        jf = (_jup_facts.get(mint) or (0, None))[1]
-        if jf and jf.get('top10') is not None:   # 🧪 our scan has not landed: Jupiter's audit is the holder reading (insiders / bundles unknown)
-            return {'scanned': 'jup', 'top10': round(_fuse._f(jf['top10']), 1), 'dev': jf.get('devPct'), 'insiders': None, 'bundledN': None, 'snipersN': None}
-        return {'scanned': False}
-    cnt = lambda v: len(v) if isinstance(v, list) else (None if v is None else int(_fuse._f(v)))
-    return {'scanned': True, 'top10': it.get('top10Pct'), 'dev': it.get('devHoldingPct'), 'insiders': it.get('insidersHoldingPct'),
-            'bundledN': cnt(it.get('bundledWallets')), 'snipersN': cnt(it.get('sniperWallets')), 'bundledPct': it.get('bundledHoldingPct')}
+# ↪ moved to rep_fuse.py: _pump_links_put, _pump_links_warm, _clean_rows, _holder_facts
 
 
 SIGNAL_LENSES, SIGNAL_CACHE_SEC = ('double', 'calls', 'fed'), 30   # 📣 the Pump-signal lists change once a minute at the source: one build serves 30s (no Jupiter burst)
@@ -2022,179 +1761,38 @@ _LIST_REBUILD = contextvars.ContextVar('list_rebuild', default=False)
 _list_flight: dict = {}
 
 
-def _list_now(key, ttl, rebuild):
-    """Stale-while-revalidate for the pick lists (trench 2–7s, open gates 2–3s to build): → the cached answer when it may be served
-    (fresh, or stale with ONE background rebuild started), else None = the caller builds it now. `rebuild` = a coroutine factory
-    that runs the same route; inside it this returns None so the route really builds and stores."""
-    if _LIST_REBUILD.get() or os.environ.get('PYTEST_CURRENT_TEST'):
-        return None
-    hit = _disc_cache.get(key)
-    if not hit:
-        return None
-    age = time.time() - hit[0]
-    if age < ttl:
-        return hit[1]
-    if age >= LIST_STALE_SEC:
-        return None
-    t = _list_flight.get(key)
-    if t is None or t.done():
-        async def run():
-            _LIST_REBUILD.set(True)
-            try:
-                await rebuild()
-            except Exception as e:
-                print('list rebuild:', key, str(e)[:120])
-        _list_flight[key] = asyncio.create_task(run())
-        if len(_list_flight) > 200:
-            for k in [k for k, v in _list_flight.items() if v.done()]:
-                _list_flight.pop(k, None)
-    return hit[1]
+# ↪ moved to rep_fuse.py: _list_now
 _best_rows: list = []   # 🏆 the engine's banger list from the last real-card tick (clean entry + tape-checked), best first
 
 
 PICK_TAPE_TOP = 12   # 🌊 the tape is read for the first 12 rows of a list (one batched call, 12s cache)
 
 
-def _with_tv(r):
-    """The row with its trench read (`tv`): raw open-board rows carry none — "no read = not judged" let a busted read through."""
-    if (r or {}).get('tv') or not (r or {}).get('mint'):
-        return r
-    try:   # the SAME read the open list shows (jup_audit.open_read: curve · dip · flow · trench, whichever fits)
-        c_ = _cand_map().get(r['mint']) or {}
-        x_ = {**{k: c_.get(k) for k in ('vol5m', 'chg6h', 'chg24h') if c_.get(k) is not None}, **{k: v for k, v in r.items() if v is not None}}
-        return {**r, 'tv': _ja.open_read((_jup_facts.get(r['mint']) or (0, None))[1], x_)}
-    except Exception:
-        return r
+# ↪ moved to rep_fuse.py: _with_tv
 
 
 EXHALE_READS = ('DRYING UP', 'COOLING')   # the only reads with a positive 1h record (2026-10-09: +1.9% / 62% up · +0.6% / 57% up)
 
 
-def _bangers(mine, cool, mom, lq, floor, now, gate=False):
-    """🚀 BANGERS for the real card's open seats, best first: 🎯 a proven caller's fresh call (≤ 15 min, near the called cap) → 🔥 the
-    TOP 3 (busiest safe coins) → 🧊 cooling off (DRYING UP / COOLING). Every one: real-buy pool floor, not on the card, not cooling,
-    not dollar-named, not falling right now, no busted read / rug meter 50+. Each carries `tag` (shown as the coin's 'why it bought')."""
-    try:
-        open_ = [_with_tv(x) for x in _open_board()]
-        src = [(r, '🎯 proven caller') for r in _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, open_, now * 1000)]
-        if _prebreak_ready():   # 🌅 before the break — joins the doors once its own record is positive (10+ settled)
-            src += [(r, '🌅 pre-break') for r in _prebreak_rows()]
-        if _wave_ready():   # 🌊 narrative leaders join the doors only once their own record is positive (10+ settled)
-            src += [(r, '🌊 narrative leader') for r in _wave_rows()]
-        src += [(r, '🔥 top 3') for r in _prime.top_three((_contenders_cache.get('data') or {}).get('divisions'), mine, cool)]
-        src += [(r, '🧊 cooling off') for r in _exhale_rows()]
-    except Exception:
-        return []
-    out, seen = [], set(mine or ()) | set(cool or ())
-    for r, tag in src:
-        m = r.get('mint')
-        if not m or m in seen or lq(r) < floor or _fuse._f(r.get('price')) <= 0 or _fw.dollar_named(r.get('symbol')) or not _prime.entry_ok(r, mom) or not _prime.trench_read_ok(_with_tv(r)):
-            continue
-        if gate and _prime.entry_gate(r, mom):   # 🎯 clean entries: the banger doors (🔥 top 3 = the busiest = often the top) obey it too
-            continue
-        seen.add(m)
-        out.append({**r, 'tag': tag})
-    return out[:8]
+# ↪ moved to rep_fuse.py: _bangers
 
 
 WAVE_PROVE_MIN = 10   # 🌊 the engine seats a wave leader only once the list's own 1h record is positive over this many settled coins
 
 
-def _wave_rows():
-    """🌊 NARRATIVE LEADERS: the original coin of every ticker wave spiking today (meme_terms.wave_leaders) — site / X set, safe, still
-    trading, rug meter < 50, no busted read."""
-    try:
-        trend = _mt.trending(_json_load(MEME_PATH, {}), time.time())
-    except Exception:
-        return []
-    out = []
-    raw = [_with_tv(x) for x in _open_board()]
-    open_tv = {x.get('mint'): x.get('tv') for x in raw}   # the open list's read — the safety check must pass it AND the picker read
-    for r in _mt.wave_leaders(trend, _clean_rows([dict(x) for x in raw])):   # _clean_rows fills site / X (raw rows have none)
-        if _prime.trench_read_ok(r) and _prime.trench_read_ok({'tv': open_tv.get(r.get('mint'))}) and _fuse._f(r.get('price')) > 0:
-            w = r['wave']
-            out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
-                        'divisionLabel': f"🌊 the original of the \"{w['term']}\" wave — {w['today']} coins named after it today, this one leads"})
-    return out
-
-
-def _prebreak_rows():
-    """🌅 BEFORE THE BREAK: runner-board coins that pass every SAFETY gate, are a clean entry (buyers 60%+, not chasing, not at highs,
-    $50K+ pool, 6h+, $200K+/h) and whose 5-min volume is waking up (≥ 1.5× the hour's pace) while the price is still calm."""
-    rcfg = _runner_cfg()
-    out = []
-    for r in list(_runner_cands):
-        try:
-            if _rn.safety_fails(r, rcfg) or _fuse._f(r.get('price')) <= 0 or not r.get('pairAddress'):
-                continue
-        except Exception:
-            continue
-        if _prime.pre_break(r) and not _prime.entry_gate(r):
-            pace = _fuse._f(r.get('vol5m')) * 12 / max(1.0, _fuse._f(r.get('vol1h')))
-            out.append({**r, 'baseAddress': r.get('mint'), 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
-                        'divisionLabel': f"🌅 volume waking: 5-min pace {pace:.1f}× the hour, buyers {_fuse._f(r.get('buyShare')):.0f}%, {_fuse._f(r.get('chg1h')):+.0f}% 1h"})
-    return sorted(out, key=lambda r: -_fuse._f(r.get('vol5m')))
-
-
-def _prebreak_ready():
-    rec = (_list_records() or {}).get('prebreak') or {}
-    return int(rec.get('n') or 0) >= WAVE_PROVE_MIN and _fuse._f(rec.get('medPct')) > 0
-
-
-def _wave_ready():
-    rec = (_list_records() or {}).get('wave') or {}
-    return int(rec.get('n') or 0) >= WAVE_PROVE_MIN and _fuse._f(rec.get('medPct')) > 0
+# ↪ moved to rep_fuse.py: _wave_rows, _prebreak_rows, _prebreak_ready, _wave_ready
 
 
 EXHALE_ORGANIC_MIN = 10.0   # % of the hour's volume that is real (Jupiter's organic read) — under it the "cooling" is wash-traded flow
 
 
-def _exhale_rows():
-    """🧊 COOLING OFF: launch coins that ran and are now exhaling — read DRYING UP or COOLING, passed the safety scan, rug meter < 50,
-    a site or X set, and real volume (organic ≥ 10% when Jupiter has read it). Owner, 2026-10-09: "IBM is a wash rug" — it read DRYING
-    UP with no site and no X."""
-    raw = [_with_tv(x) for x in _open_board()]
-    open_tv = {x.get('mint'): x.get('tv') for x in raw}
-    out = []
-    for r in _clean_rows([dict(x) for x in raw]):
-        r = {**r, 'tv': open_tv.get(r.get('mint')) or r.get('tv')}
-        call = ((r.get('tv') or {}).get('call') or [None, None])[1]
-        org = (r.get('vital') or {}).get('organicPct')
-        if org is not None and _fuse._f(org) < EXHALE_ORGANIC_MIN:
-            continue
-        if not (r.get('site') or r.get('x')):
-            continue
-        if call in EXHALE_READS and r.get('safe') and _prime.trench_read_ok(r) and _fuse._f(r.get('price')) > 0:
-            out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
-                        'divisionLabel': f"🧊 {call.lower()} after its run — {_fuse._f(r.get('chg1h')):+.0f}% 1h, {_fuse._f(r.get('chg5m')):+.0f}% 5m"})
-    return sorted(out, key=lambda r: (EXHALE_READS.index(r['tv']['call'][1]), -_fuse._f(r.get('vol1h'))))
-
-
-def _procall_rows():
-    """🎯 PROVEN CALLERS: the last hour's calls by callers who were right before, on safe coins still near the called cap."""
-    rows = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], time.time() * 1000, max_min=60)
-    return [{**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
-             'divisionLabel': f"🎯 @{r['proCall']['user']} called it {r['proCall']['mins']:.0f}m ago — their record {r['proCall']['medMult']}× typical, {r['proCall']['wonPct']}% up"}
-            for r in rows if _prime.trench_read_ok(r)]
+# ↪ moved to rep_fuse.py: _exhale_rows, _procall_rows
 
 
 LIVE_MIN_VOL5M, LIVE_MIN_CHG5M, LIVE_MIN_BUY, LIVE_MIN_TX1H = 3000.0, 3.0, 50.0, 60
 
 
-def _live_movers():
-    """🚀 LIVE MOVERS (owner, 2026-10-09: "tabs showing true data and real movers"): what is moving in the LAST 5 MINUTES on real money —
-    ≥ $3K traded in those 5 min, up ≥ 3%, buyers ≥ 50%, 60+ trades an hour, a safety scan that did not fail — straight from the live
-    feed, ranked by 5-min $ × move. Each row says the move and the money behind it. Its own 1h record is kept like every list."""
-    out = []
-    for r in [_with_tv(x) for x in _open_board() or []]:
-        v5, c5, bs = _fuse._f(r.get('vol5m')), _fuse._f(r.get('chg5m')), r.get('buyShare')
-        if r.get('safe') is False or _fuse._f(r.get('price')) <= 0 or v5 < LIVE_MIN_VOL5M or c5 < LIVE_MIN_CHG5M or int(r.get('txns1h') or 0) < LIVE_MIN_TX1H:
-            continue
-        if bs is not None and _fuse._f(bs) < LIVE_MIN_BUY:
-            continue
-        out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'), 'live': round(v5 * min(c5, 60.0)),
-                    'divisionLabel': f"🚀 {c5:+.0f}% in 5m on ${v5 / 1000:.1f}K traded · {_fuse._f(bs):.0f}% buys" + ('' if r.get('safe') else ' · ❔ not scanned')})
-    return _clean_rows(sorted(out, key=lambda r: -r['live'])[:60]) or []
+# ↪ moved to rep_fuse.py: _live_movers
 
 
 _why_cache: dict = {}      # mint → (at, answer) — a checked coin is free for WHY_TTL (everyone reads the same answer)
@@ -2204,247 +1802,19 @@ _why_busy: dict = {}       # mint → asyncio.Task (one check per coin in flight
 WHY_TTL, WHY_FREE_DAY = 1800, 5
 
 
-async def _why_pair(mint):
-    """The coin's market pair: DexScreener's deepest pool, else Jupiter's (same shape)."""
-    import launchpad_board as _lb
-    best = None
-    try:
-        r = await _ai_http().get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)
-        if r.status_code == 200 and isinstance(r.json(), list):
-            ps = [x for x in r.json() if (x.get('baseToken') or {}).get('address') == mint]
-            best = max(ps, key=lambda x: _fuse._f((x.get('liquidity') or {}).get('usd')), default=None)
-    except Exception:
-        pass
-    if best is None:
-        try:
-            best = await _lb.jup_lookup(_ai_http(), mint)
-        except Exception:
-            best = None
-    return best
-
-
-async def _why_build(mint):
-    """❓ One coin's WHY: our read + its live pair + Pump callers + web / X search + the two best pages → the model's story (every driver cites
-    a source from the case) or, when no model answers, the engine's own drivers from the numbers."""
-    import why_pump as _wp, feeless_mcp as _mcp, fee_voice as _fv
-    try:
-        read = await coin_read(mint)
-    except Exception:
-        read = {}
-    pair = await _why_pair(mint)
-    n = _wp.from_pair(pair, _wp.numbers(read))
-    soc = _wp.socials_of(pair)
-    sym = n.get('symbol')
-    qs = [f'"{mint}"'] + ([f'${sym} solana crypto', f'site:x.com ${sym}'] if sym else [])
-    web = []
-    try:
-        res = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q, 6) for q in qs], return_exceptions=True), timeout=12)
-        seen = set()
-        for rows in res:
-            for w in (rows if isinstance(rows, list) else []):
-                if w.get('url') and w['url'] not in seen:
-                    seen.add(w['url']); web.append(w)
-    except Exception:
-        pass
-    pages = []
-    try:
-        pick = [x['url'] for x in _fv.pick_sources(web, 2)] + ([soc['site']] if soc.get('site') else [])
-        pages = await asyncio.wait_for(asyncio.to_thread(_mcp._read_many, pick[:3], 1200), timeout=10) if pick else []
-    except Exception:
-        pages = []
-    eng = _wp.engine_drivers(n)
-    model, src = None, None
-    if not os.environ.get('PYTEST_CURRENT_TEST'):
-        try:
-            pk = _wp.packet(n, eng, web, pages)
-            r_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), 'Why did it move? Answer the JSON.', context=pk, role='owner',
-                                                        system=_wp.WHY_ASK, only_system=True, tune={'temp': 0.2, 'maxTok': 900}), timeout=60)
-            model = _wp.parse(r_.get('text'), [w.get('url') for w in web] + [u for u, _t, _x in pages])
-            src = r_.get('source') if model else None
-        except Exception:
-            model = None
-    out = {**_wp.answer(n, eng, model, web), 'mint': mint, 'socials': soc, 'pair': (pair or {}).get('pairAddress'), 'model': src, 'at': round(time.time())}
-    _why_cache[mint] = (time.time(), out)
-    _why_recent[:] = ([{'mint': mint, 'symbol': sym, 'headline': out['headline'], 'verdict': out['verdict'], 'move': out['move'], 'img': n.get('img'), 'at': out['at']}]
-                      + [x for x in _why_recent if x['mint'] != mint])[:20]
-    return out
+# ↪ moved to rep_fuse.py: _why_pair, _why_build
 
 
 SWAP_BAD_READS = {'WASH TRADED', 'BLOW-OFF TOP', 'TREND DOWN', 'DEAD DIP'}   # + arena_prime.TRENCH_BAD_READS (added at use: module order)
 
 
-def _swap_clean(rows):
-    """🧹 The ⇄ hand swap's candidates (owner, 2026-10-09: "the auto swap button pulls BS coins — rug-worthy / washed"): the engine's own
-    🏆 Best list first (every door, clean entry, tape-checked), then only coins whose read is not a busted / wash / blow-off / down-trend
-    call, whose rug meter is < 50, that are alive and a clean entry (not chasing, not at its highs, sellers not leading), busiest first.
-    Nothing clean → the list is empty and the swap says so (never the biggest pump)."""
-    best_ = [x.get('mint') for x in _best_rows]
-    out = []
-    for x in rows or []:
-        m = x.get('mint')
-        if m in best_:
-            out.append((0, best_.index(m), x)); continue
-        tv = (_with_tv({**x, 'mint': m}) or {}).get('tv') or {}
-        call = ((tv.get('call') or [None, None])[1])
-        if call in SWAP_BAD_READS or call in _prime.TRENCH_BAD_READS or _fuse._f(tv.get('rug')) >= _prime.TRENCH_RUG_MAX or _ja.dead_why(x) or _prime.entry_gate(x, None, core=True):
-            continue
-        out.append((1, -_fuse._f(x.get('vol1h')), x))
-    return [x for *_k, x in sorted(out, key=lambda t: (t[0], t[1]))]
-
-
-async def _fuses_discover_raw(lens, chain):
-    """Fuse Lab: browse real pools on the chain you're on, by lens (popular / yield / deep / new)."""
-    if lens == 'exhale':
-        return {'lens': 'exhale', 'chain': 'solana', 'pools': _exhale_rows()}
-    if lens == 'best':   # 🏆 the engine's own pick list (every door, clean entry, tape-checked) — what an open seat takes next
-        if _best_rows:
-            return {'lens': 'best', 'chain': 'solana', 'pools': [{**x, 'baseAddress': x.get('mint'), 'priceUsd': x.get('price'), 'liquidityUsd': x.get('liq'),
-                                                                   'divisionLabel': x.get('tag')} for x in _best_rows]}
-        # nothing clears the engine's full line right now → the evidence ranking (🧬 edge: every list's own record + the read's record),
-        # with live numbers from the runner board — never an empty tab
-        cm_ = _cand_map()
-        rows_ = []
-        for x in (_edge_rank_cache.get('rows') or [])[:20]:
-            c_ = cm_.get(x.get('mint')) or {}
-            rows_.append({**x, **{k: c_.get(k) for k in ('liq', 'chg5m', 'chg1h', 'vol1h', 'ageH', 'buyShare', 'mcap') if c_.get(k) is not None},
-                          'liquidityUsd': c_.get('liq'), 'priceUsd': x.get('priceUsd') or c_.get('price'),
-                          'divisionLabel': f"🧬 evidence {_fuse._f((x.get('edge') or {}).get('edge')):+.1f}%/1h — nothing clears the engine's full line right now"})
-        return {'lens': 'best', 'chain': 'solana', 'pools': rows_}
-    if lens == 'wave':
-        return {'lens': 'wave', 'chain': 'solana', 'pools': _wave_rows()}
-    if lens == 'prebreak':
-        return {'lens': 'prebreak', 'chain': 'solana', 'pools': _prebreak_rows()}
-    if lens == 'procall':
-        return {'lens': 'procall', 'chain': 'solana', 'pools': _procall_rows()}
-    if lens == 'brain':
-        return {'lens': 'brain', 'chain': 'solana', 'pools': _brain_rows()}
-    if lens == 'live':
-        return {'lens': 'live', 'chain': 'solana', 'pools': _live_movers()}
-    if lens == 'fresh':   # 🔄 NEW TO YOU (owner, 2026-10-08: "no new coins, I'm running in circles — cycle different coins from the Arena and FEELESS
-        # sitewide"): every list FEELESS shows (Pump trending · movers · Pump live · volume · dips · the Arena's ranked coins) woven together one
-        # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
-        now_ = time.time()
-        touched = {r.get('mint') for r in (_fw_peek().get('ledger') or []) if now_ - _fuse._f(r.get('at')) < 86400 and r.get('status') in ('filled', 'confirmed', 'sent', None)}
-        for c_ in _prime_cards().values():
-            if c_.get('real'):
-                touched |= {l.get('mint') for l in c_.get('legs') or []}
-        srcs = await asyncio.gather(*[_fuses_discover_raw(k, chain) for k in ('ptrend', 'movers', 'pump', 'volume', 'bottom')], return_exceptions=True)
-        lists = [list((x or {}).get('pools') or []) if isinstance(x, dict) else [] for x in srcs]
-        try:
-            arena_ = (await _contenders_build()).get('all') or []
-        except Exception:
-            arena_ = []
-        lists.append([{**r, 'baseAddress': r.get('mint') or r.get('baseAddress')} for r in arena_ if not r.get('watch')])
-        tags = ['🔥 Pump trending', '🚀 Movers', '🆕 Pump live', '🌊 Volume', '🟢 Dips', '🏁 Arena']
-        out_, seen_ = [], set(touched)
-        for i in range(max((len(x) for x in lists), default=0)):
-            for k, rows_ in enumerate(lists):
-                if i < len(rows_):
-                    r = rows_[i]; m = r.get('baseAddress') or r.get('mint') or (r.get('baseToken') or {}).get('address')
-                    if m and m not in seen_:
-                        seen_.add(m); out_.append({**r, 'baseAddress': m, 'from': tags[k]})
-        return {'lens': 'fresh', 'chain': 'solana', 'pools': out_[:300], 'skipped': len(touched)}
-    if lens == 'stocks':   # 📈 tokenized stocks in real Solana pools (a subset of the majors rows)
-        return {'lens': 'stocks', 'chain': 'solana', 'pools': [x for x in await _majors_rows() if x.get('stock')]}
-    if lens == 'majors':   # 🪙 the REAL SOL / BTC / ETH / … on Solana (hard-coded mints), deepest pool each
-        return {'lens': 'majors', 'chain': 'solana', 'pools': await _majors_rows()}
-    if lens == 'risers':   # 🚀 new majors: young coins that arrived big with real volume
-        base_ = await _fuse_discover_pairs('solana')
-        rs_ = _fuse.risers(base_, time.time() * 1000)
-        try:   # 🟢 + Pump's top 15 graduated coins (trending pump board), never duplicated
-            async with httpx.AsyncClient(timeout=8) as http:
-                pump_ = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'pump'})).json().get('pairs') or []
-        except Exception:
-            pump_ = []
-        have_ = {(r.get('baseToken') or {}).get('address') or r.get('baseAddress') for r in rs_}
-        return {'lens': 'risers', 'chain': 'solana', 'pools': rs_ + _fuse.pump_majors(pump_ + base_, have_)}
-    if lens == 'bottom':   # 🟢 Buy bottom: coins far under their high, at the low of their range, no longer sliding
-        rows_b = await _bottom_rows(time.time())
-        try:   # 📉 + today's dip buys (the Gauntlet's own division) in the SAME list — one tab, not two
-            have_b = {r.get('baseAddress') for r in rows_b}
-            dips_ = next((dv.get('rows') or [] for dv in ((await _contenders_build()).get('divisions') or []) if dv.get('key') == 'dip'), [])
-            rows_b = list(rows_b) + [{**r, 'divisionLabel': f"📉 dip buy{' · watch' if r.get('watch') else ''}: down on the day, buyers back"} for r in dips_ if r.get('mint') not in have_b]
-        except Exception:
-            pass
-        return {'lens': 'bottom', 'chain': 'solana', 'pools': rows_b, 'proof': _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom')}
-    if lens == 'calls':   # 📣 the coins Pump's own users are calling out, loudest first
-        return {'lens': 'calls', 'chain': 'solana', 'pools': await _pump_call_rows()}
-    if lens == 'double':   # 🔥🔥 called out AND fed — the overlap of the two Pump signals
-        return {'lens': 'double', 'chain': 'solana', 'pools': await _double_rows()}
-    if lens == 'fed':   # 🧲 runners new Pump launches are paired with — every buy of those coins routes through the runner's pool
-        return {'lens': 'fed', 'chain': 'solana', 'pools': await _feeder_rows()}
-    feed_lens = lens if lens in ('pump', 'movers', 'volume', 'ptrend') else None   # 🆕 New launches (newest first) · 🚀 Movers · 🌊 Volume (busiest first): one live launch feed
-    if feed_lens:
-        mv_ = lens == 'movers'
-    if feed_lens:   # 🆕 Pump live: the newest + busiest Pump coins RIGHT NOW, launch-curve coins included (owner picks only)
-        try:
-            async with httpx.AsyncClient(timeout=10) as http:
-                got_ = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
-                                              for k in ('new', 'trending') for pg in (1, 2, 3, 4, 5, 6)], return_exceptions=True)
-            raw_ = [x for g in got_ if not isinstance(g, Exception) for x in (g.json().get('pairs') or [])]
-        except Exception:
-            raw_ = []
-        seen_p, rows_p = set(), []
-        for p_ in sorted((_fuse.with_curve(x) for x in raw_), key=lambda x: -_fuse._f((x.get('volume') or {}).get('h1'))):
-            m_ = (p_.get('baseToken') or {}).get('address')
-            if not m_ or m_ in seen_p or _fuse._f(p_.get('priceUsd')) <= 0 or _fuse._f((p_.get('volume') or {}).get('h1')) < 1000 or _fuse._f((p_.get('liquidity') or {}).get('usd')) < 5000:
-                continue
-            seen_p.add(m_)
-            age_ = round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None
-            v1_ = _fuse._f((p_.get('volume') or {}).get('h1'))
-            rows_p.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}), 'ageH': age_, 'vol1h': v1_,
-                           **({'pumpTrend': p_['pumpTrend']} if p_.get('pumpTrend') else {}),
-                           # shown under the ticker: how old it is and how hard it trades — what tells one list's coin from another's
-                           'divisionLabel': f"{'?' if age_ is None else f'{age_ * 60:.0f}m' if age_ < 1 else f'{age_:.0f}h' if age_ < 48 else f'{age_ / 24:.0f}d'} old · ${v1_ / 1000:,.0f}K/h"})
-        if mv_:   # 🚀 MOVERS: up ≥ 10% on the hour on ≥ $20K traded in a ≥ $10K pool, biggest hourly move first; no dollar-named tickers
-            rows_p = sorted((r for r in rows_p if r['vol1h'] >= 20000 and _fuse._f(r.get('liquidityUsd')) >= 10000 and _fuse._f(r.get('change1h')) >= 10
-                             and not _fw.dollar_named(r.get('symbol'))), key=lambda r: -_fuse._f(r.get('change1h')))
-            return {'lens': 'movers', 'chain': 'solana', 'pools': rows_p[:150]}
-        if lens == 'ptrend':   # 🔥 Pump's own Trending tab, in Pump's order (refreshed every 10 min)
-            rows_p = sorted((r for r in rows_p if r.get('pumpTrend')), key=lambda r: r['pumpTrend'])
-            for r in rows_p:
-                r['divisionLabel'] = f"🔥 Pump #{r['pumpTrend']} · {r['divisionLabel']}"
-            return {'lens': 'ptrend', 'chain': 'solana', 'pools': rows_p[:150]}
-        if lens == 'pump':   # 🆕 newest first (≤ 48h old; unknown age last)
-            rows_p = sorted((r for r in rows_p if r.get('ageH') is None or r['ageH'] <= 48), key=lambda r: (r.get('ageH') is None, r.get('ageH') or 0))
-        return {'lens': lens, 'chain': 'solana', 'pools': rows_p[:300]}   # 🌊 owner: "more than 80 — flood with coins"
-    lens = lens if lens in _fuse.LENSES else 'popular'
-    return {'lens': lens, 'chain': chain, 'pools': _fuse.discover(await _fuse_discover_pairs(chain), lens, chain, now_ms=time.time() * 1000)}
+# ↪ moved to rep_fuse.py: _swap_clean, _fuses_discover_raw
 
 
 _majors_cache: dict = {'at': 0.0, 'rows': []}
 
 
-async def _majors_rows():
-    if _majors_cache['rows'] and time.time() - _majors_cache['at'] < 120:
-        return _majors_cache['rows']
-    by, by_s = {}, {}
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            async def batch(table):
-                return (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(table)}")).json() or []
-            got_m, got_s = await asyncio.gather(batch(_fuse.MAJORS), batch(_fuse.STOCKS), return_exceptions=True)   # 📈 stocks = their own batch (≤ 30 mints a call)
-            if isinstance(got_m, Exception):
-                raise got_m
-            for p in got_m:
-                by.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
-            for p in ([] if isinstance(got_s, Exception) else got_s):
-                by_s.setdefault((p.get('baseToken') or {}).get('address'), []).append(p)
-    except Exception:
-        by, by_s = {}, {}
-    # 📡 a major / stock DexScreener left out (outage answered `pairs: null` for everything on 2026-10-07) → Jupiter's data, same shape
-    miss = [m for m in list(_fuse.MAJORS) + list(_fuse.STOCKS) if m not in by and m not in by_s]
-    if miss:
-        toks = await _jup_tokens(miss)
-        for m in miss:
-            jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
-            if jp:
-                (by_s if m in _fuse.STOCKS else by).setdefault(m, []).append(jp)
-    rows = _fuse.majors_pools(by) + _fuse.majors_pools(by_s, _fuse.STOCKS)
-    if not rows:
-        return _majors_cache['rows']   # never replace a good list with an empty one
-    _majors_cache.update(at=time.time(), rows=rows)
-    return rows
+# ↪ moved to rep_fuse.py: _majors_rows
 
 
 class FusePreview(BaseModel):
@@ -2456,12 +1826,7 @@ class FusePreview(BaseModel):
     runnerSlice: float = 20.0
 
 
-def _is_admin_req(request):
-    try:
-        _require_admin(request)
-        return True
-    except Exception:
-        return False
+# ↪ moved to rep_fuse.py: _is_admin_req
 
 
 class FuseEvolveIn(BaseModel):
@@ -2481,14 +1846,7 @@ import crowd as _crowd
 FUSE_HQ_PATH = DATA_DIR / 'fuse_hq.json'   # {'positions': [], 'arena': [], 'bloodline': []}
 
 
-def _prime_cards():
-    """The tier cards on file: fuse_hq.json › prime.cards → {tpl: card} (the parsed, cached copy — read only)."""
-    return (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-
-
-def _real_card(default=None):
-    """The first real-money tier card on file, else `default`."""
-    return next((c for c in _prime_cards().values() if (c or {}).get('real')), default)
+# ↪ moved to rep_fuse_hq.py: _prime_cards, _real_card
 
 
 FUSE_CHAT_POSTED_PATH = DATA_DIR / 'fuse_chat_posted.json'   # 🧈 _fuse_chat's once-per-key memory (was inside fuse_hq.json)
@@ -2532,224 +1890,14 @@ class FuseGuardIn(BaseModel):
     rebalance: float = 0      # auto-rebalance: alert when the card drifts this many points from its weights (0 = off)
 
 
-def _card_rules():
-    return _hq.clean_rules(_json_load(FUSE_HQ_PATH, {}).get('cardRules'))
+# ↪ moved to rep_fuse_hq.py: _card_rules
 
 
 _ledger_idx: dict = {'src': None, 'by': {}}
 
 
-def _ledger_by_sig():
-    """Fee ledger rows by signature (rebuilt only when the cached ledger object changes)."""
-    led = _json_load(FEE_LEDGER_PATH, {})
-    if _ledger_idx['src'] is not led:
-        _ledger_idx.update(src=led, by={r.get('sig'): r for v in led.values() for r in (v or []) if r.get('sig')})
-    return _ledger_idx['by']
-
-
-def _card_fees(pos, by_sig=None):
-    """FEELESS fees actually paid on a card (its buy + sell signatures found in the fee ledger)."""
-    by_sig = by_sig if by_sig is not None else _ledger_by_sig()
-    sigs = {s for leg in pos.get('legs') or [] for s in [leg.get('sig'), *(leg.get('sellSigs') or [leg.get('sellSig')])] if s}
-    return round(sum(_fuse._f((by_sig.get(s) or {}).get('feeUsd')) for s in sigs), 6)
-
-
-def _exit_fee(r):
-    cfg = _fee_cfg(); rl = _card_rules()
-    return _hq.exit_fee_usd(r, _hq.clean_bundle(cfg.get('bundle')), int(cfg.get('platformFeeBps') or 0), rl['netFeeUsdPerLeg'])
-
-
-async def _fuse_yield_tick(d, now):
-    """💸 Auto-collect: re-arm cards that just collected (base = held now); alert once when held ≥ base × (1 + at%) with a
-    pre-filled Collect-profit link (sells only the gain). The holder's wallet still approves — FEELESS never signs."""
-    ys = [x for x in d.get('positions') or [] if x.get('autoYield') and not x.get('closedAt') and not x['autoYield'].get('firedAt')]
-    if not ys:
-        return 0
-    px = await _hq_prices([leg for x in ys for leg in x['legs']])
-    upd, fired = {}, []
-    for x in ys:
-        r = _hq.position_pnl(x, px)
-        y = x['autoYield']
-        if y.get('rebase'):
-            upd[x['id']] = {'base': round(_hq.held_value(r), 6), 'rebase': False}
-        elif _hq.yield_due(r, y):   # price move only — fees are paid per trade and shown on the receipt
-            pct = _hq.collect_pct(r, y)
-            upd[x['id']] = {'firedAt': now}
-            fired.append((x, r, pct))
-    if upd:
-        async with _admin_lock:
-            d2 = _json_load(FUSE_HQ_PATH, {})
-            for x in d2.get('positions') or []:
-                if x['id'] in upd and x.get('autoYield'):
-                    x['autoYield'].update(upd[x['id']])
-            _json_save(FUSE_HQ_PATH, d2)
-    for x, r, pct in fired:
-        if x.get('onProfit') == 'compound':   # ♻ compound: move the gain from the winners into the rest of the card
-            notify(x['wallet'], 'fuse-guard', f"♻ {x.get('name') or 'Your Fuse card'} hit your +{x['autoYield']['at']:.0f}% level — compound it: trim the winners, top up the rest. One approval (numbers in My cards).",
-                   url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"compound-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
-                   meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
-            continue
-        notify(x['wallet'], 'fuse-guard', f"💸 {x.get('name') or 'Your Fuse card'} hit your +{x['autoYield']['at']:.0f}% level — collect the gain (sells {pct:.0f}% of each leg, your base stays in). One approval (numbers in My cards).",
-               url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct={pct}", once=f"yield-{x['id']}-{x['autoYield'].get('armedAt')}-{int(x['autoYield']['base'] * 100)}",
-               meta={'claim': f"Held value up {x['autoYield']['at']:.0f}% on your base", 'source': 'Fuse P&L (live prices)'})
-    return len(fired)
-
-
-async def _fuse_swap_tick(d, now):
-    """Swap mode (holder's choice per card): when a leg fails a runner gate or drops past swapDropPct, alert ONCE per leg
-    with a pre-filled ⇄ Switch (sell the weak leg, buy the best gated runner) — one approval. Hold mode is never touched."""
-    sw = [x for x in d.get('positions') or [] if x.get('mode') == 'swap' and not x.get('closedAt') and now >= _hq.next_switch_at(x)]   # 1 rotation / 24h
-    await _rounds_out_notice(d, now)
-    sw = [x for x in sw if _hq.rounds_left(x, _is_staff(x['wallet'])) > 0]   # 🔁 out of rounds → no auto rounds until +5
-    if not sw:
-        return 0
-    live, px = await asyncio.gather(_runner_live(), _hq_prices([leg for x in sw for leg in x['legs']]))
-    failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
-    rules = _card_rules(); n = 0
-    for x in sw:
-        pnl_ = _hq.position_pnl(x, px)
-        pool_ = live['passing']
-        if _hq.cycle_pick(x, pnl_.get('pnlPct')) == 'majors':   # 🔄 adaptive cycle: a losing card swaps its weak coin into a major
-            pool_ = [{'mint': m.get('baseAddress'), 'symbol': m.get('symbol'), 'pairAddress': m.get('pairAddress'), 'logo': m.get('logo'), 'score': 100} for m in await _majors_rows() if m.get('pairAddress')]
-        s = _hq.swap_suggest(pnl_, failing, pool_, rules['swapDropPct'], set(x.get('frozen') or []) | _hq.coins_not_due(x, now))
-        if not s:
-            continue
-        n += 1
-        win = int(now // (_hq.rotate_hours(x.get('rotateHours')) * 3600))   # the card's own clock (5m … 24h)
-        await _spend_round(x, f"swap-{win}")
-        notify(x['wallet'], 'fuse-guard', f"⇄ {x.get('name') or 'Your Fuse card'}: ${s['out']['symbol']} {s['why']} — swap it for ${s['in']['symbol']} (gated runner, score {round(_fuse._f(s['in'].get('score')))}). One approval.",
-               url=f"/terminal/fuse?tab=cards&switch={x['id']}&out={s['out']['pairAddress']}&in={s['in']['mint']}&sym={s['in']['symbol']}&pair={s['in'].get('pairAddress') or ''}",
-               once=f"swap-{x['id']}-{win}", meta={'claim': s['why'], 'source': 'Runner gates + Fuse P&L (live prices)'})
-    return n
-
-
-async def _spend_round(x, key):
-    """Spend one of the card's rounds for this alert window (staff cards are unlimited)."""
-    if _is_staff(x['wallet']):
-        return
-    async with _admin_lock:
-        d2 = _json_load(FUSE_HQ_PATH, {})
-        for x2 in d2.get('positions') or []:
-            if x2['id'] == x['id'] and _hq.use_round(x2, key):
-                _json_save(FUSE_HQ_PATH, d2)
-                x.update(roundsLeft=x2['roundsLeft'], lastRoundKey=key)
-
-
-async def _rounds_out_notice(d, now):
-    """A card that spent its last round gets ONE notice with the +5 offer (pay now, or let compound pay when allowed)."""
-    cfg = _rounds_cfg()
-    out = [x for x in d.get('positions') or [] if not x.get('closedAt') and (x.get('mode') == 'swap' or x.get('parked')) and not x.get('outOfRoundsAt')
-           and _hq.rounds_left(x, _is_staff(x['wallet'])) <= 0]
-    if not out:
-        return
-    # 💸 cards that pay their own fees: up more than the pack price → +5 rounds charged to the compound (owed till the next take)
-    auto = [x for x in out if x.get('autoFees', True)]
-    px = await _hq_prices([l for x in auto for l in x['legs']]) if auto else {}
-    pnl = {x['id']: _hq.position_pnl(x, px)['pnlUsd'] for x in auto}
-    paid_ = set()
-    async with _admin_lock:
-        d2 = _json_load(FUSE_HQ_PATH, {})
-        for x2 in d2.get('positions') or []:
-            if x2['id'] in {x['id'] for x in out}:
-                if x2['id'] in pnl and x2.setdefault('autoFees', True) and _hq.auto_rounds(x2, cfg, pnl[x2['id']]):
-                    paid_.add(x2['id'])
-                else:
-                    x2['outOfRoundsAt'] = now
-        _json_save(FUSE_HQ_PATH, d2)
-    for x in [x for x in out if x['id'] in paid_]:
-        notify(x['wallet'], 'fuse-card', f"🔁 {x.get('name') or 'Your Fuse card'} paid +{cfg['step']} rounds from its profit (${cfg['per5Usd']:.2f}, settled at the next profit take).",
-               url=f"/terminal/fuse?tab=cards&card={x['id']}", once=f"rounds-auto-{x['id']}-{len(x.get('roundBuys') or [])}", meta={'claim': 'Card pays its fees from profit', 'source': 'Fuse cards'})
-    out = [x for x in out if x['id'] not in paid_]
-    for x in out:
-        notify(x['wallet'], 'fuse-card', f"🔁 {x.get('name') or 'Your Fuse card'} used its {_hq.ROUNDS_DEFAULT} auto rounds. +{cfg['step']} for ${cfg['per5Usd']:.2f}{' — or let its compound pay' if cfg['compoundPay'] else ''}.",
-               url=f"/terminal/fuse?tab=cards&card={x['id']}", once=f"rounds-out-{x['id']}-{len(x.get('roundBuys') or [])}", meta={'claim': 'Rounds used', 'source': 'Fuse cards'})
-
-
-async def _fuse_buyback_tick(d, now):
-    """🅿 Park & buy-back (real cards, non-custodial): a parked coin that's been SOLD and is back at its stop-out entry with
-    buyers leading → ONE alert with a pre-filled buy back into the card (the holder approves)."""
-    rows = [(x, pa, pk) for x in d.get('positions') or [] if not x.get('closedAt') for pa, pk in (x.get('parked') or {}).items()
-            if not pk.get('alertedAt') and any(l['pairAddress'] == pa and l.get('soldUsd') is not None for l in x['legs']) and _hq.rounds_left(x, _is_staff(x['wallet'])) > 0]
-    if not rows:
-        return 0
-    pairs = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for _, pa, _ in rows])
-    fired = []
-    for x, pa, pk in rows:
-        p = pairs.get(pa) or {}; tx = (p.get('txns') or {}).get('h1') or {}; b, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
-        mom = {'buyShare': b / (b + s_) * 100 if b + s_ else 0, 'chg1h': _fuse._f((p.get('priceChange') or {}).get('h1'))}
-        if _hq.buyback_due(pk, _fuse._f(p.get('priceUsd')), mom):
-            fired.append((x, pa, pk))
-    if fired:
-        async with _admin_lock:
-            d2 = _json_load(FUSE_HQ_PATH, {})
-            for x2 in d2.get('positions') or []:
-                for x, pa, _ in fired:
-                    if x2['id'] == x['id'] and pa in (x2.get('parked') or {}):
-                        x2['parked'][pa]['alertedAt'] = now
-                        if not _is_staff(x2['wallet']):
-                            _hq.use_round(x2, f"buyback-{pa}-{int(now)}")
-            _json_save(FUSE_HQ_PATH, d2)
-    for x, pa, pk in fired:
-        notify(x['wallet'], 'fuse-guard', f"↩ ${pk.get('symbol')} is back at your entry with buyers leading — buy it back into {x.get('name') or 'your card'}. One approval.",
-               url=f"/terminal/fuse?tab=cards&topup={x['id']}&pair={pa}", once=f"buyback-{x['id']}-{pa}-{int(pk.get('at') or 0)}",
-               meta={'claim': 'Price back at the stop-out entry, buyers ≥ 50%', 'source': 'Live pool data'})
-    return len(fired)
-
-
-async def _fuse_leg_tick(d, now):
-    """🎯 Per-coin take-profit / stop-loss: alert once per limit with that coin's sell pre-filled (one approval)."""
-    lg = [x for x in d.get('positions') or [] if (x.get('legGuard') or _fuse._f(x.get('rideAt')) > 0) and not x.get('closedAt')]
-    if not lg:
-        return 0
-    px = await _hq_prices([leg for x in lg for leg in x['legs']])
-    fired, rides = [], {}
-    for x in lg:
-        r_ = _hq.position_pnl(x, px)
-        hits_, riding_, st_ = _hq.ride_hits(r_, x.get('rideAt'), x.get('rideTrail'), x.get('rides'))   # ❄ freeze + peak trail (alerts only)
-        if st_ != (x.get('rides') or {}):
-            rides[x['id']] = st_
-        for leg, why in hits_:
-            fired.append((x, leg, 'ride', why))
-        for leg, kind, pct in _hq.leg_limit_hits(r_, x.get('legGuard') or {}):
-            if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'hold':   # ❄ hold: no stop alerts (card or this coin)
-                continue
-            if kind == 'tp' and leg['pairAddress'] in riding_:   # a riding coin's TP waits — the peak trail sells it
-                continue
-            fired.append((x, leg, kind, pct))
-    if rides and not fired:
-        async with _admin_lock:
-            d2 = _json_load(FUSE_HQ_PATH, {})
-            for x in d2.get('positions') or []:
-                if x['id'] in rides:
-                    x['rides'] = rides[x['id']]
-            _json_save(FUSE_HQ_PATH, d2)
-    if not fired:
-        return 0
-    async with _admin_lock:
-        d2 = _json_load(FUSE_HQ_PATH, {})
-        ids = {(x['id'], leg['pairAddress']) for x, leg, k_, _ in fired if k_ != 'ride'}
-        parks = {(x['id'], leg['pairAddress']): leg for x, leg, kind, _ in fired if kind == 'sl' and _hq.coin_sl_mode(x, leg['pairAddress']) == 'park'}
-        for x in d2.get('positions') or []:
-            if x['id'] in rides:
-                x['rides'] = rides[x['id']]
-            for pa, g in (x.get('legGuard') or {}).items():
-                if (x['id'], pa) in ids:
-                    g['firedAt'] = now
-                if (x['id'], pa) in parks:   # 🅿 remember the stop-out entry: a buy-back alert comes when price is back here
-                    lg_ = parks[(x['id'], pa)]
-                    x.setdefault('parked', {})[pa] = {'entry': _fuse._f(lg_.get('usd')) / max(_fuse._f(lg_.get('tokens')), 1e-18), 'symbol': lg_.get('symbol'), 'mint': lg_.get('mint'), 'at': now}
-        _json_save(FUSE_HQ_PATH, d2)
-    for x, leg, kind, pct in fired:
-        if kind == 'ride':   # ❄ the frozen coin came off its peak — sell it, one approval (no P&L in the notice text)
-            notify(x['wallet'], 'fuse-guard', f"❄ ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} rode its run and {pct}. Sell it — one approval (numbers in My cards).",
-                   url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-ride-{x['id']}-{leg['pairAddress']}-{int((x.get('rides') or {}).get(leg['pairAddress'], {}).get('peak', 0) * 1000)}",
-                   meta={'claim': f"Frozen at +{_fuse._f(x.get('rideAt')):g}%, {pct}", 'source': 'Fuse P&L (live prices)'})
-            continue
-        what = f"hit its +{x['legGuard'][leg['pairAddress']]['tp']:g}% take-profit" if kind == 'tp' else f"hit its −{x['legGuard'][leg['pairAddress']]['sl']:g}% stop"
-        notify(x['wallet'], 'fuse-guard', f"{'🎯' if kind == 'tp' else '🛑'} ${leg.get('symbol')} in {x.get('name') or 'your Fuse card'} {what}. Sell it — one approval (numbers in My cards).",
-               url=f"/terminal/fuse?tab=cards&collect={x['id']}&pct=100&legs={leg['pairAddress']}", once=f"leg-{kind}-{x['id']}-{leg['pairAddress']}",
-               meta={'claim': f"{leg.get('symbol')} {pct:+.1f}% since your buy", 'source': 'Fuse P&L (live prices)'})
-    return len(fired)
+# ↪ moved to rep_fuse_hq.py: _ledger_by_sig, _card_fees, _exit_fee, _fuse_yield_tick, _fuse_swap_tick, _spend_round, _rounds_out_notice
+# ↪ moved to rep_fuse_hq.py: _fuse_buyback_tick, _fuse_leg_tick
 
 
 class FusePlanIn(BaseModel):
@@ -2789,24 +1937,12 @@ async def _crowd_build():
 
 
 # ---- COIN EDGE (backend/coin_edge.py): ONE record per coin for every surface — read from caches that already exist -------
-import coin_edge as _edge
+import coin_edge as _edge   # noqa: F401  (read by rep_coin_edge as rs._edge)
 _edge_cache: dict = {}   # mint -> (at, record)
 _edge_pulse: dict = {}   # mint -> (at, pulse)
 
 
-async def _edge_pulses(mints):
-    """5m pulse for many coins in ONE call to the market service (15s per coin)."""
-    now = time.time()
-    need = [m for m in mints if now - _edge_pulse.get(m, (0, None))[0] > 15]
-    if need:
-        try:
-            async with httpx.AsyncClient(timeout=6) as http:
-                coins = (await http.get('http://127.0.0.1:5001/api/market/pulse', params={'mints': ','.join(need[:60])})).json().get('coins') or {}
-        except Exception:
-            coins = {}
-        for m in need:
-            _edge_pulse[m] = (now, coins.get(m))
-    return {m: _edge_pulse.get(m, (0, None))[1] for m in mints}
+# ↪ moved to rep_coin_edge.py: _edge_pulses
 
 
 EDGE_STALE_SEC = 600.0     # an edge record this young is shown at once while a fresh one is built in the background
@@ -2818,89 +1954,7 @@ _germ_seen: dict = {}    # mint -> (at, germ record): the last germ the agents r
 GERM_KEEP_SEC = 900.0
 
 
-def _germ_rec(mint, now):
-    """🦠 THE GERM ON EVERY COIN (owner, 2026-10-16: "put the germ symbol on all coins site wide"): the agents' own chart read (1m + 5m real
-    candles) as a compact record for the coin edge — {d: % above the 1m germ floor, w: floor | near | far | lost, d5, w5, run, e: the
-    entry word (confirmed / floor / far / lost), line: the owner's germ line, ok: inside it, at}. None = no read (no 15% run yet / not on
-    the desk). Read from the shared snapshot — no fetch."""
-    f_ = (((_office.get('charts') or {}).get(mint) or {}).get('f') or {})
-    g1, g5 = f_.get('germ'), f_.get('germ5')
-    if g1:
-        w1, w5 = _ci.germ_word(g1), _ci.germ_word(g5)
-        mx_ = _uni.germ_max()
-        rec = {'px': g1.get('px'), 'd': g1.get('dist'), 'w': w1, 'd5': (g5 or {}).get('dist'), 'w5': w5, 'run': g1.get('runPct'), 'e': _ci.germ_entry({'germ': w1, 'germ5': w5}),
-               'line': mx_, 'ok': (not mx_) or abs(_fuse._f(g1.get('dist'))) <= mx_, 'at': round(now)}
-        _germ_seen[mint] = (now, rec)
-        if len(_germ_seen) > 4000:
-            for k_ in sorted(_germ_seen, key=lambda k_: _germ_seen[k_][0])[:800]:
-                _germ_seen.pop(k_, None)
-        return rec
-    at_, rec = _germ_seen.get(mint, (0, None))
-    return rec if rec and now - at_ <= GERM_KEEP_SEC else None
-
-
-async def _edge_build(todo, now, budget=None):
-    """Build edge records for `todo` (pulse · verification · snipers · runner gates · sources · elite flow · buys vs sells). With a
-    `budget` the slow reads are cut off and the incomplete record is cached for only ~3s, so the next poll fills it in."""
-    async def _cap(coro, default):
-        try:
-            return await (asyncio.wait_for(coro, timeout=budget) if budget else coro)
-        except Exception:
-            return default
-    async def _bs():
-        try:
-            return await asyncio.wait_for(_bs_rows(todo), timeout=2.5)   # 🌊 buys vs sells 5m / 1h (+ the live 90s tape for held coins); never slows the edge
-        except Exception:
-            return {}
-    pulses, ver_, bs_ = await asyncio.gather(_cap(_edge_pulses(todo), None), _cap(verify_batch(','.join(todo)), None), _bs())   # all three at once
-    partial = pulses is None or ver_ is None
-    pulses, ver = pulses or {}, ((ver_ or {}).get('verify') or {})
-    snip = {}
-    for e in _radar['events']:
-        if e['kind'] == 'snipers-out' and now - e['at'] < 6 * 3600:
-            snip.setdefault(e.get('mint') or e['pair'], e)
-    live = _runner_live_cache.get('data') or {}
-    runner = {r['mint']: r for r in (live.get('dropped') or []) + (live.get('passing') or [])}
-    disc = {r['mint']: r.get('sources') or [] for r in ((_runner_disc_cache.get('data') or {}).get('runners') or [])}
-    flow = ((_crowd_cache.get('data') or {}).get('flow')) or {}
-    out = {}
-    for m in todo:
-        rec = {**_edge.compose(m, pulses.get(m), snip.get(m), ver.get(m), (_intel_cache.get(m) or (0, None))[1], runner.get(m), disc.get(m), flow.get(m)), 'bs': bs_.get(m), 'germ': _germ_rec(m, now)}
-        _edge_cache[m] = (now - 12 if partial else now, rec); out[m] = rec
-    if len(_edge_cache) > 5000:
-        _edge_cache.clear()
-    return out
-
-
-async def _edge_refresh(ms):
-    try:
-        await _edge_build(ms, time.time())
-    except Exception as e:
-        print('edge refresh:', type(e).__name__)
-    finally:
-        _edge_inflight.difference_update(ms)
-
-
-async def _feeback_book():
-    """Fuse Fee-Back per wallet: earned (unlocked shares of fees paid on cards), paid, owed."""
-    d = _json_load(FUSE_HQ_PATH, {})
-    rules = _card_rules(); by = _ledger_by_sig(); now = time.time(); wins = _season_wins()
-    hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
-    out = {}
-    for x in d.get('positions') or []:
-        fb = _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins)
-        a = out.setdefault(x['wallet'], {'wallet': x['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
-        a['earnedUsd'] = round(a['earnedUsd'] + fb['usd'], 6); a['cards'] += 1
-        if x.get('copyOwner'):
-            o = out.setdefault(x['copyOwner'], {'wallet': x['copyOwner'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
-            cut = _hq.copy_cut(_card_fees(x, by), rules, champ=bool(x.get('champCopy')))
-            o['earnedUsd'] = round(o['earnedUsd'] + cut, 6); o['copyUsd'] = round(o['copyUsd'] + cut, 6)
-    for pz in d.get('backerPrizes') or []:   # ⚔ weekly top backers' prize share
-        o = out.setdefault(pz['wallet'], {'wallet': pz['wallet'], 'earnedUsd': 0.0, 'cards': 0, 'copyUsd': 0.0})
-        o['earnedUsd'] = round(o['earnedUsd'] + _fuse._f(pz['usd']), 6); o['backerUsd'] = round(_fuse._f(o.get('backerUsd')) + _fuse._f(pz['usd']), 6)
-    paid = d.get('feebackPaid') or {}
-    rows = [{**a, 'paidUsd': _fuse._f(paid.get(w)), 'owedUsd': round(max(0.0, a['earnedUsd'] - _fuse._f(paid.get(w))), 6)} for w, a in out.items()]
-    return {'rows': sorted(rows, key=lambda a: -a['owedUsd'])[:200], 'owedUsd': round(sum(a['owedUsd'] for a in rows), 6), 'earnedUsd': round(sum(a['earnedUsd'] for a in rows), 6)}
+# ↪ moved to rep_coin_edge.py: _germ_rec, _edge_build, _edge_refresh, _feeback_book
 
 
 class FuseYieldIn(BaseModel):
@@ -2911,105 +1965,7 @@ class FuseYieldIn(BaseModel):
     off: bool = False
 
 
-async def _fuse_guard_tick():
-    """Every minute: value open, guarded positions; when a limit hits, alert the holder once (inbox + phone) with a
-    one-tap Unfuse link. FEELESS never signs for you — the exit is still your wallet's approval."""
-    d = _json_load(FUSE_HQ_PATH, {})
-    now = time.time()
-    rb = [x for x in d.get('positions') or [] if x.get('autoRebalance') and not x.get('closedAt') and now - (x['autoRebalance'].get('lastAt') or 0) > 6 * 3600]
-    if rb:   # auto-rebalance: one alert (≤ every 6h) with a one-tap rebalance link when a card drifts past its tolerance
-        rpx = await _hq_prices([leg for x in rb for leg in x['legs']])
-        fired = []
-        for x in rb:
-            dr = _hq.drift(_hq.position_pnl(x, rpx))
-            if dr >= x['autoRebalance']['tol']:
-                fired.append(x['id'])
-                notify(x['wallet'], 'fuse-guard', f"⚖ {x.get('name') or 'Your Fuse card'} drifted {dr:.0f} pts from its weights — tap to rebalance (one approval).",
-                       url=f"/terminal/fuse?tab=cards&rebalance={x['id']}", once=f"rb-{x['id']}-{int(now // (6 * 3600))}",
-                       meta={'claim': f'Largest leg is {dr:.0f} points off its target share', 'source': 'Fuse P&L (live prices)'})
-        if fired:
-            async with _admin_lock:
-                d2 = _json_load(FUSE_HQ_PATH, {})
-                for x in d2.get('positions') or []:
-                    if x['id'] in fired and x.get('autoRebalance'):
-                        x['autoRebalance']['lastAt'] = now
-                _json_save(FUSE_HQ_PATH, d2)
-        d = _json_load(FUSE_HQ_PATH, {})
-    await _fuse_yield_tick(d, now)
-    await _fuse_swap_tick(d, now)
-    await _fuse_leg_tick(d, now)
-    await _fuse_buyback_tick(_json_load(FUSE_HQ_PATH, {}), now)
-    d = _json_load(FUSE_HQ_PATH, {})
-    live = [x for x in d.get('positions') or [] if x.get('guard') and not x['guard'].get('firedAt') and not x.get('closedAt')]
-    if not live:
-        return 0
-    px = await _hq_prices([leg for x in live for leg in x['legs']])
-    hits, peaks = [], {}
-    for x in live:
-        r = _hq.position_pnl(x, px)
-        hit, peak = _hq.guard_check(x['guard'], r['pnlPct'])
-        peaks[x['id']] = peak
-        if hit:
-            hits.append((x, hit, r))
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        by = {x['id']: x for x in d.get('positions') or []}
-        for pid, pk in peaks.items():
-            if pid in by and by[pid].get('guard'):
-                by[pid]['guard']['peak'] = round(pk, 2)
-        for x, hit, r in hits:
-            if by.get(x['id'], {}).get('guard'):
-                by[x['id']]['guard']['firedAt'] = time.time(); by[x['id']]['guard']['hit'] = hit
-        _json_save(FUSE_HQ_PATH, d)
-    label = {'tp': '🎯 Take-profit hit', 'sl': '🛑 Stop-loss hit', 'trail': '📉 Trailing stop hit'}
-    for x, hit, r in hits:
-        notify(x['wallet'], 'fuse-guard', f"{label[hit]} on {x.get('name') or 'your Fuse'}. Tap to Unfuse — one approval (numbers in My cards).",
-               url=f"/terminal/trade?tab=fuse&unfuse={x['id']}", once=f"guard-{x['id']}-{x['guard'].get('armedAt')}",
-               meta={'claim': f"Basket P&L {r['pnlPct']:+.1f}% vs your limit", 'source': 'Fuse P&L (live DexScreener prices)'})
-    return len(hits)
-
-
-async def _card_signal_tick(now=None):
-    """ONE signal stream (the inbox you already have — no new tab): coins on your OPEN cards that just got a coin-edge signal
-    (🔔 bond run, 🎯 snipers out, ⚠ now failing a runner gate) → one inbox + phone notice each, with the card one tap away.
-    Reads caches only. No P&L in the text."""
-    now = now or time.time()
-    d = _json_load(FUSE_HQ_PATH, {})
-    live = _runner_live_cache.get('data') or {}
-    board = {r['mint']: r for r in (live.get('passing') or []) + (live.get('dropped') or [])}
-    snip = {e.get('mint') or e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out' and now - e['at'] < 3600}
-    n = 0
-    for x in d.get('positions') or []:
-        if x.get('closedAt'):
-            continue
-        for leg in x['legs']:
-            if leg.get('soldUsd') is not None or not leg.get('mint'):
-                continue
-            m, sym = leg['mint'], leg.get('symbol') or '?'
-            r = board.get(m) or {}
-            sigs = []
-            if r.get('bondTier'):
-                sigs.append(('bond', f"🔔 ${sym} on {x.get('name') or 'your card'}: {r['bondTier']} — every bond box ticked.", 'Fuse Runners bond check'))
-            if m in snip or leg.get('pairAddress') in snip:
-                sigs.append(('snipers', f"🎯 ${sym} on {x.get('name') or 'your card'}: every flagged sniper sold out.", 'Launch forensics radar'))
-            if leg.get('role') == 'runner' and r.get('gates'):
-                sigs.append(('gate', f"⚠ ${sym} on {x.get('name') or 'your card'} now fails: {r['gates'][0]}. Switch or sell it — one approval.", 'Fuse Runners gates'))
-            for kind, text, src in sigs:
-                notify(x['wallet'], 'fuse-signal', text, url=f"/terminal/fuse?tab=cards&card={x['id']}", once=f"sig-{x['id']}-{m}-{kind}-{int(now // 21600)}",
-                       meta={'claim': text, 'source': src})
-                n += 1
-    return n
-
-
-async def _fuse_guard_loop():
-    await asyncio.sleep(45)
-    while True:
-        try:
-            await _fuse_guard_tick()
-            await _card_signal_tick()
-        except Exception as e:
-            print('fuse guard:', e)
-        await asyncio.sleep(60)
+# ↪ moved to rep_coin_edge.py: _fuse_guard_tick, _card_signal_tick, _fuse_guard_loop
 
 
 @app.on_event('startup')
@@ -3044,51 +2000,19 @@ class CoinModeIn(BaseModel):
     rotateHours: float | None = None                 # ⇄ replace this coin at most every … (5m–24h) · 0 = follow the card
 
 
-async def _hq_prices(legs):
-    pairs = await _fuse_pairs([{'chainId': leg.get('chainId', 'solana'), 'pairAddress': leg['pairAddress']} for leg in legs])
-    return {k: _fuse._f(v.get('priceUsd')) for k, v in pairs.items()}
+# ↪ moved to rep_coin_edge.py: _hq_prices
 
 
 _held_cache: dict = {}
 
 
-async def _wallet_held(wallets, mints):
-    """{mint: tokens} summed over these wallets from chain (both token programs), cached 60s. None = RPC unavailable (never guess)."""
-    key = tuple(wallets)
-    hit = _held_cache.get(key)
-    if hit and time.time() - hit[0] < 60:
-        return hit[1]
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [w, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}])
-                                         for w in wallets[:6] for pg in _FW_TOKEN_PROGRAMS])
-    except Exception:
-        return None
-    held = {}
-    for r in res:
-        for a in (r or {}).get('value') or []:
-            info = _parsed_info(a.get('account'))
-            if info.get('mint'):
-                held[info['mint']] = held.get(info['mint'], 0.0) + _fuse._f((info.get('tokenAmount') or {}).get('uiAmountString') or (info.get('tokenAmount') or {}).get('uiAmount'))
-    _held_cache[key] = (time.time(), held)
-    return held
+# ↪ moved to rep_coin_edge.py: _wallet_held
 
 
 _fuse_holders_cache: dict = {}
 
 
-async def _arena_settle(px=None, now=None):
-    """Close every arena run older than 24h at today's prices, once. Returns the saved store."""
-    now = now or time.time()
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        due = [e for e in d.get('arena') or [] if not e.get('close') and now - e['at'] >= _hq.ARENA_HOURS * 3600]
-        if due:
-            px = px if px is not None else await _hq_prices([leg for e in due for leg in e['legs']])
-            for e in due:
-                e['close'] = {leg['pairAddress']: px.get(leg['pairAddress']) or leg['start'] for leg in e['legs']}; e['closedAt'] = now
-            _json_save(FUSE_HQ_PATH, d)
-    return d
+# ↪ moved to rep_coin_edge.py: _arena_settle
 
 
 # ---- 🏆 Fuse seasons: weekly (Monday 00:00 UTC), cards opened that week ranked by real P&L %; top 3 crowned once ----------
@@ -3381,7 +2305,7 @@ ENRICH_WAIT_SEC = 14.0               # a caller that WAITS for a scan (a held / 
 _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
 
 
-import meme_terms as _mt
+import meme_terms as _mt   # noqa: F401  (read by rep_ai, rep_crews as rs._mt)
 import pg_battle as _pgb
 import card_dna as _dna   # noqa: F401  (read by rep_ai, rep_public_reads as rs._dna)
 MEME_PATH = DATA_DIR / 'meme_terms.json'
@@ -3434,54 +2358,7 @@ async def _runner_start():
 import arena_prime as _prime
 
 
-def _prime_cfg():
-    cfg = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cfg') or {})
-    cal = _fw.calibrate(_fw_peek().get('ledger'))
-    if cal.get('feeUsd') is not None:   # 🎯 paper pays what a real swap from the Fuse wallet costs (network + priority)
-        cfg['paperFeeUsd'] = cal['feeUsd']
-    return cfg
-
-
-def _ladder_value(card):
-    """🪜 What the real card is worth for its ladder stage: its value at the last round bell (else its run start)."""
-    return _fuse._f((card or {}).get('roundStartUsd')) or _fuse._f((card or {}).get('startUsd'))
-
-
-def _ladder_step(card, cfg, now):
-    """🪜 Move the real card up / down the size ladder (hysteresis in arena_prime.ladder_stage); one event per change."""
-    if not (card and card.get('real') and cfg.get('ladder')):
-        return card
-    prev = card.get('ladderStage')
-    st = _prime.ladder_stage(_ladder_value(card), prev)
-    if st != prev:
-        card['ladderStage'] = st
-        v = _prime.ladder_view(st)
-        if prev:
-            card.setdefault('events', []).append({'at': now, 'kind': 'ladder', 'text': f"🪜 ${_ladder_value(card):.2f} card → {v['name']}: {v['why']}"})
-            card['events'] = card['events'][-60:]
-    return card
-
-
-def _prime_real_cfg(pr=None):
-    """💵 The REAL card's own config (`prime.realCfg`): separate from paper — HQ/engine tunes, meta config and tier locks only ever write the
-    paper `cfg`. Not set yet → it starts as a copy of today's paper config. Any clock (5 min too) is allowed."""
-    pr = pr if pr is not None else (_json_load(FUSE_HQ_PATH, {}).get('prime') or {})
-    paper = _prime_cfg()
-    rc = pr.get('realCfg')
-    if isinstance(rc, dict) and rc:
-        out = _prime.clean_cfg(rc)
-        if 'instantSwapPct' not in rc:
-            out['instantSwapPct'] = out['rotateMinDrop']
-        if out.get('ladder'):   # 🪜 the playbook of the real card's size stage (set by the tier tick) on top of the owner's config
-            rcard = next((c for c in ((pr.get('cards') or {}).values()) if (c or {}).get('real')), None) or {}
-            out = _prime.clean_cfg(_prime.ladder_patch(out, rcard.get('ladderStage') or _prime.ladder_stage(_ladder_value(rcard)), pr.get('ladderKeep') or ()))
-            out['ladder'] = True
-            if 'instantSwapPct' not in rc:
-                out['instantSwapPct'] = out['rotateMinDrop']
-        out = _ng.night_cfg(out, time.localtime().tm_hour, on=rc.get('nightShift', True) is not False)   # 🌙 00:00–09:00 the tighter night profile (ceilings only)
-        return {**_prime.real_guard(out, pr.get('realOwnerSet') or ())[0], 'paperFeeUsd': paper['paperFeeUsd']}   # 💵 hard floors (owner's OFF hold wins)
-
-    return _prime.real_guard({**paper, 'instantSwapPct': paper.get('rotateMinDrop', 0)})[0]
+# ↪ moved to rep_prime.py: _prime_cfg, _ladder_value, _ladder_step, _prime_real_cfg
 
 
 import trench as _trench
@@ -3494,83 +2371,13 @@ _open_cache: dict = {'at': 0.0, 'rows': [], 'calls': {}}
 TRENCH_CALLOUT_PATH = FUSE_HQ_PATH.parent / 'trench_callouts.json'
 
 
-def _open_board(n=None):
-    """🚪 The open trench list: every launch coin in the feed ranked as a front-runner, each with what it has not passed. `n` = how many
-    (default the list's OPEN_MAX; the agents' intake reads the WHOLE feed)."""
-    rcfg = _runner_cfg()
-    scanned = {}
-    for r in _runner_cands:
-        if r.get('mint') and r.get('scanned') and _fuse._f(r.get('top10')) > 0:   # a scan with no top-10 reading is not a scan (it read "top-10 hold 0%" = safe)
-            bad = _rn.safety_fails(r, rcfg)
-            scanned[r['mint']] = (not bad, bad[:4], {k: r.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
-    for p in _open_pairs:   # 🕵 a coin scanned on request (the agents' investigation, a quick look) but not on the runner board: judged the same way
-        m = (p.get('baseToken') or {}).get('address')
-        if m and m not in scanned:
-            got = _open_scan_judge(p, m, rcfg)
-            if got:
-                scanned[m] = got
-    return _trench.open_board(_open_pairs, scanned, time.time() * 1000, **({'n': n} if n else {}))
+# ↪ moved to rep_prime.py: _open_board
 
 
 _open_scan_memo: dict = {}   # mint → (scan checkedAt, judged) — one judgement per scan
 
 
-def _open_scan_judge(pair, mint, rcfg):
-    """(safe, fails, facts) for a coin whose OWN holder scan is in the intel cache and complete, else None. The SAME candidate + safety
-    gates the runner board uses (same creator flag / rep inputs); nothing is loosened. Why: the agents request scans for their strongest
-    unscanned cases, the scan landed in the cache, but the open list judged safety only from the runner board's candidates — so an older
-    coin off that board read "holders never scanned" forever and its case could never clear (2026-10-10, $WOSE)."""
-    it = _intel_fresh(mint)
-    if not it or it.get('top10Pct') is None or _fuse._f(it.get('top10Pct')) <= 0:
-        return None
-    key = it.get('checkedAt')
-    hit = _open_scan_memo.get(mint)
-    if hit and hit[0] == key:
-        return hit[1]
-    try:
-        creator = it.get('creator')
-        brec = _block_load()['wallets'].get(creator) if creator else None
-        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot'))
-        crep = None
-        if creator:
-            try:
-                crep = _quick_rep(creator).get('level')
-            except Exception:
-                crep = None
-            if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
-                crep = 'suspect'
-        c = _rn.candidate(pair, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints, creator_rep=crep)
-        if not c.get('scanned') or _fuse._f(c.get('top10')) <= 0:
-            return None
-        bad = _rn.safety_fails(c, rcfg)
-        out = (not bad, bad[:4], {k: c.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
-    except Exception:
-        return None
-    if len(_open_scan_memo) > 2000:
-        _open_scan_memo.clear()
-    _open_scan_memo[mint] = (key, out)
-    return out
-
-
-def _jup_judge(pair, mint, facts, rcfg):
-    """(safe, fails, facts) from JUPITER'S AUDIT when our own RPC holder scan has not landed — the same stand-in the runner board and the
-    open board already use (`lite_intel`), judged by the SAME candidate + safety gates; live mint / freeze authority = flagged. Why
-    (2026-10-11): the agents' intake rows for the newest launches never got it, so every seat's best candidate read "holders not scanned"
-    while the RPC scanner (≈ 1 call/s) worked through its queue, and the real card sat with 4 empty seats. Our full scan still replaces it."""
-    it = _ja.lite_intel(facts)
-    if not it or it.get('top10Pct') is None:
-        return None
-    try:
-        creator = it.get('creator')
-        brec = _block_load()['wallets'].get(creator) if creator else None
-        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')) or _ja.authority_bad(facts)
-        c = _rn.candidate(pair, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints)
-        if not c.get('scanned') or _fuse._f(c.get('top10')) <= 0:
-            return None
-        bad = _rn.safety_fails(c, rcfg)
-        return (not bad, bad[:4], {k: c.get(k) for k in ('top10', 'dev', 'insiders', 'bundled')})
-    except Exception:
-        return None
+# ↪ moved to rep_prime.py: _open_scan_judge, _jup_judge
 
 
 import pump_calls as _pc
@@ -3579,69 +2386,7 @@ _pump_calls: dict = {'at': 0.0, 'board': {'coins': [], 'top': [], 'latest': [], 
 _pump_calls_flight: dict = {}
 
 
-async def _pump_calls_build(force=False):
-    """📣 Pump's OWN callouts (pump_calls: ranked feed + newest + today's top by profit), re-read at most once a minute; one read in
-    flight; a failed read keeps the last good board. Leaderboard coins get their ticker from Jupiter (the leaderboard carries none)."""
-    now = time.time()
-    if (not force and now - _pump_calls['at'] < _pc.TTL) or os.environ.get('PYTEST_CURRENT_TEST'):
-        return _pump_calls['board']
-    if _pump_calls_flight.get('t'):
-        return _pump_calls['board']
-    if not force and not _FUSE_FORCE.get() and (_pump_calls['board'].get('coins') or _pump_calls['board'].get('top')):
-        _pump_calls['at'] = now   # ⚡ a viewer gets the board in memory at once; ONE refresh runs behind it (it took 2–5s inline)
-        asyncio.create_task(_pump_calls_build(force=True))
-        return _pump_calls['board']
-    _pump_calls_flight['t'] = True
-    _pump_calls['at'] = now
-    try:
-        base = os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun')
-        async with httpx.AsyncClient(timeout=10) as http:
-            async def one(path, params):
-                try:
-                    r = await http.get(base + path, params=params, headers={'Accept': 'application/json'})
-                    return r.json() if r.status_code == 200 else None
-                except Exception:
-                    return None
-            home, new, top = await asyncio.gather(one(_pc.HOME_PATH, _pc.HOME_PARAMS), one(_pc.NEW_PATH, _pc.NEW_PARAMS), one(_pc.TOP_PATH, _pc.TOP_PARAMS))
-        if home or new or top:
-            b = _pc.board(home, new, top, now * 1000)
-            need = [t['mint'] for t in b['top'] if not t.get('symbol')]
-            if need:
-                try:
-                    toks = await _jup_tokens(need)
-                except Exception:
-                    toks = {}
-                for t in b['top']:
-                    k = toks.get(t['mint']) or {}
-                    t['symbol'] = t.get('symbol') or k.get('symbol')
-                    t['logo'] = t.get('logo') or k.get('icon')
-            calls_ = b.pop('calls', [])
-            _pump_calls['calls'] = calls_[-600:]   # 📣 the raw calls: the callout-spike sell reads who is piling in right now
-            try:   # 🎯 caller scoreboard: every call noted once, judged an hour later
-                _pump_calls['callers'] = await asyncio.to_thread(_pump_callers_pass, calls_, now)
-                _pc.mark_pros(b, _pump_calls['callers'])
-            except Exception as e:
-                print('pump callers:', e)
-            if b['coins'] or b['top'] or not _pump_calls['board']['coins']:
-                _pump_calls.update(board=b, map={c['mint']: c for c in b['coins']}, ok=now)
-            try:
-                _call_rush_alert(calls_, now)
-            except Exception as e:
-                print('call rush:', e)
-    finally:
-        _pump_calls_flight['t'] = False
-    return _pump_calls['board']
-
-
-def _pc_rows(rows):
-    """📣 `pc` on every row whose coin Pump's users are calling out (cache read only, never a fetch). In place."""
-    m_ = _pump_calls['map']
-    if m_:
-        for r in rows or []:
-            c = m_.get(r.get('mint') or r.get('baseAddress'))
-            if c:
-                r['pc'] = _pc.summary(c)
-    return rows
+# ↪ moved to rep_prime.py: _pump_calls_build, _pc_rows
 
 
 PUMP_CALLERS_PATH = FUSE_HQ_PATH.parent / 'pump_callers.json'
@@ -3649,38 +2394,11 @@ PUMP_CALLERS_SAVE_SEC = 600
 _pump_callers = {'st': None, 'saved': 0.0}
 
 
-def _pump_callers_pass(calls, now):
-    """🎯 The caller scoreboard's pass, in a WORKER THREAD (one at a time: `_pump_calls_flight`). The 30 MB record lives in memory — read
-    once per start, written every 10 min with the soft encoder — it used to be parsed + re-written on the event loop every minute
-    (≈ 4s of frozen service). `caller_track` returns a NEW state each pass, so the copy being written is never mutated."""
-    if _pump_callers['st'] is None:
-        try:
-            _pump_callers['st'] = json.loads(PUMP_CALLERS_PATH.read_text()) if PUMP_CALLERS_PATH.exists() else {}
-        except Exception:
-            _pump_callers['st'] = {}
-        _pump_callers['saved'] = now
-    st = _pc.caller_track(_pump_callers['st'], calls, now * 1000)
-    _pump_callers['st'] = st
-    if now - _pump_callers['saved'] >= PUMP_CALLERS_SAVE_SEC:
-        _pump_callers['saved'] = now
-        _json_save_soft(PUMP_CALLERS_PATH, st)
-    return _pc.caller_board(st)
+# ↪ moved to rep_prime.py: _pump_callers_pass
 _rush_sent: dict = {}   # mint → when the owner was last told (one alert per coin per 6h)
 
 
-def _call_rush_alert(calls, now):
-    """🔔 The owner's early-caller alert (prime.callAlert.capK, off by default): 3+ different Pump callers on one coin inside 10 minutes
-    while its cap is under the owner's line → ONE inbox + phone notice per coin per 6h. A heads-up only: nothing is bought."""
-    cap_k = int(_fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('callAlert') or {}).get('capK')))
-    if cap_k not in _pc.RUSH_CAPS_K or cap_k <= 0:
-        return []
-    hits = [h for h in _pc.rush(calls, now * 1000, cap_k * 1000) if now - _rush_sent.get(h['mint'], 0) > 6 * 3600]
-    for h in hits[:3]:
-        _rush_sent[h['mint']] = now
-        for w in _owner_wallets():
-            notify(w, 'fuse-signal', f"🔔 Call rush: {h['callers']} Pump callers on ${h.get('symbol') or h['mint'][:4]} in 10 minutes — cap ${h['mcap'] / 1000:,.0f}K. Other people's calls, not advice.",
-                   url=f"/terminal/coin/solana/{h['mint']}", once=f"rush-{h['mint']}-{int(now // 21600)}", meta={'claim': f"{h['callers']} different callers inside 10 minutes", 'source': 'Pump callouts feed'})
-    return hits
+# ↪ moved to rep_prime.py: _call_rush_alert
 
 
 async def _double_rows():
@@ -3693,28 +2411,7 @@ async def _double_rows():
                                                  'score': round((pm[m].get('heat', 0) + rs[m]['score']) / 2)})
 
 
-async def _mint_rows(mints, extra):
-    """Coins known only by their mint → picker rows in the same shape as every other launch list (pair from Jupiter's token data)."""
-    try:
-        toks = await _jup_tokens(list(mints))
-    except Exception:
-        toks = {}
-    rows = []
-    for m in mints:
-        p_ = _launchpad_board.jup_pair(toks.get(m))
-        if not p_ or _fuse._f(p_.get('priceUsd')) <= 0:
-            continue
-        p_ = _fuse.with_curve(p_)
-        age_ = round((time.time() * 1000 - _fuse._f(p_.get('pairCreatedAt'))) / 3.6e6, 1) if p_.get('pairCreatedAt') else None
-        rows.append({'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **_fuse.leg_meta(p_), **({'curve': True} if p_.get('curve') else {}), 'ageH': age_,
-                     'vol1h': _fuse._f((p_.get('volume') or {}).get('h1')), **extra(m)})
-    return rows
-
-
-async def _pump_call_rows():
-    """📣 The picker's Pump callouts list: one row per called coin, loudest first."""
-    by = {c['mint']: c for c in (await _pump_calls_build()).get('coins') or []}
-    return await _mint_rows(list(by), lambda m: {'divisionLabel': _pc.label(by[m]), 'pc': _pc.summary(by[m]), 'score': by[m].get('heat')})
+# ↪ moved to rep_prime.py: _mint_rows, _pump_call_rows
 
 
 import feeders as _fd
@@ -3723,40 +2420,7 @@ _feeders: dict = {'at': 0.0, 'board': {'runners': {}, 'kids': {}, 'seen': 0}, 'n
 FEEDERS_TTL = 120
 
 
-async def _feeders_build():
-    """🧲 Which runners new Pump launches are paired with (feeders.board), from Pump's newest + most recently traded coins. Re-read every
-    2 min, pages one after another (Pump refuses bursts); a failed read keeps the last board."""
-    now = time.time()
-    if now - _feeders['at'] < FEEDERS_TTL or os.environ.get('PYTEST_CURRENT_TEST'):
-        return _feeders['board']
-    _feeders['at'] = now
-    base = os.getenv('PUMP_API_URL', 'https://frontend-api-v3.pump.fun')
-    coins = []
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            for sort, offs in _fd.SOURCES:
-                for off in offs:
-                    try:
-                        r = await http.get(base + '/coins', params={'offset': off, 'limit': 50, 'sort': sort, 'order': 'DESC', 'includeNsfw': 'false'})
-                        if r.status_code == 200 and isinstance(r.json(), list):
-                            coins += r.json()
-                    except Exception:
-                        pass
-                    await asyncio.sleep(0.25)
-    except Exception:
-        pass
-    if coins:
-        b = _fd.board(coins, now * 1000)
-        names = dict(_feeders.get('names') or {})
-        need = [m for m in b['runners'] if m not in names]
-        if need:
-            try:
-                for m, t in (await _jup_tokens(need[:100])).items():
-                    names[m] = t.get('symbol')
-            except Exception:
-                pass
-        _feeders.update(board=b, names={m: v for m, v in names.items() if m in b['runners']})
-    return _feeders['board']
+# ↪ moved to rep_prime.py: _feeders_build
 
 
 def _fd_rows(rows):
@@ -3780,7 +2444,7 @@ async def _feeder_rows():
     return await _mint_rows(_fd.ranked(b)[:80], lambda m: {'divisionLabel': _fd.label(rs[m]), 'fd': rs[m], 'score': rs[m]['score']})
 
 
-import social_feed as _sfeed
+import social_feed as _sfeed   # noqa: F401  (read by rep_admin_routes, rep_more_reads as rs._sfeed)
 _SF_CACHE: dict = {}   # source → {'at', 'posts'}  (one read per source per minute, served stale while one refresh runs behind it)
 _SF_TTL = 60.0
 _SF_BUSY: set = set()
@@ -3794,41 +2458,7 @@ def _sf_client():
     return _sf_http
 
 
-async def _sf_read(src):
-    """One source → posts in the shared shape (social_feed.py). Never raises: a source that fails returns [] and keeps its last copy."""
-    try:
-        if src == 'pump':
-            b_ = await _pump_calls_build()
-            return _sfeed.from_pump((b_.get('latest') or [])[:40] + (b_.get('top') or [])[:20])
-        if src == 'feeless':
-            d_ = _chat_load()
-            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless([m_ for m_ in (d_['rooms'].get(r_) or [])[-60:] if not _OPS_PING.search(str(m_.get('text') or ''))][-40:], r_)]
-        if src == 'x':
-            return list((_json_load(FEED_X_PATH, {}) or {}).get('posts') or [])
-        if src == 'telegram':
-            out_ = []
-            for ch_ in _sfeed.TG_CHANNELS:
-                r_ = await _sf_client().get(f'https://t.me/s/{ch_}')
-                if r_.status_code == 200:
-                    out_ += _sfeed.parse_telegram(r_.text, ch_)
-            return out_
-        if src == 'bluesky':
-            r_ = await _sf_client().get('https://api.bsky.app/xrpc/app.bsky.feed.searchPosts', params={'q': _sfeed.BSKY_QUERY, 'limit': 40, 'sort': 'latest'})
-            return _sfeed.parse_bluesky(r_.json()) if r_.status_code == 200 else []
-    except Exception as e:
-        print('social feed', src, str(e)[:100])
-    return []
-
-
-async def _sf_refresh(src):
-    try:
-        posts_ = await _sf_read(src)
-        if posts_ or src not in _SF_CACHE:
-            _SF_CACHE[src] = {'at': time.time(), 'posts': posts_}
-        else:
-            _SF_CACHE[src]['at'] = time.time()
-    finally:
-        _SF_BUSY.discard(src)
+# ↪ moved to rep_prime.py: _sf_read, _sf_refresh
 
 
 import feed_social as _fsoc   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
@@ -3855,142 +2485,13 @@ class FeedXShare(BaseModel):
 _SF_FIRST: dict = {}   # 🧾 post id → the cap FEELESS first saw it at (memory, newest 4,000)
 
 
-async def _sf_receipts(posts, now):
-    """🧾 Every post that names a coin gets its CALL RECEIPT: cap when first seen (or Pump's called cap) → cap now (Jupiter, 60s cache) = ×."""
-    out, need = [], []
-    for p_ in posts:
-        p_ = dict(p_)
-        if not (p_.get('coin') or {}).get('mint'):
-            m_ = _sfeed.find_mint(p_.get('text'))
-            if m_:
-                p_['coin'] = {'mint': m_, 'symbol': None}
-        if (p_.get('coin') or {}).get('mint'):
-            need.append(p_['coin']['mint'])
-        out.append(p_)
-    if not need:
-        return out
-    try:
-        rows_ = await asyncio.wait_for(_jup_tokens(need[:120]), 4)
-    except Exception:
-        rows_ = {}
-    for p_ in out:
-        m_ = (p_.get('coin') or {}).get('mint')
-        if not m_:
-            continue
-        t_ = rows_.get(m_) or {}
-        if not t_ and not (p_.get('coin') or {}).get('symbol'):
-            p_['coin'] = None          # a random address, not a coin Jupiter knows
-            continue
-        r_ = _sfeed.receipt(p_, t_.get('mcap') or (p_.get('coin') or {}).get('mcap'), _SF_FIRST, now)
-        if r_:
-            r_['symbol'] = r_.get('symbol') or t_.get('symbol'); r_['icon'] = t_.get('icon')
-        p_['coin'] = r_
-    if len(_SF_FIRST) > 4000:
-        for k_ in list(_SF_FIRST)[:1000]:
-            _SF_FIRST.pop(k_, None)
-    return out
-
-
-async def _callout_tick(now):
-    """📣 Every ~3.5 min: who the open list calls out (volume leader · mover · fresh launch), each noted once and settled 1h later."""
-    if now - _open_cache['at'] < _trench.CALLOUT_SEC or os.environ.get('PYTEST_CURRENT_TEST') or not _open_pairs:
-        return _open_cache
-    _open_cache['at'] = now
-    board = _open_board()
-    calls = _trench.callouts(board)
-    doc = _json_load(TRENCH_CALLOUT_PATH, {})
-    st = doc.get('state') or {}
-    due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-    jp = await _jup_prices(due, judge=True) if due else {}
-    st = _trench.meta_track(st, {k: [(r['mint'], r['price'], r.get('ageH')) for r in v] for k, v in calls.items()}, lambda m: (jp or {}).get(m), now, keys=_trench.CALLOUTS)
-    names = dict(doc.get('names') or {})
-    for v in calls.values():
-        for r in v:
-            names[r['mint']] = {'symbol': r['symbol'], 'pairAddress': r['pairAddress']}
-    keep = {m for s_ in st.values() for m in list((s_.get('open') or {})) + [d.get('mint') for d in s_.get('done') or []]}
-    _json_save(TRENCH_CALLOUT_PATH, {'state': st, 'names': {m: v for m, v in names.items() if m in keep}, 'at': now})
-    _open_cache.update(rows=board, calls={k: [r['mint'] for r in v] for k, v in calls.items()})
-    return _open_cache
+# ↪ moved to rep_prime.py: _sf_receipts, _callout_tick
 
 
 TRENCH_SCAN = 8   # on-chain holder counts are heavy: only the 5 busiest coins that already pass every cheap check
 
 
-async def _trench_build(now):
-    """🗑 Every ~2 min (warm loop): fresh launches breaking out with a real crowd. Cheap checks on the whole runner feed, then the
-    on-chain holder count + mint/freeze authority for the busiest survivors only. Result cached for the tier tick (never fetched
-    inside it). `checked` keeps why each finalist passed or failed (HQ / tests)."""
-    if now - _trench_cache['at'] < 120 or os.environ.get('PYTEST_CURRENT_TEST'):
-        return _trench_cache
-    _trench_cache['at'] = now
-    live = await _runner_live()
-    seen, pool = set(), []
-    own0 = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    # finalists by the LOOSEST soft checks (the strictest level that passes wins) — or by the owner's own checks
-    own_g0 = _trench.own_gate(own0) if own0['mode'] in ('own', 'meta') else None
-    loose = _trench.loosest(own_g0)   # wide enough for EVERY meta (and the owner's own filter) to have finalists
-    every = list(_runner_cands) or (live.get('passing') or []) + (live.get('dropped') or [])
-    _trench_cache['seen'], _trench_cache['funnel'] = len(every), _trench.funnel(every, loose)[:8]   # 🔎 why coins didn't make it
-    # ⏩ coins that pass EVERY cheap check and only wait on their holder scan get it now (busiest 12), instead of waiting their turn
-    # on the runner board — they join the finalists on the next pass
-    need = sorted((r for r in every if r.get('mint') and _trench.precheck(r, loose) == ['holder scan not done yet']), key=lambda r: -_fuse._f(r.get('vol1h')))[:12]
-    if need:
-        asyncio.ensure_future(asyncio.gather(*[_runner_intel(r['mint'], _enr.PRIO['MOVER'], 'trench finalist') for r in need], return_exceptions=True))
-    for r in every:
-        if r.get('mint') and r['mint'] not in seen and not _trench.precheck(r, loose):
-            seen.add(r['mint']); pool.append(r)
-    # 🎛 coins that fit the OWNER's filter take the holder-count seats first (busiest first inside each group)
-    pool = sorted(pool, key=lambda r: (bool(own_g0) and bool(_trench.precheck(r, own_g0)), -_fuse._f(r.get('vol1h'))))[:TRENCH_SCAN]
-    async def one(r):
-        try:
-            h = await asyncio.wait_for(_token_holders(r['mint']), 25)
-            async with httpx.AsyncClient(timeout=8) as http:
-                auth = await _mint_authorities(http, r['mint'])
-        except Exception:
-            return None
-        return r, (h or {}).get('holders'), auth
-    got = [x for x in await asyncio.gather(*[one(r) for r in pool]) if x]
-    _trench_cache['got'] = got   # raw finalists (coin, holders, authorities): every 🧪 meta is judged on these
-    _trench_judge()
-    try:   # 📈 paper proof per meta: note what each passes now, settle what it passed an hour ago (Jupiter price; gone = −100%)
-        gate_ = lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg)
-        passing = {k: [(x[0]['mint'], x[0].get('price')) for x in got if gate_(x, _trench.meta_gate(k))[0]] for k in _trench.METAS}
-        st = _json_load(TRENCH_META_PATH, {})
-        due = [m for s in st.values() for m, o in (s.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(TRENCH_META_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now))
-    except Exception as e:
-        print('trench proof:', e)
-    try:   # 🎯 the same paper record for the three ENTRY setups: noted once when a safe coin shows the setup, settled 1h later
-        safe = [r for r in _runner_cands if _rn.safe_only(r, _runner_cfg()) and _fuse._f(r.get('liq')) >= 10000]
-        hits = {k: [] for k in _prime.ENTRY_SETUPS}
-        for r in safe:
-            hit = _prime.entry_setup(r)
-            if hit and r.get('mint'):
-                hits[hit[0]].append((r['mint'], r.get('price')))
-        st = _json_load(ENTRY_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(ENTRY_PROOF_PATH, _trench.meta_track(st, hits, lambda m: (jp or {}).get(m), now, keys=_prime.ENTRY_SETUPS))
-    except Exception as e:
-        print('entry proof:', e)
-    await _bottom_track(now)
-    await _call_track(now)
-    await _procall_track(now)
-    await _brain_track(now)
-    await _li_track(now)
-    try:   # 🔗 Pump's own socials for the open list's busiest coins + the real card's coins (lists read the cache)
-        legs_ = [l.get('mint') for c_ in _prime_cards().values() if c_.get('real') for l in c_.get('legs') or []]
-        await _pump_links_warm(legs_ + [r.get('mint') for r in (_open_board() or [])[:60]])
-    except Exception as e:
-        print('pump links:', e)
-    await _lens_track(now)
-    await _smart_track(now)
-    await _edge_track(now)
-    await _flow_settle(now)
-    await _owner_moves_tick(now)
-    await _study_tick(now)   # 👤 the owner study → 🗄 the AI memory + proposals (2026-10-15)
-    return _trench_cache
+# ↪ moved to rep_prime.py: _trench_build
 
 
 TRENCH_META_PATH = FUSE_HQ_PATH.parent / 'trench_meta.json'
@@ -3999,10 +2500,10 @@ OWNER_MOVES_PATH = FUSE_HQ_PATH.parent / 'owner_moves.json'   # 🧾 the owner's
 CALL_RUN_PCT = 25.0   # 📣 a callout that is up this much since the call is worth a chat line
 
 
-import owner_study as _ost
+import owner_study as _ost   # noqa: F401  (read by rep_prime as rs._ost)
 import limit_orders as _lim
 import impostor as _imp   # noqa: F401  (read by rep_ai as rs._imp)
-import ai_memory as _aim
+import ai_memory as _aim   # noqa: F401  (read by rep_admin_routes, rep_ai as rs._aim)
 import mem_store as _ms0
 RUNNER_PATHS_PATH = DATA_DIR / 'runner_paths.json'   # {mint: [[t, price], ...]} — split out of runners.json (it was rewritten whole every tick)
 _paths_mem = _ms0.MemStore(lambda: RUNNER_PATHS_PATH, 60.0, lambda p_, d_: (json.loads(p_.read_text()) if p_.exists() else d_), lambda p_, o_: _json_save_soft(p_, o_))
@@ -4012,142 +2513,13 @@ _study = {'at': 0.0, 'v': None}
 STUDY_EVERY = 600
 
 
-def _owner_study(now):
-    """👤 The owner study (owner_study.report) from the records FEELESS already keeps. Cached STUDY_EVERY."""
-    if _study['v'] is not None and now - _study['at'] < STUDY_EVERY:
-        return _study['v']
-    log_ = next((v for k_, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {})
-    arch_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions')
-    words_ = _ps.words(_ps.profile((_json_load(PICK_STYLE_PATH, {}) or {}).get('log') or []))
-    rep_ = _ost.report(_om.summary(log_), _of.owner_seats(arch_), _of.owner_hand(arch_), words_)
-    _study.update(at=now, v=rep_)
-    return rep_
+# ↪ moved to rep_prime.py: _owner_study
 
 
 HOLD_WIN_PCT = 10.0   # a graded hold whose coin ran ≥ +10% more = a lesson for the models
 
 
-async def _hint_grade(now):
-    """✋ / 👍 your seat hints, graded 30 min later on the live price (right = the coin did not fall after you said hold / good entry).
-    → the record the models read (`learn.ownerHints`) and the AI memory files."""
-    of_ = _office_state(); hl_ = list(of_.get('hintLog') or [])
-    due_ = [h for h in hl_ if h.get('res') is None and now - _fuse._f(h.get('at')) >= _of.HINT_SEC and _fuse._f(h.get('px')) > 0]
-    if due_:
-        pm_ = await _live_px(list({h['mint'] for h in due_}))
-        for h in due_:
-            p_ = _fuse._f(pm_.get(h['mint'])) or _fuse._f((_jup_px_cache.get(h['mint']) or (0, 0))[1])
-            if p_ > 0:
-                h['res'] = round((p_ / _fuse._f(h['px']) - 1) * 100, 2)
-        of_['hintLog'] = hl_
-        _json_save(OFFICE_PATH, of_)
-    g_ = [h for h in hl_ if h.get('res') is not None]
-    wins_ = [h for h in g_ if h['res'] >= HOLD_WIN_PCT][-3:]
-    if wins_:   # ✋ your HOLD that paid = a lesson both models read: what the chart showed, what Reaper wanted, how far it ran after
-        _study['holdWins'] = [f"✋ the owner held ${h.get('sym')} at {_fuse._f(h.get('pct')):+.1f}%" + (f" while Reaper wanted {h['reaper']}" if h.get('reaper') else '')
-                              + (f" ({h['base']})" if h.get('base') else '') + f" — 30 min later it was {h['res']:+.1f}% higher" for h in wins_]
-    if g_:
-        ok_ = sum(1 for h in g_ if h['res'] >= 0)
-        _study['hints'] = {'n': len(g_), 'right': round(100 * ok_ / len(g_)), 'typical': sorted(h['res'] for h in g_)[len(g_) // 2],
-                           'line': f"the owner's one-click HOLD / GOOD ENTRY calls: {len(g_)} graded, {round(100 * ok_ / len(g_))}% right (the coin held or rose 30 min later), typical {sorted(h['res'] for h in g_)[len(g_) // 2]:+.1f}%"}
-    return _study.get('hints')
-
-
-async def _study_tick(now):
-    """Every STUDY_EVERY: rebuild the owner study, file its findings + the owner's lessons + live rules + the desk's closest coins into the
-    AI memory (capped drawers), and file the study's suggestions as PENDING proposals in the Brain (the owner ✅ / ✕ each one)."""
-    try:
-        await _hint_grade(now)
-    except Exception as e:
-        print('hint grade:', str(e)[:80])
-    if now - _study['at'] < STUDY_EVERY and _study['v'] is not None:
-        return
-    try:   # 🎙 this Mac's LM Studio preset re-reads what FEELESS learned (the desktop re-pulls /lan-install hourly)
-        import feeless_mcp as _mcp_
-        if await asyncio.to_thread(_mcp_.write_local_preset):
-            print('fee preset: updated from memory')
-    except Exception as e_:
-        print('fee preset:', str(e_)[:80])
-    try:
-        rep_ = await asyncio.to_thread(_owner_study, now)
-        mem_ = _aim.seed_site(_aim_mem.get() or {}, now)
-        for i_, f_ in enumerate(rep_.get('findings') or []):
-            mem_ = _aim.file(mem_, 'owner', f'study{i_}', f_, now)
-        try:   # 🔁 every closed OSSY / G4 trade + its conversation becomes a lesson both models (and the chat) recall
-            lg_ = _g4_state()['log']
-            for p_ in [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None][-20:]:
-                m_ = p_.get('mint'); who_ = _air.model_name(os.environ, p_.get('aiBy')) if p_.get('aiBy') else 'a model'
-                buy_ = next((r_ for r_ in reversed(lg_) if r_.get('mint') == m_ and r_.get('action') == 'BUY'), None)
-                talk_ = [r_ for r_ in lg_ if r_.get('mint') == m_ and r_.get('talk')][-2:]
-                mem_ = _aim.file(mem_, 'lessons', f"duo:{m_}:{p_.get('at') or ''}", f"🔁 {who_} ${p_.get('sym') or p_.get('symbol') or '?'} {_fuse._f(p_['realPct']):+.1f}% ({str((p_.get('exit') or {}).get('rule') or '').split(' ')[0] or 'exit'})"
-                                 + (f" — bought: {str(buy_.get('why') or '')[:90]}" if buy_ else '') + ''.join(f" · {t_.get('model')} said {str(t_.get('why') or '')[:70]}" for t_ in talk_), now)
-        except Exception as e:
-            print('duo lessons:', str(e)[:80])
-        hl_ = _of.hold_lessons((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))   # 🎓 your held trades: where the agents would have sold you early
-        for i_, l_ in enumerate(hl_['lines']):
-            mem_ = _aim.file(mem_, 'lessons', f'hold{i_}', '🎓 HOLD LESSON — ' + l_, now)
-        if hl_['early']:
-            mem_ = _aim.file(mem_, 'owner', 'holdEarly', 'Rules that would have sold the owner early (held ≥ 5 pts more): ' + ', '.join(f'{k} ×{v}' for k, v in sorted(hl_['early'].items(), key=lambda kv: -kv[1])), now)
-        for k_, w_ in enumerate(_study.get('holdWins') or []):   # ✋ the owner's holds that ran → the lessons drawer every model case recalls
-            mem_ = _aim.file(mem_, 'lessons', f'holdWin{k_}', w_, now)
-        _study['holds'] = hl_
-        for it_ in (_teach_state().get('items') or [])[-40:]:
-            mem_ = _aim.file(mem_, 'lessons', f"{it_.get('kind')}:{str(it_.get('text'))[:40]}", f"{it_.get('kind')}: {it_.get('text')}" + (f" (${it_.get('sym')})" if it_.get('sym') else ''), _fuse._f(it_.get('at')) or now)
-        for r_ in [x_ for x_ in (_json_load(LAB_PATH, {}) or {}).get('rules') or [] if x_.get('status') == 'live'][:12]:
-            mem_ = _aim.file(mem_, 'rules', f"lab:{r_.get('id')}", f"{r_.get('name')} ({r_.get('desk')}): {r_.get('why') or ''}", now)
-        for m_, d_ in list(_tk.KERNEL.dec.items())[:400]:
-            if d_.get('status') in ('READY', 'CONTENDING'):
-                x_ = _tk.KERNEL.candidate(m_, d_) or {}
-                mem_ = _aim.file(mem_, 'coins', m_, f"${x_.get('symbol')} {d_.get('status')} rank {_fuse._f(d_.get('rank')):.0f} · {str((d_.get('why') or [''])[0] if isinstance(d_.get('why'), list) else d_.get('why') or '')[:120]}", now)
-        _aim_mem.put(_aim.prune(mem_, now), now)
-        if rep_.get('suggestions'):
-            items_ = [it_ for it_ in (_aic.check(x_)[0] for x_ in rep_['suggestions']) if it_]
-            if items_:
-                _chat['props'], new_ = _aic.propose(_chat_props(), items_, _chat_olds(), now, '👤 owner study')
-                if new_:
-                    _json_save(AI_PROPOSALS_PATH, _chat['props'])
-    except Exception as e:
-        print('study tick:', str(e)[:120])
-
-
-async def _owner_moves_tick(now):
-    """🧾 Every ~2 min: note the owner's new moves on each real card (from the card's own activity), judge the ones that are 30 min
-    old, and post what is worth knowing in the Fuse room: a lock as it happens, a move that turned out good, a callout that ran.
-    Coin moves in % only — never the card's $ result."""
-    try:
-        hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-        st = _json_load(OWNER_MOVES_PATH, {})
-        led = _fw_peek().get('ledger') or []
-        posts = []
-        for tid, c in hq.items():
-            if not c.get('real'):
-                continue
-            log = dict(st.get(tid) or {})
-            if not log.get('seenAt'):
-                log['seenAt'] = now - 150   # first look: only what just happened (older events have no price of their moment)
-            sym = {r['symbol']: {'mint': r['mint'], 'pair': r.get('pair')} for r in led[-800:] if r.get('card') == tid and r.get('symbol') and r.get('mint')}
-            sym.update({l.get('symbol'): {'mint': l.get('mint'), 'pair': l.get('pairAddress')} for l in c.get('legs') or [] if l.get('mint')})
-            fresh = {h_[1] for e in c.get('events') or [] if _fuse._f(e.get('at')) > _fuse._f(log.get('seenAt')) for h_ in [_om.classify(e)] if h_ and h_[1]}
-            due = [r['mint'] for r in log.get('rows') or [] if (r.get('pct') is None and now - _fuse._f(r.get('at')) >= _om.SETTLE_SEC)
-                   or (r.get('pct2h') is None and now - _fuse._f(r.get('at')) >= _om.LATE_SEC)]
-            ob_ctx = {r_['mint']: r_ for r_ in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r_.get('mint')}   # 📸 the market at the move
-            mine_ = {l.get('symbol') for l in c.get('legs') or [] if l.get('picked') or l.get('ownerLvAt')}
-            mints = list(dict.fromkeys([sym[x]['mint'] for x in fresh if x in sym] + due))
-            jp = (await _jup_prices(mints, judge=True)) if mints else {}
-            log, added = _om.collect(log, c, lambda x: ({**sym[x], 'px': (jp or {}).get(sym[x]['mint']), 'ctx': ob_ctx.get(sym[x]['mint'])} if x in sym else None), now, mine=mine_)
-            log, done = _om.settle(log, lambda m: (jp or {}).get(m), now)
-            st[tid] = log
-            posts += _om.calls(added, done)
-        _json_save(OWNER_MOVES_PATH, st)
-        doc = _json_load(TRENCH_CALLOUT_PATH, {})   # 📣 a callout that ran
-        now_px = {r['mint']: r['price'] for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or []))}
-        for x in _trench.callout_feed(doc.get('state') or {}, doc.get('names') or {}, now_px, now):
-            if x.get('live') and x.get('pct') is not None and x['pct'] >= CALL_RUN_PCT and x.get('symbol'):
-                mins = max(1, round((now - _fuse._f(x.get('at'))) / 60))
-                posts.append((f"callrun:{x['mint']}:{x['kind']}", f"📣 ${x['symbol']} was called out as a {_trench.CALLOUTS[x['kind']][1].lower()} {mins}m ago — {x['pct']:+.0f}% since the call."))
-        for key, text in posts[:4]:
-            _fuse_chat('fuse-lab', text, key)
-    except Exception as e:
-        print('owner moves:', str(e)[:120])
+# ↪ moved to rep_prime.py: _hint_grade, _study_tick, _owner_moves_tick
 
 
 CALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'call_proof.json'   # 🗑 each trench-vital CALL's own 1-hour record (send / watch / cold / bait)
@@ -4158,143 +2530,22 @@ CALL_AUTO_MIN = 10   # the engine takes 🔥 SEND IT coins by itself only after 
 _call_cache: dict = {'at': 0.0, 'send': [], 'proof': {}}
 
 
-async def _call_track(now):
-    """🗑 Score the trench vital's calls (owner, 2026-10-08: "do all suggestions"): every coin on the open list gets its call; each coin is noted
-    ONCE per call at its price and settled an hour later (no price then = −100%) → `call_proof.json`, `meta_proof` per call. The SAFE 🔥 SEND IT
-    coins are kept in `_call_cache['send']` for the engine — used only once `send` is proven with ≥ CALL_AUTO_MIN settled."""
-    try:
-        rows = _open_board() if _open_pairs else []
-        await _jup_lite([r.get('mint') for r in rows])
-        by, send, cmap_ = {k: [] for k in dict.fromkeys(CALL_KEYS.values())}, [], _cand_map()
-        for r in rows:
-            m = r.get('mint')
-            if not m or _fuse._f(r.get('price')) <= 0:
-                continue
-            tv = _ja.trench_verdict((_jup_facts.get(m) or (0, None))[1], r)
-            k = CALL_KEYS.get(tv['call'][1])
-            rd = _read_for(r, cmap_)   # 🎢 / 🧲 calls are scored too (each coin once per call)
-            if rd and rd.get('kind') in ('curve', 'dip') and CALL_KEYS.get(rd['call'][1]) not in (None, 'watch', k):
-                by[CALL_KEYS[rd['call'][1]]].append((m, r['price']))
-            if k:
-                by[k].append((m, r['price']))
-            if k == 'send' and r.get('safe') is True:
-                send.append({**r, 'tv': tv})
-        for (lens_, _c), (_at, doc_) in list(_disc_cache.items()):   # 🚀 / 🌊 / 🐋 each tab's own calls are scored too (the dressed lists in the cache)
-            if lens_ not in ('movers', 'ptrend', 'volume', 'majors', 'stocks') or not isinstance(doc_, dict):
-                continue
-            for r in doc_.get('pools') or []:
-                k_ = CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1])
-                m_ = r.get('baseAddress') or r.get('mint'); p_ = _fuse._f(r.get('priceUsd') or r.get('price'))
-                if k_ and k_ != 'watch' and m_ and p_ > 0 and (m_, p_) not in by[k_]:
-                    by[k_].append((m_, p_))
-        st = _json_load(CALL_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        st = _trench.meta_track(st, by, lambda m: (jp or {}).get(m), now, keys=tuple(by))
-        _json_save(CALL_PROOF_PATH, st)
-        _call_cache.update(at=now, send=sorted(send, key=lambda x: -_fuse._f(x['tv'].get('heat')))[:10], proof=_trench.meta_proof(st, keys=tuple(by)))
-    except Exception as e:
-        print('call proof:', e)
-
-
-def _sendit_ready():
-    p = (_call_cache.get('proof') or {}).get('send') or {}
-    return bool(p.get('proven') and int(p.get('n') or 0) >= CALL_AUTO_MIN)
+# ↪ moved to rep_prime.py: _call_track, _sendit_ready
 
 
 PROCALL_PROOF_PATH = FUSE_HQ_PATH.parent / 'procall_proof.json'   # 🎯 every pro-call entry the engine could take, noted once at its price, judged 1h later
 
 
-async def _procall_track(now):
-    """🎯 The pro-call entry's own record: every coin it would hand the trench seat is noted once and settled an hour later
-    (no price = −100%) — the same honest scoring as every other list."""
-    try:
-        rows = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, _open_board(), now * 1000)
-        st = _json_load(PROCALL_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(PROCALL_PROOF_PATH, _trench.meta_track(st, {'pro': [(r['mint'], r.get('price')) for r in rows]}, lambda m: (jp or {}).get(m), now, keys=('pro',)))
-    except Exception as e:
-        print('procall proof:', e)
+# ↪ moved to rep_prime.py: _procall_track
 
 
-import trench_brain as _tb
-import drain as _drn
+import trench_brain as _tb   # noqa: F401  (read by rep_ai, rep_more_reads as rs._tb)
+import drain as _drn   # noqa: F401  (read by rep_prime as rs._drn)
 LI_PATH = FUSE_HQ_PATH.parent / 'launch_intel.json'   # 🕵 launches noted with their early-buyer map → settled 1h later → wallet memory
 _li_st: dict = {'st': None}
 
 
-def _li_state():
-    if _li_st['st'] is None:
-        _li_st['st'] = _json_load(LI_PATH, {})
-    return _li_st['st']
-
-
-def _li_parts(mint, ageH=None):
-    """🕵 (early map, class, evidence, players, creator) for one coin from the CACHES only (launch facts + holder scan + funder links)."""
-    lf = _launch_facts.get(mint) or {}
-    hit = _intel_cache.get(mint)
-    it = (hit[1] if hit else {}) or {}
-    creator = it.get('creator') or lf.get('creator')
-    ff = it.get('flaggedFunders') or {}
-    early = lf.get('early') or []
-    m = _li.early_map(early, it.get('flaggedHoldings'), {e['w']: (ff.get(e['w']) or {}).get('funder') for e in early}, creator, young=ageH is not None and _fuse._f(ageH) < 1)
-    bn = None if it.get('bundledWallets') is None and not lf else len(it.get('bundledWallets') or lf.get('bundled') or [])
-    sn = None if it.get('sniperWallets') is None and not lf else len(it.get('sniperWallets') or lf.get('snipers') or [])
-    cls, ev = _li.classify(m, bn, sn, it.get('insidersHoldingPct'), bool(it.get('knownRings')))
-    players = _li.known_players(m, _li_state().get('mem'))
-    return m, cls, ev, players, creator
-
-
-def _li_row(x, now):
-    """The launch-intel line for one desk row (dict) — every field carries its evidence; None-safe."""
-    v, n, mint = x.get('vitals') or {}, x.get('nums') or {}, x.get('mint')
-    m, cls, ev, players, creator = _li_parts(mint, v.get('ageH'))
-    e = (_li_state().get('open') or {}).get(mint) or {}
-    tr = _li.trend(e.get('hist'))
-    at_, w_ = _flow_now.get(x.get('pair') or x.get('pairAddress')) or (0, None)
-    press, pwhy = _li.pressure(w_ if w_ and now - _fuse._f(at_) <= 90 else None, m, players, creator)
-    ph, healthy, why = _li.phase(n, m, tr, press, (x.get('chart') or {}).get('ext'))
-    band = _li.rank_band(None, v.get('holders'))
-    out = _li.view(m, cls, ev, tr, ph, healthy, why, press, pwhy, players, band, v.get('ageH'), v.get('mcap'))
-    ch_ = x.get('chart') or {}
-    out['pump'] = _li.pump_phase(n, ch_.get('state'), ph, None if v.get('ageH') is None else _fuse._f(v['ageH']) * 60, int(_fuse._f((ch_.get('f') or {}).get('n'))) or None)
-    vpm_, bpm_ = _opp.velocity(x)
-    out['vpm'], out['bpm'], out['fresh'] = vpm_, bpm_, _opp.fresh_bucket(x)[0]
-    out['clsRec'] = (_li_state().get('byClass') or {}).get(cls)   # how this launch class really did (1h, settled) — learned, never assumed
-    return out
-
-
-def _li_attach(table, now):
-    for x in table or []:
-        try:
-            x['li'] = _li_row(x, now)
-            x['mp'] = _mw.market_phase(x.get('chart'), x['li'])   # the trench phase (market_wake.PHASES)
-        except Exception as e:
-            print('launch intel:', e)
-            break
-
-
-async def _li_track(now):
-    """🕵 Note every desk coin that has an early-buyer map (and the real card's coins), append its early-supply history, settle launches
-    an hour old at Jupiter's price → wallet memory + the record per launch class. A pass where Jupiter answers nothing is skipped."""
-    try:
-        st = dict(_li_state())
-        for x in (_agents.get('table') or []):
-            mint = x.get('mint')
-            if not mint or not (_launch_facts.get(mint) or {}).get('early'):
-                continue
-            m, cls, _ev, _p, creator = _li_parts(mint, (x.get('vitals') or {}).get('ageH'))
-            st = _li.note(st, mint, m, cls, x.get('px'), now, (x.get('vitals') or {}).get('ageH'), creator)
-        due = [mt for mt, e in (st.get('open') or {}).items() if now - _fuse._f(e.get('t')) >= _li.SETTLE_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        if not due or jp:
-            st = _li.settle(st, lambda mt: (jp or {}).get(mt), now)
-        st['byClass'] = _li.by_class(st.get('done'))
-        _li_st['st'] = st
-        _json_save(LI_PATH, st)
-    except Exception as e:
-        print('launch intel track:', e)
+# ↪ moved to rep_prime.py: _li_state, _li_parts, _li_row, _li_attach, _li_track
 
 
 BRAIN_PATH = FUSE_HQ_PATH.parent / 'trench_brain.json'   # 🧠 every trench coin seen, judged on the PLAY (+50% first = hit, −30% first = cut)
@@ -4306,131 +2557,14 @@ _brain: dict = {'at': 0.0, 'tbl': {}, 'sum': None}
 ARENA_KEEP = 300   # paper strategy runs kept in fuse_hq.json (was 600 = 370 KB rewritten on every card tick)
 
 
-async def _brain_track(now):
-    """🧠 TRENCH BRAIN pass (~2 min, with the trench build): watched coins see their Jupiter price (first touch of +50 / −30 settles
-    them), new open-list coins are noted with their features, the learned table + walk-forward proof are rebuilt for the lens / engine.
-    A pass where Jupiter answers nothing is skipped (an outage must not read as every coin vanishing)."""
-    try:
-        st = _json_load(BRAIN_PATH, {})
-        ob = _open_board() or []
-        young = sorted((x for x in ob if x.get('ageH') is not None and _fuse._f(x['ageH']) <= BRAIN_NEW_H), key=lambda x: _fuse._f(x['ageH']))[:BRAIN_NEW]
-        seen_ = {x.get('mint') for x in young}
-        raw = [_with_tv(x) for x in young + [x for x in ob if x.get('mint') not in seen_][:BRAIN_SEE]]   # 🆕 the NEWEST launches first, then the busiest
-        tv_ = {x.get('mint'): x.get('tv') for x in raw}
-        rows = [{**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')} for r in _clean_rows([dict(x) for x in raw])]
-        watch = list((st.get('open') or {}).keys())
-        jp = await _jup_prices(watch, judge=True) if watch else {}
-        if watch and not jp:
-            return
-        clean_ = _fuse._f(st.get('cleanFrom')) or now   # 🩹 results from here on were graded with every price source reachable (see edge_audit `since`)
-        st = {**_tb.track(st, rows, lambda m: (jp or {}).get(m), now), 'cleanFrom': clean_}
-        _json_save(BRAIN_PATH, st)
-        cl_ = _brain_clean(st)
-
-        def _learn_tables():   # pure Python on a copy, in a worker thread: the table + summary + drain odds held the loop ~4.5s a pass
-            return _tb.table(cl_['done']), _tb.summary(cl_), _drn.odds_table(cl_['done'])
-        tbl_, sum_, odds_ = await asyncio.to_thread(_learn_tables)
-        _brain.update(at=now, tbl=tbl_, sum=sum_)
-        _drn.set_table(odds_)   # 🔮 drain odds: the rug share per feature, from the same judged coins
-    except Exception as e:
-        print('trench brain:', e)
-
-
-def _brain_clean(st):
-    """The brain LEARNS only from coins settled since `cleanFrom`: before it a refused price source was filed as a vanished coin (−100%)."""
-    since = _fuse._f((st or {}).get('cleanFrom'))
-    return {**(st or {}), 'done': [x for x in (st or {}).get('done') or [] if _fuse._f(x.get('at')) >= since]}
-
-
-def _brain_state():
-    if _brain['sum'] is None:
-        st = _brain_clean(_json_load(BRAIN_PATH, {}))
-        _brain.update(tbl=_tb.table(st.get('done') or []), sum=_tb.summary(st))
-        _drn.set_table(_drn.odds_table(st.get('done') or []))
-    return _brain
-
-
-def _rush_rows():
-    """⚡ The Rush board, server side: trench-gate passes + open-list coins whose holder scan PASSED, each with its read and the brain's
-    learned play, scored by `arena_prime.rush_score` (the same rule the board draws) → best first, `trenchScore` 500 + score so the
-    trench drop keeps this order. Never an unscanned or failed coin."""
-    b = _brain_state()
-    seen, out = set(), []
-    for x in list(_trench_cache.get('rows') or []) + [y for y in _open_board() or [] if y.get('safe') is True]:
-        m = x.get('mint')
-        if not m or m in seen:
-            continue
-        seen.add(m)
-        r = _with_tv({**x, 'safe': True if x.get('safe') is None and x.get('ok') else x.get('safe')})
-        sc = _tb.score(r, b['tbl'])
-        if sc:
-            r = {**r, 'brain': sc}
-        v = _prime.rush_score(r)
-        if v is not None:
-            out.append({**r, 'rush': v, 'trenchScore': 500 + v, 'tag': '⚡ rush'})
-    return sorted(out, key=lambda r: -r['rush'])[:12]
-
-
-def _brain_ready():
-    """The engine may take brain picks only once its walk-forward proof holds (top third positive, ≥ 10 pts over the bottom)."""
-    return bool(((_brain_state()['sum'] or {}).get('proof') or {}).get('proven'))
-
-
-def _brain_rows():
-    """🧠 Trench brain list: safe open-list coins ranked by their LEARNED play (what coins like this did — +50% first or −30% first),
-    busted reads and rug ≥ 50 left out. Each row says the play, the hit rate and the cell that decides it."""
-    b = _brain_state()
-    raw = [_with_tv(x) for x in _open_board() or []]
-    tv_ = {x.get('mint'): x.get('tv') for x in raw}
-    out = []
-    for r in _clean_rows([dict(x) for x in raw]):
-        r = {**r, 'tv': tv_.get(r.get('mint')) or r.get('tv')}
-        sc = _tb.score(r, b['tbl'])
-        if not sc or r.get('safe') is False or not _prime.trench_read_ok(r) or _fuse._f(r.get('price')) <= 0:   # unscanned newest coins stay (marked); a failed scan never
-            continue
-        lead = (sc['why'] or [None])[0]
-        out.append({**r, 'baseAddress': r['mint'], 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liq'),
-                    'brain': sc, 'trenchScore': 300 + sc['est'],
-                    'divisionLabel': f"🧠 learned play {sc['est']:+.0f}% · {sc['hit']}% hit +{_tb.TP_PCT:.0f}% first"
-                                     + (f" · {lead[0]} → {lead[1]:+.0f}% (n {lead[2]})" if lead else ' · still learning')
-                                     + ('' if r.get('safe') else ' · ❔ holders not scanned yet')})
-    return sorted(out, key=lambda r: (-r['brain']['est'], -int(r.get('safe') is True), _fuse._f(r.get('ageH') if r.get('ageH') is not None else 99)))
+# ↪ moved to rep_prime.py: _brain_track, _brain_clean, _brain_state, _rush_rows, _brain_ready, _brain_rows
 
 
 BOTTOM_PROOF_PATH = FUSE_HQ_PATH.parent / 'bottom_proof.json'   # 🟢 the Buy-bottom list's own 1-hour paper record
 _bottom_cache: dict = {'at': 0.0, 'rows': []}
 
 
-async def _bottom_rows(now):
-    """🟢 The Buy-bottom list (arena_prime.buy_bottom) from the live launch feed, deepest + turning first; 60s cache. Each coin's own
-    chart read (the board's recorded prices) joins its row when we have one."""
-    if now - _bottom_cache['at'] < 60 or os.environ.get('PYTEST_CURRENT_TEST'):
-        return _bottom_cache['rows']
-    _bottom_cache['at'] = now
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            got = await asyncio.gather(*[http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': k, 'chain': 'solana', 'page': pg, 'scope': 'launchpads'})
-                                         for k in ('trending', 'new') for pg in (1, 2, 3, 4)], return_exceptions=True)
-        raw = [x for g in got if not isinstance(g, Exception) for x in (g.json().get('pairs') or [])]
-    except Exception:
-        return _bottom_cache['rows']
-    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
-    seen, rows = set(), []
-    for p_ in raw:
-        m_ = (p_.get('baseToken') or {}).get('address')
-        if not m_ or m_ in seen or _fuse._f(p_.get('priceUsd')) <= 0 or _fuse._f((p_.get('liquidity') or {}).get('usd')) < 8000:
-            continue
-        seen.add(m_)
-        meta = _fuse.leg_meta(p_); tx = (p_.get('txns') or {}).get('h1') or {}
-        b_, s_ = _fuse._f(tx.get('buys')), _fuse._f(tx.get('sells'))
-        row = {'chainId': 'solana', 'pairAddress': p_.get('pairAddress'), **meta, 'vol1h': _fuse._f((p_.get('volume') or {}).get('h1')),
-               'buyShare': round(b_ / (b_ + s_) * 100) if b_ + s_ else meta.get('buyShare'), **_pedge._chart.keys(paths.get(m_) or [], now)}
-        hit = _prime.buy_bottom(row)
-        if hit and not _fw.dollar_named(row.get('symbol')):
-            rows.append({**row, 'score': hit['score'], 'bottom': True, 'divisionLabel': hit['why']})
-    rows.sort(key=lambda r: -r['score'])
-    _bottom_cache['rows'] = rows[:120]
-    return _bottom_cache['rows']
+# ↪ moved to rep_prime.py: _bottom_rows
 
 
 LENS_PROOF_PATH = FUSE_HQ_PATH.parent / 'lens_proof.json'   # 📏 every picker list's own 1-hour paper record
@@ -4439,22 +2573,7 @@ LENS_TOP = 15                                                # the top rows of e
 _lens_rows: dict = {}                                        # {list: [rows in the list's own order]} — refreshed with the record (~2 min)
 
 
-async def _lens_track(now):
-    """📏 Each live list's top coins are noted once and settled an hour later (no price = −100%) — the owner can see which list
-    pays before picking from it (2026-10-07: hand picks closed inside 15 min lost $8.74 on $97 in a day)."""
-    try:
-        got = await asyncio.gather(*[fuses_discover(lens=k, chain='solana') for k in LENS_TRACK], return_exceptions=True)
-        passing = {k: [(r.get('baseAddress') or r.get('mint'), r.get('priceUsd') or r.get('price')) for r in ((g or {}).get('pools') or [])[:LENS_TOP]]
-                   for k, g in zip(LENS_TRACK, got) if isinstance(g, dict)}
-        for k, g in zip(LENS_TRACK, got):   # ⏭ Coming up walks these lists from the top
-            if isinstance(g, dict):
-                _lens_rows[k] = [{'mint': r.get('baseAddress') or r.get('mint')} for r in (g.get('pools') or [])[:60]]
-        st = _json_load(LENS_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(LENS_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=LENS_TRACK))
-    except Exception as e:
-        print('lens proof:', e)
+# ↪ moved to rep_prime.py: _lens_track
 
 
 import confluence as _cf
@@ -4465,357 +2584,33 @@ _edge_rank_cache: dict = {'at': 0.0, 'rows': []}   # 🧬 the confluence ranking
 _up_last: list = []          # [(mint, price)] Coming up's ready coins at the last tier tick — scored like any list ('up')
 
 
-def _swapin_lists():
-    """🧬 The owner's swap-in lists as the picker last dressed them (≤ 5 min old): {list: [rows in its own order]}."""
-    now, out = time.time(), {}
-    for k in ('ptrend', 'calls', 'double', 'fed', 'movers', 'volume', 'pump'):
-        hit = _disc_cache.get((k, 'solana'))
-        if hit and now - hit[0] < 300 and isinstance(hit[1], dict):
-            out[k] = [{**r, 'mint': r.get('baseAddress') or r.get('mint')} for r in (hit[1].get('pools') or [])[:60]]
-    out['bottom'] = [{**r, 'mint': r.get('baseAddress') or r.get('mint')} for r in (_bottom_cache.get('rows') or [])[:60]]
-    out['trench'] = [dict(r) for r in (_trench_cache.get('rows') or [])[:60]]
-    return out
-
-
-def _edge_rank():
-    """🧬 Every swap-in coin ranked by evidence (confluence.rank), 20s cache."""
-    if time.time() - _edge_rank_cache['at'] < 20 and _edge_rank_cache['rows']:
-        return _edge_rank_cache['rows']
-    combo = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=tuple(k for k in _json_load(EDGE_PROOF_PATH, {}) if k != 'up'))
-    calls = _call_cache.get('proof') or {}
-    rows = _cf.rank(_swapin_lists(), _list_records(), calls, combo, lambda r: CALL_KEYS.get(((r.get('tv') or {}).get('call') or [None, None])[1]), _real_table())
-    sp_ = _trench.meta_proof(_json_load(EDGE_PROOF_PATH, {}), keys=('smart',)).get('smart') or {}
-    for r in rows:   # 🐳 smart wallets buying it now: a badge; it moves the score only once the radar's own record is in (≥ 5 settled)
-        h_ = _smart_on(r['mint'])
-        if h_:
-            r['smart'] = len(h_)
-            if _fuse._f(sp_.get('n')) >= 5:
-                r['edge'] = {**r['edge'], 'edge': round(r['edge']['edge'] + _fuse._f(sp_.get('medPct')) / 2, 1), 'parts': r['edge']['parts'] + [[f"🐳 smart wallets buying ({len(h_)}) — radar record", sp_.get('medPct')]]}
-    rows.sort(key=lambda x: (-x['edge']['edge'], -x['edge']['known']))
-    _edge_rank_cache.update(at=time.time(), rows=rows)
-    return rows
-
-
-async def _edge_track(now):
-    """🧬 The learned layer: each top-ranked coin's combo bucket is noted once and settled an hour later; Coming up's ready coins too ('up')."""
-    try:
-        rows = _edge_rank()[:EDGE_TRACK_TOP]
-        st = _json_load(EDGE_PROOF_PATH, {})
-        passing = {}
-        for r in rows:
-            p_ = _fuse._f(r.get('priceUsd') or r.get('price'))
-            if p_ > 0:
-                passing.setdefault(r['edge']['bucket'], []).append((r['mint'], p_))
-        passing['up'] = [(m, p_) for m, p_ in _up_last if p_ > 0]
-        passing['burst'] = [(m, p_) for m, p_ in _burst_last if p_ > 0]
-        passing['smart'] = [(r['mint'], _fuse._f(r.get('priceUsd') or r.get('price'))) for r in _edge_rank()[:60] if _smart_on(r['mint']) and _fuse._f(r.get('priceUsd') or r.get('price')) > 0]
-        keys = tuple(dict.fromkeys(list(st) + list(passing)))
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(EDGE_PROOF_PATH, _trench.meta_track(st, passing, lambda m: (jp or {}).get(m), now, keys=keys))
-    except Exception as e:
-        print('edge track:', e)
+# ↪ moved to rep_prime.py: _swapin_lists, _edge_rank, _edge_track
 
 
 BS_FRESH = 30   # s: a coin someone is looking at gets its window stats re-read from Jupiter at most this often
 
 
-async def _bs_rows(ms):
-    """🌊 BUYS vs SELLS per coin for the 5m and 1h windows (Jupiter's own window stats: $ bought vs $ sold, trades, price move) +, for a coin
-    the real card holds, the live 90s tape. Rides on the coin-edge record (`bs`) — one shared poller for every bar on screen."""
-    now = time.time()
-    stale = [m for m in ms if now - _jup_facts.get(m, (0.0, None))[0] > BS_FRESH]
-    if stale and not os.environ.get('PYTEST_CURRENT_TEST'):
-        try:
-            got = await _jup_tokens(stale)
-            for m, t in (got or {}).items():
-                _jup_facts[m] = (time.time(), _ja.facts(t))
-        except Exception:
-            pass
-    tape = {}
-    for c in _prime_cards().values():
-        for l in (c or {}).get('legs') or [] if (c or {}).get('real') else []:
-            at, w = _flow_now.get(l.get('pairAddress'), (0, None))
-            if w and now - at < 90 and l.get('mint') in ms:
-                tape[l['mint']] = {k: w.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg')}
-    out = {}
-    for m in ms:
-        win = ((_jup_facts.get(m) or (0, None))[1] or {}).get('win') or {}
-        row = {}
-        for k in ('5m', '1h'):
-            w = win.get(k) or {}
-            if w.get('vol') and w.get('buyPct') is not None:
-                b = w['vol'] * w['buyPct'] / 100
-                row[k] = {'buyUsd': round(b, 2), 'sellUsd': round(w['vol'] - b, 2), 'n': w.get('trades'), 'pxChg': w.get('priceChg')}
-        if m in tape:
-            row['90s'] = tape[m]
-        if row:
-            out[m] = row
-    return out
-
-
-def feecat_pool_rows(kernel_rows, arena_rows, limit=60, agents_max=20):
-    """🐱 FEECAT EATS ONLY WHAT THE ARENA AND THE AGENTS FOUND (owner, 2026-10-15: "have fee only taking arena / agent coins"): the agents'
-    READY / CONTENDING coins first (their own order), then every coin the Arena ranks, one row per pool, dollar tickers dropped. Pure."""
-    out, seen = [], set()
-    for src, rows in (('agents', (kernel_rows or [])[:agents_max]), ('arena', arena_rows)):   # 🐱 the agents' fresh coins AND the Arena's established ones — her core lane only buys 3-day+ coins (her own record)
-        for r in rows or []:
-            pa = r.get('pairAddress') or r.get('pair')
-            if not pa or pa in seen or _fw.dollar_named(r.get('symbol')):
-                continue
-            seen.add(pa)
-            out.append({'pairAddress': pa, 'mint': r.get('mint'), 'symbol': r.get('symbol'), 'src': src, 'why': r.get('tag') or r.get('divisionLabel') or src,
-                        'status': ('READY' if 'READY' in str(r.get('tag') or '') else 'CONTENDING') if src == 'agents' else None})
-            if len(out) >= limit:
-                return out
-    return out
-
-
-def feecat_read(c, setups, bad):
-    """🐱 One coin's chart read for FeeCat (pure): the three setups it shows, why it is a bad entry (gun line / chase / spike / SKIP), and the
-    numbers behind them — germ distance, structure, higher / lower lows, how far under its high."""
-    ch = (c or {}).get('chart') or {}
-    gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
-    fd = ch.get('fvgDist') if ch.get('fvgDist') is not None else ch.get('fvg5Dist')
-    return {'setups': list(setups or []), 'bad': bad or None, 'struct': ch.get('state'), 'germ': None if gd is None else round(_fuse._f(gd), 1),
-            'fvg': None if fd is None else round(_fuse._f(fd), 1),
-            'hl': int(_fuse._f(ch.get('hl'))), 'll': int(_fuse._f(ch.get('ll'))), 'distHigh': None if ch.get('distHigh') is None else round(_fuse._f(ch.get('distHigh')), 1)}
-
-
-def duo_word(log, mint, now, window=1800.0):
-    """🤝 OSSY / G4's newest BUY or SELL on this coin in the last 30 min (pure) → {who, action, why, ago} or None."""
-    for r in reversed(log or []):
-        if r.get('mint') != mint or now - _fuse._f(r.get('at')) > window:
-            continue
-        act = r.get('action') if r.get('action') in ('BUY', 'SELL') else (r.get('view') if r.get('view') in ('BUY', 'SELL') else None)
-        if act and r.get('model') in ('OSSY', 'G4'):
-            return {'who': r['model'], 'action': act, 'why': str(r.get('why') or '')[:160], 'ago': round(now - _fuse._f(r.get('at')))}
-    return None
-
-
-def duo_lessons(log, by_model):
-    """🎓 What FeeCat learns from OSSY / G4 (pure): each model's own closed-trade record + their newest final-review lessons."""
-    les = [{'who': r.get('model') or r.get('by'), 'symbol': r.get('symbol'), 'pct': r.get('pct'), 'at': r.get('at'), 'lesson': str(r.get('why') or '')[:220]}
-           for r in reversed(log or []) if r.get('action') == 'REVIEW'][:6]
-    return {'record': by_model or {}, 'lessons': les}
-
-
-def _list_records():
-    lens_ = _trench.meta_proof(_json_load(LENS_PROOF_PATH, {}), keys=LENS_TRACK)
-    call_ = _trench.meta_proof((_json_load(TRENCH_CALLOUT_PATH, {}) or {}).get('state') or {}, keys=('leader', 'mover', 'fresh'))
-    meta_ = _trench.meta_proof(_json_load(TRENCH_META_PATH, {}))
-    tmeta = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg') or {}).get('meta') or 'baby'
-    return _trench.list_records(lens_, call_, _trench.meta_proof(_json_load(BOTTOM_PROOF_PATH, {}), keys=('bottom',)).get('bottom'), meta_.get(tmeta), tmeta)
-
-
-async def _bottom_track(now):
-    """Note each coin on the Buy-bottom list once and settle it an hour later (no price then = −100%) → the list's own record."""
-    try:
-        rows = await _bottom_rows(now)
-        st = _json_load(BOTTOM_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        jp = await _jup_prices(due, judge=True) if due else {}
-        _json_save(BOTTOM_PROOF_PATH, _trench.meta_track(st, {'bottom': [(r['baseAddress'], r.get('priceUsd')) for r in rows[:40] if r.get('baseAddress')]},
-                                                         lambda m: (jp or {}).get(m), now, keys=('bottom',)))
-    except Exception as e:
-        print('bottom proof:', e)
+# ↪ moved to rep_prime.py: _bs_rows, feecat_pool_rows, feecat_read, duo_word, duo_lessons, _list_records, _bottom_track
 PICK_STYLE_PATH = FUSE_HQ_PATH.parent / 'pick_style.json'   # 👤 how the owner picks (pick_style.py): one note per hand pick
 HUMAN_TIERS_DEFAULT = ['next']                               # which PAPER cards pick like the owner (HQ › Fuse › Arena › Cards)
 
 
-def _human_style():
-    """👤 The owner's pick style for the paper cards switched to it → (tiers, profile | None, picks noted)."""
-    log = _json_load(PICK_STYLE_PATH, {}).get('log') or []
-    tiers = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('humanTiers')
-    return (HUMAN_TIERS_DEFAULT if tiers is None else [t for t in tiers if t in _prime.TEMPLATES]), _ps.profile(log), len(log)
-
-
-async def _pick_style_note(mint, symbol, pair_address):
-    """Note what a hand-picked coin looks like right now (the board's own row, else a fresh read of its pool). Never raises."""
-    try:
-        c = next((r for r in _runner_cands if r.get('mint') == mint), None)
-        if not c and pair_address:
-            lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pair_address}])).get(pair_address) or {}
-            c = _rn.candidate(lp, None, False, False, time.time() * 1000) if lp else None
-        feats = _ps.snap(c)
-        if feats:
-            d = _json_load(PICK_STYLE_PATH, {})
-            d['log'] = _ps.note(d.get('log'), mint, symbol, feats, time.time()); _json_save(PICK_STYLE_PATH, d)
-    except Exception:
-        pass
-
-
-def _trench_judge():
-    """Judge the scanned finalists (`_trench_cache.got`) by the saved trench setting. Runs after each scan AND at once when the owner
-    changes the setting (no 2-minute wait to see what the new rules find)."""
-    got = _trench_cache.get('got') or []
-    own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    if own['mode'] in ('own', 'meta'):   # 🎛 own numbers, or a 🧪 named meta the owner's own soft checks (crowd, trades, volume, cap band, age) — the safety checks never move
-        g_own = _trench.own_gate(own)
-        res = [(g, *_trench.gate(g[0], g[1], g[2], g_own)) for g in got]
-        rows = [{**_trench_row(g[0], g[1], g[2], g_own), 'trenchLevel': own['mode']} for g, _ok, _f in res]
-        fb = []
-        if not any(x['ok'] for x in rows):   # 👀 nothing fits those settings right now → what the ENGINE's scan (strict → widened) finds
-            lvl_f, res_f = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
-            if lvl_f is not None:
-                fb = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl_f)), 'fallback': True} for g, ok_f, _x in res_f if ok_f]
-        _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=own['mode'], own=own, fallback=fb)
-        return _trench_cache
-    lvl, res = _trench.best_level(got, lambda g, cfg: _trench.gate(g[0], g[1], g[2], cfg))
-    rows = [{**_trench_row(g[0], g[1], g[2], _trench.widen(lvl or 0)), 'trenchLevel': lvl or 0} for g, _ok, _f in res]
-    _trench_cache.update(rows=[x for x in rows if x['ok']], checked=rows, level=lvl, own=own, fallback=[])
-    return _trench_cache
-
-
-async def _fuse_trench_raw(meta=''):
-    """🗑 The trench scan's latest finalists (coin data only): holders, market cap, age and every check passed / failed.
-    `meta` = VIEW the same finalists through a named 🧪 meta (read-only; the cards follow HQ's saved setting)."""
-    keys = ('mint', 'symbol', 'pairAddress', 'price', 'liq', 'holders', 'mcap', 'ageH', 'vol1h', 'buyShare', 'ok', 'fails', 'trenchWhy', 'trenchScore', 'trenchLevel')
-    own = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    g = _trench.own_gate(own) if own['mode'] in ('own', 'meta') else _trench.widen(_trench_cache.get('level') if isinstance(_trench_cache.get('level'), int) else 0)
-    got = _trench_cache.get('got') or []
-    proof_ = _trench.meta_proof(_json_load(TRENCH_META_PATH, {}))
-    board = [{**b, 'proof': proof_.get(b['key'])} for b in _trench.meta_board(got, lambda x, cfg: _trench.gate(x[0], x[1], x[2], cfg))]
-    if meta in _trench.METAS:   # 👁 view-only: the finalists judged by that meta
-        g = _trench.meta_gate(meta)
-        view = [{**_trench_row(x[0], x[1], x[2], g), 'trenchLevel': meta} for x in got]
-        return {'cfg': own, 'view': meta, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: v.get(k) for k in keys} for v in view], 'pass': sum(1 for v in view if v['ok']),
-                'rows': [], 'floor': _fw.clean_cfg(_fw_peek().get('cfg') or {})['trenchMinLiqUsd'], 'level': meta, 'seen': _trench_cache.get('seen', 0), 'funnel': [], 'at': _trench_cache.get('at'),
-                'rules': f"≤ {g['maxAgeH']:g}h old · ${g['minMcap'] / 1000:g}K–${g['maxMcap'] / 1000:g}K cap · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · ≥ ${g['minVol1h'] / 1000:g}K 1h volume · safety checks as always"}
-    have_ = {x.get('mint') for x in (_trench_cache.get('rows') or [])} | {x.get('mint') for x in (_trench_cache.get('checked') or []) if _trench.soft_only(x.get('fails'))} | {x.get('mint') for x in (_trench_cache.get('fallback') or [])}
-    # 👀 never an empty picker: nothing passing and no near-miss → the busiest SAFE fresh coins that only miss soft checks right now
-    close_ = [] if have_ else [{**{k: c_.get(k) for k in keys}, 'score': c_.get('score'), 'soft': True, 'fails': fl_} for c_, fl_ in _trench.closest(_runner_cands, _trench.loosest(g if own['mode'] in ('own', 'meta') else None))]
-    # 🗑 pickable: the coins that pass — then the NEAR-MISSES (every safety check passed, only crowd / volume / candles missed, and
-    # INSIDE the filter's age + cap band) — then, flagged `outside`, safe coins that are NOT in the owner's band, each with the exact
-    # number that puts it outside ("6.3h old — filter ≤ 1h"). Never auto-seated; the owner may still pick one.
-    strict = own['mode'] in ('own', 'meta')
-    def tag(r):
-        miss = _trench.band_miss(r, g) if strict else []
-        return {**r, 'outside': True, 'soft': True, 'fails': miss} if miss else r
-    extra = [tag(x) for x in
-             [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True} for r in _trench_cache.get('checked') or [] if not r.get('ok') and _trench.soft_only(r.get('fails'))]
-             + [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'soft': True, 'fails': ['passes the engine scan']} for r in _trench_cache.get('fallback') or []] + close_]
-    seen_m, extra_u = {r.get('mint') for r in _trench_cache.get('rows') or []}, []
-    for x in sorted(extra, key=lambda x: bool(x.get('outside'))):
-        if x.get('mint') not in seen_m:
-            seen_m.add(x.get('mint')); extra_u.append(x)
-    # 🚪 OPEN GATES (owner: "make the trench category the open gates"): after the coins that pass and the near-misses, EVERY other
-    # launch coin the feed sees, front-runners first, each with what it has not passed. Pickable by hand; never auto-seated.
-    for r in (_open_board() if _open_pairs else []):
-        if r.get('mint') not in seen_m:
-            seen_m.add(r.get('mint')); extra_u.append({**{k: r.get(k) for k in keys}, 'chg5m': r.get('chg5m'), 'chg1h': r.get('chg1h'), 'score': r.get('front'), 'soft': True, 'open': True, 'fails': r.get('fails'), 'safe': r.get('safe'), 'vol5m': r.get('vol5m'), 'txns1h': r.get('txns1h'), 'logo': r.get('logo')})   # the scan result travels (the ⚡ Rush board read every open coin as unscanned)
-    return {'cfg': own, 'metas': board, 'options': _trench.OWN_OPTIONS, 'checked': [{k: r.get(k) for k in keys} for r in _trench_cache.get('checked') or []], 'pass': len(_trench_cache.get('rows') or []),
-            'inBand': sum(1 for r in _runner_cands if not _trench.band_miss(r, g)), 'nearMiss': sum(1 for x in extra_u if not x.get('outside')),
-            'rows': [{**{k: r.get(k) for k in keys}, 'score': r.get('trenchScore'), 'trench': True} for r in _trench_cache.get('rows') or []] + extra_u,
-            'floor': _fw.clean_cfg(_fw_peek().get('cfg') or {})['trenchMinLiqUsd'], 'level': _trench_cache.get('level'),
-            'seen': _trench_cache.get('seen', 0), 'funnel': _trench_cache.get('funnel') or [],
-            'at': _trench_cache.get('at'), 'rules': f"≤ {g['maxAgeH']:g}h old · broke ${g['minMcap'] / 1000:g}K · ≥ {g['minHolders']} holders · ≥ {g['minTxns1h']} trades/h · "
-                                                     f"≥ {g['minBuyShare']:g}% buys · top-10 < {g['maxTop10']:g}% · dev < {g['maxDev']:g}% · creator not suspect / high · mint + freeze revoked"}
-
-
-def _trench_row(r, holders, auth, cfg=None):
-    ok, fails = _trench.gate(r, holders, auth, cfg)
-    sc, parts = _trench.score(r, holders)
-    return {'mint': r['mint'], 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('price'), 'liq': r.get('liq'),
-            'ageH': r.get('ageH'), 'mcap': r.get('mcap'), 'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'holders': holders,
-            'score': max(60.0, sc), 'trenchScore': sc, 'trenchWhy': parts, 'fails': fails, 'ok': ok, 'trenchOnly': True, 'division': 'trench'}
+# ↪ moved to rep_prime.py: _human_style, _pick_style_note, _trench_judge, _fuse_trench_raw, _trench_row
 
 
 REAL_LIQ_MARGIN = 1.15   # a real card's candidates clear the keeper's pool floor by 15%
 
 
-def _real_weather():
-    """🌦 Runner weather for the real card, from the sim brain's last run (pg_sim.json)."""
-    return _prime.weather(_json_load(PG_SIM_PATH, {}))
-
-
-def _prime_cool_candidates(rows, cooling_mints, minimum, strict=False):
-    """Keep recently exited mints out. Real money is strict: a thin candidate
-    set may leave a slot in cash, but must never bypass its stop cooldown and
-    immediately rebuy the same loser. Paper keeps the historical fallback."""
-    fresh = [x for x in rows if x.get('mint') not in cooling_mints]
-    return fresh if strict or len(fresh) >= minimum else rows
+# ↪ moved to rep_prime.py: _real_weather, _prime_cool_candidates
 
 
 PAPER_MIN_LIQ = 20_000.0   # paper tiers deal any gated coin with a ≥$20K pool (the REAL card uses the Fuse wallet's own floors)
 
 
-async def _prime_candidates():
-    """Pools: the deepest busy pools from the Fuse gene pool. Runners: pre-bond coins passing every runner gate, best first."""
-    metas = await _fuse_candidates()
-    pools = sorted(({'mint': m.get('baseAddress'), 'pairAddress': pa, 'symbol': m.get('symbol'), 'price': m.get('priceUsd'),
-                     'liquidityUsd': m.get('liquidityUsd'), 'volume24h': m.get('volume24h'), 'rank': min(400.0, _fuse._f(m.get('aprEst'))) * math.log10(max(10.0, _fuse._f(m.get('liquidityUsd'))))} for pa, m in metas.items()
-                    if m.get('baseAddress') and _fuse._f(m.get('priceUsd')) > 0 and _fuse._f(m.get('liquidityUsd')) >= 100_000), key=lambda x: -x['rank'])
-    # 🏁 every coin the site already ranks is a candidate: the Gauntlet's pool divisions (popular · top yield · deepest · new 72h, built
-    # from the same feeds as the Lab, Trenches and Pump radar) join the gene pool — from the warm cache, never a new fetch
-    seen_p = {x['mint'] for x in pools}
-    for dv in ((_contenders_cache.get('data') or {}).get('divisions') or []):
-        if dv.get('role') != 'pool':
-            continue
-        for r in dv.get('rows') or []:
-            if r.get('mint') and r['mint'] not in seen_p and _fuse._f(r.get('liq')) >= 100_000 and _fuse._f(r.get('price')) > 0:
-                seen_p.add(r['mint'])
-                pools.append({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r['price'], 'liquidityUsd': r['liq'],
-                              'volume24h': r.get('vol24h'), 'rank': _fuse._f(r.get('score')), 'contender': dv['key']})
-    live = await _runner_live()
-    # runners = pre-bond coins passing every gate + CLEAN GRADUATED young coins (<48h, failing ONLY the pre-bond gate)
-    young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
-    runners = sorted(({'mint': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'price': r.get('price'), 'score': r.get('score'),
-                      'vol1h': r.get('vol1h'), 'buyShare': r.get('buyShare'), 'liq': r.get('liq'), 'ageH': r.get('ageH'),
-                      'mcap': r.get('mcap'), 'chg1h': r.get('chg1h'), 'chg5m': r.get('chg5m'), 'stage': r.get('stage')} for r in young if _fuse._f(r.get('price')) > 0),   # depth travels with the coin (else every runner read $0 and failed the real-buy floor)
-                     key=lambda x: -_fuse._f(x['score']))
-    # 🚀 NEW MAJORS (young coins that arrived big: ≤14d, $800K–$50M, $300K+ volume, $100K+ pool) — the secure growth slot when no
-    # runner is safe to buy, so a card is never ONLY old majors
-    try:
-        if os.environ.get('PYTEST_CURRENT_TEST'):
-            raise RuntimeError('tests never fetch live pools')
-        have = {r['mint'] for r in runners}
-        # a "new major" is DAYS old: Pump's top-by-volume list also carries coins minutes old with a huge seeded pool — those are
-        # launch coins and must pass the launch-coin rules (age, the owner's selection), never the big-pool door
-        _age_h = lambda r: ((time.time() * 1000 - _fuse._f(r.get('createdAt'))) / 3.6e6) if _fuse._f(r.get('createdAt')) > 0 else None
-        runners += [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'score': 60,
-                     'liquidity': r.get('liquidityUsd'), 'buyShare': r.get('buyShare'), 'change24h': r.get('change24h'), 'newMajor': (_age_h(r) or 0) >= 24,
-                     'ageH': _age_h(r), 'liq': r.get('liquidityUsd'), 'chg1h': r.get('change1h'),
-                     'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'volume24h': r.get('volume24h')}
-                    for r in (await fuses_discover(lens='risers', chain='solana')).get('pools') or [] if r.get('baseAddress') not in have and _fuse._f(r.get('priceUsd')) > 0
-                    and not ((_age_h(r) or 0) >= 24 and _fuse.solid_major(r))]   # 🪙 a new major must trade like one (fuse.solid_major) — else it is not offered at all   # 🚀 risers + 🟢 Pump's top 15 by volume (same as the Lab lens)
-    except Exception as e:
-        if not os.environ.get('PYTEST_CURRENT_TEST'):
-            print('new majors:', e)
-    # ⚓ Anchors: every real major (BTC, ETH, SOL, JUP, PUMP, BONK, WIF, POPCAT, TRUMP, PENGU, …) + big NEW majors, ranked by what
-    # they are DOING right now (turnover, 1h/6h/24h moves, buyers, depth) — SOL gets no head start; stables / LSTs never anchor
-    nm_rows = [r for r in runners if r.get('newMajor')]
-    risers_a = [{'baseAddress': r['mint'], 'pairAddress': r['pairAddress'], 'symbol': r.get('symbol'), 'priceUsd': r.get('price'), 'liquidityUsd': r.get('liquidity'),
-                 'mcap': r.get('mcap'), 'createdAt': r.get('createdAt'), 'change1h': r.get('change1h'), 'change6h': r.get('change6h'), 'change24h': r.get('change24h'),
-                 'volume24h': r.get('volume24h'), 'buyShare': r.get('buyShare')} for r in nm_rows]
-    anchors = [{'mint': r.get('baseAddress'), 'pairAddress': r.get('pairAddress'), 'symbol': r.get('symbol'), 'price': r.get('priceUsd'), 'liquidityUsd': r.get('liquidityUsd'),
-                'anchorScore': r.get('anchorScore'), 'anchorWhy': r.get('anchorWhy'), 'volume24h': r.get('volume24h'), **({'newMajor': True} if r.get('newMajor') else {})}
-               for r in _fuse.rank_anchors(await _majors_rows(), risers_a, now_ms=time.time() * 1000)]
-    # ARENA-backed coins go first: this round's runner picks, live lit cards, and every coin on a stage / battle card
-    rd = _json_load(RUNNERS_PATH, {'rounds': []}); rnd = (rd.get('rounds') or [None])[-1] or {}
-    arena = {p.get('mint') for p in rnd.get('picks') or []} | {p.get('mint') for c in rd.get('litCards') or [] if not c.get('downAt') for p in c.get('picks') or []}
-    arena |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('pairAddress', 'mint', 'baseAddress')}
-    arena |= set(((_contenders_cache.get('data') or {}).get('nextUp') or {}))   # 🏁 ⏭ next-up contenders earned an Arena-backed seat
-    arena.discard(None)
-    # 🏁 every candidate carries the Gauntlet division it ranks in (shown on the card: where each new coin came from)
-    div_of = {}
-    for dv in ((_contenders_cache.get('data') or {}).get('divisions') or []):
-        for r in dv.get('rows') or []:
-            div_of.setdefault(r.get('mint'), dv['key'])
-    for x in pools + runners + anchors:
-        if div_of.get(x.get('mint')):
-            x['division'] = div_of[x['mint']]
-        elif x.get('contender'):
-            x['division'] = x['contender']
-    for x in pools + runners:
-        if x.get('mint') in arena or x.get('pairAddress') in arena:
-            x['arena'] = True
-    # 🎭 lookalikes are out of every seat: a coin wearing a major's ticker that is not that major (a "SOL" at $0.0004)
-    real_ = lambda xs: [x for x in xs if not _fw.lookalike(x.get('symbol'), x.get('mint'), _fuse.ALL_MAJORS)]
-    return real_(pools), real_(runners), anchors
+# ↪ moved to rep_prime.py: _prime_candidates
 
 
-import contenders as _ct
+import contenders as _ct   # noqa: F401  (read by rep_prime as rs._ct)
 
 _contenders_cache: dict = {'at': 0.0, 'data': None, 'boot': True}
 CONTENDERS_SNAPSHOT_PATH = DATA_DIR / 'contenders_snapshot.json'
@@ -4825,131 +2620,7 @@ _contenders_lock = asyncio.Lock()
 CONTENDERS_STALE_SEC = 600   # ⚡ a copy this old is still SERVED at once while a fresh one builds in the background
 
 
-async def _contenders_build(fresh=False):
-    """⚡ Never make a viewer wait for the rebuild (it took 0.4–4.4s every time the 30s copy ran out): a copy ≤ 10 min old is answered
-    at once and ONE background rebuild starts. No copy yet (cold start) or `fresh` (the warm loop) → build and wait."""
-    if _contenders_cache.pop('boot', False) and not _contenders_cache['data']:   # ⚡ first call after a restart: last league from disk (13s cold)
-        snap_ = _launchpad_board.launchpad_board_snapshot(CONTENDERS_SNAPSHOT_PATH, 'league', time.time())
-        if snap_:
-            _contenders_cache.update(at=time.time() - max(30.0, snap_[0]), data=snap_[1])
-    d_, age = _contenders_cache['data'], time.time() - _contenders_cache['at']
-    if d_ and not fresh and age < CONTENDERS_STALE_SEC:
-        if age >= 30 and not _contenders_lock.locked():
-            asyncio.create_task(_contenders_rebuild())
-        return d_
-    return await _contenders_rebuild()
-
-
-async def _contenders_rebuild():
-    """🏁 The Arena qualifier league: every pick list is a division, ranked on live facts; rebuilt at most every 30s (one build at a time)."""
-    if _contenders_cache['data'] and time.time() - _contenders_cache['at'] < 30:
-        return _contenders_cache['data']
-    async with _contenders_lock:
-        if _contenders_cache['data'] and time.time() - _contenders_cache['at'] < 30:
-            return _contenders_cache['data']
-        now = time.time()
-        pairs, majors, risers, live = await asyncio.gather(_fuse_discover_pairs('solana'), _majors_rows(), fuses_discover(lens='risers', chain='solana'),
-                                                           _runner_live(), return_exceptions=True)
-        pairs = pairs if isinstance(pairs, list) else []
-        live = live if isinstance(live, dict) else {}
-        young = list(live.get('passing') or []) + [r for r in live.get('dropped') or [] if r.get('gates') == ['Pre-bond (still on the curve)']]
-        src = {'majors': majors if isinstance(majors, list) else [], 'risers': (risers.get('pools') if isinstance(risers, dict) else []) or [],
-               'fresh': young, 'proven': young,
-               **{k: _fuse.discover(pairs, lens, 'solana', now_ms=now * 1000) for k, lens in (('yield', 'yield'), ('deep', 'deep'), ('popular', 'popular'), ('new', 'new'))}}
-        # 📉 dip buys + 💳 dex paid read every pool the site already has (popular · new · risers), no extra fetch
-        src['dip'] = src['paid'] = (_fuse.discover(pairs, 'popular', 'solana', now_ms=now * 1000, limit=120) + src['new'] + src['risers'])
-        # 🌊 VOLUME FIRST: every launch coin that passes the SAFETY gates (scan done, holders, dev, creator …) — even when its flow
-        # band, size or age keeps it out of the round — busiest first. The list was one coin deep; real volume was being hidden.
-        rcfg_v = _runner_cfg()
-        src['volume'] = sorted({r.get('mint'): r for r in list(young) + [r for r in _runner_cands if _rn.safe_only(r, rcfg_v)] if r.get('mint')}.values(),
-                               key=lambda r: -_fuse._f(r.get('vol1h')))
-        try:   # ⚡ Pump Pulse on the busiest volume coins: ONE batched call (15s per coin), pulsing coins lead the list
-            pz = await _edge_pulses([r['mint'] for r in src['volume'][:40]])
-            src['volume'] = sorted(({**r, 'pulse': bool((pz.get(r['mint']) or {}).get('pulse'))} for r in src['volume']), key=lambda r: (not r['pulse'], -_fuse._f(r.get('vol1h'))))
-        except Exception:
-            pass
-        src['trench'] = list(_trench_cache.get('rows') or [])
-        # 👀 never an empty Trench list: nothing passing → the scan's closest misses, else the busiest fresh launches (watch only)
-        src['trench_watch'] = [{**r, 'trenchOnly': False} for r in (_trench_cache.get('checked') or []) if not r.get('ok')] or \
-            sorted((r for r in _runner_cands if r.get('ageH') is not None and _fuse._f(r.get('ageH')) <= 24), key=lambda r: -_fuse._f(r.get('vol1h')))[:8]
-        cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-        on_card = {l.get('mint') for c in cards.values() for l in c.get('legs') or []}
-        on_card |= {leg.get(k) for c in (_arena_mega_cache.get('data') or []) for leg in c.get('legs') or [] for k in ('mint', 'baseAddress')}
-        on_card.discard(None)
-        data = {**_ct.league(src, on_card, _contenders_cache.get('data')), 'at': now, 'weather': _real_weather(),
-                'all': _ct.everyone(src, on_card)}   # 🏁 every ranked coin in one list → the swap picker's Arena lens
-        _contenders_cache.update(at=now, data=data)
-        if data and now - _contenders_cache.get('savedAt', 0) >= 60:
-            _contenders_cache['savedAt'] = now
-            try:
-                await asyncio.to_thread(_launchpad_board.save_board_snapshot, CONTENDERS_SNAPSHOT_PATH, 'league', data, {}, now)
-            except Exception:
-                pass
-        return data
-
-
-def _creator_state(it):
-    """(flagged, rep level) of a scanned coin's creator — the same rule the runner board uses."""
-    creator = (it or {}).get('creator')
-    if not creator:
-        return False, None
-    brec = _block_load()['wallets'].get(creator)
-    flagged = bool((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')
-    try:
-        crep = _quick_rep(creator).get('level')
-    except Exception:
-        crep = None
-    if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
-        crep = 'suspect'
-    return flagged, crep
-
-
-async def _pick_verify(mint, pair_address):
-    """✅ Verify an owner's pick for a REAL card → (ok, [missing], candidate). Majors / stocks pass. A coin the runner board is
-    already tracking is judged on that record (its history catches a dev sale / top-10 spike); any other coin gets a fresh holder
-    scan on its own live pool. Nothing known = not verified (fail closed)."""
-    if mint in _fuse.ALL_MAJORS:
-        return True, [], None
-    c = next((r for r in _runner_cands if r.get('mint') == mint), None)
-    if not c or not c.get('scanned'):
-        lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pair_address}])).get(pair_address) or {}
-        if (lp.get('baseToken') or {}).get('address') != mint:
-            return False, ['no live pool reading for this coin right now'], None
-        it = await _runner_intel(mint, _enr.PRIO['LOOK'], 'owner pick', wait=True)
-        flagged, crep = _creator_state(it)
-        c = _rn.candidate(lp, it, flagged, False, time.time() * 1000, mayhem=mint in _mayhem_mints, creator_rep=crep,
-                          hist=_runner_track(mint, time.time(), _fuse._f(lp.get('curveProgress')), (it or {}).get('top10Pct'), (it or {}).get('devHoldingPct')))
-    ok, miss = _rn.pick_check(c, _runner_cfg())
-    return ok, miss, c
-
-
-def _pick_row(pair, mint, floor=25_000):
-    """A live DexScreener pair → a swap-pick row, or None: the pool must be THIS mint, have a live price, ≥ the pick floor (the owner's `pickMinLiqUsd`), and not be a
-    dollar coin (it never moves). Real cards additionally need the real-buy floor (checked by the caller)."""
-    if not pair or (pair.get('baseToken') or {}).get('address') != mint:
-        return None
-    m = _fuse.leg_meta(pair)
-    if m['priceUsd'] <= 0 or m['liquidityUsd'] < max(5_000, floor) or str(m.get('symbol') or '').upper() in _ct.STABLES or _fw.lookalike(m.get('symbol'), mint, _fuse.ALL_MAJORS):
-        return None
-    return {'mint': mint, 'pairAddress': pair.get('pairAddress'), 'symbol': m.get('symbol'), 'price': m['priceUsd'], 'liq': m['liquidityUsd']}
-
-
-def _pick_why(pair, mint, floor=25_000):
-    """Why `_pick_row` refused, in the owner's words — the real reason with its numbers, never a vague "no live pool"."""
-    if not pair or (pair.get('baseToken') or {}).get('address') != mint:
-        return 'Could not read that coin\'s pool just now (the price source did not answer for it) — try again in a few seconds.'
-    m = _fuse.leg_meta(pair)
-    sym = m.get('symbol') or 'That coin'
-    if m['priceUsd'] <= 0:
-        return f"${sym} has no live price yet — it has not traded enough to quote."
-    if str(sym).upper() in _ct.STABLES:
-        return f"${sym} is a dollar coin — it never moves, so it is not a swap-in."
-    if _fw.lookalike(m.get('symbol'), mint, _fuse.ALL_MAJORS):
-        return f"${sym} wears a major's ticker but is not that coin (lookalike) — not picked."
-    fl = max(5_000, floor)
-    kind = 'launch curve' if pair.get('curve') else 'pool'
-    return (f"${sym}'s {kind} holds ${m['liquidityUsd']:,.0f} — under your ${fl:,.0f} pick floor. That floor is your own setting: "
-            f"Edit Fuse › wallet limits › My own pick min pool (trench coins: Trench min pool). It can go down to $5,000.")
+# ↪ moved to rep_prime.py: _contenders_build, _contenders_rebuild, _creator_state, _pick_verify, _pick_row, _pick_why
 
 
 DUELS_PATH = FUSE_HQ_PATH.parent / 'fuse_duels.json'
@@ -4957,35 +2628,7 @@ _proof_cache = {'at': 0.0, 'data': None}
 PROOF_CFG_KEYS = ('rotateHours', 'coins', 'sl', 'rideAt', 'rideTrail', 'scoutPct', 'minHoldMins', 'runnerMinAgeH', 'newOnly', 'skimAt', 'lockBankPct', 'upMeta')
 
 
-async def _proof_build(force=False):
-    """🧾 Fuse proof (fuse_proof.py): the real cards' confirmed swaps with the engine's reason, each real card's verified record, the
-    setups side by side, and the 24h real duels (settled + opened here, own file). 30s cache; kept warm by `_fuse_warm`."""
-    import fuse_proof as _proof
-    now = time.time()
-    if not force and _proof_cache['data'] and now - _proof_cache['at'] < 30:
-        return _proof_cache['data']
-    cards = await _prime_view()
-    ledger = _fw_load().get('ledger') or []
-    real = [c for c in cards if c.get('real')]
-    recs = [_proof.record(c, ledger, now) for c in real]
-    try:
-        strat = (await fuse_strategies(hours=_fuse._f(((real[0].get('cfgEff') or {}).get('rotateHours')) if real else 0) or 1.0)).get('strategies') or []
-    except Exception:
-        strat = []
-    val = lambda c: _fuse._f((c.get('math') or {}).get('nowUsd')) or _fuse._f(c.get('valueUsd'))
-    key = lambda c: f"prime:{c.get('tpl')}"
-    values, labels = {key(c): val(c) for c in cards}, {key(c): c.get('label') for c in cards}
-    store = _json_load(DUELS_PATH, {})
-    st = _proof.duel_step(store, values, labels, [key(c) for c in real], [key(c) for c in sorted((c for c in cards if not c.get('real')), key=lambda c: -_fuse._f(c.get('pnlPct')))], now, pick=store.get('pick'))
-    st['pick'] = store.get('pick') or {}
-    if {k: st.get(k) for k in ('live', 'log', 'rec')} != {k: store.get(k) for k in ('live', 'log', 'rec')}:
-        _json_save(DUELS_PATH, st)
-    data = {'at': now, 'feed': _proof.feed(cards, ledger, now), 'records': recs,
-            'setups': _proof.setups(strat, recs, {c.get('tpl'): {k: (c.get('cfgEff') or {}).get(k) for k in PROOF_CFG_KEYS} for c in real}),
-            'duels': {**_proof.duel_view(st, values, now), 'real': [key(c) for c in real], 'cards': [{'key': key(c), 'label': c.get('label'), 'real': bool(c.get('real'))} for c in cards]},
-            'realLegs': {c.get('tpl'): [{'mint': l.get('mint'), 'pairAddress': l.get('pairAddress'), 'symbol': l.get('symbol')} for l in c.get('legs') or [] if not l.get('buying')] for c in real}}
-    _proof_cache.update(at=now, data=data)
-    return data
+# ↪ moved to rep_prime.py: _proof_build
 
 
 # ---- 🛡 Crews (crews.py): 2–8 wallets, an invite code, a members-only-post room, a weekly board of verified results ------------------------------
@@ -7301,91 +4944,28 @@ PRIME_SNAP_EVERY = 60.0     # written at most once a minute
 import fuse_wallet as _fw
 FUSE_WALLET_PATH = DATA_DIR / 'fuse_wallet.json'   # {'cfg', 'books': {tier: book}, 'ledger': [orders · top-ups · defunds]}
 _fw_lock = asyncio.Lock()
-def _parsed_info(acc):
-    """The `parsed.info` of a jsonParsed account, or {}. Some RPC providers answer an account they can't parse (Token-2022 with
-    extensions) as raw `[base64, 'base64']` — a list, not a dict. Reading `.get` on it crashed the whole holder scan (HTTP 500),
-    so every coin whose top holders included one such account stayed "unscanned" and out of every list."""
-    data = (acc or {}).get('data') if isinstance(acc, dict) else None
-    parsed = data.get('parsed') if isinstance(data, dict) else None
-    info = parsed.get('info') if isinstance(parsed, dict) else None
-    return info if isinstance(info, dict) else {}
+# ↪ moved to rep_fuse_wallet.py: _parsed_info
 
 
 _FW_TOKEN_PROGRAMS = ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
 
-import store as _store
+import store as _store   # noqa: F401  (read by rep_ai, rep_fuse_wallet as rs._store)
 
 
-def _fw_load():
-    """🗄 The Fuse wallet lives in SQLite (crash-safe, one transaction per write) — never a half-written JSON file."""
-    d = _store.KV(FUSE_WALLET_PATH).get({}) or {}
-    d.setdefault('books', {}); d.setdefault('ledger', [])
-    return d
-
-
-def _fw_save(d):
-    _store.KV(FUSE_WALLET_PATH).put(d)
+# ↪ moved to rep_fuse_wallet.py: _fw_load, _fw_save
 
 
 _fw_peek_cache = {'key': None, 'd': None}
 
 
-def _fw_peek():
-    """⚡ READ-ONLY view of the Fuse wallet doc, parsed once per write (the 1.2 MB doc was parsed for every cfg / ledger look: dozens of
-    times a tick). NEVER mutate or save what this returns — anything that writes uses `_fw_load()` (its own fresh copy), as before."""
-    if os.environ.get('PYTEST_CURRENT_TEST'):
-        return _fw_load()
-    kv = _store.KV(FUSE_WALLET_PATH)
-    key = (str(FUSE_WALLET_PATH), kv.stamp())
-    if _fw_peek_cache['key'] != key or key[1] is None:
-        _fw_peek_cache.update(key=key, d=_fw_load())
-    return _fw_peek_cache['d']
-
-
-def _fw_cfg():
-    return _fw.clean_cfg(_fw_peek().get('cfg') or {})
+# ↪ moved to rep_fuse_wallet.py: _fw_peek, _fw_cfg
 
 
 _fw_signer = {'ok': False, 'at': 0.0}
 
 
-def _fw_signer_ready():
-    """Owner-approved Circle signing (sidecar POST /sign) is live when the Circle service is configured (cached ≤60s)."""
-    return bool(_fw_signer['ok'])
-
-
-async def _fw_signer_check():
-    if time.time() - _fw_signer['at'] < 60:
-        return _fw_signer['ok']
-    try:
-        st = await _circle('GET', '/status')
-        _fw_signer.update(ok=bool(st.get('configured')), at=time.time())
-    except Exception:
-        _fw_signer.update(ok=False, at=time.time())
-    return _fw_signer['ok']
-
-
-async def _fw_sign(cfg, raw_b64, memo):
-    """Circle signs ONE keeper transaction — only ever for the picked Fuse wallet id. Never sends."""
-    if not cfg.get('walletId') or not raw_b64:
-        raise HTTPException(400, 'No Fuse wallet / transaction to sign.')
-    return await _circle('POST', '/sign', {'walletId': cfg['walletId'], 'rawTransaction': raw_b64, 'memo': memo[:80]})
-
-
-async def _fw_balances(addr):
-    """SOL + every token the Fuse wallet holds (atoms + decimals), one parallel RPC read."""
-    async with httpx.AsyncClient(timeout=12) as http:
-        bal, *toks = await asyncio.gather(_krpc(http, 'getBalance', [addr, {'commitment': 'confirmed'}]),
-                                          *[_krpc(http, 'getTokenAccountsByOwner', [addr, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
-    tokens, decs = {}, {}
-    for t in toks:
-        for a in (t or {}).get('value') or []:
-            info = _parsed_info(a.get('account'))
-            amt = info.get('tokenAmount') or {}
-            if info.get('mint'):
-                tokens[info['mint']] = tokens.get(info['mint'], 0) + int(amt.get('amount') or 0); decs[info['mint']] = int(amt.get('decimals') or 0)
-    return {'sol': int((bal or {}).get('value') or 0) / 1e9, 'tokens': tokens, 'decimals': decs}
+# ↪ moved to rep_fuse_wallet.py: _fw_signer_ready, _fw_signer_check, _fw_sign, _fw_balances
 
 
 JUP_BUSY_SEC = 20.0
@@ -7401,216 +4981,14 @@ _FW_JUP_PACE = {'lock': None, 'next': {}, 'rest': {}}
 _JUP_KEY_N: dict = {}   # key → its lane number (1 = the first key: its pacing slot keeps the plain base name)
 
 
-def _jup_keys(env=None):
-    """The KEEPER's Jupiter keys (`JUPITER_API_KEY`, `_2` … `_6`, in order, no repeats) — minus the one set aside for price reads once
-    there are three or more (`jup_keys.read_key`). Never logged, never returned to a page."""
-    import jup_keys as _jk
-    return _jk.keeper_keys(os.environ if env is None else env)
-
-
-def _jup_lanes(key):
-    """📡 Jupiter = LANES, like the RPC: one per key (each plan's own quota: `JUPITER_API_KEY`, `_2` … `_6`) + the public one (its own,
-    separate limit). Each lane is PACED to what its plan allows and rests after a 429; a call goes to whichever lane is free first, so
-    N keys ≈ N requests a second for the keeper's quotes. 2026-10-12: a $0.08 sell failed "route unavailable (HTTP 429)" four passes in
-    a row (quotes were fired in bursts at the keyed lane alone), Courier read execution BAD and every seat was blocked behind it.
-    2026-10-13: call → send was a median 89s — four quotes a buy through ONE ~1 rps key. Never a URL with a key in it; the key rides a header.
-    `key` = one key or a list of keys."""
-    keys = [k for k in ([key] if isinstance(key, str) else list(key or [])) if k]
-    for i, k in enumerate(keys):
-        _JUP_KEY_N.setdefault(k, i + 1)
-    return [('https://api.jup.ag', {'x-api-key': k}) for k in keys] + [('https://lite-api.jup.ag', {})]
-
-
-def _jup_lid(lane):
-    """A lane's own pacing slot: the base for the public lane and the first key, base#N for every further key."""
-    n = _JUP_KEY_N.get((lane[1] or {}).get('x-api-key'), 1)
-    return lane[0] if n <= 1 else f'{lane[0]}#{n}'
-
-
-def _jup_pick(lanes, now):
-    """→ (lane, wait seconds): the lane whose next free slot comes first (its spacing and any 429 rest counted)."""
-    free = lambda l: max(_FW_JUP_PACE['next'].get(_jup_lid(l), 0.0), _FW_JUP_PACE['rest'].get(_jup_lid(l), 0.0))
-    lane = min(lanes, key=free)
-    return lane, max(0.0, free(lane) - now)
-
-
-async def _fw_jup(method, path, **kw):
-    lanes = _jup_lanes(_jup_keys())
-    if _FW_JUP_PACE['lock'] is None:
-        _FW_JUP_PACE['lock'] = asyncio.Lock()
-    scale = JUP_GAP_SEC / 0.2
-    r = None
-    async with httpx.AsyncClient(timeout=20) as http:
-        for attempt in range(max(6, len(lanes) + 3)):   # 429 / 5xx = that lane rests and the other one answers; every lane resting = wait for the first to come back
-            async with _FW_JUP_PACE['lock']:
-                lane_, wait_ = _jup_pick(lanes, time.time())
-                (base, hdr), lid = lane_, _jup_lid(lane_)
-                if wait_ > 0:
-                    await asyncio.sleep(min(wait_, 6.0))
-                _FW_JUP_PACE['next'][lid] = time.time() + JUP_LANE_GAP.get(base, 0.35) * scale
-            try:
-                r = await http.request(method, base + path, headers=hdr, **kw)
-            except httpx.HTTPError:   # 📡 a dropped connection / timeout = that lane rests like a 5xx — it once escaped as a raw error and killed the whole tier tick mid seat-check
-                r = None
-                _FW_JUP_PACE['rest'][lid] = time.time() + JUP_LANE_REST * scale
-                continue
-            if r.status_code != 429 and r.status_code < 500:
-                break
-            try:
-                ra_ = float(r.headers.get('retry-after') or 0)
-            except (TypeError, ValueError, AttributeError):
-                ra_ = 0.0
-            _FW_JUP_PACE['rest'][lid] = time.time() + min(20.0, max(JUP_LANE_REST, ra_)) * scale
-    if r is None:
-        _FW_JUP_BUSY['at'] = time.time()
-        raise HTTPException(400, 'Jupiter route unavailable (network, HTTP 503)')
-    if r.status_code == 429 or r.status_code >= 500:
-        # 📡 BUSY = every lane failed THIS call. A 429 on one lane that the other lane then answered is not busy: the public lane is
-        # shared with our own price reads and answers 429 most minutes, so marking busy on any 429 kept the seat pre-check standing
-        # down every tick — 2026-10-12 23:05 → 23:35: four empty seats, READY coins, and not one buy sent to the keeper.
-        _FW_JUP_BUSY['at'] = time.time()
-    try:
-        data = r.json() if r.content else {}
-    except ValueError:
-        data = {}
-    if r.status_code >= 400:
-        raise HTTPException(400, f"{str(data.get('error') or data.get('errorMessage') or 'Jupiter route unavailable')[:140]} (HTTP {r.status_code})")
-    return data
-
-
-async def _fw_quote(order, cfg):
-    """A REAL Jupiter quote for one keeper order (SOL → coin to buy, coin → SOL to sell). Read-only."""
-    q = {'inputMint': _fw.SOL_MINT if order['side'] == 'buy' else order['mint'], 'outputMint': order['mint'] if order['side'] == 'buy' else _fw.SOL_MINT,
-         'amount': str(order['lamports'] if order['side'] == 'buy' else order['atoms']), 'slippageBps': str(cfg['slippageBps'])}
-    # 🎯 ONE-HOP route first (coin ⇄ SOL in one pool): a multi-hop route opens accounts for the coins it passes through (rent parked
-    # until they close), builds transactions too big to send, and fails more often. Multi-hop only when one hop is missing or costly.
-    if order.get('wide'):   # an exit that already failed one-hop: whatever route Jupiter rates best
-        return await _fw_jup('GET', '/swap/v1/quote', params=q)
-    try:
-        direct = await _fw_jup('GET', '/swap/v1/quote', params={**q, 'onlyDirectRoutes': 'true'})
-        if _fuse._f(direct.get('outAmount')) > 0 and _fuse._f(direct.get('priceImpactPct')) * 100 <= min(1.0, _fuse._f(cfg.get('maxImpactPct')) or 1.0):
-            return direct
-    except HTTPException:
-        direct = None
-    multi = await _fw_jup('GET', '/swap/v1/quote', params={**q, 'restrictIntermediateTokens': 'true'})
-    if direct and _fuse._f(direct.get('outAmount')) >= _fuse._f(multi.get('outAmount')) * 0.995:
-        return direct   # one hop pays (nearly) the same → still the cleaner transaction
-    return multi
-
-
-async def _fw_secure_buy(order, cfg, q):
-    """🛡 A buy quote is safe when it is near the market price AND the coins really sell straight back (both read-only quotes).
-    → (ok, why, sell-back %)"""
-    try:
-        back = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': order['mint'], 'outputMint': _fw.SOL_MINT, 'amount': str(q.get('outAmount')), 'slippageBps': str(cfg['slippageBps'])})
-        back_l = _fuse._f(back.get('outAmount'))
-    except HTTPException as e:
-        if any(x in str(e.detail) for x in ('(HTTP 429)', '(HTTP 5')):
-            raise   # Jupiter BUSY is not "no route back": it used to read "can't sell it back to SOL (no route)" and bench a good coin for 30 min
-        back_l = None
-    try:   # market = Jupiter's own price (what routes really pay); a DexScreener pair can lag on young coins
-        _jup_px_cache.pop(order['mint'], None)   # …read FRESH: the 20s-old cached price made a coin running +3% a minute read "4.6% above market" on every try
-        jp = _fuse._f(((await _jup_prices([order['mint']], keyed=True)) or {}).get(order['mint']))
-    except Exception:
-        jp = 0.0
-    ok_s, why_s = _fw.buy_safety({**order, 'midPx': jp or order.get('midPx'), 'maxRoundtripPct': _fw.clean_cfg(cfg)['pickSellBackPct']}, q.get('outAmount'), await _mint_decimals(order['mint']), back_l)
-    return ok_s, why_s, None if back_l is None else round((back_l / max(1, order['lamports']) - 1) * 100, 2)
+# ↪ moved to rep_fuse_wallet.py: _jup_keys, _jup_lanes, _jup_lid, _jup_pick, _fw_jup, _fw_quote, _fw_secure_buy
 
 
 LIVE_SRC_SEC = 4.0      # 📡 each fresh source of the final buy gate answers inside this, or is skipped for this read (a paced / 429'd source used to hold the buy 12s+)
 LIVE_PUMP_MAX = 12      # Pump records read in parallel per call (one short GET each)
 
 
-async def _fw_live_pairs(orders):
-    """📡 FRESH live pairs for real-money buy checks (never cached), every source bounded by LIVE_SRC_SEC: DexScreener AND Pump's own coin
-    record (every Pump mint, in parallel), then Jupiter only for coins neither answered. Precedence DexScreener → Pump → Jupiter.
-    2026-10-12 (6h): 62 of 172 refused agent buys read "live market unavailable" — from this machine DexScreener and Jupiter's public API
-    both answered 429 while Pump answered 200, but Pump was asked only after the other two failed, for at most 4 coins a call."""
-    want = {str(o.get('pair')): o.get('mint') for o in orders if o.get('pair')}
-    if not want:
-        return {}
-
-    async def ds_():
-        try:
-            async with httpx.AsyncClient(timeout=LIVE_SRC_SEC) as http:
-                mr = await asyncio.wait_for(http.get('https://api.dexscreener.com/latest/dex/pairs/solana/' + ','.join(sorted(want)[:30])), LIVE_SRC_SEC)
-            return {p.get('pairAddress'): p for p in ((mr.json() if mr.status_code == 200 else {}) or {}).get('pairs') or [] if p}
-        except Exception:
-            return {}
-
-    async def pump_():
-        pm = [(pa, m) for pa, m in want.items() if str(m).endswith('pump')][:LIVE_PUMP_MAX]
-        if not pm:
-            return {}
-        async with httpx.AsyncClient(timeout=LIVE_SRC_SEC, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-            async def one(pa, m):
-                try:
-                    r = await asyncio.wait_for(http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{m}'), LIVE_SRC_SEC)
-                    pp = _launchpad_board.pump_pair(r.json() if r.status_code == 200 else None, pa)
-                    return pa, pp if pp and (pp.get('baseToken') or {}).get('address') == m else None
-                except Exception:
-                    return pa, None
-            return {pa: pp for pa, pp in await asyncio.gather(*[one(pa, m) for pa, m in pm]) if pp}
-
-    d_, p_ = await asyncio.gather(ds_(), pump_())
-    live = {**{pa: pp for pa, pp in p_.items()}, **{pa: x for pa, x in d_.items() if pa in want}}   # DexScreener wins where both answered
-    miss = {pa: m for pa, m in want.items() if pa not in live and m}
-    if miss:
-        for m in miss.values():
-            _jup_tok_cache.pop(m, None)
-        try:
-            toks = await asyncio.wait_for(_jup_tokens(list(miss.values()), keyed=True), LIVE_SRC_SEC + 2)
-        except Exception:
-            toks = {}
-        for pa, m in miss.items():
-            jp = _launchpad_board.jup_pair(toks.get(m)) if toks.get(m) else None
-            if jp:
-                live[pa] = {**jp, 'pairAddress': pa}
-    return live
-
-
-async def _fw_preflight(tid, buys, cfg, now):
-    """🔒 Before a swap SELLS anything: can each new coin really be bought? Live pool (one fresh call for all), the owner's limits,
-    then a real quote + the secure-buy checks. A coin that fails is booked as a refused buy (→ benched / re-picked) and returned, so
-    the keeper keeps the old coin instead of selling it into cash. Read-only: nothing is signed here."""
-    bad = set()
-    try:
-        live = await _fw_live_pairs(buys)
-    except Exception:
-        return bad   # no reading = no verdict here: the buy's own final gate still fails closed
-    for o in buys:
-        row = {**o, 'card': tid, 'status': 'skipped', 'at': now}
-        ok, why, snap = _fw.live_buy_market(o, live.get(o.get('pair')), cfg)
-        row.update(snap)
-        if ok:
-            ok, why = _fw.check(row, cfg, _fw_peek().get('ledger'), now)
-            if not ok and any(x in why for x in _FW_NOT_COIN):
-                continue   # a cap / pause is not the coin's fault — nothing to hold a sell for
-        if ok and o.get('lamports', 0) > 0:
-            try:
-                q = await _fw_quote(o, cfg)
-                ok, why, _back = await _fw_secure_buy(o, cfg, q)
-                if ok and _fuse._f(q.get('priceImpactPct')) * 100 > cfg['maxImpactPct']:
-                    ok, why = False, f"price impact {_fuse._f(q.get('priceImpactPct')) * 100:.2f}% > {cfg['maxImpactPct']:g}%"
-            except HTTPException as e:
-                if any(x in str(e.detail) for x in _FW_NOT_COIN):
-                    continue
-                ok, why = False, str(e.detail)[:140]
-        if not ok:
-            bad.add(o['mint'])
-            row['err'] = f'{why} — checked before selling, the old coin is kept'[:160]
-            async with _fw_lock:
-                d = _fw_load()
-                if not _fw.logged_recently(d.get('ledger'), row, now, 120):
-                    _fw_record(d, row); _fw_save(d)
-    return bad
-
-
-def _fw_keep(d, tid, book):
-    """Save a card's book without losing the miss / bench counts written meanwhile by _fw_record."""
-    old = (d.get('books') or {}).get(tid) or {}
-    book = _fw.merge_owner(old, book)   # 🧷 a top-up written while this keeper pass was running is put back in, never overwritten
-    return {**book, 'misses': old.get('misses', book.get('misses') or {}), 'benched': old.get('benched', book.get('benched') or {})}
+# ↪ moved to rep_fuse_wallet.py: _fw_live_pairs, _fw_preflight, _fw_keep
 
 
 _FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wallet', 'signing not available', 'RPC pool', 'live market unavailable',
@@ -7618,423 +4996,27 @@ _FW_NOT_COIN = ('not armed', 'paused', 'per-swap cap', 'daily cap', 'No Fuse wal
 _fw_bg: set = set()
 
 
-def _fw_kick_now():
-    """🏃 Run one keeper pass NOW in the background (sells first, as always). An owner button returns at once; `_fw_tick_lock` keeps passes one
-    at a time and the card's swap-flow strip shows each step. 2026-10-08 owner: "confirm sell all takes a lot" — the request awaited every
-    sell's send + confirm (tens of seconds) before the screen answered."""
-    if os.environ.get('PYTEST_CURRENT_TEST'):
-        return
-    t = asyncio.ensure_future(_fw_tick(time.time()))
-    _fw_bg.add(t); t.add_done_callback(_fw_bg.discard)
+# ↪ moved to rep_fuse_wallet.py: _fw_kick_now
 
 
 _FW_BUY_PASS: dict = {}   # {card id: when the keeper last reached its BUY step} — the stuck-buy clock runs only after one (fuse_wallet.stuck_buys)
 _FW_KICK: dict = {}   # {'at': when a real buy was refused / failed} → the round loop re-picks that seat RETRY_SEC later, not a tick later
 
 
-def _fw_record(d, row):
-    if row.get('side') == 'buy' and row.get('status') in ('skipped', 'failed') and row.get('mint') and row.get('card') in (d.get('books') or {}) \
-            and not any(x in str(row.get('err') or '') for x in _FW_NOT_COIN) \
-            and not (row.get('status') == 'failed' and _fw.slip_transient(d.get('ledger'), row, _fuse._f(row.get('at')) or time.time())):
-        # 🪑 a coin that keeps failing its buy gets benched — a slippage failure is retried at once instead (the coin is fine, the price ran)
-        b, out = _fw.note_miss(d['books'][row['card']], row['mint'], _fuse._f(row.get('at')) or time.time(), str(row.get('err') or ''))
-        d['books'][row['card']] = b
-        _FW_KICK['at'] = _fuse._f(row.get('at')) or time.time()
-        if out:
-            print(f"fuse wallet: benched {row.get('symbol')} for 1h — {row.get('err')}")
-    if row.get('side') == 'buy' and row.get('status') == 'failed' and _fw.SLIP_ERR in str(row.get('err') or '') and row.get('card') in (d.get('books') or {}):
-        d['books'][row['card']] = {**d['books'][row['card']], 'slipAt': _fuse._f(row.get('at')) or time.time()}   # ⏳ the seat waits for the retry
-    if row.get('id') and any(r.get('id') == row['id'] and r.get('status') == row.get('status') for r in (d.get('ledger') or [])[-50:]):
-        return   # the same order outcome is booked once (two ticks resolving one tx can't double the trail)
-    d['ledger'] = _fw.recent_rows((d.get('ledger') or []) + [row], _fuse._f(row.get('at')) or time.time())   # the recent rows for fast reads …
-    try:
-        _store.Ledger(FUSE_WALLET_PATH).append(row)          # … and the append-only audit table keeps EVERY row forever
-    except Exception as e:
-        print('fuse wallet ledger:', e)
-
-
-async def _fw_execute(tid, order, book, cfg, sol_px, liq):
-    """One keeper order: real Jupiter quote → the owner's hard limits → Circle signs (Fuse wallet only) → we broadcast → the confirmed
-    tx's balance changes ARE the fill. Every outcome goes to the audit ledger; fills + failures reach the owner's inbox."""
-    if book.get('pending'):
-        _FW_DUPES['n'] += 1
-        return book   # defense in depth: never overwrite the one in-flight signature with a second sell or buy
-    now = time.time()
-    # `card` must be present on every outcome. Without it, secure-quote refusals (price gap / no sell-back route) were logged but
-    # never counted by _fw_record, so the same unsafe mint retried forever instead of reaching the existing bench-and-replace path.
-    slip_cap, cfg0 = 300, cfg
-    if order.get('side') == 'sell':   # 🚪 an exit that already failed on slippage gets more room and any route
-        s0_, slip_cap, wide_ = _fw.sell_escalation(_fw_peek().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
-        if wide_:
-            cfg = {**cfg, 'slippageBps': s0_}; order = {**order, 'wide': True}
-    elif order.get('side') == 'buy':   # 🚪 a buy that just failed on slippage gets a little more room (≤ 5%; the price-gap check still runs)
-        s0_, slip_cap = _fw.buy_escalation(_fw_peek().get('ledger'), tid, order.get('mint'), now, cfg['slippageBps'])
-        cfg = {**cfg, 'slippageBps': s0_}
-    row = {**order, 'card': tid, 'liq': liq, 'status': 'quoted'}
-    if order.get('side') == 'buy':
-        # FINAL BUY GATE: cached radar liquidity is never authority for real money.
-        # Re-fetch this exact pair immediately before quote/sign and fail closed if it cannot be verified.
-        try:
-            live_pair = (await _fw_live_pairs([order])).get(order.get('pair'))   # 📡 fresh: DexScreener, else Jupiter
-            ok_live, why_live, snap = _fw.live_buy_market(order, live_pair, cfg)
-        except Exception:
-            ok_live, why_live, snap = False, 'live market unavailable — buy refused', {}
-        row.update(snap)
-        if not ok_live:
-            row.update(status='skipped', err=why_live)
-            async with _fw_lock:
-                d = _fw_load()
-                if not _fw.logged_recently(d.get('ledger'), row, now):
-                    _fw_record(d, row)
-                    _fw_save(d)
-            return book
-    async with _fw_lock:   # 🚦 limits a quote can't change (armed · paused · per-swap · daily cap · thin pool) are checked BEFORE quoting:
-        d = _fw_load()        # no Jupiter calls, and the skip is booked once per 15 min instead of every tick (the cap retry loop)
-        ok, why = _fw.check(row, cfg, d.get('ledger'), now)
-        if not ok:
-            skip = {**row, 'card': tid, 'status': 'skipped', 'err': why}
-            if not _fw.logged_recently(d.get('ledger'), skip, now):
-                _fw_record(d, skip); _fw_save(d)
-            return book
-    try:
-        for attempt in range(3):   # 🔁 strong retry: a busy route gets fresh quotes, each with a little more slippage (≤ the 3% hard cap)
-            try:
-                q = await _fw_quote(order, {**cfg, 'slippageBps': min(max(300, slip_cap), int(cfg['slippageBps']) + 75 * attempt)})
-                q_at = time.time()
-                break
-            except HTTPException:
-                if attempt == 2:
-                    raise
-                await asyncio.sleep(1.5)
-        row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
-        if order['side'] == 'sell':   # 💧 what selling really pays → the card's value (a drained pool must not read as money); the pass saves `book`
-            _fw.note_sell_quote(book, order, q.get('outAmount'), sol_px, now, row['impactPct'])
-        if order['side'] == 'buy':   # 🛡 secure buy: near market price + it really sells back (both read-only quotes)
-            ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
-            if not ok_s:
-                raise HTTPException(400, why_s)
-        elif order['side'] == 'sell' and 'rug' not in str(order.get('why') or ''):   # 🛡 secure sell: the route must pay near the market price
-            try:
-                jp = _fuse._f(((await _jup_prices([order['mint']], keyed=True)) or {}).get(order['mint']))
-            except Exception:
-                jp = 0.0
-            ok_s, why_s = _fw.sell_safety(order, q.get('outAmount'), sol_px, jp)
-            if not ok_s:
-                raise HTTPException(400, why_s)
-    except HTTPException as e:
-        row.update(status='skipped', err=str(e.detail)[:140])
-        if order['side'] == 'sell' and 'no route' in str(e.detail).lower() and not row.get('quoteOut'):   # no route at all = worth nothing now
-            _fw.note_sell_quote(book, order, 0, sol_px, now)
-        async with _fw_lock:   # the same refusal is booked once per 15 min (the keeper keeps retrying quietly)
-            d = _fw_load()
-            if row.get('side') == 'buy' or not _fw.logged_recently(d.get('ledger'), row, now):   # buy misses all count (2 → benched)
-                _fw_record(d, row); _fw_save(d)
-        return book
-    async with _fw_lock:
-        ok, why = _fw.check(row, cfg, _fw_peek().get('ledger'), now, row['impactPct'])   # row carries the pool's liquidity
-    if not ok or not _fw_signer_ready():
-        row.update(status='skipped' if not ok else 'dry', err=why or 'signing not available — quoted only')
-        async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _fw_save(d)
-        return book
-    if _fw.quote_stale(q_at, time.time(), order):   # ⏱ the safety quotes took time: never build a tx on a quote older than its TTL
-        try:
-            q = await _fw_quote(order, cfg); q_at = time.time(); row['quoteRefresh'] = 1
-            row['impactPct'] = round(_fuse._f(q.get('priceImpactPct')) * 100, 3); row['quoteOut'] = q.get('outAmount')
-            if order['side'] == 'buy':   # a fresh buy quote is checked again (near market + sells back) — safety never skipped for speed
-                ok_s, why_s, row['sellBackPct'] = await _fw_secure_buy(order, cfg, q)
-                if not ok_s:
-                    raise HTTPException(400, why_s)
-        except HTTPException as e:
-            row.update(status='skipped', err=f'fresh quote: {str(e.detail)[:120]}')
-            async with _fw_lock:
-                d = _fw_load()
-                if not _fw.logged_recently(d.get('ledger'), row, now):
-                    _fw_record(d, row); _fw_save(d)
-            return book
-    async with _fw_lock:   # ⚡ txs that didn't land lately → this one pays a higher priority fee (24% of buys timed out at a flat fee)
-        boost = _fw.landing_boost(_fw_peek().get('ledger'), tid, now)
-    urgent_ = order.get('side') == 'sell' and _fw.urgent_order(order)   # ⚡ a stop / rug / drain / flow exit lands first (≤ 1% of the sale, ≤ half a cent)
-    try:
-        for attempt in range(3):   # build + sign retried too (Jupiter / Circle blips); nothing is sent until a signed tx exists
-            try:
-                swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(attempt, boost, sol_px, _fuse._f(order.get('usd')) if urgent_ else 0.0), 'priorityLevel': 'veryHigh' if attempt or boost or urgent_ else 'high'}}})
-                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight'); row['quoteAgeSec'] = round(time.time() - q_at, 2)
-                signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')}")
-                break
-            except HTTPException:
-                if attempt == 2:
-                    raise
-                await asyncio.sleep(1.5)
-                q = await _fw_quote(order, cfg); q_at = time.time()   # fresh quote for the rebuild
-    except HTTPException as e:
-        row.update(status='failed', err=f'build/sign: {str(e.detail)[:120]}')
-        async with _fw_lock:
-            d = _fw_load(); _fw_record(d, row); _fw_save(d)
-        _fw_notify(row)
-        return book
-    for slip_try in range(3):   # price moved past slippage at send time (Jupiter 0x1771) → fresh quote with a bit more room, ≤ 3%
-        sig = signed.get('signature') or signed.get('txHash')
-        book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
-        async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-buy
-            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
-        try:
-            async with httpx.AsyncClient(timeout=15) as http:
-                await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
-            _fw_raw_keep(sig, signed.get('signedTransaction'))   # 📡 passed simulation → re-sent to every node until it lands or expires
-            break
-        except Exception as e:
-            msg = str(e)
-            if 'simulation failed' not in msg.lower():
-                _fw_raw_keep(sig, signed.get('signedTransaction'))   # node trouble, not a bad tx → the other nodes still get it
-                print('fuse wallet send:', msg[:200]); break   # network trouble: the tx may still land → resolve decides
-            # simulation failed = this tx can NEVER land → clear pending now (no 2-min wait), maybe retry with more slippage
-            book = {**book, 'pending': None}
-            async with _fw_lock:
-                d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
-            slip = _fw.retry_slip(order['side'], slip_cap, cfg['slippageBps'], slip_try)   # a BUY retry opens to 5% max, first try stays normal
-            if ('0x1771' not in msg and '6001' not in msg) or slip_try >= _fw.slip_retries(order['side']):   # a buy: ONE retry at 5% · a sell: two
-                row.update(status='failed', err=('slippage exceeded at send' if ('0x1771' in msg or '6001' in msg) else 'simulation failed') + f' (tried ≤{slip / 100:.2f}%)')
-                async with _fw_lock:
-                    d = _fw_load(); _fw_record(d, row); _fw_save(d)
-                _fw_notify(row)
-                return book
-            try:
-                q = await _fw_quote(order, {**cfg, 'slippageBps': slip})
-                swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                                    'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(slip_try + 1, boost, sol_px), 'priorityLevel': 'veryHigh'}}})
-                row['lastValidBlockHeight'] = swap.get('lastValidBlockHeight')
-                signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} {order['side']} {order.get('symbol')} retry")
-                row['retrySlipBps'] = slip
-            except HTTPException as e2:
-                row.update(status='failed', err=f'retry build/sign: {str(e2.detail)[:100]}')
-                async with _fw_lock:
-                    d = _fw_load(); _fw_record(d, row); _fw_save(d)
-                return book
-    book = await _fw_resolve(tid, book, cfg, sol_px, wait=40)
-    # 🔁 SLIPPAGE = RETRY NOW, not "give the seat away": the price ran between the quote and the block (Jupiter 0x1771). The same
-    # order goes again at once — fresh quote, more room (`buy_escalation` / `sell_escalation`), every live-pool / limit / secure-buy
-    # check again — up to `SLIP_RETRIES` times. Before, one such failure re-picked the owner's seat 15s later ($FLY, $LOOP).
-    n_ = int(order.get('slipRetry') or 0)
-    if not book.get('pending') and order.get('side') in ('buy', 'sell') and n_ < _fw.slip_retries(order['side']):
-        last_ = next((r for r in reversed(_fw_peek().get('ledger') or []) if r.get('id') == row.get('id')), None)
-        if last_ and last_.get('status') == 'failed' and _fw.SLIP_ERR in str(last_.get('err') or ''):
-            base_id = order.get('baseId') or order.get('id') or f"{tid}:{order.get('mint')}"
-            return await _fw_execute(tid, {**order, 'baseId': base_id, 'id': f'{base_id}:r{n_ + 1}', 'slipRetry': n_ + 1}, book, cfg0, sol_px, liq)
-    return book
+# ↪ moved to rep_fuse_wallet.py: _fw_record, _fw_execute
 
 
 _FW_DUPES = {'n': 0}   # 🔁 orders dropped because the card already had a tx in flight (one in-flight tx per card)
 C2C_COOL_SEC = 600   # after a one-transaction swap fails, that card does plain two-step swaps for 10 minutes
 
 
-async def _fw_execute_swap(tid, sell, buy, book, cfg, sol_px, liq):
-    """🔀 ONE transaction: the old coin straight into the new one. Decided BEFORE anything moves — three read-only quotes (old → SOL,
-    SOL → new, old → new); the one-step route is used only when it delivers at least as many coins as the two swaps would and its
-    impact is ≤ 4% (`fuse_wallet.c2c_ok`), the new coin passes the live-pool, limit and secure-buy checks, and the old coin's sale
-    is near market. Returns the book when a swap was sent (or settled); None = not suitable → the keeper does the two swaps."""
-    if book.get('pending') or not _fw_signer_ready():
-        return None
-    now = time.time()
-    d0 = _fw_load()
-    if any(r.get('card') == tid and r.get('side') == 'swap' and r.get('status') == 'failed' and now - _fuse._f(r.get('at')) < C2C_COOL_SEC for r in (d0.get('ledger') or [])[-40:]):
-        return None
-    brow = {**buy, 'usd': sell['usd'], 'liq': liq, 'card': tid}
-    try:
-        live_pair = (await _fw_live_pairs([buy])).get(buy.get('pair'))
-        ok, _why, snap = _fw.live_buy_market(buy, live_pair, cfg)
-        brow.update(snap)
-        if ok:
-            ok, _why = _fw.check(brow, cfg, d0.get('ledger'), now)
-        if not ok:
-            return None   # the normal path books the refusal (and benches the coin)
-        q_sell = await _fw_quote(sell, cfg)
-        lam = int(_fuse._f(q_sell.get('outAmount')))
-        if lam <= 0:
-            return None
-        q_buy = await _fw_quote({**buy, 'lamports': lam}, cfg)
-        q_dir = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': sell['mint'], 'outputMint': buy['mint'], 'amount': str(sell['atoms']),
-                                                               'slippageBps': str(cfg['slippageBps']), 'restrictIntermediateTokens': 'true'})
-        impact = round(_fuse._f(q_dir.get('priceImpactPct')) * 100, 3)
-        ok, why = _fw.c2c_ok(q_dir.get('outAmount'), q_buy.get('outAmount'), impact)
-        if not ok or impact > cfg['maxImpactPct']:
-            return None
-        ok_s, _why_s, back = await _fw_secure_buy({**buy, 'lamports': lam}, cfg, q_dir)   # near market + really sells back
-        if not ok_s:
-            return None
-        if 'rug' not in str(sell.get('why') or ''):
-            jp = _fuse._f(((await _jup_prices([sell['mint']])) or {}).get(sell['mint']))
-            if not _fw.sell_safety(sell, q_sell.get('outAmount'), sol_px, jp)[0]:
-                return None
-        async with _fw_lock:
-            boost = _fw.landing_boost(_fw_peek().get('ledger'), tid, now)
-        swap = await _fw_jup('POST', '/swap/v1/swap', json={'quoteResponse': q_dir, 'userPublicKey': cfg['address'], 'wrapAndUnwrapSol': True, 'dynamicComputeUnitLimit': True,
-                                                            'prioritizationFeeLamports': {'priorityLevelWithMaxLamports': {'maxLamports': _fw.priority_cap(0, boost, sol_px), 'priorityLevel': 'veryHigh' if boost else 'high'}}})
-        signed = await _fw_sign(cfg, swap.get('swapTransaction'), f"FEELESS {tid} swap {sell.get('symbol')} to {buy.get('symbol')}")
-    except Exception as e:
-        print('fuse wallet c2c (falling back to two swaps):', str(getattr(e, 'detail', e))[:120])
-        return None
-    sig = signed.get('signature') or signed.get('txHash')
-    row = {'id': f"{tid}:{now:.0f}:x:{sell['mint'][:6]}", 'card': tid, 'side': 'swap', 'mint': sell['mint'], 'pair': sell.get('pair'), 'symbol': sell.get('symbol'),
-           'atoms': int(sell['atoms']), 'decimals': sell.get('decimals'), 'toMint': buy['mint'], 'toPair': buy.get('pair'), 'toSymbol': buy.get('symbol'),
-           'toMidPx': brow.get('midPx') or buy.get('midPx'), 'usd': sell['usd'], 'at': now, 'why': f'🔀 one transaction — {why}', 'liq': brow.get('liq'),
-           'minIn': int(_fuse._f(q_dir.get('otherAmountThreshold'))), 'quoteOut': q_dir.get('outAmount'), 'impactPct': impact, 'sellBackPct': back,
-           'lastValidBlockHeight': swap.get('lastValidBlockHeight'), **({'cardPays': True} if sell.get('cardPays') else {})}
-    book = {**book, 'pending': {**row, 'sig': sig, 'status': 'sent', 'sentAt': now}}
-    async with _fw_lock:   # pending is saved BEFORE the send: a crash mid-flight can never double-trade
-        d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_save(d)
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
-        _fw_raw_keep(sig, signed.get('signedTransaction'))
-    except Exception as e:
-        if 'simulation failed' in str(e).lower():   # this tx can never land → clear it now; the two-step path takes over next tick
-            book = {**book, 'pending': None}
-            async with _fw_lock:
-                d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book)
-                _fw_record(d, {**row, 'status': 'failed', 'err': 'one-transaction swap failed simulation — doing two swaps'}); _fw_save(d)
-            return book
-        _fw_raw_keep(sig, signed.get('signedTransaction'))   # node trouble: it may still land → resolve decides
-    return await _fw_resolve(tid, book, cfg, sol_px, wait=40)
-
-
-def _fw_notify(row):
-    """Every real fill / failure on a tier card → the owner wallets' inbox (audit trail link). No P&L in the text.
-    A failing coin retries every tick, so its failure notice goes out once an hour, not once per try."""
-    once = f"fw-{row.get('id')}-{row.get('status')}" if row.get('status') != 'failed' else f"fw-fail-{row.get('card')}-{row.get('mint')}-{int(time.time() // 3600)}"
-    word = {'filled': '✅', 'failed': '⚠'}.get(row.get('status'), 'ℹ')
-    for w in _owner_wallets():
-        notify(w, 'fuse-card', f"{word} Fuse wallet · {row.get('card')}: {row.get('side')} ${row.get('symbol') or ''} {row.get('status')}{(' — ' + row['err']) if row.get('err') else ''}",
-               url='/terminal/hq?tab=fuse', push=False, once=once, meta={'claim': 'Keeper order', 'source': 'Fuse wallet audit trail'})
+# ↪ moved to rep_fuse_wallet.py: _fw_execute_swap, _fw_notify
 
 
 _FW_RAW: dict = {}   # sig → (signed tx, kept at): in memory only, a blockhash lives ~90s
 
 
-def _fw_raw_keep(sig, raw):
-    now = time.time()
-    for k in [k for k, v in _FW_RAW.items() if now - v[1] > 180]:
-        _FW_RAW.pop(k, None)
-    if sig and raw:
-        _FW_RAW[sig] = (raw, now)
-
-
-async def _fw_rebroadcast(http, sig):
-    """📡 The perma-fix for "expired" buys / sells: the SAME signed tx goes to every RPC node again (one signature can only land once)."""
-    raw = (_FW_RAW.get(sig) or (None,))[0]
-    if not raw or os.environ.get('PYTEST_CURRENT_TEST'):
-        return 0
-    try:
-        return await _rpc_broadcast(http, raw)
-    except Exception:
-        return 0
-
-
-async def _fw_resolve(tid, book, cfg, sol_px, wait=0):
-    """Settle a sent order from the chain. RPC absence is never failure: keep the pending lock until the chain returns a
-    transaction, so a delayed buy/sell cannot be submitted twice. Only validated confirmed balance changes mutate the book."""
-    p = book.get('pending')
-    if not p:
-        return book
-    tx = None
-    async with httpx.AsyncClient(timeout=15) as http:
-        for _ in range(max(1, int(wait / 2))):
-            try:
-                tx = await _krpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
-            except Exception:
-                tx = None
-            if tx:
-                break
-            await _fw_rebroadcast(http, p['sig'])
-            if wait <= 0:
-                break
-            await asyncio.sleep(2)
-    if not tx:
-        failed, chain_err = False, None
-        try:
-            async with httpx.AsyncClient(timeout=15) as http:
-                st = await _krpc(http, 'getSignatureStatuses', [[p['sig']], {'searchTransactionHistory': True}])
-                status = ((st or {}).get('value') or [None])[0]
-                failed = bool(status and status.get('err'))
-                chain_err = status.get('err') if failed else None
-                if not failed and p.get('lastValidBlockHeight') is not None:
-                    height = await _krpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}])
-                    failed = int(height or 0) > int(p['lastValidBlockHeight'])
-        except Exception:
-            pass
-        if not failed:
-            return book   # unknown is not failed; retain the lock and retry the same signature next tick
-        row = {k: v for k, v in p.items() if k != 'sentAt'}
-        # two different problems, two different fixes: "expired" = never reached a block (landing) · "failed on-chain" = it ran and
-        # reverted (price moved past slippage) — the audit trail now says which
-        row.update(status='failed', err=(_fw.chain_err(chain_err) if _fw.SLIP_ERR in _fw.chain_err(chain_err) else f'failed on-chain: {str(chain_err)[:60]}') if chain_err else 'transaction expired — never landed')
-        _FW_RAW.pop(p.get('sig'), None)
-        book = {**book, 'pending': None}
-        async with _fw_lock:
-            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
-        _fw_notify(row)
-        return book
-    if p.get('side') == 'swap':   # 🔀 one transaction, two coins: booked as a sell row + a buy row on the same signature
-        _FW_RAW.pop(p.get('sig'), None)
-        base = {k: v for k, v in p.items() if k not in ('sentAt', 'toMidPx')}
-        sfill = None if (tx.get('meta') or {}).get('err') else _fw.swap_fill_from_meta(tx, cfg['address'], p['mint'], p['toMint'])
-        bad = _fw.swap_fill_error(p, sfill, book) if sfill else ''
-        rows_ = []
-        if sfill and not bad:
-            try:
-                px_in = _fuse._f(((await _jup_prices([p['toMint']])) or {}).get(p['toMint']))
-            except Exception:
-                px_in = 0.0
-            book, f = _fw.apply_swap(book, p, sfill, sol_px, px_in or _fuse._f(p.get('toMidPx')))
-            fee_usd = round(sfill['feeSol'] * sol_px, 6)
-            rows_ = [{**base, 'id': p['id'] + ':s', 'side': 'sell', 'status': 'filled', 'usd': f['usd'], 'proceedsUsd': f['usd'], 'costUsd': f['costUsd'], 'realizedPnlUsd': f['realizedPnlUsd'],
-                      'units': f['unitsOut'], 'sol': 0.0, 'feeSol': sfill['feeSol'], 'feeUsd': fee_usd, 'openedSol': 0.0, 'why': f"🔀 swapped straight into ${p.get('toSymbol')} (one transaction)"},
-                     {**base, 'id': p['id'] + ':b', 'side': 'buy', 'mint': p['toMint'], 'pair': p.get('toPair'), 'symbol': p.get('toSymbol'), 'status': 'filled', 'usd': f['usd'],
-                      'units': f['unitsIn'], 'px': f['px'], 'sol': 0.0, 'feeSol': 0.0, 'feeUsd': 0.0, 'why': f"🔀 swapped straight from ${p.get('symbol')} (one transaction)"}]
-            _FW_GAS['at'] = 0.0; _FW_BAL.pop('bal', None)
-        elif bad:
-            rows_ = [{**base, 'status': 'failed', 'err': bad}]
-            book = {**book, 'halt': True, 'haltWhy': bad}
-        else:
-            rows_ = [{**base, 'status': 'failed', 'err': _fw.chain_err((tx.get('meta') or {}).get('err'))}]
-        book = {**book, 'pending': None}
-        async with _fw_lock:
-            d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book)
-            for r_ in rows_:
-                _fw_record(d, r_)
-            _fw_save(d)
-        _fw_notify(rows_[0])
-        return book
-    fill = _fw.fill_from_meta(tx, cfg['address'], p['mint']) if tx else None
-    _FW_RAW.pop(p.get('sig'), None)
-    row = {k: v for k, v in p.items() if k != 'sentAt'}
-    mismatch = _fw.fill_error(p, fill, book) if not ((tx.get('meta') or {}).get('err')) else ''
-    if fill and not mismatch:
-        if p.get('side') == 'sell':   # 🧾 use the confirmed token debit, never the requested/quoted amount
-            row['costUsd'] = _fw.cost_of(book, p['mint'], abs(int(fill.get('atoms') or 0)))
-        book, f = _fw.apply_fill(book, p, fill, sol_px)
-        row.update(status='filled', px=f['px'], units=f['units'], usd=f['usd'] or row['usd'], sol=f['sol'], feeSol=fill['feeSol'], feeUsd=round(fill['feeSol'] * sol_px, 6),
-                   openedSol=_fuse._f(fill.get('openedSol')))
-        if p.get('sentAt'):
-            row['landSec'] = round(max(0.0, time.time() - _fuse._f(p['sentAt'])), 1)   # 📮 send → booked from the chain (the Courier's landing time)
-            row['sentAt'], row['confirmedAt'] = round(_fuse._f(p['sentAt']), 2), round(time.time(), 2)   # 📏 order submitted · fill confirmed (kernel timings)
-        if p.get('side') == 'sell':
-            row.update(proceedsUsd=f['usd'], realizedPnlUsd=round(f['usd'] - row['costUsd'], 6))
-        # The cached wallet balance predates this confirmed fill. Force the keeper's
-        # post-tick balance read so a sold token cannot remain displayed as recoverable.
-        _FW_GAS['at'] = 0.0
-        _FW_BAL.pop('bal', None)
-    elif mismatch:
-        row.update(status='failed', err=mismatch)
-        book = {**book, 'halt': True, 'haltWhy': mismatch}
-    else:
-        row.update(status='failed', err=_fw.chain_err((tx.get('meta') or {}).get('err')))
-    book = {**book, 'pending': None}
-    async with _fw_lock:
-        d = _fw_load(); d['books'][tid] = _fw_keep(d, tid, book); _fw_record(d, row); _fw_save(d)
-    _fw_notify(row)
-    return book
+# ↪ moved to rep_fuse_wallet.py: _fw_raw_keep, _fw_rebroadcast, _fw_resolve
 
 
 _fw_tick_lock = asyncio.Lock()
@@ -8043,740 +5025,57 @@ _fw_tick_lock = asyncio.Lock()
 _FW_AGAIN: dict = {'at': 0.0}   # a keeper pass was asked for while one was running
 
 
-def _fw_catch_up():
-    """⚡ DECISIONS DON'T WAIT FOR THE NEXT TRIGGER. A keeper pass sends its orders one at a time and waits for each to confirm
-    (2026-10-13: a median 24s each), so a pass with three orders runs well over a minute — and every decision made meanwhile (a
-    stop, a filled seat) used to be SKIPPED until some later trigger: decision → send was a median 89s, 5 min at the slow end, and
-    the price had moved 15%+ by the fill. Now a request that found the keeper busy runs ONE pass as soon as the running one ends.
-    Still one pass at a time (`_fw_tick_lock`), still sells first, nothing about an order changes."""
-    if _FW_AGAIN.get('at') and not _fw_tick_lock.locked() and not os.environ.get('PYTEST_CURRENT_TEST'):
-        _FW_AGAIN['at'] = 0.0
-        _fw_kick_now()
-
-
-async def _fw_tick(now):
-    """ONE keeper at a time: the round bell and the warm loop both call this after their tier tick — two keepers at once traded the
-    same orders twice (sold WETH ×2, bought SPEC ×2 at 14:56). A tick that finds one running skips; the next tick catches up."""
-    if not _is_keeper():
-        return 0
-    if _fw_tick_lock.locked():
-        _FW_AGAIN['at'] = time.time()   # ⚡ asked for while a pass was running → ONE more pass the moment it ends (below)
-        return 0
-    async with _fw_tick_lock:
-        _FW_AGAIN['at'] = 0.0
-        n = await _fw_tick_inner(now)
-        if time.time() - _FW_GAS.get('at', 0) > 60:   # ⛽ one balance read a minute (never per viewer)
-            try:
-                cfg = _fw_cfg()
-                if cfg.get('address'):
-                    bal = await _fw_balances(cfg['address'])
-                    _FW_GAS.update(sol=bal['sol'], at=time.time()); _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
-                    owed_in_done = {}
-                    async with _fw_lock:   # 🧹 adopt keeper coins no card books (they sell back to SOL inside their card next tick)
-                        d = _fw_load()
-                        missing = _fw.reconcile(bal.get('tokens'), d['books'])
-                        sol_short = _fw.reconcile_sol(bal.get('sol'), d['books'])
-                        if missing:   # a SMALL shortage (rounding, transfer tax): the book follows the wallet, no halt; a big one still halts
-                            d['books'], fits = _fw.fit_small_shortage(d['books'], missing)
-                            for ft in fits:
-                                _fw_record(d, {'id': f"fit:{ft['card']}:{ft['mint'][:6]}:{time.time():.0f}", 'card': ft['card'], 'side': 'fix', 'mint': ft['mint'], 'symbol': ft['symbol'], 'at': time.time(), 'status': 'done',
-                                               'why': f"📏 book matched to the wallet: ${ft['symbol']} {ft['pct']:.2f}% fewer coins than booked (rounding / transfer tax) — the wallet is the truth"})
-                            missing = _fw.reconcile(bal.get('tokens'), d['books'])
-                        if missing:   # 👻 a shortage that is EXACTLY a confirmed sale the book missed: the wallet is the truth, no halt
-                            d['books'], missed_ = _fw.fit_missed_sells(d['books'], missing, d.get('ledger') or _fw_full_ledger(), time.time())
-                            for ms_ in missed_:
-                                _fw_record(d, {'id': f"missed:{ms_['card']}:{ms_['mint'][:6]}:{time.time():.0f}", 'card': ms_['card'], 'side': 'fix', 'mint': ms_['mint'], 'symbol': ms_['symbol'], 'at': time.time(), 'status': 'done',
-                                               'why': f"📏 book matched to the wallet: a confirmed sale of {ms_['sold'] / 10 ** (ms_['decimals'] or 0):g} ${ms_['symbol']} ({str(ms_['sig'] or '')[:8]}…) was never taken off the book — its SOL was already in the card; no halt"})
-                            if missed_:
-                                missing = _fw.reconcile(bal.get('tokens'), d['books'])
-                        if missing:   # 👻 a $0-cost leftover the wallet holds none of was already sold — off the book, no halt
-                            d['books'], ghosts = _fw.drop_phantoms(d['books'], missing)
-                            for gh in ghosts:
-                                _fw_record(d, {'id': f"ghost:{gh['card']}:{gh['mint'][:6]}:{time.time():.0f}", 'card': gh['card'], 'side': 'fix', 'mint': gh['mint'], 'symbol': gh['symbol'], 'at': time.time(), 'status': 'done',
-                                               'why': f"👻 ${gh['symbol']} was booked as a leftover but the wallet holds none — already sold; off the book ($0 cost, P&L unchanged)"})
-                            missing = _fw.reconcile(bal.get('tokens'), d['books'])
-                        if sol_short and not any(b.get('pending') or b.get('defund') for b in d['books'].values()):   # ⛽ a gas-sized SOL gap: the cards paid the fees, no halt
-                            d['books'], gas_ = _fw.fit_gas_shortage(d['books'], sol_short)
-                            for tid, sol_ in gas_.items():
-                                _fw_record(d, {'id': f'gasfit:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
-                                               'why': f"⛽ the gas reserve ran dry — the card paid {sol_:.6f} SOL of network fees / rent (booked as fees, P&L unchanged); top up the reserve to stop this"})
-                            if gas_:
-                                sol_short = _fw.reconcile_sol(bal.get('sol'), d['books'])
-                        if missing or sol_short:   # confirmed wallet balances beat our books; stop every affected card before another order
-                            bad = {x['mint'] for x in missing}
-                            for tid, b in d['books'].items():
-                                if sol_short or bad.intersection((b.get('legs') or {})):
-                                    why = 'confirmed wallet SOL is below card books' if sol_short else 'confirmed wallet token balance is below card books'
-                                    d['books'][tid] = {**b, 'halt': True, 'haltWhy': why}
-                        for tid, b in list(d['books'].items()):   # 🔓 an automatic halt lifts once the wallet shows it's fixed
-                            if _fw.halt_cleared(b, sol_short, [x['mint'] for x in missing]):
-                                d['books'][tid] = {**b, 'halt': False, 'haltWhy': None}
-                                _fw_record(d, {'id': f'unhalt:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'at': time.time(), 'status': 'done',
-                                               'why': f"🔓 resumed by itself — {b.get('haltWhy')} is fixed (wallet and card books match)"})
-                        if not sol_short and not missing:   # 🏦 rent is the reserve's: old card-paid deposits go back to work in the card
-                            d['books'], freed = _fw.release_rent_deposits(d['books'], _fw.free_sol(bal.get('sol'), d['books'], cfg.get('reserveSol')))
-                            for tid, sol_ in freed.items():
-                                _fw_record(d, {'id': f'rentfree:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
-                                               'why': f'🏦 {sol_:.5f} SOL of coin-account rent moved to the wallet reserve — it is card cash again (the card never pays rent now)'})
-                        # ↘ TOP-UPS THE BOOKS LOST come back from the wallet's free SOL (owner, 2026-10-07: "assign what's supposed to be
-                        # in card and what's supposed to be in wallet"). Found once per book from the ledger (`lost_topups`), then
-                        # credited as free SOL allows; the card's run baseline rises by the same $ (money in, not a gain).
-                        if not sol_short and not missing:
-                            for tid, b in list(d['books'].items()):
-                                if not b.get('lostTopFix') and not b.get('pending') and not b.get('defund'):
-                                    lost_ = _fw.lost_topups(b, _fw_full_ledger(), tid)
-                                    b = d['books'][tid] = {**b, 'lostTopFix': time.time(), **({'owedInSol': lost_['sol'], 'owedInUsd': lost_['usd']} if lost_ else {})}
-                                    if lost_:
-                                        _fw_record(d, {'id': f'losttop:{tid}', 'card': tid, 'side': 'fix', 'sol': lost_['sol'], 'usd': lost_['usd'], 'at': time.time(), 'status': 'done',
-                                                       'why': f"↘ ${lost_['usd']:.2f} of your top-ups ({len(lost_['rows'])}) never reached this card's books (a save bug, fixed) — it is being put into the card from the wallet's unassigned SOL"})
-                                free_in = _fw.free_for_owed(bal.get('sol'), d['books'], cfg.get('reserveSol'), _fuse._f((_fw_rent_parked or {}).get('sol')))
-                                nb_, in_sol, in_usd = _fw.settle_owed_in(b, free_in, time.time()) if not b.get('pending') else (b, 0.0, 0.0)
-                                if in_sol > 0:
-                                    d['books'][tid] = nb_; owed_in_done[tid] = owed_in_done.get(tid, 0.0) + in_usd
-                                    _fw_record(d, {'id': f'owedin:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': in_sol, 'usd': in_usd, 'at': time.time(), 'status': 'done',
-                                                   'why': f"↘ {in_sol:.5f} SOL (${in_usd:.2f}) of a lost top-up is in the card now — PUT IN ${_fuse._f(nb_.get('fundedUsd')):.2f} ({_fuse._f(nb_.get('owedInSol')):.5f} SOL still to come as wallet SOL frees up)"})
-                        for tid, b in list(d['books'].items()):   # ↗ money that is not the card's leaves as card cash appears
-                            nb_, out_ = _fw.settle_owed(b)
-                            if out_ > 0 and not b.get('pending'):
-                                d['books'][tid] = nb_
-                                _fw_record(d, {'id': f'owedout:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': out_, 'at': time.time(), 'status': 'done',
-                                               'why': f"↗ {out_:.5f} SOL that was never put into this card is unassigned wallet SOL again ({_fuse._f(nb_.get('owedOutSol')):.5f} SOL still to move)"})
-                        for st in _fw.strays(bal.get('tokens'), bal.get('decimals'), d['books'], d['ledger'], time.time()):
-                            d['books'][st['card']] = _fw.adopt(d['books'][st['card']], st)
-                            _fw_record(d, {'card': st['card'], 'side': 'adopt', 'mint': st['mint'], 'symbol': st['symbol'], 'atoms': st['atoms'], 'usd': 0.0, 'at': time.time(),
-                                           'status': 'done', 'why': '🧹 recovered: keeper coins no card counted — sold back to SOL inside the card'})
-                            print(f"fuse wallet: adopted stray {st['symbol']} into {st['card']}")
-                        _fw_save(d)
-                    if owed_in_done:   # the card's run baseline rises by the money that came in (it is not a gain)
-                        async with _admin_lock:
-                            h = _json_load(FUSE_HQ_PATH, {})
-                            for tid_, usd_ in owed_in_done.items():
-                                cd = ((h.get('prime') or {}).get('cards') or {}).get(tid_)
-                                if cd and cd.get('real'):
-                                    for k_ in ('startUsd', 'dayStartUsd', 'roundStartUsd'):
-                                        cd[k_] = round(_fuse._f(cd.get(k_)) + usd_, 4)
-                                    cd['events'] = list(cd.get('events') or []) + [{'at': time.time(), 'kind': 'topup', 'usd': round(usd_, 4), 'to': ['card'],
-                                        'why': f"↘ ${usd_:.2f} of a top-up the books had lost is in the card now — baseline raised by the same $ (money in, not a gain)"}]
-                            _json_save(FUSE_HQ_PATH, h)
-                    await _fw_deposit_scan(cfg, time.time())
-                    _rpc_quota_notice()
-            except Exception as e:
-                print('fuse wallet gas:', e)
-        if _FW_AGAIN.get('at'):
-            asyncio.get_event_loop().call_soon(_fw_catch_up)   # runs once this pass has let go of the lock
-        return n
+# ↪ moved to rep_fuse_wallet.py: _fw_catch_up, _fw_tick
 
 
 FUSE_DEPOSITS_PATH = DATA_DIR / 'fuse_deposits.json'   # {'address', 'cursor': newest sig seen, 'rows': [{sig, at, sol, from}]} — chain-audited
 _fw_dep_at = {'t': 0.0}
 
 
-async def _fw_deposit_scan(cfg, now):
-    """💰 Every 10 min: new signatures on the Fuse wallet that the keeper did NOT make are read once; a tx the wallet did not sign that
-    raised its SOL is a DEPOSIT (booked forever + owner inbox). This is what makes "unassigned SOL" explainable instead of a mystery."""
-    if now - _fw_dep_at['t'] < 600 or not cfg.get('address'):
-        return 0
-    _fw_dep_at['t'] = now
-    dd = _json_load(FUSE_DEPOSITS_PATH, {})
-    if dd.get('address') != cfg['address']:
-        dd = {'address': cfg['address'], 'cursor': None, 'rows': []}
-    ours = {r.get('sig') for r in _fw_peek().get('ledger') or [] if r.get('sig')}
-    added = 0
-    async with httpx.AsyncClient(timeout=15) as http:
-        sigs = await _krpc(http, 'getSignaturesForAddress', [cfg['address'], {'limit': 40, **({'until': dd['cursor']} if dd.get('cursor') else {})}]) or []
-        have = {r.get('sig') for r in dd['rows']}
-        for srow in sigs[::-1]:   # oldest first
-            sig = srow.get('signature')
-            if not sig or srow.get('err') or sig in ours or sig in have:
-                continue
-            tx = await _krpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
-            dep = _fw.deposit_from_tx(tx, cfg['address'])
-            if dep:
-                dd['rows'].append({'sig': sig, 'at': (tx or {}).get('blockTime') or now, **dep}); added += 1
-                for w in _owner_wallets():
-                    notify(w, 'fuse-card', f"💰 Fuse wallet received {dep['sol']:.4f} SOL — it is UNASSIGNED until you put it in a card.", url='/terminal/hq?tab=fuse',
-                           push=False, once=f'fw-dep-{sig[:16]}', meta={'claim': 'Deposit', 'source': 'Confirmed on-chain transfer'})
-    if sigs:
-        dd['cursor'] = sigs[0].get('signature')
-    if sigs or added:
-        _json_save(FUSE_DEPOSITS_PATH, dd)
-    return added
+# ↪ moved to rep_fuse_wallet.py: _fw_deposit_scan
 
 
 _FW_GAS = {}
 _FW_BAL = {}   # last good full balance read of the Fuse wallet (shown while the RPC is rate-limited)
 
 
-async def _fw_tick_inner(now):
-    """After every tier tick: each funded card's REAL book is moved to what the engine says it holds (sells, then buys), then the
-    card shows its true coins, entries and fees. Paused / unarmed / missing-coin cards wait. Paper learns from the fills."""
-    await _fw_signer_check()
-    d = _fw_load()
-    cal = _fw_calibration(d)
-    _prime.IMPACT_MULT = cal['impactMult']; _prime.SPREAD = cal.get('spread') or 0.0
-    cfg = _fw.clean_cfg(d.get('cfg') or {})
-    if not d['books'] or not cfg['armed'] or cfg['paused'] or not cfg['address']:
-        return 0
-    hq = _json_load(FUSE_HQ_PATH, {}); cards = (hq.get('prime') or {}).get('cards') or {}
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pa} for tid, b in d['books'].items()
-                                for pa in [l['pairAddress'] for l in (cards.get(tid) or {}).get('legs') or []] + [l.get('pair') for l in (b.get('legs') or {}).values() if l.get('pair')]])
-    px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
-    jup = await _jup_prices([l.get('mint') for c in cards.values() for l in c.get('legs') or []] +
-                            [m for b in d['books'].values() for m in (b.get('legs') or {})])
-    for c in cards.values():
-        for l in c.get('legs') or []:
-            if jup.get(l.get('mint')):
-                px[l['pairAddress']] = jup[l['mint']]
-    for b in d['books'].values():
-        for mint, l in (b.get('legs') or {}).items():
-            if jup.get(mint) and l.get('pair'):
-                px[l['pair']] = jup[mint]
-    liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
-    sol_px = await _sol_usd_live()
-    done = 0
-    for tid, book in list(d['books'].items()):
-        card = cards.get(tid)
-        if not card or (book.get('halt') and not _fw.halt_allows_sells(book)):
-            continue
-        if book.get('pending'):
-            book = await _fw_resolve(tid, book, cfg, sol_px)
-            if book.get('pending'):
-                continue
-        equity_usd = _fw.book_value(book, px, sol_px)
-        book, returned_sol = _fw.enforce_principal_floor(book, equity_usd, sol_px)
-        if returned_sol > 0:
-            equity_usd = _fw.book_value(book, px, sol_px)
-        book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
-        want = {**card, 'legs': []} if book.get('defund') else card
-        # 🔒 check the buy BEFORE the sell: a swap whose new coin can't be bought keeps the old coin (≤ 45s) while the engine re-picks
-        plan0 = _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=True)
-        new_buys = [o for o in plan0 if o['side'] == 'buy' and not _fw.held_units(book, o['mint'])]
-        hold = False
-        # only a SWAP-OUT waits for its replacement — a cut of a coin that stays (bank at the lock, 💰 skim, ✂) never does
-        swap_out = lambda o: o['side'] == 'sell' and not o.get('manualCash') and o.get('why') == 'not on the card any more'
-        if new_buys and any(swap_out(o) for o in plan0) and not book.get('defund') and not book.get('halt'):
-            book, hold = _fw.hold_sells(book, card, await _fw_preflight(tid, new_buys, cfg, now), now)
-        elif book.get('sellHoldAt'):
-            book, _h = _fw.hold_sells(book, card, set(), now)
-        if cfg.get('coinToCoin') and not hold and not book.get('halt') and not book.get('defund') and not book.get('pending'):
-            for s_o, b_o in _fw.swap_pairs(plan0, book)[:1]:   # 🔀 one swap per tick, like every other order
-                leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == b_o.get('mint')), 0.0)
-                done_ = await _fw_execute_swap(tid, {**s_o, 'cardPays': int(card.get('rounds') or 0) >= 5}, b_o, book, cfg, sol_px, liqs.get(b_o.get('pair')) or leg_liq)
-                if done_ is not None:
-                    book = done_
-        drained_ = []
-        for side in (('sell',) if book.get('halt') or book.get('pending') else ('sell', 'buy')):   # ⏸ halted = sells only (owner's queued sells still land)
-            if side == 'buy':
-                _FW_BUY_PASS[tid] = time.time()   # ⏳ the keeper reached its buy step for this card (a coin wanted before `now` had its chance)
-            for o in [_fw.mark_urgent({**x, 'cardPays': int(card.get('rounds') or 0) >= 5}, card, time.time()) for x in _fw.orders(tid, want, book, px, sol_px, cfg, now, count_sells=side == 'sell') if x['side'] == side]:
-                if hold and swap_out(o):
-                    continue   # the replacement isn't buyable yet → this coin stays (cuts and the owner's own ✂ always go through)
-                leg_liq = next((_fuse._f(l.get('liqNow')) or _fuse._f(l.get('liq')) for l in card.get('legs') or [] if l.get('mint') == o.get('mint')), 0.0)
-                book = await _fw_execute(tid, o, book, cfg, sol_px, liqs.get(o.get('pair')) or leg_liq)   # pair read blank → the engine's own liquidity reading
-                if book.get('pending'):
-                    break
-            if book.get('pending'):
-                break   # one card, one in-flight transaction; a pending sell must never be overwritten by a buy
-            if side == 'sell' and not book.get('pending'):
-                # Confirmed sell proceeds fund payouts first. Paid-out SOL is segregated before any subsequent compound buys.
-                equity_usd = _fw.book_value(book, px, sol_px)
-                book, returned_sol = _fw.enforce_principal_floor(book, equity_usd, sol_px)
-                if returned_sol > 0:
-                    equity_usd = _fw.book_value(book, px, sol_px)
-                book = _fw.bank(book, card.get('walletUsd'), sol_px, equity_usd)
-                # 🔒 SELL-BEFORE-BUY BARRIER: if ANY sell is still required after the sell pass
-                # (route refused, tx expired, partial max-swap chunk, etc.), do not buy anything yet.
-                # The next keeper tick retries the remaining sell first. This prevents a failed sell
-                # from leaving the old coin held while spare SOL buys its replacement too.
-                book, dr_ = _fw.write_off_drained(book, [l.get('mint') for l in card.get('legs') or [] if not l.get('placeholder')], time.time())
-                drained_.extend(dr_)   # 🩸 a drained pool's leftovers leave the book — they must never hold the buys hostage
-                remaining_sells = [x for x in _fw.orders(tid, want, book, px, sol_px, cfg, time.time(), count_sells=True) if x['side'] == 'sell']
-                if remaining_sells:
-                    break
-        written_off = []
-        if book.get('defund') and not book.get('pending'):   # 🧹 a dead coin's dust can't be sold — it must not keep "selling…" on screen forever
-            book, written_off = _fw.write_off_dust(book, px)
-        async with _fw_lock:
-            d2 = _fw_load()
-            for w in drained_:
-                _fw_record(d2, {'card': tid, 'side': 'writeoff', 'mint': w['mint'], 'pair': w.get('pair'), 'symbol': w['symbol'], 'usd': w['usd'], 'costUsd': w['costUsd'], 'at': now, 'status': 'done',
-                                'why': f"drained pool written off: selling it all pays ${w['usd']:.4f} (cost ${w['costUsd']:.2f}) — the coins stay in the wallet, the keeper stops trying"})
-            for w in written_off:
-                _fw_record(d2, {'card': tid, 'side': 'writeoff', 'mint': w['mint'], 'pair': w.get('pair'), 'symbol': w['symbol'], 'usd': w['usd'], 'costUsd': w['costUsd'], 'at': now, 'status': 'done',
-                                'why': f"dead coin written off: worth ${w['usd']:.4f} (cost ${w['costUsd']:.2f}) — too small for any route; the coins stay in the wallet"})
-            if book.get('defund') and not book.get('legs') and not book.get('pending'):
-                d2['books'].pop(tid, None)
-                _fw_record(d2, {'card': tid, 'side': 'defund', 'usd': round(_fw.book_value(book, px, sol_px), 4), 'at': now, 'status': 'done'})
-            else:
-                d2['books'][tid] = _fw_keep(d2, tid, book)
-            _fw_save(d2)
-        async with _admin_lock:
-            h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
-            if cs.get(tid):
-                still_real = tid in _fw_peek()['books']
-                was_label = cs[tid].get('label')
-                cs[tid] = _fw.sync_card(cs[tid], book, px, sol_px) if still_real else _fw.back_to_paper(cs[tid], _fw.book_value(book, px, sol_px), now)
-                _json_save(FUSE_HQ_PATH, h)
-                if not still_real and cs[tid].get('runs'):   # 📜 the sell-all IS the end of a real run — it goes on the permanent record
-                    try:                                       # (the tier tick only records runs it ends itself, so this one was lost)
-                        _store.Ledger(CARD_RECORDS_PATH, table='runs').append({**cs[tid]['runs'][-1], 'card': tid, 'label': was_label, 'real': True, 'closed': True})
-                    except Exception as e:
-                        print('card records (defund):', e)
-        done += 1
-    await _fw_close_empty(cfg, now)
-    return done
+# ↪ moved to rep_fuse_wallet.py: _fw_tick_inner
 
 
 _fw_close_at = {'t': 0.0}
 
 
-async def _fw_rent_credit(cfg):
-    """♻ A CONFIRMED close puts its rent back into the card that opened those coin accounts (`fuse_wallet.rent_back`); a close that
-    failed or never landed credits nothing. Each close is credited once (its 'credited' row)."""
-    d = _fw_load()
-    if not d.get('rentFix1'):   # 🩹 undo the first rule's phantom credits (every historical refund was credited into the card again)
-        sol_px0 = await _sol_usd_live()
-        if sol_px0 <= 0:
-            return
-        async with _fw_lock:
-            d = _fw_load()
-            d['books'], gone = _fw.undo_rent_credits(d['books'], d['ledger'], sol_px0)
-            bal_sol = _FW_GAS.get('sol')
-            for tid, b in d['books'].items():   # the shortage that halted the card is gone → it may trade again (owner sees why)
-                if b.get('halt') and 'below card books' in str(b.get('haltWhy') or '') and bal_sol is not None and not _fw.reconcile_sol(bal_sol, d['books']):
-                    d['books'][tid] = {**b, 'halt': False, 'haltWhy': None}
-            for tid, sol in gone.items():
-                _fw_record(d, {'id': f'rentfix:{tid}', 'card': tid, 'side': 'fix', 'sol': -sol, 'usd': round(-sol * sol_px0, 4), 'at': time.time(), 'status': 'done',
-                               'why': '🩹 removed rent credited by mistake (old refunds the reserve had already re-used) — card books match the wallet again'})
-            d['rentFix1'] = time.time()
-            _fw_save(d)
-        if gone:
-            _fw_notify({'card': next(iter(gone)), 'side': 'fix', 'status': 'done', 'usd': 0, 'why': 'rent credit mistake repaired — card books match the wallet again'})
-    if not d.get('rentFix2'):   # 🩹 the first repair priced the removed SOL at today's price → PUT IN drifted (5.00 read 4.82): rebuild it
-        async with _fw_lock:
-            d = _fw_load()
-            for tid, b in d['books'].items():
-                if any(r.get('id') == f'rentfix:{tid}' for r in d['ledger']):
-                    f_ = _fw.funded_from_ledger(b, _fw_full_ledger(), tid)
-                    if f_ > 0:
-                        d['books'][tid] = {**b, 'fundedUsd': f_}
-            d['rentFix2'] = time.time()
-            _fw_save(d)
-    if not d.get('routeFix1') and not os.environ.get('PYTEST_CURRENT_TEST'):
-        # 🩹 sells whose multi-hop route parked rent in accounts it opened were booked as price losses (baton −87%, ORCA −50%). That SOL
-        # came back to the wallet when the accounts closed; it is the card's sale money → back into card cash, once, from the chain.
-        try:
-            found, checked = {}, {}
-            sol_px0 = await _sol_usd_live()
-            if sol_px0 <= 0:
-                raise RuntimeError('no SOL price')
-            async with httpx.AsyncClient(timeout=20) as http:
-                for r in _fw.route_fix_rows(d['ledger'], time.time() - 3 * 86400)[-40:]:
-                    tx = await _krpc(http, 'getTransaction', [r['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
-                    if not tx:
-                        raise RuntimeError('tx not readable yet')
-                    checked[r['sig']] = _fw.opened_sol(tx, cfg['address'])
-                    await asyncio.sleep(0.6)   # paced: this may run on public nodes
-                    if checked[r['sig']] > 0:
-                        found[r.get('card')] = round(found.get(r.get('card'), 0.0) + checked[r['sig']], 9)
-            async with _fw_lock:
-                d = _fw_load()
-                bal_sol = _FW_GAS.get('sol')
-                if found and bal_sol is None:
-                    raise RuntimeError('wallet balance not read yet')
-                d['books'], credits = _fw.route_fix(d['books'], found, _fw.free_sol(bal_sol, d['books'], cfg.get('reserveSol')) if found else 0.0, sol_px0)
-                for r in d['ledger']:
-                    if r.get('sig') in checked and r.get('side') == 'sell':
-                        r['openedSol'] = checked[r['sig']]
-                        if checked[r['sig']] > 0 and r.get('card') in credits:   # the trail shows the true price result of that sale
-                            r['usd'] = r['proceedsUsd'] = round(_fuse._f(r.get('usd')) + checked[r['sig']] * sol_px0, 6)
-                            r['realizedPnlUsd'] = round(r['usd'] - _fuse._f(r.get('costUsd')), 6)
-                for tid, sol in credits.items():
-                    _fw_record(d, {'id': f'routefix:{tid}', 'card': tid, 'side': 'fix', 'sol': sol, 'usd': round(sol * sol_px0, 4), 'at': time.time(), 'status': 'done',
-                                   'why': f'🩹 {sol:.5f} SOL of route rent was booked as a sale loss — it came back to the wallet and is back in this card'})
-                if not found or credits:
-                    d['routeFix1'] = time.time()
-                _fw_save(d)
-            if credits:   # the run that restarted on the short value gets the same $ in its baseline: the money is back, it is not a gain
-                async with _admin_lock:
-                    h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
-                    for tid, sol in credits.items():
-                        if cs.get(tid):
-                            for k_ in ('startUsd', 'roundStartUsd', 'dayStartUsd'):
-                                if cs[tid].get(k_) is not None:
-                                    cs[tid][k_] = round(_fuse._f(cs[tid][k_]) + sol * sol_px0, 4)
-                    _json_save(FUSE_HQ_PATH, h)
-            for tid in credits:
-                _fw_notify({'card': tid, 'side': 'fix', 'status': 'done', 'usd': 0, 'why': 'route rent booked as a loss is back in the card'})
-        except Exception as e:
-            print('fuse wallet route fix (retries next sweep):', str(e)[:120])
-    if not d.get('cashFix1'):   # 🩹 recovery sells used to park their SOL as "owner's held cash" (never re-spent) → back to work, once
-        async with _fw_lock:
-            d = _fw_load()
-            for tid, b in d['books'].items():
-                held = _fuse._f(b.get('manualCashSol'))
-                if held > 0:
-                    d['books'][tid] = {**b, 'manualCashSol': 0.0}
-                    _fw_record(d, {'id': f'cashfix:{tid}', 'card': tid, 'side': 'fix', 'sol': held, 'at': time.time(), 'status': 'done',
-                                   'why': '♻ recovered-coin cash released — it trades in the card again (it was always counted in IN CARD)'})
-            d['cashFix1'] = time.time()
-            _fw_save(d)
-    if not d.get('thinPoolFix1'):
-        # 💧 OWNER'S CALL (2026-10-08, "fix the coins coming in, the card is getting cooked"): once, the real-buy pool floors (general · Arena · pick) go up to $40K — see
-        # fuse_wallet.THIN_POOL_FLOOR for the evidence. The old values are saved in data/fwcfg_before_thinpool.json; Edit Fuse › Limits changes them back any time.
-        async with _fw_lock:
-            d = _fw_load(); cfg0 = d.get('cfg') or {}; raised = _fw.thin_pool_cfg(cfg0)
-            if raised:
-                _json_save(DATA_DIR / 'fwcfg_before_thinpool.json', {k: _fw.clean_cfg(cfg0).get(k) for k in raised})
-                d['cfg'] = {**cfg0, **raised}
-                _fw_record(d, {'id': 'thinpool:fix', 'card': 'wallet', 'side': 'fix', 'sol': 0.0, 'usd': 0.0, 'at': time.time(), 'status': 'done',
-                               'why': f"💧 real-buy pool floors raised to ${_fw.THIN_POOL_FLOOR:,.0f} ({', '.join(raised)}): 12 of the last day's 15 crashes were pools under $40K. Trench tickets keep their own floor."})
-            d['thinPoolFix1'] = time.time(); _fw_save(d)
-    if not d.get('strayFix1'):
-        # ↗ OWNER'S CALL (2026-10-05, "pull the 1.51 out, make this all true money"): the chain audit shows the degen book holding
-        # 0.012552 SOL more than its own swaps explain — duplicate buys a second keeper process paid from UNASSIGNED wallet SOL.
-        # It is owed out of the card (`fuse_wallet.settle_owed`), every coin is cut by the same share so the cash to move appears,
-        # and the run baseline drops by the same $ (money out, not a loss). Once.
-        try:
-            sol_px_s = await _sol_usd_live()
-            STRAY_SOL, STRAY_SINCE = 0.012552, 1791180297.888952
-            async with _fw_lock:
-                d = _fw_load(); b = d['books'].get('degen')
-                hit = bool(b) and abs(_fuse._f(b.get('since')) - STRAY_SINCE) < 1 and not b.get('pending') and not b.get('defund') and sol_px_s > 0
-                if hit:
-                    gross = _fw.book_value(b, {}, sol_px_s)
-                    d['books']['degen'] = {**b, 'owedOutSol': STRAY_SOL}
-                    _fw_record(d, {'id': 'strayfix:degen', 'card': 'degen', 'side': 'fix', 'sol': STRAY_SOL, 'usd': round(STRAY_SOL * sol_px_s, 4), 'at': time.time(), 'status': 'done',
-                                   'why': f"↗ {STRAY_SOL} SOL (${STRAY_SOL * sol_px_s:.2f}) in this card was never put in by you (duplicate buys paid from unassigned wallet SOL) — it leaves the card; PUT IN stays ${_fuse._f(b.get('fundedUsd')):.2f}"})
-                if hit or not b or abs(_fuse._f((b or {}).get('since')) - STRAY_SINCE) >= 1:
-                    d['strayFix1'] = time.time(); _fw_save(d)
-            if hit:
-                usd_s = STRAY_SOL * sol_px_s
-                keep_s = max(0.05, min(1.0, (gross - usd_s) / gross)) if gross > 0 else 1.0
-                async with _admin_lock:
-                    h = _json_load(FUSE_HQ_PATH, {}); cd = ((h.get('prime') or {}).get('cards') or {}).get('degen')
-                    if cd and cd.get('real'):
-                        for l in cd.get('legs') or []:
-                            if _fuse._f(l.get('units')) > 0:
-                                l['units'] = _fuse._f(l['units']) * keep_s; l['costUsd'] = round(_fuse._f(l.get('costUsd')) * keep_s, 6); l['trimAt'] = time.time()
-                        for k in ('startUsd', 'dayStartUsd', 'roundStartUsd'):
-                            cd[k] = round(max(0.01, _fuse._f(cd.get(k)) - usd_s), 4)
-                        cd['events'] = list(cd.get('events') or []) + [{'at': time.time(), 'kind': 'brain', 'usd': round(usd_s, 4),
-                            'why': f"↗ ${usd_s:.2f} that was never put into this card is leaving it — every coin cut to {keep_s * 100:.0f}%, baseline lowered by the same $ (not a loss)"}]
-                        _json_save(FUSE_HQ_PATH, h)
-        except Exception as e:
-            print('fuse wallet stray fix (retries next sweep):', str(e)[:120])
-    done = {r.get('id') for r in d['ledger'] if r.get('side') == 'close' and r.get('status') in ('credited', 'lost')}
-    # only closes that list their coin accounts (this rule) — a refund goes back only to the card that paid that coin's deposit
-    todo = [r for r in d['ledger'][-2000:] if r.get('side') == 'close' and r.get('status') == 'sent' and r.get('sig') and r.get('closed') and r['id'] not in done]
-    if not todo:
-        return
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            st = ((await _krpc(http, 'getSignatureStatuses', [[r['sig'] for r in todo], {'searchTransactionHistory': True}])) or {}).get('value') or []
-    except Exception:
-        return
-    sol_px = await _sol_usd_live()
-    async with _fw_lock:
-        d = _fw_load()
-        for r, s_ in zip(todo, st):
-            ok = bool(s_) and not s_.get('err') and s_.get('confirmationStatus') in ('confirmed', 'finalized')
-            if ok and sol_px > 0:
-                d['books'], cr = _fw.rent_back(d['books'], r['closed'], sol_px)
-                _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'credited', 'credits': cr, 'at': time.time(),
-                               'why': 'rent deposit back into the card' if cr else 'rent back to the reserve (it fronted it)'})
-            elif (s_ and s_.get('err')) or (not s_ and time.time() - _fuse._f(r.get('at')) > 600):
-                _fw_record(d, {**{k: v for k, v in r.items() if k != 'closed'}, 'status': 'lost', 'at': time.time(), 'why': 'close never landed — nothing credited'})
-        _fw_save(d)
+# ↪ moved to rep_fuse_wallet.py: _fw_rent_credit
 
 
 _fw_rent_parked: dict = {}   # {sol, accounts, empty, at} from the last sweep's look at the wallet's coin accounts
 
 
-async def _fw_close_empty(cfg, now):
-    """♻ Every 2 rounds of the real card's clock (5-min rounds → every 10 min; never under 10, never over 30): close the Fuse wallet's
-    EMPTY token accounts (coins fully sold) → their rent deposits come back to the wallet reserve, which paid them (the card never pays
-    rent, so its numbers stay exact). One tx, CloseAccount only (destination = the wallet itself), Circle signs, logged + owner inbox."""
-    await _fw_rent_credit(cfg)
-    every = _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))
-    d = _fw_load()
-    held_ = {m for b in d['books'].values() for m in (b.get('legs') or {})}
-    sold_out = {r.get('mint') for r in (d.get('ledger') or [])[-200:] if r.get('side') == 'sell' and r.get('status') == 'filled'
-                and _fuse._f(r.get('at')) > _fw_close_at['t'] and r.get('mint') not in held_}   # coins sold whole since the last sweep = empty accounts
-    gas_ = _fw.gas_tank(_FW_GAS.get('sol'), d['books'], cfg.get('reserveSol'))['sol'] if _FW_GAS.get('sol') is not None else 1.0
-    if not _fw.sweep_due(now, _fw_close_at['t'], every, gas_, len(sold_out)) or not cfg.get('armed') or cfg.get('paused') or not _fw_signer_ready():
-        return
-    _fw_close_at['t'] = now
-    if any(b.get('pending') for b in d['books'].values()):
-        return
-    keep = {m for b in d['books'].values() for m in (b.get('legs') or {})}
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            res = await asyncio.gather(*[_krpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
-            rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'),
-                     'info': (_parsed_info(a.get('account')))} for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
-            empty = _fw.empty_accounts(rows, keep)
-            # ♻ what is parked right now (every open coin account's rent), for the card's rent line
-            _fw_rent_parked.update(sol=sum(_fuse._f(r.get('lamports')) for r in rows) / 1e9, accounts=len(rows), empty=len(empty), at=now)
-            if not empty:
-                return
-            bh = ((await _krpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
-            signed = await _fw_sign(cfg, _fw.close_tx(cfg['address'], empty, bh), f'FEELESS close {len(empty)} empty accounts')
-            sig = signed.get('signature') or signed.get('txHash')
-            await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
-        rent = round(sum(_fuse._f(r.get('lamports')) for r in rows if r['pubkey'] in {e['pubkey'] for e in empty}) / 1e9, 9)
-        closed = [{'mint': e.get('mint'), 'lamports': next((r.get('lamports') for r in rows if r['pubkey'] == e['pubkey']), 0)} for e in empty]
-        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'n': len(empty), 'sol': rent, 'sig': sig, 'at': now, 'status': 'sent', 'closed': closed,
-               'why': 'empty coin accounts closed — their rent comes back to the wallet once confirmed'}
-    except Exception as e:
-        err = str(getattr(e, 'detail', e))[:120]
-        # Empty-account cleanup is maintenance, not a card trade. When the shared
-        # public RPC pool is busy, back off quietly instead of hammering it every
-        # three minutes and filling the audit trail with zero-dollar failures.
-        if 'RPC pool exhausted' in err:
-            _fw_close_at['t'] = now - 1800 + 900   # retry in ~15 min
-            return
-        row = {'id': f'close:{now:.0f}', 'card': 'wallet', 'side': 'close', 'at': now, 'status': 'failed', 'err': err}
-        _fw_close_at['t'] = now - 1800 + 300   # non-rate-limit failure → retry in 5 min
-    async with _fw_lock:
-        d = _fw_load(); _fw_record(d, row); _fw_save(d)
-    _fw_notify(row)
+# ↪ moved to rep_fuse_wallet.py: _fw_close_empty
 
 
 _mint_dec: dict = {}
 
 
-async def _mint_decimals(mint):
-    if mint in _mint_dec:
-        return _mint_dec[mint]
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r = await _krpc(http, 'getTokenSupply', [mint])
-        _mint_dec[mint] = int(((r or {}).get('value') or {}).get('decimals'))
-    except Exception:
-        return None
-    return _mint_dec[mint]
-
-
-async def _paper_quote_audit(now):
-    """📏 Paper ⇄ real, every ~5 min: up to 4 coins on the tier cards are priced the way paper fills them AND with a REAL Jupiter quote
-    for the same $ (read-only, nothing signed). The gap is logged and the paper impact model learns from it before any money moves."""
-    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    legs = [l for c in cards.values() for l in c.get('legs') or [] if l.get('mint') and l['mint'] != _fw.SOL_MINT]
-    if not legs:
-        return 0
-    k = int(now // 300)
-    pick = [legs[(k * 4 + i) % len(legs)] for i in range(min(4, len(legs)))]
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in pick])
-    sol_px = await _sol_usd_live()
-    rows = []
-    for l in pick:
-        p_ = pairs_.get(l['pairAddress']) or {}
-        mid, liq = (await _jup_prices([l['mint']])).get(l['mint']) or _fuse._f(p_.get('priceUsd')), _fuse._f((p_.get('liquidity') or {}).get('usd'))
-        dec = await _mint_decimals(l['mint'])
-        if mid <= 0 or dec is None or sol_px <= 0:
-            continue
-        usd = max(5.0, min(300.0, _fuse._f(l.get('units')) * mid))
-        try:
-            q = await _fw_jup('GET', '/swap/v1/quote', params={'inputMint': _fw.SOL_MINT, 'outputMint': l['mint'], 'amount': str(int(usd / sol_px * 1e9)), 'slippageBps': '100'})
-        except HTTPException:
-            continue
-        rows.append({**_fw.quote_row(l.get('symbol'), usd, mid, liq, _prime.buy_px(mid, usd, liq), int(q.get('outAmount') or 0) / 10 ** dec, now), 'mint': l['mint']})
-    if rows:
-        async with _fw_lock:
-            d = _fw_load(); d['quoteAudit'] = (d.get('quoteAudit') or [])[-199:] + rows; _fw_save(d)
-    return len(rows)
-
-
-def _fw_calibration(d):
-    """Real fills win; until there are 3, paper learns from the real-quote audit."""
-    real = _fw.calibrate(d.get('ledger'))
-    return real if real['n'] >= 3 else {**_fw.calibrate(d.get('quoteAudit')), 'feeUsd': real.get('feeUsd'), 'fees': real.get('fees'), 'from': 'quotes'}
+# ↪ moved to rep_fuse_wallet.py: _mint_decimals, _paper_quote_audit, _fw_calibration
 
 
 _fw_full_cache: dict = {'n': -1, 'rows': []}
 
 
-def _fw_full_ledger():
-    """🧾 EVERY ledger row, oldest first — from the append-only SQLite table (never trimmed). The KV doc keeps only the newest
-    2,000 rows, and card totals read from it undercounted once the card passed that: fees showed $1.33 of $2.18, top-ups $15.50 of
-    $22.50, and realized / you-vs-engine lost their oldest fills. Re-read only when the table grew (one COUNT per call)."""
-    lg = _store.Ledger(FUSE_WALLET_PATH)
-    n = lg.last_id()   # ⚡ MAX(id), not COUNT(*): the table only grows, so the newest id says the same thing for free
-    if n != _fw_full_cache['n'] or _fw_full_cache.get('db') != str(lg.db):
-        fresh = _fw_full_cache.get('db') != str(lg.db) or n < _fw_full_cache['n'] or _fw_full_cache['n'] < 0
-        new, last = lg.since(0 if fresh else _fw_full_cache.get('last') or 0)   # ⚡ only the rows appended since the last read
-        _fw_full_cache.update(n=n, db=str(lg.db), last=last, rows=new if fresh else _fw_full_cache['rows'] + new)
-    return _fw_full_cache['rows'] or (_fw_peek().get('ledger') or [])
+# ↪ moved to rep_fuse_wallet.py: _fw_full_ledger
 
 
 _vs_c: dict = {}   # card → (ledger rows, at, (versus, realized)): the 24h you-vs-engine split + realized sales re-read the WHOLE ledger (3.9s of blocked loop)
 
 
-def _vs_cached(full_, tid):
-    """(versus, realized) for a card — rebuilt when the ledger grew or after 60s, never on every public read."""
-    c_ = _vs_c.get(tid)
-    if c_ and c_[0] == len(full_) and time.time() - c_[1] < 60:
-        return c_[2]
-    v_ = (_fw.versus(full_, tid, time.time()), _fw.realized_split(full_, tid))
-    _vs_c[tid] = (len(full_), time.time(), v_)
-    return v_
+# ↪ moved to rep_fuse_wallet.py: _vs_cached
 
 
 _FW_LED_MEMO: dict = {}
 
 
-def _fw_led_memo(kind, card, fn):
-    """⚡ A sum over the WHOLE ledger, recomputed only when a row was added (the loop-lag catcher charged `totals` + the paid-out sum
-    ~8s a window: they re-walked thousands of rows on every /fuses/prime build)."""
-    L = _fw_full_ledger()
-    k = (kind, card)
-    hit = _FW_LED_MEMO.get(k)
-    if hit and hit[0] == len(L):
-        return hit[1]
-    v = fn(L)
-    _FW_LED_MEMO[k] = (len(L), v)
-    return v
-
-
-def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
-    """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
-    d = _fw_peek(); b = d['books'].get(tid)   # read-only: this view only reads the doc (lists it builds are its own)
-    if not b:
-        return None
-    seen, rows = set(), []
-    for o in reversed(d['ledger']):   # newest first, each tx / funding once
-        if o.get('card') != tid or o.get('side') not in ('buy', 'sell', 'topup') or not (o.get('status') in ('filled', 'done') or o.get('side') == 'topup'):
-            continue
-        k = (o.get('sig'), o.get('side')) if o.get('sig') else f"{o.get('id')}:{o.get('side')}:{o.get('at')}"
-        if k not in seen:
-            seen.add(k); rows.append(o)
-        if len(rows) >= 12:
-            break
-    cfg = _fw_cfg(); pend = b.get('pending') or {}
-    dead = []
-    seen_dead = set()
-    for o in reversed(d['ledger']):
-        if o.get('card') != tid or o.get('side') not in ('buy', 'sell'):
-            continue
-        kdead = (o.get('side'), o.get('mint') or o.get('symbol'))
-        if kdead in seen_dead:
-            continue
-        seen_dead.add(kdead)
-        if o.get('status') not in ('failed', 'skipped'):
-            continue
-        dead.append({k: o.get(k) for k in ('side', 'symbol', 'mint', 'pair', 'usd', 'at', 'status', 'err')})
-        if len(dead) >= 8:
-            break
-    fail = dead[0] if dead else None
-    keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'haltWhy': (b.get('haltWhy') or None) if b.get('halt') else None, 'selling': bool(b.get('defund')),
-              'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'pickMinLiqUsd': cfg.get('pickMinLiqUsd'), 'pickSellBackPct': cfg.get('pickSellBackPct'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
-              'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
-              'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},
-              'lastFill': next((o.get('at') for o in rows if o.get('status') == 'filled'), None),
-              'gas': _fw.gas_tank(_FW_GAS['sol'], d['books'], cfg.get('reserveSol')) if 'sol' in _FW_GAS else None,
-              'landing': _fw.landing(d['ledger'], tid, time.time(), broadcast_only=True),
-              'rent': {**_fw.rent_story(d['ledger'], time.time(), _fw_rent_parked or None, _fuse._f(sol_px)), 'everySec': _fw.close_every(_fuse._f(_prime_real_cfg().get('rotateHours')))},
-              'rpc': _rpc_quota_state()}
-    # walletUsd is the engine's cumulative realized-profit payout counter and survives reinvests; old real ledgers did not
-    # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.
-    card = _prime_cards().get(tid) or {}
-    visible = {l.get('mint') for l in card.get('legs') or []}
-    off_card = []
-    for mint, leg in (b.get('legs') or {}).items():
-        if mint in visible or not int(_fuse._f(leg.get('atoms'))):
-            continue
-        units = int(_fuse._f(leg.get('atoms'))) / 10 ** int(leg.get('decimals') or 0)
-        px_now = _fw.leg_px(b, mint, leg, prices or {}, time.time())   # 💧 what selling pays, never a drained pool's quoted price
-        off_card.append({'mint': mint, 'symbol': leg.get('symbol') or mint[:6], 'usd': round(units * px_now, 4),
-                         'costUsd': round(_fuse._f(leg.get('costUsd')), 4), 'status': 'awaiting confirmed sell'})
-    ledger_paid = _fw_led_memo('paid', tid, lambda L: sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in L if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell'))
-    paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
-    profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
-    payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
-    wallet_sol = _fuse._f(_FW_GAS.get('sol')) if _FW_GAS.get('sol') is not None else None
-    all_book_sol = sum(_fuse._f(bb.get('sol')) + _fuse._f(bb.get('bankSol')) for bb in d['books'].values())
-    reserve_sol = _fuse._f(cfg.get('reserveSol'))
-    outside_sol = max(0.0, wallet_sol - all_book_sol - reserve_sol) if wallet_sol is not None else None
-    recoverable = []
-    bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg.get('address') else None
-    newest_fill = max((_fuse._f(o.get('at')) for o in d.get('ledger') or [] if o.get('status') == 'filled'), default=0.0)
-    balance_is_current = _fuse._f(_FW_BAL.get('at')) >= newest_fill
-    if bal and bal.get('source') != 'circle' and balance_is_current:
-        booked = {}
-        for bb in d['books'].values():
-            for mint, leg in (bb.get('legs') or {}).items():
-                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
-        for mint, held in (bal.get('tokens') or {}).items():
-            excess = int(_fuse._f(held)) - int(booked.get(mint, 0))
-            if excess <= 0:
-                continue
-            hist = [o for o in d['ledger'] if o.get('card') == tid and o.get('mint') == mint and o.get('pair')]
-            if not hist:
-                continue
-            last = hist[-1]
-            if last.get('side') == 'writeoff':   # 🩸 written off (dead dust / drained pool): offering "sell it" again would re-book it and jam the buys
-                continue
-            recoverable.append({'mint': mint, 'symbol': last.get('symbol') or mint[:6], 'atoms': excess,
-                                'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:90], 'lastAt': last.get('at')})
-    try:   # 👁 the swap as steps (done → sending → next), one transaction at a time
-        plan = _fw.orders(tid, {**card, 'legs': []} if b.get('defund') else card, b, prices or {}, sol_px, cfg, time.time()) if sol_px and card else []
-        keeper['flow'] = _fw.swap_flow(b, d['ledger'], tid, plan, time.time())
-    except Exception:
-        keeper['flow'] = []
-    keeper['holdingSell'] = bool(b.get('sellHoldAt'))
-    full_ = _fw_full_ledger()
-    return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'),
-            'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
-            'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
-            'wallet': cfg['address'], 'keeper': keeper, 'versus': _vs_cached(full_, tid)[0], 'realized': _vs_cached(full_, tid)[1], 'deadOrders': dead,
-            'reconciliation': {'cardEquityUsd': round(_fuse._f(equity_usd), 4),
-                               'cardCashSol': round(_fuse._f(b.get('sol')), 9),
-                               'cardCashUsd': round(_fuse._f(b.get('sol')) * _fuse._f(sol_px), 4) if sol_px else None,
-                               'walletSol': round(wallet_sol, 9) if wallet_sol is not None else None,
-                               'gasReserveSol': round(reserve_sol, 9),
-                               'outsideCardSol': round(outside_sol, 9) if outside_sol is not None else None,
-                               'outsideCardUsd': round(outside_sol * _fuse._f(sol_px), 4) if outside_sol is not None and sol_px else None},
-            'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows],
-            **_fw_led_memo('tot', tid, lambda L: _fw.totals(L, tid)), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4)}   # 🧾 the book's fee total (each fill at its own SOL price) — never a partial sum
-
-
-async def _circle_wallets_live():
-    """Circle supplies token ids needed for sends; confirmed chain lamports supply the display truth for Solana wallets.
-    A Circle balance-endpoint error must never turn a funded wallet into an apparently empty wallet in HQ."""
-    wallets = list((await _circle('GET', '/wallets')).get('wallets') or [])
-    sol = [w for w in wallets if str(w.get('blockchain') or '').upper().startswith('SOL') and w.get('address')]
-    if not sol:
-        return wallets
-    try:
-        async with httpx.AsyncClient(timeout=12) as http:
-            got = await _rpc(http, 'getMultipleAccounts', [[w['address'] for w in sol], {'encoding': 'base64', 'commitment': 'confirmed'}])
-        lamports = {w['address']: int((a or {}).get('lamports') or 0) for w, a in zip(sol, (got or {}).get('value') or [])}
-        out = []
-        for w in wallets:
-            if w.get('address') not in lamports:
-                out.append(w); continue
-            rows = [dict(b) for b in (w.get('balances') or [])]
-            old = next((b for b in rows if str(b.get('symbol') or '').upper() == 'SOL'), None)
-            amount = str(lamports[w['address']] / 1e9)
-            if old:
-                old['amount'] = amount
-            elif lamports[w['address']] > 0:
-                rows.insert(0, {'symbol': 'SOL', 'amount': amount, 'tokenId': None, 'source': 'chain'})
-            out.append({**w, 'balances': rows, 'balanceSource': 'confirmed-chain'})
-        try:   # 💲 each coin's $ value (Jupiter, public lane) so the row reads what the leftovers are worth — SOL by its own price
-            mints = list({b.get('mint') for w in out for b in w.get('balances') or [] if b.get('mint')})
-            px = await _jup_prices(mints) if mints else {}
-            sol_px = await _sol_usd_live()
-            for w in out:
-                for b in w.get('balances') or []:
-                    p_ = sol_px if str(b.get('symbol') or '').upper() == 'SOL' and not b.get('mint') else _fuse._f(px.get(b.get('mint')))
-                    b['usd'] = round(_fuse._f(b.get('amount')) * p_, 4) if p_ else None
-        except Exception as e:
-            print('circle usd:', str(e)[:80])
-        return out
-    except Exception:
-        return wallets
+# ↪ moved to rep_fuse_wallet.py: _fw_led_memo, _fw_public, _circle_wallets_live
 
 
 CIRCLE_PROFILE_KEYS = {'name': 'displayName', 'handle': 'handle', 'bio': 'bio', 'avatar': 'avatarUrl', 'banner': 'bannerUrl'}
@@ -8793,74 +5092,21 @@ def circle_profile_merge(prev: dict, edit: dict) -> dict:
     return {**prev, **{real: edit[k] for k, real in CIRCLE_PROFILE_KEYS.items() if k in edit}}
 
 
-async def _fw_reports(card=''):
-    d = _fw_load(); hq = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    ids = [card] if card else sorted({r.get('card') for r in d.get('ledger') or [] if r.get('card') and r.get('card') != 'wallet'})
-    sol_px = await _sol_usd_live()
-    mints = [m for tid in ids for m in ((d['books'].get(tid) or {}).get('legs') or {})]
-    jup = await _jup_prices(mints) if mints else {}
-    out = []
-    for tid in ids:
-        b = d['books'].get(tid) or {}
-        c = hq.get(tid) or {}
-        px = {l.get('pair'): _fuse._f(jup.get(m)) or _fuse._f(l.get('entryPx')) for m, l in (b.get('legs') or {}).items()}   # live Jupiter value
-        eq = _fw.book_value(b, px, sol_px) if b else None
-        hold = round((sol_px / _fuse._f(c['solStart']) - 1) * 100, 2) if sol_px and _fuse._f(c.get('solStart')) else None
-        out.append({**_fw.run_report(_fw_full_ledger(), tid, time.time(), b.get('fundedUsd'), eq, hold), 'label': c.get('label') or tid, 'open': bool(b)})
-    return out
-
-
-async def _fw_recover_sell(me, tid, mint):
-    if tid not in _prime.TEMPLATES or not mint:
-        raise HTTPException(400, 'Pick a real tier card and token.')
-    cfg = _fw_cfg()
-    if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
-        raise HTTPException(400, 'Fuse wallet must be armed and running.')
-    bal = await _fw_balances(cfg['address'])
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load()
-        if tid not in d['books']:
-            raise HTTPException(404, 'That tier has no real card book.')
-        booked_total = sum(int(_fuse._f(((b.get('legs') or {}).get(mint) or {}).get('atoms'))) for b in d['books'].values())
-        held = int(_fuse._f((bal.get('tokens') or {}).get(mint)))
-        excess = max(0, held - booked_total)
-        hist = [r for r in d['ledger'] if r.get('card') == tid and r.get('mint') == mint and r.get('pair')]
-        if excess <= 0:
-            raise HTTPException(400, 'No unbooked wallet balance remains for that token.')
-        if not hist:
-            raise HTTPException(400, 'Refused: this wallet token has no keeper history for that card.')
-        last = hist[-1]
-        st = {'card': tid, 'mint': mint, 'atoms': excess,
-              'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
-              'pair': last.get('pair'), 'symbol': last.get('symbol') or mint[:6]}
-        book = _fw.adopt(d['books'][tid], st)
-        book['legs'][mint]['manualCash'] = True
-        book['legs'][mint]['recovered'] = True
-        d['books'][tid] = book
-        _fw_record(d, {'card': tid, 'side': 'adopt', 'mint': mint, 'symbol': st['symbol'], 'atoms': excess,
-                       'usd': 0.0, 'at': time.time(), 'status': 'done',
-                       'why': '🧹 owner recovered old keeper balance for force sell → proceeds stay in card cash'})
-        _fw_save(d)
-    _fw_kick_now()
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell', f'{tid} {st["symbol"]} {excess} atoms'); _admin_save(ad)
-    return {'ok': True, 'card': tid, 'symbol': st['symbol'], 'atoms': excess, 'status': 'sell queued/running'}
+# ↪ moved to rep_fuse_wallet.py: _fw_reports, _fw_recover_sell
 
 
 ALLIANCES_PATH = DATA_DIR / 'alliances.json'
 _alliance_lock = asyncio.Lock()
 
 
-def _alliance_view(wallet=''):
-    import alliances as _al
-    st = _json_load(ALLIANCES_PATH, {}) or {}; days = int(st.get('days') or _al.DEFAULT_DAYS); now = time.time()
-    return {'days': days, 'rows': [_al.public(a, days, now, wallet) for a in sorted(st.get('rows') or [], key=lambda x: -len(x['members']))]}
+# ↪ moved to rep_fuse_wallet.py: _alliance_view
 
 
 COLLECTIVE_THEMES = ('NEBULA', 'TOXIC', 'INFERNO', 'GLACIER', 'VOID', 'SOLAR', 'MATRIX', 'ULTRA')
 
 
 # ---- 🧠 THE AI ROUTER (backend/ai_router.py): optional, advisory, never in a hot loop or at the money boundary ----
-import ai_router as _air
+import ai_router as _air   # noqa: F401  (read by rep_admin_reads, rep_admin_routes as rs._air)
 import ai_learn as _ail   # noqa: F401  (read by rep_ai as rs._ail)
 import trench_crew as _tcrew   # noqa: F401  (read by rep_ai as rs._tcrew)
 AI_CFG_PATH = DATA_DIR / 'ai_providers.json'   # the provider order + on / off (no secrets — keys live in backend/.env only)
@@ -9031,7 +5277,7 @@ G4_LOOP_SEC = 5.0   # 🔁 the duo's own clock: checked every 5s, one decision a
 
 
 # ── 💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (ai_chat.py) ────────────────────────────────────────────────────────────────────
-import ai_chat as _aic
+import ai_chat as _aic   # noqa: F401  (read by rep_admin_reads, rep_admin_routes as rs._aic)
 BUILD_QUEUE_PATH = DATA_DIR / 'build_queue.json'   # 📋 owner-approved build items — the next engineering session reads this first
 AI_PROPOSALS_PATH = DATA_DIR / 'ai_proposals.json'   # compact proposal + audit records only (≤ 60; never a raw prompt or a raw response)
 _chat: dict = {'th': {}, 'ctx': (None, None, 0.0), 'busy': False, 'props': None, 'build': None, 'loaded': False, 'saved': [], 'settings': None}   # one short thread PER MODE
@@ -9168,8 +5414,8 @@ import trench_kernel.universe as _uni
 import trench_kernel.senses as _sn   # noqa: F401  (read by rep_ai as rs._sn)
 import trench_mind as _tm   # noqa: F401  (read by rep_ai as rs._tm)
 import opportunity as _opp
-import launch_intel as _li
-import market_wake as _mw
+import launch_intel as _li   # noqa: F401  (read by rep_ai, rep_prime as rs._li)
+import market_wake as _mw   # noqa: F401  (read by rep_ai, rep_prime as rs._mw)
 import judge_review as _jr   # noqa: F401  (read by rep_ai as rs._jr)
 import real_memory as _rm   # noqa: F401  (read by rep_ai as rs._rm)
 import shadow_book as _sb   # noqa: F401  (read by rep_ai as rs._sb)
@@ -9263,7 +5509,7 @@ _dial_mem: dict = {'at': 0.0, 'v': None}
 # ↪ moved to rep_ai.py: _dial_lab, _desk_stats_view
 
 
-import night_guard as _ng
+import night_guard as _ng   # noqa: F401  (read by rep_ai, rep_prime as rs._ng)
 NIGHT_PATH = DATA_DIR / 'night_guard.json'
 _night: dict = {'st': None, 'v': None}
 
@@ -9288,7 +5534,7 @@ COACH_AI_EVERY = 900.0   # the model coach looks at the last real trades at most
 
 import rule_lab as _rlab   # noqa: F401  (read by rep_ai as rs._rlab)
 import teach as _tch   # noqa: F401  (read by rep_admin_routes, rep_ai as rs._tch)
-import jup_keys as _jkeys
+import jup_keys as _jkeys   # noqa: F401  (read by rep_crews, rep_fuse as rs._jkeys)
 TEACH_PATH = DATA_DIR / 'agent_teach.json'
 _teach: dict = {'st': None}
 
@@ -9346,7 +5592,7 @@ _verify_memo: dict = {}
 # ↪ moved to rep_ai.py: _arch_verify
 _office: dict = {'state': None, 'pos': {}, 'exiting': [], 'gone': [], 'lat': {}, 'sized': {}, 'reports': [], 'warden': None, 'courier': None, 'payload': None, 'last': None, 'vetoAt': {},
                  'charts': {}, 'theses': {}, 'candles': {}, 'cmeta': {}, 'load': {}, 'boot': {'at': time.time(), 'passes': 0, 'coins': 0, 'reconciled': False}, 'seatWakeAt': 0.0, 'seatWakes': 0, 'ticks': [], 'candleStat': {'req': 0, 'cached': 0, 'merged': 0, 'dup': 0, 'ms': 0.0, 'coins': 0}}
-import chart_intel as _ci
+import chart_intel as _ci   # noqa: F401  (read by rep_ai, rep_coin_edge as rs._ci)
 import market_data as _md   # noqa: F401  (read by rep_ai as rs._md)
 import office_edge as _oe
 import seat_ops as _so
@@ -9473,7 +5719,7 @@ PG_SIM_PATH = DATA_DIR / 'pg_sim.json'   # its own file: never bloats runners.js
 
 import pick_edge as _pedge
 import pick_style as _ps
-import owner_moves as _om
+import owner_moves as _om   # noqa: F401  (read by rep_ai, rep_predict as rs._om)
 EDGE_PATH = FUSE_HQ_PATH.parent / 'edge.json'
 _edge_state: dict = {}
 
@@ -15271,3 +11517,174 @@ _arena_mega = _rep_seasons._arena_mega
 _card_dna_tag = _rep_seasons._card_dna_tag
 _fuse_candidates = _rep_seasons._fuse_candidates
 _champ_view = _rep_seasons._champ_view
+
+import rep_fuse_wallet as _rep_fuse_wallet   # noqa: E402  🧹 moved by scripts/move-section.py
+_parsed_info = _rep_fuse_wallet._parsed_info
+_fw_load = _rep_fuse_wallet._fw_load
+_fw_save = _rep_fuse_wallet._fw_save
+_fw_peek = _rep_fuse_wallet._fw_peek
+_fw_cfg = _rep_fuse_wallet._fw_cfg
+_fw_signer_ready = _rep_fuse_wallet._fw_signer_ready
+_fw_signer_check = _rep_fuse_wallet._fw_signer_check
+_fw_sign = _rep_fuse_wallet._fw_sign
+_fw_balances = _rep_fuse_wallet._fw_balances
+_jup_keys = _rep_fuse_wallet._jup_keys
+_jup_lanes = _rep_fuse_wallet._jup_lanes
+_jup_lid = _rep_fuse_wallet._jup_lid
+_jup_pick = _rep_fuse_wallet._jup_pick
+_fw_jup = _rep_fuse_wallet._fw_jup
+_fw_quote = _rep_fuse_wallet._fw_quote
+_fw_secure_buy = _rep_fuse_wallet._fw_secure_buy
+_fw_live_pairs = _rep_fuse_wallet._fw_live_pairs
+_fw_preflight = _rep_fuse_wallet._fw_preflight
+_fw_keep = _rep_fuse_wallet._fw_keep
+_fw_kick_now = _rep_fuse_wallet._fw_kick_now
+_fw_record = _rep_fuse_wallet._fw_record
+_fw_execute = _rep_fuse_wallet._fw_execute
+_fw_execute_swap = _rep_fuse_wallet._fw_execute_swap
+_fw_notify = _rep_fuse_wallet._fw_notify
+_fw_raw_keep = _rep_fuse_wallet._fw_raw_keep
+_fw_rebroadcast = _rep_fuse_wallet._fw_rebroadcast
+_fw_resolve = _rep_fuse_wallet._fw_resolve
+_fw_catch_up = _rep_fuse_wallet._fw_catch_up
+_fw_tick = _rep_fuse_wallet._fw_tick
+_fw_deposit_scan = _rep_fuse_wallet._fw_deposit_scan
+_fw_tick_inner = _rep_fuse_wallet._fw_tick_inner
+_fw_rent_credit = _rep_fuse_wallet._fw_rent_credit
+_fw_close_empty = _rep_fuse_wallet._fw_close_empty
+_mint_decimals = _rep_fuse_wallet._mint_decimals
+_paper_quote_audit = _rep_fuse_wallet._paper_quote_audit
+_fw_calibration = _rep_fuse_wallet._fw_calibration
+_fw_full_ledger = _rep_fuse_wallet._fw_full_ledger
+_vs_cached = _rep_fuse_wallet._vs_cached
+_fw_led_memo = _rep_fuse_wallet._fw_led_memo
+_fw_public = _rep_fuse_wallet._fw_public
+_circle_wallets_live = _rep_fuse_wallet._circle_wallets_live
+_fw_reports = _rep_fuse_wallet._fw_reports
+_fw_recover_sell = _rep_fuse_wallet._fw_recover_sell
+_alliance_view = _rep_fuse_wallet._alliance_view
+
+import rep_prime as _rep_prime   # noqa: E402  🧹 moved by scripts/move-section.py
+_prime_cfg = _rep_prime._prime_cfg
+_ladder_value = _rep_prime._ladder_value
+_ladder_step = _rep_prime._ladder_step
+_prime_real_cfg = _rep_prime._prime_real_cfg
+_open_board = _rep_prime._open_board
+_open_scan_judge = _rep_prime._open_scan_judge
+_jup_judge = _rep_prime._jup_judge
+_pump_calls_build = _rep_prime._pump_calls_build
+_pc_rows = _rep_prime._pc_rows
+_pump_callers_pass = _rep_prime._pump_callers_pass
+_call_rush_alert = _rep_prime._call_rush_alert
+_mint_rows = _rep_prime._mint_rows
+_pump_call_rows = _rep_prime._pump_call_rows
+_feeders_build = _rep_prime._feeders_build
+_sf_read = _rep_prime._sf_read
+_sf_refresh = _rep_prime._sf_refresh
+_sf_receipts = _rep_prime._sf_receipts
+_callout_tick = _rep_prime._callout_tick
+_trench_build = _rep_prime._trench_build
+_owner_study = _rep_prime._owner_study
+_hint_grade = _rep_prime._hint_grade
+_study_tick = _rep_prime._study_tick
+_owner_moves_tick = _rep_prime._owner_moves_tick
+_call_track = _rep_prime._call_track
+_sendit_ready = _rep_prime._sendit_ready
+_procall_track = _rep_prime._procall_track
+_li_state = _rep_prime._li_state
+_li_parts = _rep_prime._li_parts
+_li_row = _rep_prime._li_row
+_li_attach = _rep_prime._li_attach
+_li_track = _rep_prime._li_track
+_brain_track = _rep_prime._brain_track
+_brain_clean = _rep_prime._brain_clean
+_brain_state = _rep_prime._brain_state
+_rush_rows = _rep_prime._rush_rows
+_brain_ready = _rep_prime._brain_ready
+_brain_rows = _rep_prime._brain_rows
+_bottom_rows = _rep_prime._bottom_rows
+_lens_track = _rep_prime._lens_track
+_swapin_lists = _rep_prime._swapin_lists
+_edge_rank = _rep_prime._edge_rank
+_edge_track = _rep_prime._edge_track
+_bs_rows = _rep_prime._bs_rows
+feecat_pool_rows = _rep_prime.feecat_pool_rows
+feecat_read = _rep_prime.feecat_read
+duo_word = _rep_prime.duo_word
+duo_lessons = _rep_prime.duo_lessons
+_list_records = _rep_prime._list_records
+_bottom_track = _rep_prime._bottom_track
+_human_style = _rep_prime._human_style
+_pick_style_note = _rep_prime._pick_style_note
+_trench_judge = _rep_prime._trench_judge
+_fuse_trench_raw = _rep_prime._fuse_trench_raw
+_trench_row = _rep_prime._trench_row
+_real_weather = _rep_prime._real_weather
+_prime_cool_candidates = _rep_prime._prime_cool_candidates
+_prime_candidates = _rep_prime._prime_candidates
+_contenders_build = _rep_prime._contenders_build
+_contenders_rebuild = _rep_prime._contenders_rebuild
+_creator_state = _rep_prime._creator_state
+_pick_verify = _rep_prime._pick_verify
+_pick_row = _rep_prime._pick_row
+_pick_why = _rep_prime._pick_why
+_proof_build = _rep_prime._proof_build
+
+import rep_coin_edge as _rep_coin_edge   # noqa: E402  🧹 moved by scripts/move-section.py
+_edge_pulses = _rep_coin_edge._edge_pulses
+_germ_rec = _rep_coin_edge._germ_rec
+_edge_build = _rep_coin_edge._edge_build
+_edge_refresh = _rep_coin_edge._edge_refresh
+_feeback_book = _rep_coin_edge._feeback_book
+_fuse_guard_tick = _rep_coin_edge._fuse_guard_tick
+_card_signal_tick = _rep_coin_edge._card_signal_tick
+_fuse_guard_loop = _rep_coin_edge._fuse_guard_loop
+_hq_prices = _rep_coin_edge._hq_prices
+_wallet_held = _rep_coin_edge._wallet_held
+_arena_settle = _rep_coin_edge._arena_settle
+
+import rep_fuse_hq as _rep_fuse_hq   # noqa: E402  🧹 moved by scripts/move-section.py
+_prime_cards = _rep_fuse_hq._prime_cards
+_real_card = _rep_fuse_hq._real_card
+_card_rules = _rep_fuse_hq._card_rules
+_ledger_by_sig = _rep_fuse_hq._ledger_by_sig
+_card_fees = _rep_fuse_hq._card_fees
+_exit_fee = _rep_fuse_hq._exit_fee
+_fuse_yield_tick = _rep_fuse_hq._fuse_yield_tick
+_fuse_swap_tick = _rep_fuse_hq._fuse_swap_tick
+_spend_round = _rep_fuse_hq._spend_round
+_rounds_out_notice = _rep_fuse_hq._rounds_out_notice
+_fuse_buyback_tick = _rep_fuse_hq._fuse_buyback_tick
+_fuse_leg_tick = _rep_fuse_hq._fuse_leg_tick
+
+import rep_fuse as _rep_fuse   # noqa: E402  🧹 moved by scripts/move-section.py
+_jup_tokens = _rep_fuse._jup_tokens
+_fuse_pairs = _rep_fuse._fuse_pairs
+_fuse_risky = _rep_fuse._fuse_risky
+_fuse_view = _rep_fuse._fuse_view
+_creator_warn = _rep_fuse._creator_warn
+_fuse_discover_pairs = _rep_fuse._fuse_discover_pairs
+_jup_lite = _rep_fuse._jup_lite
+_cand_map = _rep_fuse._cand_map
+_read_for = _rep_fuse._read_for
+_up_vital = _rep_fuse._up_vital
+_pump_links_put = _rep_fuse._pump_links_put
+_pump_links_warm = _rep_fuse._pump_links_warm
+_clean_rows = _rep_fuse._clean_rows
+_holder_facts = _rep_fuse._holder_facts
+_list_now = _rep_fuse._list_now
+_with_tv = _rep_fuse._with_tv
+_bangers = _rep_fuse._bangers
+_wave_rows = _rep_fuse._wave_rows
+_prebreak_rows = _rep_fuse._prebreak_rows
+_prebreak_ready = _rep_fuse._prebreak_ready
+_wave_ready = _rep_fuse._wave_ready
+_exhale_rows = _rep_fuse._exhale_rows
+_procall_rows = _rep_fuse._procall_rows
+_live_movers = _rep_fuse._live_movers
+_why_pair = _rep_fuse._why_pair
+_why_build = _rep_fuse._why_build
+_swap_clean = _rep_fuse._swap_clean
+_fuses_discover_raw = _rep_fuse._fuses_discover_raw
+_majors_rows = _rep_fuse._majors_rows
+_is_admin_req = _rep_fuse._is_admin_req
