@@ -50,7 +50,7 @@ def _folder(fs, store, tmp_path, fal=True):
     row = fs._feat.new_folder(cat, 'content', 'Bishop', 1.0); doc = fs._feat.new_doc(row)
     (tmp_path / 'media' / 'g').mkdir(parents=True, exist_ok=True)
     (tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png').write_bytes(b'\x89PNGbishop')
-    doc['messages'] = [{'by': 'Media', 'text': 'Bishop', 'at': 1, 'media': {'id': 'maaaaaaaaaaa1', 'kind': 'image', 'status': 'done', 'kept': True, 'label': 'Bishop',
+    doc['messages'] = [{'by': 'Media', 'text': 'Bishop', 'at': 1, 'media': {'id': 'maaaaaaaaaaa1', 'kind': 'image', 'status': 'done', 'kept': True, 'label': 'Gemini 3.1 Flash Image',
                                                                           'url': '/api/cats/media/g/maaaaaaaaaaa1.png', 'prompt': 'Bishop', 'provider': 'openrouter'}}]
     doc['character'] = {'mid': 'maaaaaaaaaaa1'}
     fs._ws_save('g', doc)

@@ -204,7 +204,7 @@ test('🏷 the picker: a 17 s reel priced per model, four sorts, the model used 
   await act(async () => q('swap-sort-new').click()); expect(order()[0]).toBe('or-seedance25-flash-swap');
   await act(async () => q('swap-sort-cheap').click()); expect(order()[0]).toBe('or-seedance-mini-swap');
   await act(async () => q('swap-sort-used').click()); expect(order().slice(0, 2)).toEqual(['or-seedance-mini-swap', 'or-seedance25-flash-swap']);
-  expect(q('media-swap').textContent).toContain('PUBLIC_SITE_URL');
+  expect(q('media-swap').textContent).toContain('private 2-hour https link');
   await act(async () => q('swap-model-or-seedance25-swap').click());   // $2.35 > the $2 cap
   expect(q('swap-go').disabled).toBe(true); expect(q('media-swap').textContent).toContain('over your $2.00 cap per swap');
   const cap = q('swap-cap'); await act(async () => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(cap, '3'); cap.dispatchEvent(new Event('input', { bubbles: true })); });

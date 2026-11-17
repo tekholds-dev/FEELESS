@@ -82,6 +82,24 @@ def _isolate_real_data(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_tunnel(monkeypatch):
+    """🔗 Tests never open a real Cloudflare tunnel: a swap's public links come from a fake address (a test may patch its own)."""
+    import pub_tunnel as _pt
+
+    async def _fake(root, *_a, **_k):
+        return 'https://test-tunnel.trycloudflare.com'
+    monkeypatch.setattr(_pt, 'ensure', _fake)
+    real_spawn = _pt.asyncio.create_subprocess_exec
+
+    async def _no_spawn(*a, **k):
+        if a and 'cloudflared' in str(a[0]):
+            raise AssertionError('a test tried to start cloudflared')
+        return await real_spawn(*a, **k)
+    monkeypatch.setattr(_pt.asyncio, 'create_subprocess_exec', _no_spawn)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_real_vault_key(monkeypatch, tmp_path):
     """🔐 Tests never read or make the real ~/.feeless-vault master key."""
     monkeypatch.setenv('FEELESS_VAULT_KEY_FILE', str(tmp_path / 'vault' / 'master.key'))

@@ -35,7 +35,7 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       : <img src={apiUrl(md.url)} alt={md.prompt} loading="lazy" data-testid="media-image" />) : null}
     {live ? <div className="mst-wait" role="status"><span>{STEP_WORD[md.step] || STEP_WORD[md.status] || md.step || 'working'} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</span><i aria-hidden="true"><u /></i></div> : null}
     {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'} Nothing more is charged.</p> : null}
-    <p className="mst-prompt">{md.prompt}</p>
+    {md.prompt && md.prompt !== md.label ? <p className="mst-prompt">{md.prompt}</p> : null}
     {md.status === 'done' && md.url ? <span className="mst-acts">
       <a className="m-btn" href={apiUrl(md.url)} download target="_blank" rel="noopener noreferrer" data-tip="Save the file" data-testid="media-save">Save</a>
       {canLife ? <button type="button" className="m-btn m-go" disabled={busy} data-testid="media-life"
@@ -136,7 +136,7 @@ function SwapPanel({ cat, row, work, doc, setDoc, d }) {
   const c = clips.find(x => x.id === clip) || clips[clips.length - 1]; const list = d?.swap || []; const m = list.find(x => x.id === model && x.ready) || list.find(x => x.ready) || list[0];
   const est = swapEst(m, c); const short = m?.by === 'tokens' && c && Number(c.secs) < 3.5; const over = est != null && est > Number(cap) + 1e-9; const tooLong = !!(m && !m.rec && m.maxS && c && Number(c.secs) > m.maxS + 0.5);
   const hasChar = !!doc?.character?.mid; const ready = list.some(x => x.ready); const edit = m?.needsChar === false; const where = m?.provider === 'openrouter' ? 'OpenRouter' : 'fal.ai';   // ✏ FLUX Video Edit: your clip + your words, on OpenRouter (owner 2026-11-16)
-  const added = j => { setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (last) setClip(last.id); };
+  const added = j => { setDoc(j.doc); const last = (j.doc.messages || []).map(x => x.media).filter(x => x && x.clip).pop(); if (j.same || last) setClip(j.same || last.id); };
   const addSrc = async (src, name) => { setBusy('up'); setErr(''); try { added(await work(cat.id, { op: 'media_clip', job: row.id, text: src, tools: { rights: true, ...(name ? { name } : {}), ...(Number(start) > 0 ? { start: Number(start) } : {}) } })); return true; } catch (er) { setErr(er.message); return false; } finally { setBusy(''); } };
   const onFile = e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; setErr('');
     if (!/^video\/(mp4|webm|quicktime)$/.test(f.type)) { setErr('Pick an MP4, MOV or WebM clip.'); return; }
@@ -162,7 +162,7 @@ function SwapPanel({ cat, row, work, doc, setDoc, d }) {
       <span className="mst-go"><small>{!edit && !hasChar ? 'Make a picture, then 👤 Make him the character' : !c ? `Add a clip to ${edit ? 'edit' : 'swap into'}` : short ? 'Seedance needs a clip of 4 s or more' : edit && !note.trim() ? 'Say what to change' : tooLong ? `${m.label.split(' · ')[0]} takes ${m.maxS} s at most: add the clip again with a start, or pick a Seedance swap` : over ? `about $${est.toFixed(2)}: over your $${Number(cap).toFixed(2)} cap per swap` : `about $${est.toFixed(2)} on your ${where} (${rateTip(m)})`}</small>
         <button type="button" className="m-btn m-go" disabled={!!busy || !c || !m?.ready || short || over || tooLong || (edit ? !note.trim() : !hasChar)} onClick={go} data-testid="swap-go">{busy === 'go' ? 'Starting…' : edit ? '✏ Edit the clip' : '🎭 Swap in the character'}</button></span>
       <label className="mst-cap" data-tip="No swap starts above this. You set it; $0.50 to $50"><small>CAP PER SWAP $</small><input className="m-input m-num" type="number" min="0.5" max="50" step="0.5" value={cap} onChange={e => setCap(e.target.value)} onBlur={e => { const v = Number(e.target.value); if (v !== d?.swapCapUsd && v >= 0.5 && v <= 50) saveCap(v); }} disabled={capBusy} aria-label="Cap per swap in dollars" data-testid="swap-cap" /></label>
-      <small className="mst-note">Or ask in the chat: "replace the main character with {doc?.title || doc?.name || 'him'}" (it uses the model you picked last).{d?.publicRefs ? '' : ' Your clip rides inside the request: set PUBLIC_SITE_URL (your https tunnel) to send it as a 2-hour link instead.'}</small></>}
+      <small className="mst-note">Or ask in the chat: "replace the main character with {doc?.title || doc?.name || 'him'}" (it uses the model you picked last).{d?.publicRefs ? '' : ' Your clip goes to OpenRouter as a private 2-hour https link (a Cloudflare tunnel this Mac opens for it, the first swap waits ~20 s).'}</small></>}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </div>;
 }

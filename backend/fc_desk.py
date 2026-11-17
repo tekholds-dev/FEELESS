@@ -342,9 +342,14 @@ async def _clip_add(cat_id, ws_id, doc_, text, tools):
     secs_, fps_ = await rs._clip_len(out); w_, h_ = await rs._clip_size(out)
     if secs_ is None:
         out.unlink(missing_ok=True); raise rs.HTTPException(400, 'That clip could not be read. Export it again as an MP4.')
+    sha_ = rs.hashlib.sha256(out.read_bytes()).hexdigest()[:32]   # the same video added again is the clip already here, not a second card
+    same_ = next((m['media']['id'] for m in doc_.get('messages') or [] if (m.get('media') or {}).get('clip') and m['media'].get('sha') == sha_), None)
+    if same_:
+        out.unlink(missing_ok=True)
+        return {'doc': rs._ws_view(cat_id, ws_id), 'same': same_}
     now_ = round(rs.time.time())
     doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': name_, 'at': now_,
-        'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your clip', 'label': name_, 'prompt': name_, 'status': 'done', 'clip': True,
+        'media': {'id': jid, 'kind': 'video', 'provider': 'upload', 'model': 'your clip', 'label': name_, 'prompt': name_, 'status': 'done', 'clip': True, 'sha': sha_,
                   'secs': round(secs_, 2), 'fps': round(fps_ or 30, 2), **({'w': w_, 'h': h_} if w_ else {}), 'rights': True, 'url': f'/api/cats/media/{cat_id}/{jid}.mp4',
                   'kept': True, 'bytes': out.stat().st_size, 'at': now_, **({'cutFrom': round(start, 2)} if cut_ else {}), **({'source': source_} if source_ else {})}}]
     rs._ws_save(cat_id, doc_)
@@ -381,7 +386,8 @@ def _public_site():
 
 async def _swap_refs(cat_id, clip, img, max_s=None):
     """🎭 Light copies for an OpenRouter swap: the clip ≤720p without sound (only the part the model makes), the picture as a ≤1280 px JPEG.
-    With a public https site (PUBLIC_SITE_URL) they go as 2-hour links (OpenRouter's own advice); without one, inside the request (data URLs)."""
+    They go as 2-hour https links (OpenRouter refuses anything else: "Only HTTPS URLs are allowed"): on PUBLIC_SITE_URL when set, else on a
+    Cloudflare quick tunnel that serves only these files (pub_tunnel). A link that cannot open stops the swap before anything is sent."""
     rs = _rs()
     tmp = rs._media_dir() / cat_id / 'tmp'; tmp.mkdir(parents=True, exist_ok=True); tag = rs.uuid.uuid4().hex[:8]
     rc, ri = tmp / f'{tag}.mp4', tmp / f'{tag}.jpg'
@@ -390,16 +396,22 @@ async def _swap_refs(cat_id, clip, img, max_s=None):
             raise ValueError('your clip could not be prepared (export it again as an MP4)')
         if (await rs._ffmpeg(rs._cs.img_args(img, ri), 60))[0] != 0 or not ri.is_file():
             raise ValueError('the character picture could not be prepared')
+        pub = rs._media_dir() / cat_id / 'pub'; pub.mkdir(exist_ok=True)
+        for old in pub.iterdir():   # the expired ones go
+            if rs.time.time() - old.stat().st_mtime > PUBREF_S:
+                old.unlink(missing_ok=True)
+        names = [f'{rs.secrets.token_urlsafe(24)}.{x}' for x in ('mp4', 'jpg')]
+        rc.replace(pub / names[0]); ri.replace(pub / names[1])
         site = rs._public_site()
         if site:
-            pub = rs._media_dir() / cat_id / 'pub'; pub.mkdir(exist_ok=True)
-            for old in pub.iterdir():   # the expired ones go
-                if rs.time.time() - old.stat().st_mtime > PUBREF_S:
-                    old.unlink(missing_ok=True)
-            names = [f'{rs.secrets.token_urlsafe(24)}.{x}' for x in ('mp4', 'jpg')]
-            rc.replace(pub / names[0]); ri.replace(pub / names[1])
             return tuple(f'{site}/api/cats/pubref/{cat_id}/{n}' for n in names)
-        return (f'data:video/mp4;base64,{rs.base64.b64encode(rc.read_bytes()).decode()}', f'data:image/jpeg;base64,{rs.base64.b64encode(ri.read_bytes()).decode()}')
+        try:
+            tun = await rs._pubt.ensure(rs._media_dir())
+        except Exception:
+            for n in names:
+                (pub / n).unlink(missing_ok=True)
+            raise
+        return tuple(f'{tun}/{cat_id}/pub/{n}' for n in names)
     finally:
         rc.unlink(missing_ok=True); ri.unlink(missing_ok=True)
 
@@ -559,7 +571,7 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=Non
         raise rs.HTTPException(400, f'This swap is about ${usd_:.2f}, over your ${cap_:.2f} cap per swap. Raise the cap under the swap button, or pick a cheaper model or a shorter clip.')
     note_ = rs.re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + rs.uuid.uuid4().hex[:12]; now_ = round(rs.time.time())
-    words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{smd_.get('label') or 'The character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
+    words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{doc_.get('title') or doc_.get('name') or 'Your character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
     doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': words_, 'at': now_,
         'media': {'id': jid, 'kind': 'video', 'provider': prov_, 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
                   'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}, **shape_}}]

@@ -102,6 +102,8 @@ def test_a_chat_ask_swaps_the_newest_clip_on_openrouter_with_no_fal_key(monkeypa
     md = r.json()['doc']['messages'][-1]['media']
     assert md['provider'] == 'openrouter' and md['modelId'] == 'or-seedance-swap' and md['aspect'] == '9:16' and md['keepSound'] and md['usd'] == mg.v2v_cost('or-seedance-swap', 9.5)
     assert md['fromImg']['mid'] == 'maaaaaaaaaaa1' and OR_KEY not in r.text
+    said = r.json()['doc']['messages'][-1]['text']   # the folder's character by name, never the model that drew its picture
+    assert said.startswith('Bishop swapped into') and 'Gemini' not in said, said
     sent = []
     class H:
         async def __aenter__(self): return self
@@ -118,7 +120,11 @@ def test_a_chat_ask_swaps_the_newest_clip_on_openrouter_with_no_fal_key(monkeypa
     url, heads, body = sent[0]
     assert url == 'https://openrouter.ai/api/v1/videos' and body['model'] == 'bytedance/seedance-2.0' and body['duration'] == 10 and body['aspect_ratio'] == '9:16'
     vid, img = body['input_references']
-    assert base64.b64decode(vid['video_url']['url'].split(',', 1)[1]) == b'REF' and img['image_url']['url'].startswith('data:image/jpeg;base64,')   # the light copies
+    # the light copies go as https links (OpenRouter: "Only HTTPS URLs are allowed"), served only from the swap's own token files
+    v_url, i_url = vid['video_url']['url'], img['image_url']['url']
+    assert v_url.startswith('https://test-tunnel.trycloudflare.com/g/pub/') and v_url.endswith('.mp4') and i_url.startswith('https://test-tunnel.trycloudflare.com/g/pub/') and i_url.endswith('.jpg')
+    assert (tmp_path / 'media' / 'g' / 'pub' / v_url.rsplit('/', 1)[-1]).read_bytes() == b'REF'
+    assert 'data:' not in str(body)
     assert body['prompt'].endswith('replace the main character with bishop')
     done = [m for m in fs._ws_load('g', ws)['messages'] if m.get('media')][-1]['media']
     assert done['status'] == 'done' and (tmp_path / 'media' / 'g' / f"{md['id']}.mp4").read_bytes() == b'SOUND'   # the clip's own sound laid back
@@ -260,6 +266,15 @@ def test_every_seedance_swap_takes_the_clip_and_the_longest_it_makes():
     assert cs.ref_args('/c.mp4', '/o.mp4', 15)[cs.ref_args('/c.mp4', '/o.mp4', 15).index('-t') + 1] == '15.00'
 
 
+def test_the_same_video_added_twice_is_one_clip_card(monkeypatch, tmp_path):
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path); _fake_ffmpeg(monkeypatch, fs, [])
+    first = post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True}).json()
+    again = post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True, 'name': 'IMG_0062'}).json()
+    clips = [m for m in again['doc']['messages'] if (m.get('media') or {}).get('clip')]
+    assert len(clips) == 1 and again['same'] == first['doc']['messages'][-1]['media']['id']
+    assert len(list((tmp_path / 'media' / 'g').glob('m*.mp4'))) == 1   # no second file left on disk
+
+
 def test_a_17_s_reel_is_kept_whole_and_the_cap_and_most_used_follow_the_owner(monkeypatch, tmp_path):
     fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=17.2); _fake_ffmpeg(monkeypatch, fs, [])
     async def no_run(*a):
@@ -294,5 +309,37 @@ def test_with_a_public_site_the_references_go_as_2_hour_links(monkeypatch, tmp_p
     assert c.get('/api/cats/pubref/g/' + 'x' * 32 + '.mp4').status_code == 404 and c.get('/api/cats/pubref/g/..%2Fc.mp4').status_code == 404
     f = tmp_path / 'media' / 'g' / 'pub' / v.rsplit('/', 1)[-1]; import os; os.utime(f, (1, 1))
     assert c.get(v.replace('https://feeless.example.com', '')).status_code == 404   # after 2 hours it is gone
+    # not public https → never a data URL (OpenRouter: "Only HTTPS URLs are allowed"): the quick tunnel's links
     monkeypatch.setenv('PUBLIC_SITE_URL', 'http://localhost:3000')
-    assert asyncio.run(fs._swap_refs('g', clip, tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png'))[0].startswith('data:video/mp4;base64,')   # not public https → inside the request
+    async def _tun(root):
+        return 'https://abc-def.trycloudflare.com'
+    monkeypatch.setattr(fs._pubt, 'ensure', _tun)
+    v2, i2 = asyncio.run(fs._swap_refs('g', clip, tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png'))
+    assert v2.startswith('https://abc-def.trycloudflare.com/g/pub/') and v2.endswith('.mp4') and i2.startswith('https://abc-def.trycloudflare.com/g/pub/')
+    assert (tmp_path / 'media' / 'g' / 'pub' / v2.rsplit('/', 1)[-1]).is_file()
+
+    async def _down(root):
+        raise ValueError('the public link for your clip did not open')
+    monkeypatch.setattr(fs._pubt, 'ensure', _down)
+    n_before = len(list((tmp_path / 'media' / 'g' / 'pub').iterdir()))
+    with pytest.raises(ValueError, match='did not open'):
+        asyncio.run(fs._swap_refs('g', clip, tmp_path / 'media' / 'g' / 'maaaaaaaaaaa1.png'))
+    assert len(list((tmp_path / 'media' / 'g' / 'pub').iterdir())) == n_before   # its files do not stay behind
+
+
+def test_the_tunnel_server_serves_only_fresh_token_files(tmp_path):
+    import os, urllib.request, urllib.error
+    import pub_tunnel as pt
+    d = tmp_path / 'g' / 'pub'; d.mkdir(parents=True); tok = 'A' * 32
+    (d / f'{tok}.mp4').write_bytes(b'CLIP'); (tmp_path / 'g' / 'secret.png').write_bytes(b'NO')
+    assert pt.url_in('INF |  https://red-fox-12.trycloudflare.com  |') == 'https://red-fox-12.trycloudflare.com' and pt.url_in('no url') == ''
+    port = pt.serve(tmp_path); base = f'http://127.0.0.1:{port}'
+    assert urllib.request.urlopen(f'{base}/g/pub/{tok}.mp4').read() == b'CLIP'
+    assert urllib.request.urlopen(f'{base}/ok').read() == b'ok'
+    for bad in ('/', '/g/', '/g/pub/', '/g/secret.png', f'/g/pub/../secret.png', '/g/pub/short.mp4', f'/g/pub/{tok}.png'):
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(base + bad)
+        assert e.value.code == 404, bad
+    os.utime(d / f'{tok}.mp4', (1, 1))
+    with pytest.raises(urllib.error.HTTPError):
+        urllib.request.urlopen(f'{base}/g/pub/{tok}.mp4')   # older than 2 hours: gone
