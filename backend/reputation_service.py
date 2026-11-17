@@ -66,7 +66,7 @@ STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
 import loop_lag as _loop_lag
-import chain_rpc as _chain
+import chain_rpc as _chain   # noqa: F401  (read by rep_admin_reads, rep_admin_routes as rs._chain)
 import hq_auth as _hq_auth
 from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, KEEPER_PUBLIC as _KEEPER_PUBLIC, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
@@ -1914,7 +1914,7 @@ COIN_READ_JUP_SEC = 1.5   # coin-read p95 was 6.5s (perf_view 2026-10-17): Jupit
 
 
 import chart_wallets as _cw
-import consigliere as _cg
+import consigliere as _cg   # noqa: F401  (read by rep_predict as rs._cg)
 _cw_cache: dict = {}
 
 
@@ -3095,263 +3095,31 @@ async def _arena_settle(px=None, now=None):
 _fuse_season_cache: dict = {'at': 0.0, 'data': None}
 
 
-async def _season_rows(since, until):
-    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if since <= _fuse._f(x.get('at')) < until]
-    if not pos:
-        return [], set()
-    px = await _hq_prices([leg for x in pos for leg in x['legs'] if leg.get('soldUsd') is None])
-    rows = []
-    for x in pos:
-        rr = _hq.position_pnl(x, px)
-        rows.append({**rr, 'wallet': x['wallet'], 'streak': _hq.swap_streak({**rr, 'events': x.get('events')})})
-    wallets = list({x['wallet'] for x in pos})
-    verdicts = await asyncio.gather(*[_shield_of(w) for w in wallets], return_exceptions=True)
-    bots = {w for w, v in zip(wallets, verdicts) if isinstance(v, dict) and v.get('verdict') == 'bot'}
-    return rows, bots
-
-
-def _season_wins():
-    """{card id: {'week', 'rank'}} for every crowned card (drives the 🏆 badge + the season Fee-Back boost)."""
-    return {t_['id']: {'week': s['week'], 'rank': t_['rank']} for s in _json_load(FUSE_HQ_PATH, {}).get('seasons') or [] for t_ in s.get('top') or []}
-
-
-async def _fuse_season_tick(now):
-    """Once per week: crown last week's top 3 cards (stored forever, winners notified, Fee-Back boost on those cards)."""
-    start = _hq.season_start(now); prev = start - _hq.WEEK
-    if _fuse._f(_json_load(FUSE_HQ_PATH, {}).get('seasonAwarded')) >= prev:
-        return None
-    rows, bots = await _season_rows(prev, start)
-    top = _hq.season_board(rows, prev, start, bots)[:3]
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        if _fuse._f(d.get('seasonAwarded')) >= prev:
-            return None
-        d['seasonAwarded'] = prev
-        if top:
-            d.setdefault('seasons', []).append({'week': prev, 'n': len(rows), 'top': [{**t_, 'handle': handle_of(t_['wallet'])} for t_ in top]})
-        _json_save(FUSE_HQ_PATH, d)
-    # ⚔ backer season: last week's top 3 backers split the HQ prize pool (owed in the Fee-Back book → weekly payout)
-    dd = _json_load(FUSE_HQ_PATH, {})
-    prizes = _hq.backer_prizes(_hq.backer_board(dd.get('backLog'), dd.get('backWins'), prev, start, set(_protected_wallets()) | bots), _card_rules().get('backerPoolUsd', 0))
-    if prizes:
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {})
-            d['backerPrizes'] = (d.get('backerPrizes') or []) + [{**pz, 'week': prev} for pz in prizes]
-            _json_save(FUSE_HQ_PATH, d)
-        for pz in prizes:
-            notify(pz['wallet'], 'fuse-card', f"⚔ Top backer #{pz['rank']} last week — ${pz['usd']:.2f} prize, paid with the weekly Fee-Back.", url='/terminal/fuse?tab=arena',
-                   once=f"backer-{prev}-{pz['wallet']}", meta={'claim': 'Most winning battle backs that week', 'source': 'Arena battles'})
-    # 🐱 FeeCat challenge: every card opened last week that beat her average trade that week
-    cat = await _feecat_raw()
-    cat_pct = _hq.feecat_week_pct((cat or {}).get('exits'), (cat or {}).get('positions'), prev, start) if cat else None
-    beat = _hq.beats_cat(_hq.season_board(rows, prev, start, bots), cat_pct)
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        d.setdefault('catChallenge', []).append({'week': prev, 'catPct': cat_pct, 'ids': beat})
-        d['catChallenge'] = d['catChallenge'][-52:]
-        _json_save(FUSE_HQ_PATH, d)
-    owners = {x['id']: x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []}
-    for cid in beat:
-        if cid in owners:
-            notify(owners[cid]['wallet'], 'fuse-guard', f"🐱 Your card {owners[cid].get('name') or ''} beat FeeCat last week ({cat_pct:+.1f}% her average trade). +{_hq.CAT_WIN_PTS} Fuse score.",
-                   url='/terminal/fuse?tab=arena', once=f"beatcat-{prev}-{cid}", meta={'claim': 'Card P&L above FeeCat\'s weekly average trade', 'source': 'Fuse season + FeeCat sim book'})
-    # 🐱 FeeCat's weekly note: every wallet with a card opened last week, once per week
-    dial = _json_load(RUNNERS_PATH, {}).get('cfgDial')
-    tuned = sum(1 for a in _admin_load().get('audit') or [] if a.get('action') == 'runners-config' and prev <= _fuse._f(a.get('at')) < start)
-    beat_wallets = {owners[c]['wallet'] for c in beat if c in owners}
-    for w in {r['wallet'] for r in rows if r.get('wallet')}:
-        notify(w, 'fuse-card', _hq.feecat_weekly(dial, tuned, w in beat_wallets, cat_pct), url='/terminal/fuse?tab=arena', once=f"feecat-week-{prev}",
-               meta={'claim': "FeeCat's sim book + engine changes that week", 'source': 'Fuse season + HQ audit log'})
-    plan = _hq.payout_plan((await _feeback_book())['rows'], await _sol_usd_live(), exclude=_protected_wallets())
-    if plan['totalUsd'] >= 1:
-        for adm in _admin_wallets():
-            notify(adm, 'shield', f"💸 Weekly Fuse payout ready: ${plan['totalUsd']:,.2f} to {len(plan['rows'])} wallets (Fee-Back + copy cuts). HQ › Fuse › Card rules › Pay.",
-                   url='/terminal/command?tab=fuse', once=f"fuse-payout-{prev}", meta={'claim': 'Owed from the fee ledger', 'source': 'Fuse Fee-Back book'})
-    medal = {1: '🥇', 2: '🥈', 3: '🥉'}
-    if top:
-        _fuse_chat('fuse-lab', '🏆 Fuse season crowned: ' + ' · '.join(f"{medal[t_['rank']]} {handle_of(t_['wallet']) or t_['wallet'][:4] + '…'} {t_.get('name') or ''} {t_['pnlPct']:+.1f}%" for t_ in top), f"season-{prev}")
-    for t_ in top:
-        notify(t_['wallet'], 'fuse-guard', f"🏆 {medal[t_['rank']]} Your card {t_.get('name') or ''} finished #{t_['rank']} in this week's Fuse season ({t_['pnlPct']:+.1f}%). "
-               f"+{_card_rules()['seasonBoostPct']:g}% Fee-Back on it.", url='/terminal/fuse?tab=arena', once=f"season-{prev}-{t_['id']}",
-               meta={'claim': f"#{t_['rank']} of {len(rows)} cards opened that week, by real P&L", 'source': 'Fuse season (verified FEELESS trades)'})
-    _fuse_season_cache.update(at=0.0, data=None)
-    return top
+# ↪ moved to rep_seasons.py: _season_rows, _season_wins, _fuse_season_tick
 
 
 _season_moves: dict = {'week': 0, 'prev': {}, 'list': []}
 
 
-def _season_race(week, board, now):
-    """Rank changes since the last background build → the Arena race ticker; a card entering or leaving the top 3 alerts
-    its owner once (per card, week and direction)."""
-    if _season_moves['week'] != week:
-        _season_moves.update(week=week, prev={}, list=[])
-    prev = _season_moves['prev']
-    moves = _hq.rank_moves(prev, board) if prev else []
-    _season_moves['list'] = (_season_moves['list'] + [{**m, 'at': now} for m in moves])[-30:]
-    now_rank = {b['id']: b['rank'] for b in board}
-    for b in board:
-        was = prev.get(b['id']) if prev else None
-        if prev and b['rank'] <= 3 and (was is None or was > 3):
-            notify(b['wallet'], 'fuse-guard', f"🏆 Your card {b.get('name') or ''} just entered the Fuse season top 3 (#{b['rank']}, {b['pnlPct']:+.1f}%). Hold it to Monday 00:00 UTC.",
-                   url='/terminal/fuse?tab=arena', once=f"top3-in-{week}-{b['id']}", meta={'claim': f"#{b['rank']} by real P&L this week", 'source': 'Fuse season'})
-    if prev:
-        for cid, was in prev.items():
-            if was <= 3 and now_rank.get(cid, 99) > 3:
-                own = next((b for b in board if b['id'] == cid), None)
-                pos = own or next((x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['id'] == cid), None)
-                if pos:
-                    notify(pos['wallet'], 'fuse-guard', f"⚠ Your card dropped out of the Fuse season top 3 (now #{now_rank.get(cid, '10+')}). There's still time before Monday 00:00 UTC.",
-                           url='/terminal/fuse?tab=arena', once=f"top3-out-{week}-{cid}-{int(now // 3600)}", meta={'claim': 'Rank fell below #3', 'source': 'Fuse season'})
-    _season_moves['prev'] = now_rank
+# ↪ moved to rep_seasons.py: _season_race
 
 
 _replay_cache: dict = {}
 
 
-async def _series_24h(pair):
-    """Last 24h of 15m closes for one pool (candles service), [[t, close], …]. 60s cache."""
-    hit = _replay_cache.get(pair)
-    if hit and time.time() - hit[0] < 60:
-        return hit[1]
-    try:
-        async with httpx.AsyncClient(timeout=6) as http:
-            cs = (await http.get(f'http://127.0.0.1:5099/api/candles/solana/{pair}', params={'interval': '15m'})).json().get('candles') or []
-    except Exception:
-        cs = []
-    since = time.time() - 86400
-    out = [[int(c[0]), c[4]] for c in cs if c and c[0] >= since and c[4]]
-    _replay_cache[pair] = (time.time(), out)
-    return out
+# ↪ moved to rep_seasons.py: _series_24h
 
 
 _fuse_score_cache: dict = {}
 
 
-async def _fuse_score(address, fresh=False):
-    """⚛️ Fuse score for a wallet (2 min cache): real card P&L, medals, copies, streaks, holding + reputation."""
-    a = primary_of(address)
-    hit = _fuse_score_cache.get(a)
-    if hit and not fresh and time.time() - hit[0] < 120:
-        return hit[1]
-    mine = set(linked_of(a)) | {a}
-    allp = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
-    pos = [x for x in allp if x['wallet'] in mine]
-    px = await _hq_prices([leg for x in pos for leg in x['legs'] if leg.get('soldUsd') is None]) if pos else {}
-    now = time.time()
-    rows = []
-    for x in pos:
-        rr = _hq.position_pnl(x, px)
-        rows.append({**rr, 'streak': _hq.swap_streak({**rr, 'events': x.get('events')}), 'compound': _hq.compound_streak({**rr, 'events': x.get('events')}),
-                     'heldS': (x.get('closedAt') or now) - _fuse._f(x.get('at'))})
-    ids = {x['id'] for x in pos}
-    wins = [w for cid, w in _season_wins().items() if cid in ids]
-    copies = sum(1 for c in allp if c.get('copyOwner') in mine)
-    tr = (_trust_cache.get(a) or (0, {}))[1].get('score')
-    sh = await _shield_of(a)
-    cat_wins = sum(1 for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] for cid in w.get('ids') or [] if cid in ids)
-    rec = _json_load(FUSE_HQ_PATH, {}).get('battleRecord') or {}
-    bat = {k: sum(int((rec.get(f'user:{cid}') or {}).get(k) or 0) for cid in ids) for k in ('w', 'l', 'd')}
-    medals = {str(r): sum(1 for w in wins if w.get('rank') == r) for r in (1, 2, 3)}
-    held = [r for r in rows if not r.get('closed')]
-    out = {'address': a, **_hq.fuse_score(rows, wins, copies, tr, bot=sh.get('verdict') == 'bot', cat_wins=cat_wins),
-           # Trader page (profile top): the record behind the score, every number from FEELESS's own Fuse records
-           'trader': {'medals': medals, 'battles': bat, 'catWins': cat_wins, 'copies': copies, 'held': len(held),
-                      'heldPnlUsd': round(sum(r['pnlUsd'] for r in held), 2), 'bestPct': round(max((r['pnlPct'] for r in rows), default=0.0), 2),
-                      'closed': sum(1 for r in rows if r.get('closed'))}}
-    _fuse_score_cache[a] = (time.time(), out)
-    return out
+# ↪ moved to rep_seasons.py: _fuse_score
 
 
 _ids_warming: set = set()
 
 
-def _bred_load():
-    """🧬 Engine-made strategies → `fuse.BRED` (so `fuse.fitness` can score them). Cheap: the hot JSON cache."""
-    bred = _json_load(FUSE_HQ_PATH, {}).get('bredStyles') or {}
-    _fuse.BRED.clear(); _fuse.BRED.update({k: v.get('weights') or {} for k, v in bred.items()})
-    return bred
-
-
-async def _bred_tick(board, now):
-    """🧬 Strategy generation + scrapping (hourly, with the autopilot): losers with a full record are scrapped to the log, a proven
-    one is reported to the owner once, and a free seat gets ONE new strategy bred from the record. Returns the alive ones."""
-    d0 = _json_load(FUSE_HQ_PATH, {})
-    alive, scrapped, proven, want = _hq.bred_cycle(d0.get('bredStyles') or {}, board, now, d0.get('bredAt') or 0)
-    new = None
-    if want:
-        table = {**_fuse.STYLES, **{k: v.get('weights') or {} for k, v in alive.items()}, **{r['style']: r.get('weights') or {} for r in d0.get('bredScrapped') or []}}
-        kid = _fuse.breed_style(board, table, seed=int(d0.get('bredN') or 0) + 1)
-        if kid:
-            new = (f"gen-{int(d0.get('bredN') or 0) + 1}", {**kid, 'at': now})
-    if scrapped or new or set(alive) != set(d0.get('bredStyles') or {}):
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {})
-            cur = {k: v for k, v in (d.get('bredStyles') or {}).items() if k in alive}
-            if new:
-                cur[new[0]] = new[1]; d['bredN'] = int(d.get('bredN') or 0) + 1; d['bredAt'] = now
-            d['bredStyles'] = cur
-            d['bredScrapped'] = (list(d.get('bredScrapped') or []) + scrapped)[-20:]
-            _json_save(FUSE_HQ_PATH, d)
-    for name in proven:
-        for adm in _admin_wallets():
-            notify(adm, 'shield', f"🧬 Engine-made strategy {name} is winning in the arena (average and typical run both up). Open the verdict to decide.",
-                   url='/terminal/command', once=f'bred-proven-{name}', push=False)
-    return _bred_load()
-
-
-async def _fuse_autopilot_tick(now=None):
-    """Hourly: settle due arena runs, then enter each strategy's current champion ($5 paper, 3 pools) once per hour —
-    the arena proves strategies on its own. Then alert HQ about wallets newly flagged as bots."""
-    now = now or time.time()
-    await _fuse_season_tick(now)
-    await _arena_settle(now=now)
-    arena = _json_load(FUSE_HQ_PATH, {}).get('arena') or []
-    board_now = _hq.arena_board([_hq.arena_value(e, {}, now) for e in arena])
-    bred = await _bred_tick(board_now, now)                                             # 🧬 generate a new strategy / scrap a proven loser
-    dead = _retired(board_now) - set(bred)   # ☠ losers: one probe a day, not hourly (a bred one keeps its hourly run until it is judged)
-    styles = [st for st in [*_fuse.STYLES, *bred] if _hq.autopilot_due(arena, st, now, retired=dead)]
-    if styles:
-        metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
-        if len(metas) >= 3:
-            runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, 3, 14, 28, st, 5 / sol_usd, sol_usd, int(now // 3600)) for st in styles])
-            champs = [(st, _champ_view(ev['champions'][0], metas)) for st, ev in zip(styles, runs) if ev['champions']]
-            prices = await _hq_prices([leg for _, c in champs for leg in c['legs']])
-            async with _admin_lock:
-                d = _json_load(FUSE_HQ_PATH, {})
-                for st, c in champs:
-                    if _hq.autopilot_due(d.get('arena') or [], st, now, retired=dead):
-                        d['arena'] = ((d.get('arena') or []) + [{**_hq.arena_entry(c, st, prices, now, uuid.uuid4().hex[:10]), 'auto': True}])[-ARENA_KEEP:]   # ⚡ ~100h of runs: the doc is rewritten every card tick
-                _json_save(FUSE_HQ_PATH, d)
-    await _shield_alerts()
-
-
-async def _shield_alerts():
-    """Bot shield → HQ inbox: each wallet newly judged 'bot' is reported once to every admin wallet (cited)."""
-    rows = _shield_scan_all()
-    d = _json_load(SHIELD_PATH, {})
-    told = set(d.get('alerted') or [])
-    new = [r for r in rows if r['verdict'] == 'bot' and not r.get('manual') and r['address'] not in told]
-    for r in new[:20]:
-        claim = r['hits'][0]['evidence'][0] if r['hits'] else {'claim': r['why'], 'source': 'Bot shield'}
-        for adm in _admin_wallets():
-            notify(adm, 'shield', f"🛡 Bot shield flagged {r['address'][:4]}…{r['address'][-4:]} ({r['score']}): {claim['claim']}",
-                   url='/terminal/command', once=f"shield-{r['address']}", meta={'claim': claim['claim'], 'source': claim['source']}, push=False)
-        told.add(r['address'])
-    if new:
-        d['alerted'] = sorted(told)[-5000:]
-        _json_save(SHIELD_PATH, d)
-    return len(new)
-
-
-async def _fuse_autopilot_loop():
-    await asyncio.sleep(90)
-    while True:
-        try:
-            await _fuse_autopilot_tick()
-        except Exception as e:
-            print('fuse autopilot:', e)
-        await asyncio.sleep(_hq.AUTOPILOT_EVERY)
+# ↪ moved to rep_seasons.py: _bred_load, _bred_tick, _fuse_autopilot_tick, _shield_alerts, _fuse_autopilot_loop
 
 
 @app.on_event('startup')
@@ -3360,17 +3128,7 @@ async def _fuse_autopilot_start():
         _LEAD.start(_fuse_autopilot_loop)
 
 
-def _card_look(body, prev):
-    """A published card's look + configs (engine scenario cards): dial safe|balanced|degen, TP/SL/rotate/stop-mode chips."""
-    dial = body.get('dial', prev.get('dial', ''))
-    cfg = body.get('cfg') if isinstance(body.get('cfg'), dict) else prev.get('cfg')
-    out = {'dial': dial if dial in _rn.CARD_NAMES else ''}
-    if cfg:
-        out['cfg'] = {'tp': max(0, min(5000, int(_fuse._f(cfg.get('tp'))))), 'sl': max(0, min(95, int(_fuse._f(cfg.get('sl'))))), 'window': str(cfg.get('window') or '')[:6],
-                      'rotateHours': max(0.08, min(48, _fuse._f(cfg.get('rotateHours')) or 24)), 'slMode': cfg.get('slMode') if cfg.get('slMode') in ('sell', 'park', 'hold') else 'sell'}
-    if body.get('fromScenario') or prev.get('fromScenario'):
-        out['fromScenario'] = str(body.get('fromScenario') or prev.get('fromScenario'))[:40]
-    return out
+# ↪ moved to rep_seasons.py: _card_look
 
 
 _arena_best_cache: dict = {'at': 0.0, 'v': None}
@@ -3383,82 +3141,7 @@ ARENA_SNAPSHOT_PATH = DATA_DIR / 'arena_snapshot.json'
 FUSE_ARENA_NAME = '⚔ Fuse Arena'
 
 
-def _fuse_chat(room, text, key, tokens=None):
-    """Fuse moments into chat — battle results, bond runs, FeeCat's book, season crowns. Once per key (kept 2 days)."""
-    # 🧈 own small file (2026-10-15): 1,385 keys (97 KB) lived in fuse_hq.json — every post re-wrote the whole Fuse file, unlocked, beside the card tick
-    posted = _json_load(FUSE_CHAT_POSTED_PATH, None)
-    if posted is None:
-        posted = dict((_json_load(FUSE_HQ_PATH, {}) or {}).get('chatPosted') or {})
-    if key in posted:
-        return None
-    msg = chat_system_post(room, FUSE_ARENA_NAME, FEE_ADDRESS, text[:600], tokens=tokens)
-    now = time.time()
-    _json_save(FUSE_CHAT_POSTED_PATH, {k: v for k, v in {**posted, key: now}.items() if now - v < 2 * 86400})
-    return msg
-
-
-def _fuse_chat_tick(now):
-    """Background: 🔔 new bond runs → the coin's own room + fuse-lab; 🐱 FeeCat book changes → fuse-lab."""
-    live = _runner_live_cache.get('data') or {}
-    for r in live.get('passing') or []:
-        if r.get('bondTier') == 'run' and r.get('pairAddress'):
-            txt = f"🔔 BOND RUN: ${r.get('symbol')} ticked every box at {_fuse._f(r.get('curve')):.0f}% up the curve — {r.get('buyShare')}% buys, curve +{_fuse._f(r.get('curveSpeed')):.0f} pts in 10m. Gated, not a promise."
-            tok = [{'chainId': 'solana', 'pairAddress': r['pairAddress'], 'baseToken': {'address': r['mint'], 'symbol': r.get('symbol'), 'name': r.get('name') or r.get('symbol')},
-                    'priceUsd': r.get('price'), 'marketCap': r.get('mcap'), 'volume': {'h1': r.get('vol1h')}, 'info': {'imageUrl': r.get('logo')},
-                    'signals': {'score_label': f"🔔 Bond run · score {round(_fuse._f(r.get('score')))}", 'score_reasons': [f"{_fuse._f(r.get('curve')):.0f}% up the curve", f"{r.get('buyShare')}% buys", 'gated by Fuse runners']}}]
-            _fuse_chat(f"coin-solana-{r['pairAddress']}-trenches", txt, f"bond-{r['mint']}-{int(now // 21600)}", tok)
-            _fuse_chat('fuse-lab', txt, f"bond-lab-{r['mint']}-{int(now // 21600)}", tok)
-    fc = next((c for c in _arena_mega_cache.get('data') or [] if c.get('kind') == 'feecat'), None)
-    if fc:
-        syms = sorted(l.get('symbol') or '?' for l in fc['legs'])
-        _fuse_chat('fuse-lab', f"🐱 FeeCat's book now: {' · '.join('$' + s for s in syms)} ({(fc['index'] or 100) - 100:+.1f}% sim, {fc['record'].get('winRate')}% wins). Beat her this week for +8 Fuse score.",
-                   f"feecat-book-{'-'.join(syms)}")
-
-
-def _battle_view(mega, now):
-    """⚔ Live battlefield: each pair with both cards' move since the bell (live from the stage), time left, recent results."""
-    b = _json_load(FUSE_HQ_PATH, {}).get('battles') or {}
-    pct = {f"{c['kind']}:{c['id']}": (c['index'] or 100) - 100 for c in mega}
-    backs = list((b.get('backs') or {}).values()); paid = list((b.get('paid') or {}).values())
-    paper = b.get('paper') or {}
-    pnow = lambda k, start, bs=0.0: round(paper[k]['pct'] - bs, 2) if (paper.get(k) or {}).get('pct') is not None else round(pct.get(k, start) - start, 2)   # THIS bell's move on the season book
-    pairs = [{side: {**x[side], 'now': pnow(x[side]['key'], x[side]['start'], _fuse._f(x[side].get('bookStart'))), 'paper': {kk: (paper.get(x[side]['key']) or {}).get(kk) for kk in ('startUsd', 'valueUsd', 'feesUsd', 'hiPct', 'loPct')} if paper.get(x[side]['key']) else None,
-                     'frames': {str(m): _pgb.frame_pct(paper.get(x[side]['key']), now, m) for m in _pgb.FRAMES} if paper.get(x[side]['key']) else None,
-                     'spark': [round(v - _fuse._f(x[side].get('bookStart')), 2) for v in _pgb.spark(paper.get(x[side]['key']), b.get('at'))],   # 📈 the race line: % since the bell, 1 point a minute
-                     'backers': backs.count(x[side]['key']),
-                     'paidN': sum(1 for q in paid if q['key'] == x[side]['key']), 'paidUsd': round(sum(q['usd'] for q in paid if q['key'] == x[side]['key']), 2)} for side in ('a', 'b')}
-             for x in b.get('pairs') or []]
-    for i, x in enumerate(b.get('pairs') or []):   # ⚡ the game's live scoreboard: six coin-vs-coin duels since the bell
-        bell_a, bell_b = x['a'].get('bellPx'), x['b'].get('bellPx')
-        pairs[i]['duels'] = _pgb.duels(paper.get(x['a']['key']), paper.get(x['b']['key']), bell_a, bell_b) if bell_a and bell_b else None
-        for side in ('a', 'b'):
-            pairs[i][side].pop('bellPx', None)
-    br = _json_load(FUSE_HQ_PATH, {}).get('bracket') or {}
-    bc = br.get('cards') or {}
-    cbs = _json_load(FUSE_HQ_PATH, {}).get('comebacks') or {}
-    board = []
-    for c in _rn.unique_cards(mega):
-        k = f"{c['kind']}:{c['id']}"; r = bc.get(k) or {'w': 0, 'l': 0}
-        board.append({'key': k, 'comebacks': int(cbs.get(k) or 0), 'name': c.get('name') or 'Card', 'emoji': c.get('emoji'), 'dial': c.get('dial'), 'w': r.get('w', 0), 'l': r.get('l', 0),
-                      'pct': round((c.get('index') or 100) - 100, 2), 'status': 'winners' if r.get('l', 0) == 0 else 'losers' if r.get('l', 0) == 1 else 'out'})
-    board.sort(key=lambda x: ({'winners': 0, 'losers': 1, 'out': 2}[x['status']], -x['w'], -x['pct']))
-    lg_ = _json_load(FUSE_HQ_PATH, {}).get('league') or None
-    league_view = None
-    if lg_:   # 🏆 the league table IS the board: points, W-D-L, the season book's $ (started at $20)
-        t_ = _lg.table(lg_); half = max(1, len(t_) // 2)
-        board = [{'key': r['key'], 'name': r['name'], 'emoji': r.get('emoji'), 'w': r['w'], 'd': r['d'], 'l': r['l'], 'pts': r['pts'], 'rank': i + 1,
-                  'usd': _fuse._f((paper.get(r['key']) or {}).get('valueUsd')) or _fuse._f((r.get('hist') or [_lg.START_USD])[-1]),
-                  'pct': _fuse._f((paper.get(r['key']) or {}).get('pct')), 'comebacks': int(cbs.get(r['key']) or 0), 'src': r.get('src'),
-                  'status': 'winners' if i < half else 'losers'} for i, r in enumerate(t_)]
-        league_view = {'n': lg_['n'], 'round': lg_.get('round', 0), 'rounds': lg_.get('rounds', _lg.ROUNDS), 'startUsd': _lg.START_USD, 'fieldMax': _lg.FIELD_MAX,
-                       'cycled': (lg_.get('cycled') or [])[-6:][::-1], 'cut': {'usd': _lg.CUT_USD, 'dropPct': _lg.CUT_DROP, 'bells': _lg.CUT_BELLS}}
-    fighting = {p_[s_]['key'] for p_ in pairs for s_ in ('a', 'b')}
-    calls = list((br.get('picks') or {}).values())
-    for x in board:
-        x['calls'] = calls.count(x['key'])
-    up_next = [] if league_view else [x for x in board if x['status'] != 'out' and x['key'] not in fighting][:3]
-    return {'pairs': pairs, 'league': league_view, 'endsAt': b.get('endsAt'), 'log': (_json_load(FUSE_HQ_PATH, {}).get('battleLog') or [])[-8:][::-1],
-            'bracket': {'board': board, 'season': br.get('season') or 1, 'champions': list(reversed(br.get('champions') or []))[:5], 'upNext': up_next, 'calls': len(calls)}, 'max': _rn.BATTLE_MAX}
+# ↪ moved to rep_seasons.py: _fuse_chat, _fuse_chat_tick, _battle_view
 
 
 class BracketPick(BaseModel):
@@ -3476,37 +3159,7 @@ class BattleBack(BaseModel):
 import arena_league as _lg
 
 
-def _league_card(d, key, mega):
-    """The coins a fighter plays: its league seat (playground cards live only there), else its live Arena card."""
-    r = next((x for x in ((d.get('league') or {}).get('field') or []) if x['key'] == key), None)
-    return r or next((c for c in mega if f"{c['kind']}:{c['id']}" == key), None)
-
-
-def _league_extra(mega):
-    """League seats that aren't live Arena cards (cycled-in playground cards) as cards the Pit can draw in its corners."""
-    have = {f"{c['kind']}:{c['id']}" for c in mega}
-    out = []
-    for r in ((_json_load(FUSE_HQ_PATH, {}).get('league') or {}).get('field') or []):
-        if r['key'] not in have and ':' in r['key']:
-            kind, cid = r['key'].split(':', 1)
-            out.append({'kind': kind, 'id': cid, 'name': r['name'], 'emoji': r.get('emoji'), 'legs': r.get('legs') or [], 'fighterOnly': True, 'league': True,
-                        'activity': {'tier': 'warm', 'score': 30}})
-    return out
-
-
-def _league_playground():
-    """Fresh engine-playground cards for the league (cycled-in seats + filling a thin field): the HQ battle field, best record first."""
-    pg = (_json_load(RUNNERS_PATH, {}).get('pgBattle') or {})
-    rec = pg.get('record') or {}
-    cards = sorted((pg.get('cards') or {}).items(), key=lambda kv: -((rec.get(kv[0]) or {}).get('w', 0) - (rec.get(kv[0]) or {}).get('l', 0)))
-    out = []
-    for k, c in cards:
-        legs = [{'pairAddress': l.get('pairAddress'), 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': _fuse._f(l.get('usd')) or 1.0,
-                 'runner': (l.get('role') or 'runner') == 'runner'} for l in c.get('legs') or [] if l.get('pairAddress')]
-        if len(legs) >= 2:
-            name = str(c.get('name') or k)
-            out.append({'key': f"pg:{k}", 'name': name.split(' ', 1)[-1] if ' ' in name else name, 'emoji': name.split(' ', 1)[0] if ' ' in name else '🧪', 'legs': legs, 'src': 'playground'})
-    return out
+# ↪ moved to rep_seasons.py: _league_card, _league_extra, _league_playground
 
 
 async def _battle_tick(now):
@@ -3691,254 +3344,7 @@ async def _battle_tick(now):
     return results
 
 
-async def _arena_auto_refresh(now):
-    """Background: deal a fresh Arena build once per runner round (best gated coins + best live pools)."""
-    rd = _json_load(RUNNERS_PATH, {'rounds': []})
-    last = (rd.get('rounds') or [None])[-1]
-    if not last or ((rd.get('autoCard') or {}).get('at') or 0) >= last['at']:
-        return None
-    live, pools = await asyncio.gather(_runner_live(), _fuse_candidates())
-    rd_ = _json_load(RUNNERS_PATH, {})
-    cfg_ = _runner_cfg()
-    if rd_.get('sitOut'):   # 🩺 nothing wins → the Arena Pick sits out runners (pools only) until a filter proves itself
-        cfg_ = {**cfg_, 'autoCoins': 0}
-    card = _rn.auto_card(_rn.apply_filter(live['passing'], rd_.get('pickFilter'), cfg_.get('autoCoins') or 0), list(pools.values()), now, cfg_)
-    if card:
-        async with _admin_lock:
-            rd = _json_load(RUNNERS_PATH, {'rounds': []}); rd['autoCard'] = card; _json_save(RUNNERS_PATH, rd)
-    return card
-
-
-async def _feecat_raw():
-    try:
-        async with httpx.AsyncClient(timeout=2.5) as http:
-            c = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json()
-        return c.get('cat') or c
-    except Exception:
-        return None
-
-
-async def _feecat_card():
-    """🐱 FeeCat on the Arena: her open simulated book as one card (legs = her positions, entry = her fill), with her
-    record, so traders can see whether her edge beats theirs. Never real money — labelled sim everywhere."""
-    c = await _feecat_raw()
-    if not c:
-        return None
-    ps = [p for p in c.get('positions') or [] if p.get('pairAddress')]
-    if not ps:
-        return None
-    cost = sum(_fuse._f(p.get('costSol')) for p in ps) or 1.0
-    pct = round(sum(_fuse._f(p.get('costSol')) * _fuse._f(p.get('currentChange')) for p in ps) / cost, 2)
-    wr = _fuse._f(c.get('winRate'))
-    act = _hq.activity(len(ps), 0, sum(_fuse._f(p.get('entryVolH1')) for p in ps) * 24, pct)
-    return {'kind': 'feecat', 'id': 'feecat', 'name': f"{c.get('name') or 'FeeCat'}'s book", 'emoji': '🐱', 'aura': '', 'chat': 'fuse-card-feecat',
-            'legs': [{'pairAddress': p['pairAddress'], 'symbol': p.get('symbol'), 'baseAddress': p.get('mint'), 'entry': _fuse._f(p.get('entryPriceUsd')),
-                      'weight': round(_fuse._f(p.get('costSol')) / cost * 100, 2), 'at': p.get('openedAt')} for p in ps],
-            'index': round(100 + pct, 2), 'grade': 'A' if wr >= 55 else 'B' if wr >= 45 else 'C', 'buyers': 0, 'activity': act,
-            'record': {'winRate': round(wr), 'wins': c.get('wins'), 'losses': c.get('losses'), 'realizedSol': round(_fuse._f(c.get('realizedPnlSol')), 4),
-                       'lives': (c.get('discipline') or {}).get('lives')}}
-
-
-async def _arena_mega(rd, cfg, now):
-    """Cards on the Arena stage: HQ mega cards (published Fuses flagged `arena`) + runner cards that lit after their
-    rounds. Each carries its live activity (fuse_hq.activity → hard-coded effect tier). 30s cache, parallel lookups."""
-    if _arena_mega_cache.pop('boot', False) and _arena_mega_cache['data'] is None and not _FUSE_FORCE.get():
-        # ⚡ first call after a restart: the stage written to disk (≤ 15 min old) is served at once and rebuilt in the background (it took ≈ 13s cold)
-        snap_ = _launchpad_board.launchpad_board_snapshot(ARENA_SNAPSHOT_PATH, 'mega', now)
-        if snap_:
-            _arena_mega_cache.update(at=now - max(40.0, snap_[0]), data=snap_[1])
-    if _arena_mega_cache['data'] is not None and not _FUSE_FORCE.get():
-        age_ = now - _arena_mega_cache['at']
-        if age_ < 40:
-            return _arena_mega_cache['data']
-        if age_ < 600:   # ⚡ stale: answer with the last stage at once, ONE background rebuild (a viewer used to wait for every card's live view)
-            if not _arena_mega_cache.get('busy'):
-                _arena_mega_cache['busy'] = True
-
-                async def _bg():
-                    tok = _FUSE_FORCE.set(True)
-                    try:
-                        await _arena_mega(rd, cfg, time.time())
-                    except Exception:
-                        pass
-                    finally:
-                        _FUSE_FORCE.reset(tok); _arena_mega_cache['busy'] = False
-                asyncio.create_task(_bg())
-            return _arena_mega_cache['data']
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    staged = sorted(((fid, f) for fid, f in (store.get('fuses') or {}).items() if f.get('arena') and f.get('enabled', True)), key=lambda x: -_fuse._f(x[1].get('createdAt')))[:8]   # newest first
-    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in staged], return_exceptions=True)
-    out = []
-    for v in views:
-        if isinstance(v, BaseException):
-            continue
-        day = [b for b in store.get('buys', []) if b['fuse'] == v['id'] and now - _fuse._f(b.get('at')) < 86400]
-        act = _hq.activity(len(day), len({b['wallet'] for b in day}), v['volume24h'], (v['index'] or 100) - 100)
-        base = (store['fuses'].get(v['id']) or {}).get('basePrices') or {}
-        out.append({'kind': 'mega', 'id': v['id'], 'name': v['name'], 'emoji': v['emoji'], 'aura': v.get('aura') or '', 'chat': f"fuse-card-{str(v['id']).lower()}",
-                    'dial': v.get('dial') or '', 'cfg': v.get('cfg') or None, 'tagline': v.get('tagline') or '',
-                    'legs': [{**l, 'base': base.get(l['pairAddress'])} for l in v['legs']],
-                    'index': v['index'], 'grade': (v['score'] or {}).get('grade'), 'buyers': v['trust']['buyers'], 'activity': act})
-    live = {r['mint']: r for r in (await _runner_live())['passing']}
-    for c in [c for c in reversed(rd.get('litCards') or []) if not c.get('downAt')][:6]:
-        pct = _rn.card_result(c, rd['paths'], now, cfg)
-        flow = sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in c['picks'])
-        out.append({'kind': 'lit', 'id': c['id'], 'name': ' · '.join(f"${p.get('symbol')}" for p in c['picks'][:4]), 'emoji': '🔥', 'aura': '',
-                    'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
-                              'weight': round(100 / max(1, len(c['picks'])), 2), 'entry': p.get('entry')} for p in c['picks']], 'chat': f"fuse-card-{c['id']}",
-                    'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'C', 'buyers': 0, 'at': c['at'], 'proof': c.get('proof'),
-                    'streak': _hq.swap_streak({'events': [{'kind': 'buy'}] * len(c.get('swaps') or []), 'pnlPct': pct}), 'swaps': (c.get('swaps') or [])[-3:],
-                    'activity': _hq.activity(0, 0, flow, pct)})
-    # Traders' cards: every open card shows until it's withdrawn; one that's up ≥ topTierPct takes the top tier.
-    hq_all = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
-    hq = [x for x in hq_all if not x.get('closedAt')]
-    hq = sorted(hq, key=lambda x: -_fuse._f(x.get('at')))[:24]
-    if hq:
-        upx = await _hq_prices([leg for x in hq for leg in x['legs']])
-        top = _card_rules()['topTierPct']
-        for x in hq:
-            rr = _hq.position_pnl(x, upx)
-            if rr['closed']:
-                continue
-            stk = _hq.swap_streak({**rr, 'events': x.get('events')})
-            cmp_ = _hq.compound_streak({**rr, 'events': x.get('events')})
-            ncopy = sum(1 for c in hq_all if c.get('copyOf') == x['id'])
-            act = _hq.activity(len(rr['legs']) + ncopy, 1 + ncopy, rr['valueUsd'] * 24, rr['pnlPct'])
-            act = {**act, 'score': min(100, act['score'] + stk['bonus'] + cmp_['bonus'])}
-            act['tier'] = next(tn for cut, tn in _hq.ACTIVITY_TIERS if act['score'] >= cut)
-            if rr['pnlPct'] >= top:
-                act = {'score': max(act['score'], 90), 'tier': 'blazing'}
-            out.append({'kind': 'user', 'id': x['id'], 'name': x.get('name') or 'Fuse card', 'emoji': '🃏', 'aura': '', 'owner': handle_of(x['wallet']) or f"{x['wallet'][:4]}…{x['wallet'][-4:]}",
-                        'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, rr['costUsd']) * 100, 2),
-                                  'usd': l.get('usd'), 'tokens': l.get('tokens'), 'realizedUsd': l.get('realizedUsd'), 'soldUsd': l.get('soldUsd'), 'heldUsd': l.get('heldUsd'),
-                                  'entry': (_fuse._f(l.get('usd')) / _fuse._f(l.get('tokens'))) if _fuse._f(l.get('tokens')) > 0 else None} for l in rr['legs']],   # true entry from the confirmed buy
-                        'costUsd': rr['costUsd'], 'compound': cmp_, 'chat': f"fuse-card-{x['id']}",
-                        'index': round(100 + rr['pnlPct'], 2), 'grade': 'A' if rr['pnlPct'] >= top else 'B' if rr['pnlPct'] >= 0 else 'C', 'buyers': 1, 'mode': x.get('mode') or 'hold',
-                        'pnlPct': rr['pnlPct'], 'at': x.get('at'), 'activity': act, 'streak': stk, 'copies': ncopy, 'copyPct': _card_rules()['copyPct']})
-    fc = await _feecat_card()
-    if fc:
-        out.append(fc)
-    ac = rd.get('autoCard')
-    if ac and ac.get('legs'):
-        apx = await _hq_prices([l for l in ac['legs']])
-        moves = [apx[l['pairAddress']] / l['entry'] for l in ac['legs'] if _fuse._f(apx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
-        pct = round((sum(moves) / len(moves) - 1) * 100, 2) if moves else 0.0
-        coins = sum(1 for l in ac['legs'] if l.get('runner'))
-        out.append({'kind': 'auto', 'id': 'arena-pick', 'name': 'Arena Pick',   # stable id: its bracket record + chat survive each round's re-deal 'emoji': '⚔', 'aura': '', 'dial': 'degen' if coins >= 3 else 'balanced',
-                    'tagline': f"{coins} coins + {len(ac['legs']) - coins} pools",
-                    'legs': ac['legs'], 'index': round(100 + pct, 2), 'grade': 'A' if pct > 0 else 'B', 'buyers': 0, 'at': ac['at'], 'chat': f"fuse-card-{ac['id']}",
-                    'activity': _hq.activity(len(ac['legs']), 0, sum(_fuse._f(l.get('vol1h')) for l in ac['legs']) * 24, pct)})
-    published = {f.get('fromScenario') for f in (store.get('fuses') or {}).values() if f.get('arena') and f.get('fromScenario')}
-    bench_names = set()
-    for sc in rd.get('scenarioStage') or []:   # 🥈 runners-up: engine scenario cards waiting for HQ's audit (published ones show as mega)
-        if sc.get('src') in published:
-            continue
-        spx = await _hq_prices([l for l in sc['legs']])
-        mv_ = [spx[l['pairAddress']] / l['entry'] for l in sc['legs'] if _fuse._f(spx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
-        pct_ = round((sum(m * _fuse._f(l['weight']) for m, l in zip(mv_, sc['legs'])) / max(1e-9, sum(_fuse._f(l['weight']) for l in sc['legs'][:len(mv_)])) - 1) * 100, 2) if mv_ else 0.0
-        dial = sc.get('dial') or _rn.dial_of(sc['tp'], sc['sl'])
-        own = f"{sc['emoji']} {sc['name']}" if sc.get('dial') and sc.get('emoji') else None
-        nm_ = own if own and own not in bench_names else _rn.card_name(dial, sc['id'], bench_names)   # never two runners-up with one name
-        bench_names.add(nm_)
-        out.append({'kind': 'scenario', 'bench': True, 'id': sc['id'], 'src': sc.get('src'), 'version': sc.get('version'), 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0], 'aura': '', 'legs': sc['legs'], 'index': round(100 + pct_, 2), 'dial': dial,
-                    'cfg': sc.get('cfg') or _rn.card_cfg(dial, sc), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': sc['at'], 'chat': f"fuse-card-{sc['id']}", 'pnlPct': pct_,
-                    'tagline': f"engine card · TP +{sc['tp']}% / stop −{sc['sl']}%",
-                    'activity': _hq.activity(len(sc['legs']), 0, 0, pct_)})
-    # 🏆 the engine's top battle winner is the ONE engine card that reaches the Arena by itself (HQ 🎨 picks the rest)
-    pgb = rd.get('pgBattle') or {}
-    champ_id = _pgb.champion(pgb.get('record'), pgb.get('cards'))
-    if champ_id and champ_id not in set(rd.get('creatorPicks') or []):
-        champ_id = None   # 🔒 HQ verifies every big engine card before it reaches the Arena (🎨 pick it in the playground)
-    if champ_id and not any(x.get('src') == champ_id for x in out):
-        cc = pgb['cards'][champ_id]; r_ = pgb['record'][champ_id]
-        cpx = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in cc['legs']])
-        mv_ = [(_fuse._f(cpx.get(l['pairAddress'])) / l['entry'] - 1) * 100 for l in cc['legs'] if _fuse._f(cpx.get(l['pairAddress'])) > 0 and _fuse._f(l.get('entry')) > 0]
-        pct_ = round(sum(mv_) / len(mv_), 2) if mv_ else 0.0
-        nm_ = cc.get('name') or 'Engine champ'
-        out.append({'kind': 'engine', 'bench': True, 'engineChamp': True, 'id': champ_id, 'src': champ_id, 'name': nm_.split(' ', 1)[-1], 'emoji': nm_.split(' ', 1)[0] if ' ' in nm_ else '🏆',
-                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(100 / max(1, len(cc['legs'])), 2), 'runner': l.get('role') == 'runner', 'entry': l.get('entry')} for l in cc['legs']],
-                    'index': round(100 + pct_, 2), 'grade': 'A' if pct_ > 0 else 'B', 'buyers': 0, 'at': cc.get('at'), 'chat': f"fuse-card-{champ_id}", 'pnlPct': pct_, 'dial': cc.get('dial'),
-                    'cfg': {'tp': int(_fuse._f(cc.get('tp'))), 'sl': int(_fuse._f(cc.get('sl'))), 'rotateHours': 1, 'slMode': 'sell'},
-                    'tagline': f"engine champion · {r_.get('w', 0)}–{r_.get('l', 0)} in playground battles", 'activity': _hq.activity(len(cc['legs']), 0, 0, pct_)})
-    # 🎛 at most 4 engine cards on the Arena, each with ≥ 6 coins: the engine champion first, then the best runners-up
-    eng = [x for x in out if x.get('kind') in ('scenario', 'engine') and x.get('bench')]
-    arena_runner_cards = sum(1 for x in out if x.get('kind') in ('lit', 'round', 'auto'))   # cards the Arena's own runner rounds made
-    keep = sorted([x for x in eng if len(x.get('legs') or []) >= _pgb.MIN_COINS], key=lambda x: (not x.get('engineChamp'), -_fuse._f(x.get('pnlPct'))))[:min(4, arena_runner_cards)]   # ⚖ never more playground than Arena picks
-    out = [x for x in out if x not in eng or x in keep]
-    # ⭐ top-tier cards fight in the bracket too (fighters only — they already have their own section at the top of the Arena)
-    tier_dial = {'diamond': 'safe', 'ever': 'safe', 'gold': 'balanced', 'blaze': 'degen', 'next': 'degen'}
-    pcfg = _prime_cfg()
-    for pc_ in await _prime_view():
-        out.append({'kind': 'prime', 'fighterOnly': True, 'id': pc_['tpl'], 'name': pc_['label'].split(' ', 1)[-1], 'emoji': pc_['label'].split(' ', 1)[0],
-                    'legs': [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'baseAddress': l.get('mint'), 'weight': round(_fuse._f(l.get('usd')) / max(1e-9, pc_['valueUsd']) * 100, 2), 'runner': l.get('role') == 'runner', 'entry': l.get('entry')} for l in pc_['legs']],
-                    'index': round(100 + _fuse._f(pc_.get('pnlPct')), 2), 'grade': 'A' if _fuse._f(pc_.get('pnlPct')) > 0 else 'B', 'buyers': 0, 'at': pc_.get('at'), 'chat': f"fuse-card-prime-{pc_['tpl']}",
-                    'dial': tier_dial.get(pc_.get('tier')), 'cfg': {'tp': pc_.get('tp'), 'sl': pc_.get('sl'), 'rotateHours': pcfg.get('rotateHours'), 'slMode': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'cycle': pc_.get('cycleMode')},
-                    'tagline': f"top-tier card · {pc_.get('rounds', 0)} rounds", 'activity': _hq.activity(len(pc_['legs']), 0, 0, _fuse._f(pc_.get('pnlPct'))),
-                    'real': pc_.get('cfgScope') == 'real'})
-    rnd = (rd.get('rounds') or [None])[-1]
-    if not [x for x in out if not x.get('fighterOnly')] and rnd and rnd.get('picks'):   # never an empty stage: the live round stands in as a proving card
-        ps = rnd['picks']
-        moves = [((_fuse._f(live.get(p['mint'], {}).get('price')) or p['entry']) / p['entry'] - 1) * 100 for p in ps if _fuse._f(p.get('entry')) > 0]
-        mv = round(sum(moves) / len(moves), 2) if moves else 0.0
-        out.append({'kind': 'round', 'id': str(rnd.get('id')), 'name': ' · '.join(f"${p.get('symbol')}" for p in ps[:4]), 'emoji': '⏳', 'aura': '',
-                    'legs': [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'baseAddress': p['mint'], 'logo': p.get('logo'),
-                              'weight': round(100 / len(ps), 2), 'entry': p.get('entry')} for p in ps], 'chat': f"fuse-card-{rnd.get('id')}",
-                    'index': round(100 + mv, 2), 'grade': 'B', 'buyers': 0, 'at': rnd.get('at'),
-                    'activity': _hq.activity(0, 0, sum(_fuse._f(live.get(p['mint'], {}).get('vol1h')) * 24 for p in ps), mv)})
-    rec = _json_load(FUSE_HQ_PATH, {}).get('battleRecord') or {}
-    out = [{**c, 'record_wl': rec.get(f"{c['kind']}:{c['id']}")} for c in out]
-    out = await _card_dna_tag(out, rd)
-    out.sort(key=lambda x: -x['activity']['score'])
-    _arena_mega_cache.update(at=now, data=out)
-    if out and now - _arena_mega_cache.get('savedAt', 0) >= 60:
-        _arena_mega_cache['savedAt'] = now
-        try:
-            await asyncio.to_thread(_launchpad_board.save_board_snapshot, ARENA_SNAPSHOT_PATH, 'mega', out, {}, now)
-        except Exception:
-            pass
-    return out
-
-
-async def _card_dna_tag(cards, rd):
-    """🧬 Every Arena card carries its own DNA: user cards = their plan · tier cards = their tier config · engine cards = the battle DNA ·
-    everything else gets a unique DNA (stable per card, stored) — so no two cards play alike."""
-    pcfg = _prime_cfg(); pos = {x['id']: x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []}
-    pgd = ((rd.get('pgBattle') or {}).get('dna') or {})
-    fixed = {}
-    for c in cards:
-        k = f"{c['kind']}:{c['id']}"
-        if c['kind'] == 'user' and c['id'] in pos:
-            x = pos[c['id']]
-            fixed[k] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press', 'rescue', 'auto') else 'off', 'compound': x.get('compoundStyle') or 'smart', 'payoutPct': x.get('payoutPct', 100),
-                                   'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
-        elif c['kind'] == 'prime':
-            fixed[k] = _dna.clean({'cycle': (pcfg.get('cycles') or {}).get(c['id'], 'off'), 'compound': pcfg.get('compoundStyle', 'smart') if pcfg.get('compound') else 'off',
-                                   'payoutPct': (pcfg.get('payouts') or {}).get(c['id'], 0), 'clock': pcfg.get('rotateHours'), 'stop': {'replace': 'sell'}.get(pcfg.get('slMode'), pcfg.get('slMode')), 'trail': pcfg.get('trail', True)})
-        elif c['kind'] == 'engine' and pgd.get(c['id']):
-            fixed[k] = pgd[c['id']]
-    store = _json_load(FUSE_HQ_PATH, {}).get('cardDna') or {}
-    known = {**store, **fixed}
-    assigned = _dna.assign([{'id': f"{c['kind']}:{c['id']}", 'dial': c.get('dial')} for c in cards], known=known)
-    new = {k: v for k, v in assigned.items() if k not in fixed and k not in store}
-    if new:
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); d['cardDna'] = {**dict(list((d.get('cardDna') or {}).items())[-300:]), **new}; _json_save(FUSE_HQ_PATH, d)
-    return [{**c, 'dna': assigned[f"{c['kind']}:{c['id']}"], 'dnaLabel': _dna.label(assigned[f"{c['kind']}:{c['id']}"])} for c in cards]
-
-
-async def _fuse_candidates(chain='solana'):
-    """The gene pool: best ~40 live pools across popular / yield / deep / new (one row per pool)."""
-    raw = await _fuse_discover_pairs(chain)
-    cands = {}
-    for lens in _fuse.LENSES:
-        for r in _fuse.discover(raw, lens, chain, now_ms=time.time() * 1000, limit=12):
-            cands.setdefault(r['pairAddress'], r)
-    return cands
-
-
-def _champ_view(c, metas, chain='solana'):
-    return {**c, 'legs': [{**{k: metas[pa].get(k) for k in ('symbol', 'quote', 'dex', 'logo', 'liquidityUsd', 'aprEst', 'change24h', 'baseAddress', 'quoteAddress')},
-                           'chainId': chain, 'pairAddress': pa, 'weight': c['weights'][pa]} for pa in c['pools']]}
+# ↪ moved to rep_seasons.py: _arena_auto_refresh, _feecat_raw, _feecat_card, _arena_mega, _card_dna_tag, _fuse_candidates, _champ_view
 
 
 _fuse_prebuilt_cache: dict = {}
@@ -3953,8 +3359,7 @@ _FUSE_FORCE = contextvars.ContextVar('fuse_force', default=False)
 _mayhem_mints: set = set()
 
 
-def _runner_cfg():
-    return _rn.clean_cfg(_json_load(RUNNERS_PATH, {}).get('cfg') or {})
+# ↪ moved to rep_runners.py: _runner_cfg
 import trench_kernel.enrich as _enr
 # 🔎 THE ONE ENRICHMENT SCHEDULER (trench_kernel/enrich.py): every deep holder / launch scan in this process is asked for here, by priority,
 # on a budget of RPC calls a second, with freshness that survives a restart. No caller starts a scan itself.
@@ -3970,104 +3375,7 @@ _enrich_timer: dict = {'h': None}
 ENRICH_WAIT_SEC = 14.0               # a caller that WAITS for a scan (a held / ready coin, a coin someone opened) waits at most this long
 
 
-def _intel_boot():
-    """Once per process, BEFORE the first scan request is judged: scan results + the scheduler's freshness book come back from disk."""
-    if not _fuse_warm_n.get('restored') and not os.environ.get('PYTEST_CURRENT_TEST'):
-        _fuse_warm_n['restored'] = True
-        print('intel restored:', _intel_restore())
-
-
-def _intel_fresh(mint, prio=3):
-    """The cached scan when it is still fresh for a request of this priority (a complete scan: the TTL — ×4 for a coin nobody is acting
-    on; an incomplete one: 60s), else None."""
-    hit = _intel_cache.get(mint)
-    if not hit:
-        return None
-    if (hit[1] or {}).get('top10Pct') is None:
-        return hit[1] if time.time() - hit[0] < 60 else None
-    return hit[1] if time.time() - hit[0] < _ENRICH.ttl_for(prio) else None
-
-
-async def _enrich_scan(mint):
-    """ONE deep scan, started by the scheduler: every RPC call it makes is tagged with the mint (calls per coin), its outcome goes back
-    to the scheduler (fresh · failed · rate-limited) and everyone waiting on it gets the result."""
-    out, r429 = None, _chain.RPC_STATS['r429']
-    tok = _chain.RPC_TAG.set(mint)
-    try:
-        out = await asyncio.wait_for(token_intel('solana', mint), 12)
-    except Exception:
-        out = None
-    finally:
-        _chain.RPC_TAG.reset(tok)
-    ok = bool(out and out.get('top10Pct') is not None)
-    now = time.time()
-    _ENRICH.finished(mint, now, ok, rate_limited=(not ok and _chain.RPC_STATS['r429'] > r429))
-    if ok:
-        _intel_failed.pop(mint, None)
-    else:
-        _intel_failed[mint] = now
-        if len(_intel_failed) > 2000:
-            for k in sorted(_intel_failed, key=_intel_failed.get)[:500]:
-                _intel_failed.pop(k, None)
-    fut = _intel_waiters.pop(mint, None)
-    if fut is not None and not fut.done():
-        fut.set_result(out)
-    _enrich_pump()
-
-
-def _enrich_pump():
-    """Start whatever the scheduler says is due (priority first, inside the concurrency limit and the call budget) and set ONE timer for
-    the next moment something could start. Called on every request and every finished scan — there is no polling loop."""
-    if os.environ.get('PYTEST_CURRENT_TEST'):
-        return
-    now = time.time()
-    for m in _ENRICH.due(now):
-        _ENRICH.started(m, now)
-        asyncio.ensure_future(_enrich_scan(m))
-    nxt = _ENRICH.next_in(now)
-    if nxt is not None and (_enrich_timer['h'] is None or _enrich_timer['h'].cancelled() or _enrich_timer.get('at', 0) <= now):
-        try:
-            loop = asyncio.get_event_loop()
-            _enrich_timer['at'] = now + nxt
-
-            def _fire():
-                _enrich_timer['h'] = None
-                _enrich_pump()
-            _enrich_timer['h'] = loop.call_later(nxt, _fire)
-        except RuntimeError:
-            pass
-
-
-async def _runner_intel(mint, prio=5, why='board', wait=None):
-    """THE one door to a coin's deep scan. Fresh in the cache → that. Otherwise the request joins the scheduler's queue at `prio`
-    (trench_kernel.enrich.PRIO: 0 HELD · 1 READY · 2 hunter lane / someone is looking · 3 top CONTENDING · 4 movers · 5 the rest) and:
-    a caller with priority ≤ 2 (or `wait=True`) waits for the result (≤ ENRICH_WAIT_SEC); everyone else gets the last known scan (maybe
-    stale, maybe None) at once — the result lands in the cache for their next read. A coin whose scan is pending, rate-limited or
-    unavailable is never rejected for it."""
-    if not mint:
-        return None
-    _intel_boot()
-    got = _intel_fresh(mint, prio)
-    now = time.time()
-    if got is not None:   # the cache answers: no scan, no queue (a complete scan also refreshes the scheduler's own book)
-        if got.get('top10Pct') is not None:
-            _ENRICH.note_success(mint, (_intel_cache.get(mint) or (0,))[0])
-        _ENRICH.count['skippedFresh'] += 1
-        return got
-    st = _ENRICH.request(mint, prio, why, now, known=mint in _launch_facts)
-    stale = (_intel_cache.get(mint) or (0, None))[1]
-    if st in ('fresh', 'deferred') or os.environ.get('PYTEST_CURRENT_TEST'):
-        return stale
-    fut = _intel_waiters.get(mint)
-    if fut is None or fut.done():
-        fut = _intel_waiters[mint] = asyncio.get_event_loop().create_future()
-    _enrich_pump()
-    if not (wait if wait is not None else prio <= 2):
-        return stale
-    try:
-        return await asyncio.wait_for(asyncio.shield(fut), ENRICH_WAIT_SEC)
-    except Exception:
-        return stale
+# ↪ moved to rep_runners.py: _intel_boot, _intel_fresh, _enrich_scan, _enrich_pump, _runner_intel
 
 
 _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
@@ -4075,225 +3383,23 @@ _runner_widen = {'level': 0, 'at': 0.0, 'log': []}
 
 import meme_terms as _mt
 import pg_battle as _pgb
-import card_dna as _dna
+import card_dna as _dna   # noqa: F401  (read by rep_ai, rep_public_reads as rs._dna)
 MEME_PATH = DATA_DIR / 'meme_terms.json'
 
 
-async def _meme_tick(now):
-    """📖 Feed the meme-term learner: names + tickers of today's launchpad coins (trending + new + the live launch stream)
-    and the last hour of FEELESS chat. Counts only — nothing here trades."""
-    samples = []
-    async with httpx.AsyncClient(timeout=10) as http:
-        async def get(url, params, key):
-            try:
-                return (await http.get(url, params=params)).json().get(key) or []
-            except Exception:
-                return []
-        tr, nw, pl = await asyncio.gather(get('http://127.0.0.1:5001/api/market/feed', {'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'}, 'pairs'),
-                                          get('http://127.0.0.1:5001/api/market/feed', {'kind': 'new', 'chain': 'solana', 'page': 1, 'scope': 'launchpads'}, 'pairs'),
-                                          get('http://127.0.0.1:5001/api/pump/pulse', {'limit': 100}, 'launches'))
-    for x in tr + nw:
-        b = x.get('baseToken') or {}
-        if b.get('address'):
-            samples.append((f"{b.get('name') or ''} {b.get('symbol') or ''}", 'coin', b['address']))
-    for x in pl:
-        if x.get('mint'):
-            samples.append((f"{x.get('name') or ''} {x.get('symbol') or ''}", 'coin', x['mint']))
-    chat = _json_load(CHAT_PATH, {})
-    rooms = chat.get('rooms', chat) if isinstance(chat, dict) else {}
-    for room, msgs in rooms.items():
-        for m in (msgs if isinstance(msgs, list) else [])[-200:]:
-            ts = (m.get('ts', 0) / (1000 if m.get('ts', 0) > 1e12 else 1)) if isinstance(m, dict) else 0
-            if ts and now - ts < 3600 and m.get('text'):
-                samples.append((str(m['text'])[:280], 'chat', str(m.get('id') or f"{room}-{ts}")))
-    async with _admin_lock:
-        st = _mt.learn(_json_load(MEME_PATH, {}), samples, now)
-        _json_save(MEME_PATH, st)
-    return len(samples)
+# ↪ moved to rep_runners.py: _meme_tick
 
 
 RUNNER_SCANS = 60   # holder scans per board build (cached per coin): the busiest launch coins by 1h volume
 
 
-async def _runner_live():
-    """Every launchpad coin the feed sees right now (trending + new, pre-bond + graduated), forensics for the busiest,
-    gated + scored. 30s cache — the board is shared by every viewer."""
-    if _runner_live_cache['data'] and time.time() - _runner_live_cache['at'] < 40 and not _FUSE_FORCE.get():   # warmed every 25s in the background
-        return _runner_live_cache['data']
-    if _runner_live_cache.get('busy') and _runner_live_cache['data'] and time.time() - _runner_live_cache['busy'] < 90:
-        return _runner_live_cache['data']   # one build at a time: a second caller (the agents' loop, the warm loop) reads the last board
-    _runner_live_cache['busy'] = time.time()
-    try:
-        return await _runner_live_build()
-    finally:
-        _runner_live_cache['busy'] = 0.0
-
-
-async def _runner_live_build():
-    async with httpx.AsyncClient(timeout=10) as http:
-        async def feed(kind, page=1):
-            try:
-                return (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': page, 'scope': 'launchpads'})).json().get('pairs') or []
-            except Exception:
-                return []
-
-        async def pulse():   # the live launch stream is the only place mayhem-mode is flagged: remember every one seen
-            try:
-                return (await http.get('http://127.0.0.1:5001/api/pump/pulse', params={'limit': 100})).json().get('launches') or []
-            except Exception:
-                return []
-        # 🌊 4 pages each (it was 2): the feed now carries Pump's 250 biggest + 200 most recently traded coins
-        got, launches = await asyncio.gather(asyncio.gather(*[feed(k, pg) for pg in (1, 2, 3, 4) for k in ('trending', 'new')]), pulse())
-    _mayhem_mints.update(x['mint'] for x in launches if x.get('mayhem') and x.get('mint'))
-    now_ms = time.time() * 1000
-    seen, pairs = set(), []
-    for p in [x for rows in got for x in rows]:
-        m = (p.get('baseToken') or {}).get('address')
-        age_ms = now_ms - _fuse._f(p.get('pairCreatedAt'))
-        old_ok = (age_ms <= _rn.OLD_AGE_H * 3.6e6 and _fuse._f((p.get('volume') or {}).get('h1')) >= _rn.OLD_MIN_VOL1H
-                  and _fuse._f((p.get('liquidity') or {}).get('usd')) >= _rn.OLD_MIN_LIQ)   # 🚀 older runners still trading hard stay on the board
-        if m and m not in seen and (age_ms <= _rn.MAX_AGE_H * 3.6e6 or old_ok):
-            seen.add(m); pairs.append(p)
-    _open_pairs[:] = [x for rows in got for x in rows]   # 🚪 the open trench list reads EVERY feed pair, whatever its age
-    _open_meta['at'] = time.time()   # ⏱ when the board's prices / pool depths were read (the LIVE price comes from Jupiter's shared cache)
-    busiest = sorted(pairs, key=lambda p: -_fuse._f((p.get('volume') or {}).get('h1')))[:RUNNER_SCANS]   # warmed in the background (cached scans)
-    # 🗑 trench breakouts get a holder scan too (they're rarely among the 40 busiest — the scan never reached them before)
-    # 🎛 the OWNER's trench filter first: coins inside their own band (age, cap, trades, volume) are scanned before the engine's
-    # band — with "≤ 1h · $10K–$100K" set, none of the scanned coins were ever in that band, so the filter could only read 0
-    own_t = _trench.clean_own((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('trenchCfg'))
-    own_g = _trench.own_gate(own_t) if own_t['mode'] in ('own', 'meta') else None
-    by_vol = lambda p: -_fuse._f((p.get('volume') or {}).get('h1'))
-    mine_t = sorted((p for p in pairs if p not in busiest and own_g and _trench.market_pair(p, now_ms, own_g)), key=by_vol)[:10]
-    busiest += mine_t
-    busiest += sorted((p for p in pairs if p not in busiest and _trench.market_pair(p, now_ms, _trench.widen(len(_trench.WIDEN) - 1))), key=by_vol)[:max(4, 10 - len(mine_t))]
-    # ⏭ THE TOP OF EVERY CATEGORY LIST is on the board and scanned first: Coming up picks from the top of 🔥 Pump trending / 🌊 Volume /
-    # 🚀 Movers / 🆕 New / 🟢 Bottoms, and those coins read "holder scan not done" or "not on the runner board yet" (older than the
-    # board's age window). Top 8 a list, ≤ 30 extra scans (launch facts are read once per coin; a re-scan is 4 RPC calls).
-    cat_m = {r.get('mint') for rows in _lens_rows.values() for r in rows[:60]} | {r.get('baseAddress') for r in (_bottom_cache.get('rows') or [])[:60]}   # top 60 a list = what Coming up walks (Jupiter's audit judges the ones our scan can't reach)
-    feed_by = {(x.get('baseToken') or {}).get('address'): x for rows in got for x in rows}
-    miss_c = [m_c for m_c in cat_m if m_c and m_c not in feed_by and m_c not in seen]
-    if miss_c and not os.environ.get('PYTEST_CURRENT_TEST'):   # 📡 a list's top coin the launch feed never carried ("43 not on the runner board yet"):
-        try:                                                    # its pair is built from Jupiter's row (same shape) so it is judged like any other
-            for m_c, t_c in (await _jup_tokens(miss_c[:300])).items():
-                pr_c = _launchpad_board.jup_pair(t_c)
-                if pr_c:
-                    feed_by[m_c] = pr_c
-        except Exception:
-            pass
-    for m_c in cat_m:
-        if m_c and m_c in feed_by and m_c not in seen:
-            seen.add(m_c); pairs.append(feed_by[m_c])
-    busiest += [p for p in pairs if (p.get('baseToken') or {}).get('address') in cat_m and p not in busiest][:30]
-    # Never block the board on scans: wait ≤6s, the rest keep running and land in the cache for the next refresh.
-    tasks = {(p.get('baseToken') or {}).get('address'): asyncio.ensure_future(_runner_intel((p.get('baseToken') or {}).get('address'), _enr.PRIO['REST'], 'board')) for p in busiest}   # the board ASKS (lowest priority): it gets the last known scan now, the fresh one on a later build
-    if tasks:
-        await asyncio.wait(list(tasks.values()), timeout=6)
-    intel = {m: t.result() for m, t in tasks.items() if t.done() and not t.cancelled() and t.exception() is None}
-    try:   # 🧪 every coin gets a holder reading: Jupiter's audit stands in until our own scan lands (one batched read, 3-min cache)
-        jlite = await _jup_lite([(p.get('baseToken') or {}).get('address') for p in pairs])
-    except Exception:
-        jlite = {}
-    blocks = _block_load()['wallets']
-    out_pairs = {e['pair'] for e in _radar['events'] if e['kind'] == 'snipers-out'}
-    cands = []
-    smart = _smart_buyers(time.time())
-    for p in pairs:
-        m = (p.get('baseToken') or {}).get('address'); it = intel.get(m) or (_intel_cache.get(m) or (0, None))[1]
-        if not it or it.get('top10Pct') is None:
-            it = _ja.lite_intel(jlite.get(m)) or it
-        creator = (it or {}).get('creator')
-        brec = blocks.get(creator) if creator else None
-        # ⛔ hard out: a creator REPORTED for a rug, or a bot. One blocklisted only for sniping OTHER launches is a warning (same as the
-        # rug shield) — treated as suspect, so its coin must prove itself on its own numbers (`runners.banger_proof`).
-        flagged = bool(creator and ((_is_blocked(brec) and brec.get('reported')) or (_shield_cache.get(creator, (0, {}))[1] or {}).get('verdict') == 'bot')) \
-            or _ja.authority_bad(jlite.get(m))   # ⛔ the dev can still mint / freeze
-
-        crep = None
-        if creator:
-            try:
-                crep = _quick_rep(creator).get('level')
-            except Exception:
-                crep = None
-            if _is_blocked(brec) and not brec.get('reported') and crep != 'high':
-                crep = 'suspect'
-        hist = _runner_track(m, time.time(), _fuse._f(p.get('curveProgress')), *((None, None) if (it or {}).get('source') == 'jupiter' else ((it or {}).get('top10Pct'), (it or {}).get('devHoldingPct'))))   # Jupiter's % is another method — never mix it into the spike / dev-sold history
-        cands.append(_rn.candidate(p, it, flagged, p.get('pairAddress') in out_pairs or m in out_pairs, now_ms, mayhem=m in _mayhem_mints, creator_rep=crep,
-                                   hist=hist, smart=smart.get(m, 0)))
-    # 🔧 auto-widen: a dead board (fewer than 3 passing) loosens the SOFT gates a step (max 3, hard floors); a full board
-    # (8+) steps back toward the configured engine. At most one step per 2 minutes; every step is logged with what moved.
-    base = _runner_cfg(); wz = _runner_widen
-    eff = _rn.widen(base, wz['level'])
-    _runner_cands[:] = cands   # 🗑 every candidate (not just passing + the top 30 dropped) — the trench scan reads all of them
-    data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
-    if time.time() - wz['at'] >= 120:
-        nxt = _rn.widen_level(wz['level'], len(data['passing']))
-        if nxt != wz['level']:
-            wz.update(level=nxt, at=time.time()); wz['log'] = (wz['log'] + [{'at': time.time(), 'level': nxt, 'passing': len(data['passing'])}])[-20:]
-            eff = _rn.widen(base, nxt)
-            data = {**_rn.board(cands, eff), 'seen': len(cands), 'at': time.time()}
-    if int(time.time()) % 300 < 40:   # ~every 5 min: remember rejected pre-bond coins for gate regret (cheap, capped)
-        try:
-            async with _admin_lock:
-                rd_ = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); rd_['dropLog'] = _rn.log_drops(rd_.get('dropLog'), data['dropped'], time.time()); _json_save(RUNNERS_PATH, rd_)
-        except Exception:
-            pass
-    data['widen'] = {'level': wz['level'], 'max': _rn.WIDEN_MAX, 'moved': {k: [base.get(k), eff.get(k)] for k in _rn.WIDEN_STEPS if base.get(k) != eff.get(k)}}
-    _runner_live_cache.update(at=time.time(), data=data)
-    return data
+# ↪ moved to rep_runners.py: _runner_live, _runner_live_build
 
 
 _runner_hist: dict = {}   # mint → [(t, curve, top10, dev)] over the last ~20 min (new checks + kill switch)
 
 
-def _runner_track(mint, now, curve, top10, dev):
-    """Remember this coin's curve / top-10 / dev % and derive: curve speed (pts gained over ~10 min), top-10 jump over 5 min,
-    and whether the dev sold (dev % fell ≥1 pt from its recent high)."""
-    if not mint:
-        return {}
-    h = [x for x in _runner_hist.get(mint, []) if now - x[0] <= 20 * 60] + [(now, curve, top10, dev)]
-    _runner_hist[mint] = h[-60:]
-    old = [x for x in h if now - x[0] >= 8 * 60]
-    speed = round(curve - old[-1][1], 2) if old and curve else None
-    t5 = [x[2] for x in h if now - x[0] <= 5 * 60 and x[2] is not None]
-    jump = round(t5[-1] - min(t5), 2) if len(t5) >= 2 else 0.0
-    devs = [x[3] for x in h if x[3] is not None]
-    sold = bool(devs) and max(devs) > 0.5 and devs[-1] < max(devs) - 1
-    if len(_runner_hist) > 3000:
-        for k in [k for k, v in _runner_hist.items() if now - v[-1][0] > 20 * 60]:
-            _runner_hist.pop(k, None)
-    return {'curveSpeed': speed, 'top10Jump': jump, 'devSold': sold}
-
-
-def _smart_buyers(now, window=30 * 60):
-    """Smart FEELESS buyers per coin in the last 30 min: wallets with cached trust ≥ 75 or on the elite list (verified buys only)."""
-    elites = _crowd_cache.get('elites_set') or set()
-    out: dict = {}
-    for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items():
-        smart = w in elites or _fuse._f(((_trust_cache.get(w) or (0, {}))[1] or {}).get('score')) >= 75
-        if not smart:
-            continue
-        for x in rows or []:
-            if x.get('side', 'buy') == 'buy' and now - _fuse._f(x.get('ts')) <= window and x.get('token'):
-                out.setdefault(x['token'], set()).add(w)
-    return {m: len(ws) for m, ws in out.items()}
-
-
-async def _token_prices(mints):
-    """Best-liquidity USD price per mint (DexScreener tokens/v1, 30 per call, in parallel)."""
-    out = {}
-    async with httpx.AsyncClient(timeout=10) as http:
-        async def batch(chunk):
-            try:
-                for p in (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(chunk)}")).json() or []:
-                    m = (p.get('baseToken') or {}).get('address')
-                    liq = _fuse._f((p.get('liquidity') or {}).get('usd'))
-                    if m and (m not in out or liq > out[m][0]):
-                        out[m] = (liq, _fuse._f(p.get('priceUsd')))
-            except Exception:
-                pass
-        ms = list(mints)
-        await asyncio.gather(*[batch(ms[i:i + 30]) for i in range(0, len(ms), 30)])
-    return {m: v[1] for m, v in out.items() if v[1] > 0}
+# ↪ moved to rep_runners.py: _runner_track, _smart_buyers, _token_prices
 
 
 _jup_px_cache: dict = {}
@@ -4302,119 +3408,13 @@ _jup_px_cache: dict = {}
 _jup_calls = {'n': 0}   # every Jupiter price request this process sent (the office reports the per-pass delta)
 
 
-async def _jup_prices(mints, keyed=False, judge=False):
-    """🎯 Jupiter's own USD price per mint (price v3 — the price its routes trade at, across every pool), cached 20s. Paper fills
-    and values use THIS so paper sees the same price real money gets (a single DexScreener pair can sit 20–40% away on runners).
-    🔑 THE KEY BELONGS TO THE MONEY PATH (2026-10-13): reads use the public lane; only `keyed=True` (the keeper's own buy / sell price
-    check) may spend the key. Price reads went keyed-first, unpaced, and ate the ~1 request/s the keeper's quotes need: 30 of 55
-    skipped agent buys overnight were "Jupiter route unavailable (HTTP 429)"."""
-    now = time.time()
-    want = [m for m in dict.fromkeys(mints or []) if m]
-    out = {m: v for m in want for t, v in [_jup_px_cache.get(m, (0, 0))] if now - t < 20 and v > 0}
-    miss = [m for m in want if m not in out]
-    if miss:
-        key = os.environ.get('JUPITER_API_KEY') if keyed else _jkeys.read_key(os.environ)
-        sources = ([('https://api.jup.ag/price/v3', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/price/v3', {})]   # the money path: the keeper's key; every read: the READ key (jup_keys) else public
-        async with httpx.AsyncClient(timeout=6) as http:
-            for base, hdr in sources:
-                todo = [m for m in miss if m not in out]
-                if not todo:
-                    break
-                for i in range(0, len(todo), 50):   # 🩹 one refused batch never drops the batches after it (it did: 70% of watched coins read "vanished")
-                    try:
-                        _jup_calls['n'] += 1
-                        d = (await http.get(base, params={'ids': ','.join(todo[i:i + 50])}, headers=hdr)).json() or {}
-                        for m, v in (d.items() if isinstance(d, dict) else ()):
-                            px = _fuse._f((v or {}).get('usdPrice'))
-                            if px > 0:
-                                out[m] = px; _jup_px_cache[m] = (now, px)
-                    except Exception:
-                        continue   # this batch only; callers fall back to the pool price when Jupiter has none
-    if judge:   # 🩹 a RESULT read (a call / a coin judged later): a coin Jupiter did not price this time is NOT a rug
-        out.update(await _judge_fill([m for m in want if m not in out], now))
-    return out
+# ↪ moved to rep_runners.py: _jup_prices
 
 
 JUDGE_STALE_SEC = 300   # a price this fresh still judges a result when every live source missed the coin this second
 
 
-async def _judge_fill(miss, now):
-    """The coins Jupiter did not price, from every other place a live price lives: the chart's own live price (candles service), the
-    launch board's last build, then a ≤ 5-min-old Jupiter reading. Only result graders use it — never a stop, a buy or a sale."""
-    got = {}
-    if not miss:
-        return got
-    try:
-        for i in range(0, len(miss), 60):
-            got.update(await _live_px(miss[i:i + 60]))
-    except Exception:
-        pass
-    left = {m for m in miss if m not in got}
-    if left:
-        for p in _open_pairs:
-            m = (p.get('baseToken') or {}).get('address')
-            if m in left and _fuse._f(p.get('priceUsd')) > 0:
-                got[m] = _fuse._f(p['priceUsd']); left.discard(m)
-    for m in list(left):
-        t, v = _jup_px_cache.get(m, (0, 0))
-        if v > 0 and now - t <= JUDGE_STALE_SEC:
-            got[m] = v
-    return got
-
-
-async def _runner_tick(now=None, force=False):
-    """Every 5 min: record prices for every pick of the last 24h (the proof's price paths); every 15 min (or forced): a new
-    round — the best runners stay, newcomers fill the rest."""
-    now = now or time.time()
-    live = await _runner_live()
-    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
-    recent = [r for r in d['rounds'] if now - r['at'] <= 24 * 3600]
-    lit_recent = [c for c in d.get('litCards') or [] if now - c['at'] <= 72 * 3600]   # lit cards are tracked for 72h
-    watch = {p['mint'] for r in recent for p in r['picks']} | {p['mint'] for c in lit_recent for p in c['picks']}
-    px = {r['mint']: r['price'] for r in live['passing'] + live['dropped'] if r.get('price')}
-    missing = [m for m in watch if m not in px]
-    if missing:
-        px.update(await _token_prices(missing))
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
-        for m in watch:
-            if px.get(m):
-                d['paths'].setdefault(m, []).append([now, px[m]])
-        d['paths'] = {m: pts[-900:] for m, pts in d['paths'].items() if m in watch or pts and now - pts[-1][0] < 26 * 3600}
-        last = d['rounds'][-1] if d['rounds'] else None
-        cfg = _runner_cfg()
-        if force or not last or now - last['at'] >= _rn.ROUND_SECONDS:
-            weights = _rn.lane_weights(_rn.lane_proofs(d['rounds'], d['paths'], now, cfg))   # self-tuning lanes
-            pool_ = _rn.apply_filter(live['passing'], d.get('pickFilter'), cfg['roundSize'])   # 🩺 the doctor's pick filter first
-            new = _rn.next_round(last, pool_, now, size=cfg['roundSize'], rid=uuid.uuid4().hex[:8], weights=weights, cooled=_rn.recently_out(d['rounds']))   # 🧊 3-round cool-down
-            pf = _rn.proof(d['rounds'], d['paths'], now, cfg=cfg)
-            d['rounds'] = (d['rounds'] + [new])[-200:]
-            if pf['lights'] and new['picks']:   # dealt while lit → it joins the lit-cards list
-                d['litCards'] = ((d.get('litCards') or []) + [_rn.lit_card(new, pf)])[-30:]
-        elif last:
-            # Auto-swap: one pick that now FAILS a gate is replaced by the best passing runner (closed on paper, reason kept)
-            failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
-            d['rounds'][-1], _swap = _rn.swap_failing(last, live['passing'], failing, d['paths'], now, cfg, cooled=_rn.recently_out(d['rounds']))
-        # Lit cards stay strong: 2+ strong + 1 weak → the weak coin is swapped for a new runner; fewer than 2 strong → taken down.
-        failing = {x['mint']: x.get('gates') or ['failed a gate'] for x in live['dropped']}
-        for i, c in enumerate(d.get('litCards') or []):
-            if now - c['at'] <= 72 * 3600:
-                d['litCards'][i], _ = _rn.rebuild_lit(c, d['paths'], live['passing'], failing, now, cfg)
-        _json_save(RUNNERS_PATH, d)
-    return d['rounds'][-1] if d['rounds'] else None
-
-
-async def _runner_loop():
-    """Price paths every 5 min, and wake exactly when the next round is due (the countdown never sits at 00:00)."""
-    await asyncio.sleep(60)
-    while True:
-        try:
-            await _runner_tick()
-        except Exception as e:
-            print('runners:', e)
-        rounds = _json_load(RUNNERS_PATH, {'rounds': []}).get('rounds') or []
-        due = (rounds[-1]['at'] + _rn.ROUND_SECONDS - time.time()) if rounds else 300
-        await asyncio.sleep(max(5.0, min(300.0, due + 2)))
+# ↪ moved to rep_runners.py: _judge_fill, _runner_tick, _runner_loop
 
 
 @app.on_event('startup')
@@ -5995,147 +4995,13 @@ _crews_lock = _sqls_proc.ProcLock(lambda: CREWS_PATH)   # 🔒 SITE-8: one holde
 _crew_cache = {'at': 0.0, 'data': None}
 
 
-def _crew_pieces(members, now):
-    """Closed track-record pieces (verified FEELESS trades, price result) per member wallet, last 7 days."""
-    import track_record as _trk
-    trades = _json_load(FEELESS_TRADES_PATH, {}); out = {}
-    for m in members:
-        rows = [x for w in (set(linked_of(m)) | {m}) for x in (trades.get(w) or [])]
-        out[m] = [p for p in _trk.trade_receipts(rows)[0] if now - p['at'] <= 7 * 86400]
-    return out
-
-
-def _crew_book(pieces, n=40):
-    """📒 THE BOOKS (owner, P1 #5 "family wallet trades view"): every member's verified FEELESS trades this week in one tape, newest first —
-    who, coin, return, $ result (price only, fees apart), how long it was held, the sell tx. Members' own wallets; nothing pooled."""
-    rows = [{'who': _crew_name(m), 'address': m, **{k: p.get(k) for k in ('symbol', 'mint', 'ret', 'usd', 'costUsd', 'holdMin', 'at', 'tx')}}
-            for m, ps in (pieces or {}).items() for p in ps or []]
-    return sorted(rows, key=lambda r: -(r.get('at') or 0))[:n]
-
-
-def _crew_name(a):
-    pr = _profiles_load()['profiles'].get(primary_of(a)) or {}
-    return pr.get('displayName') or pr.get('handle') or f'{a[:4]}…{a[-4:]}'
-
-
-def _seat_of(st, me):
-    """👑 The wallet that holds `me`'s family seat (owner, 2026-10-22: "the creator must see THEIR OWN Sicario family"): `me` itself, else any
-    wallet linked to `me`, else — for staff — any wallet linked to an HQ wallet (the creator's account is every one of them). → that wallet, or
-    `me` when none of them is seated (joins / creates then seat `me`)."""
-    by_ = (st or {}).get('by') or {}
-    if not me or me in by_:
-        return me
-    for w_ in linked_of(me):
-        if w_ in by_:
-            return w_
-    if _is_staff(me):
-        for a_ in _admin_wallets():
-            for w_ in linked_of(a_):
-                if w_ in by_:
-                    return w_
-    return me
-
-
-def _crew_cfg():
-    try:   # 👥 the owner's families-per-wallet line (HQ › Familia) is applied on every crews read / write
-        import crews as _cr0
-        _cr0.PER_WALLET = int(_familia_rules().get('familiesPerWallet') or 1)
-    except Exception:
-        pass
-    return (_fee_cfg().get('crews') or {})
-
-
-def _crew_badge_usd(cfg=None):
-    import crews as _cr
-    try:
-        return float((cfg if cfg is not None else _crew_cfg()).get('badgeUsd', _cr.BADGE_USD))
-    except (TypeError, ValueError):
-        return _cr.BADGE_USD
-
-
-def _crew_view(c, pieces, with_code=False):
-    import crews as _cr
-    import family_room as _froom
-    now_ = time.time()
-    ms_ = {m: _cr.stats(pieces.get(m, [])) for m in c['members']}
-    rk_ = _froom.ranks(c, _fwar.ranks(c, ms_))
-    posts_ = {}
-    for p_ in c.get('posts') or []:
-        posts_[p_.get('by')] = posts_.get(p_.get('by'), 0) + 1
-    bnt_ = {}
-    for b_ in c.get('bounties') or []:
-        bnt_[b_.get('by')] = bnt_.get(b_.get('by'), 0) + 1
-    act_ = {m: _froom.member(c, m, pieces.get(m, []), now_, posts_.get(m, 0), bnt_.get(m, 0)) for m in c['members']}
-    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **ms_[m], **act_[m], 'rank': rk_.get(m, _fwar.RANKS[5])[0], 'rankLabel': rk_.get(m, _fwar.RANKS[5])[1]} for m in c['members']]
-    names_ = {m['address']: m['name'] for m in mem}
-    vit_ = _froom.vitals(c, act_, now_, _fwar.record(c))
-    for k_ in ('hot', 'streak'):
-        if vit_.get(k_):
-            vit_[k_]['name'] = names_.get(vit_[k_]['w'])
-    return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
-            'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
-            'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
-            'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
-            'vitals': vit_, 'roles': {k: list(v[:2]) for k, v in _froom.ROLES.items()}, 'promote': list(_froom.PROMOTE),
-            'card': _cr.card_view(c), 'cardOpts': {k: list(v) for k, v in _cr.CARD.items()},
-            **({'wire': _froom.wire(pieces, rk_, lambda w: names_.get(w) or w[:4])} if with_code else {}),
-            'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'), 'war': _fwar.record(c),
-            'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
-            # 💬 members-only: the board + bounties (names, never the code)
-            **({'posts': [{**p_, 'name': _crew_name(p_['by'])} for p_ in (c.get('posts') or [])[-80:]],
-                'bounties': [{**b_, 'byName': _crew_name(b_['by']) if b_.get('by') else None} for b_ in (c.get('bounties') or [])[-20:]]} if with_code else {})}
+# ↪ moved to rep_crews.py: _crew_pieces, _crew_book, _crew_name, _seat_of, _crew_cfg, _crew_badge_usd, _crew_view
 
 
 _PAY_HELD = _sqls_proc.SharedSet(lambda: DATA_DIR / 'pay_held.json')   # 💳 payment signatures taken by a request right now, shared by every worker (audit 2026-11-12 #5: N parallel requests spent one payment N times; SITE-8: N workers too)
 
 
-def _pay_sig_used(sig):
-    """One payment buys ONE thing: crews / seats / badges, card rounds and prepay share this rule."""
-    import crews as _cr
-    return sig in _PAY_HELD or sig in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []) or _cr.sig_used(_json_load(CREWS_PATH, {}), sig)
-
-
-async def _pay_hold(sig):
-    """Take a payment before the slow on-chain read: `claim` is one transaction shared by every worker, so of N requests (in any process)
-    sending one signature exactly one goes on. It runs in a thread: a worker waiting on SQLite's write lock never stalls its event loop.
-    → raises 409 when taken or already spent."""
-    if _pay_sig_used(sig) or not await asyncio.to_thread(_PAY_HELD.claim, sig):
-        raise HTTPException(409, 'That payment was already used.')
-
-
-async def _verify_sol_payment(sig, mine, min_usd, st):
-    """💳 A SOL transfer one of `mine` signed to the fee wallet, confirmed on-chain, worth ≥ 97% of `min_usd` (SOL re-priced now) and never used before
-    (crews and card rounds share the used-signature rule). → {sig, usd, lamports}; raises HTTPException."""
-    import crews as _cr
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', sig or ''):
-        raise HTTPException(400, 'Send the payment first — no signature yet.')
-    if _cr.sig_used(st, sig):
-        raise HTTPException(409, 'That payment was already used.')
-    await _pay_hold(sig)   # kept on success (the crew store then holds it too); released below when the payment does not check out
-    try:
-        return await _verify_sol_payment_held(sig, mine, min_usd)
-    except BaseException:
-        _PAY_HELD.discard(sig); raise
-
-
-async def _verify_sol_payment_held(sig, mine, min_usd):
-    to = await _rounds_pay_to()
-    if not to:
-        raise HTTPException(503, 'Fee wallet not set — families cannot be paid for right now.')
-    tx = None
-    async with httpx.AsyncClient(timeout=20) as http:
-        for _ in range(5):
-            tx = await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
-            if tx:
-                break
-            await asyncio.sleep(2)
-    lam = max((_hq.paid_lamports(tx, w, to) for w in mine), default=0)
-    usd = lam / 1e9 * (await _sol_usd_live() or 0)
-    if usd <= 0:
-        raise HTTPException(400, 'No confirmed SOL payment from your wallet to the fee wallet in that transaction.')
-    if usd < min_usd * 0.97:
-        raise HTTPException(400, f'That payment was ${usd:.2f} — this needs ${min_usd:.2f}. It is kept: add the difference and send again, or ask for a refund.')
-    return {'sig': sig, 'usd': round(usd, 2), 'lamports': lam, 'at': time.time()}
+# ↪ moved to rep_crews.py: _pay_sig_used, _pay_hold, _verify_sol_payment, _verify_sol_payment_held
 
 
 @app.get('/api/reputation/crews/price')
@@ -6349,36 +5215,7 @@ async def crew_act(p: CrewAct):
 import family_city as _fcity
 
 
-def _city_ctx(c, me, now):
-    """→ (boost from the members' verified trades this week, the family's rank map)."""
-    import crews as _cr
-    import family_room as _froom
-    pcs_ = _crew_pieces(c['members'], now)
-    ms_ = {m: _cr.stats(pcs_.get(m, [])) for m in c['members']}
-    rk_ = {w: v[0] for w, v in _froom.ranks(c, _fwar.ranks(c, ms_)).items()}
-    trades_ = sum(len(v) for v in pcs_.values())
-    rush_ = 1.5 if float((c.get('world') or {}).get('rushUntil') or 0) > now else 1.0   # ⚡ the Rush hour reward
-    return (1 + min(2.0, trades_ / 25)) * rush_, rk_   # 🏙 trading on FEELESS grows the city: ×1 … ×3 from the members' verified trades this week
-
-
-def _city_rivals(st, c, now):
-    out = []
-    for o_ in (st.get('crews') or {}).values():
-        if o_['id'] == c['id']:
-            continue
-        oc_ = _fcity.accrue(_fcity.city_of(o_, now), now)
-        out.append({'id': o_['id'], 'tag': o_.get('tag'), 'name': o_.get('name'), 'stash': int(oc_['stash']), 'guards': _fcity.goons(oc_, now).get('guard', 0),
-                    'power': _fcity.power(oc_), 'odds': round(_fcity.rob_odds(_fcity.city_of(c, now), oc_, now), 2),
-                    'cool': max(0, int(_fcity.ROB_COOLDOWN - (now - float((_fcity.city_of(c, now).get('robAt') or {}).get(o_['id']) or 0))))})
-    return sorted(out, key=lambda r: -r['stash'])[:12]
-
-
-def _city_tax():
-    """🏦 The house tax on every collect (owner-set in HQ › Fees › La Familia, 0–20 %, default 5 %)."""
-    try:
-        return max(0.0, min(0.20, float(_crew_cfg().get('houseTaxPct', _fcity.HOUSE_TAX * 100)) / 100))
-    except (TypeError, ValueError):
-        return _fcity.HOUSE_TAX
+# ↪ moved to rep_crews.py: _city_ctx, _city_rivals, _city_tax
 
 
 class CityAct(BaseModel):
@@ -6446,185 +5283,7 @@ FBLOCK_HELD_SEC = 60.0
 TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 
 
-def _fblock_wallets(c):
-    """The wallets whose positions build the block: the Don's seat wallet + every wallet linked to it (≤ 6)."""
-    own_ = (c or {}).get('owner')
-    return [w_ for w_ in dict.fromkeys([own_, *(linked_of(own_) if own_ else [])]) if w_][:6]
-
-
-async def _fblock_reads(c, lots, now):
-    """→ {key: {'amount', 'usd', 'n'}} for this family's buildings (cached FBLOCK_HELD_SEC). Never raises: a failed read = nothing proved."""
-    hit_ = _fblock_held.get(c['id'])
-    keys_ = tuple(sorted(x['key'] for x in lots))
-    if hit_ and now - hit_[0] < FBLOCK_HELD_SEC and hit_[2] == keys_:
-        return hit_[1]
-    need_ = _bmk.needs(lots); out_ = {}
-    wallets_ = _fblock_wallets(c)
-    if not wallets_ or os.environ.get('PYTEST_CURRENT_TEST'):
-        _fblock_held[c['id']] = (now, out_, keys_)
-        return out_
-    bal_ = {}; assets_ = []; kam_ = []; met_ = []
-    async with httpx.AsyncClient(timeout=12) as http:
-        async def meteora(w_):   # 🌊 SITE-17 C03: Meteora's own by-wallet portfolio (no RPC quota spent)
-            try:
-                r_ = await http.get('https://dlmm.datapi.meteora.ag/portfolio/open', params={'user': w_})
-                if r_.status_code == 200:
-                    met_.append(r_.json())
-            except Exception as e_:
-                print('block meteora:', str(e_)[:80])
-        async def toks(w_):
-            try:
-                r_ = await _rpc(http, 'getTokenAccountsByOwner', [w_, {'programId': TOKEN_PROGRAM}, {'encoding': 'jsonParsed'}])
-                for a_ in (r_ or {}).get('value') or []:
-                    inf_ = (((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
-                    if inf_.get('mint') in need_['mints']:
-                        bal_[inf_['mint']] = bal_.get(inf_['mint'], 0.0) + float((inf_.get('tokenAmount') or {}).get('uiAmount') or 0)
-            except Exception as e_:
-                print('block toks:', str(e_)[:80])
-        async def nfts(w_):
-            key_ = _chain.helius_key()
-            if not key_:
-                return
-            try:
-                r_ = await http.post(f'https://mainnet.helius-rpc.com/?api-key={key_}', json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAssetsByOwner', 'params': {'ownerAddress': w_, 'page': 1, 'limit': 1000}})
-                for it_ in ((r_.json() or {}).get('result') or {}).get('items') or []:
-                    md_ = ((it_.get('content') or {}).get('metadata') or {})
-                    assets_.append({'id': it_.get('id'), 'name': md_.get('name'), 'symbol': md_.get('symbol')})
-            except Exception as e_:
-                print('block nfts:', str(e_)[:80])
-        async def kamino(w_):
-            try:
-                r_ = await http.get(f'https://api.kamino.finance/kvaults/users/{w_}/positions')
-                for p_ in (r_.json() if r_.status_code == 200 else []) or []:
-                    if isinstance(p_, dict):
-                        kam_.append(p_)
-            except Exception as e_:
-                print('block kamino:', str(e_)[:80])
-        chain_ = {k_: [] for k_ in _bmk.CHAIN}; lp_ = {}
-        async def gpa(k_, w_):   # ⛓ SITE-17 C03: the wallet's own accounts of that program (owner field memcmp)
-            prog_, size_, off_ = _bmk.CHAIN[k_]
-            try:
-                r_ = await _rpc(http, 'getProgramAccounts', [prog_, {'encoding': 'base64', 'filters': [{'dataSize': size_}, {'memcmp': {'offset': off_, 'bytes': w_}}]}])
-                chain_[k_] += [_b64m.b64decode(a_['account']['data'][0]) for a_ in (r_ if isinstance(r_, list) else []) or []]
-            except Exception as e_:
-                print(f'block {k_}:', str(e_)[:80])
-        async def lps(w_):   # 🫧 PumpSwap LP (a Token-2022 mint): every coin the wallet holds whose mint authority is a PumpSwap pool
-            try:
-                r_ = await _rpc(http, 'getTokenAccountsByOwner', [w_, {'programId': 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'}, {'encoding': 'jsonParsed'}])
-                for a_ in (r_ or {}).get('value') or []:
-                    inf_ = (((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
-                    raw_ = int((inf_.get('tokenAmount') or {}).get('amount') or 0)
-                    if raw_ > 0 and (inf_.get('tokenAmount') or {}).get('decimals') == 9:
-                        lp_[inf_['mint']] = lp_.get(inf_['mint'], 0) + raw_
-            except Exception as e_:
-                print('block pumpswap:', str(e_)[:80])
-        jobs_ = [toks(w_) for w_ in wallets_] if need_['mints'] else []
-        jobs_ += [nfts(w_) for w_ in wallets_] if need_['nft'] else []
-        jobs_ += [kamino(w_) for w_ in wallets_] if need_['kamino'] else []
-        jobs_ += [meteora(w_) for w_ in wallets_] if need_.get('meteora') else []
-        jobs_ += [gpa(k_, w_) for k_ in ('marginfi', 'save', 'phoenix') if need_.get(k_) for w_ in wallets_]
-        jobs_ += [lps(w_) for w_ in wallets_] if need_.get('pumpswap') else []
-        await asyncio.gather(*jobs_)
-        bank_px_ = {}
-        if chain_['marginfi']:   # the banks behind every active balance → mint, decimals, share values; then live prices
-            try:
-                bks_ = sorted({d_[72 + i_ * 104 + 1:72 + i_ * 104 + 33] for d_ in chain_['marginfi'] for i_ in range(16) if len(d_) >= 1736 and d_[72 + i_ * 104] == 1})
-                b58_ = [_b58m.b58encode(b_).decode() for b_ in bks_][:100]
-                acc_ = ((await _rpc(http, 'getMultipleAccounts', [b58_, {'encoding': 'base64'}])) or {}).get('value') or [] if b58_ else []
-                banks_ = {b_: _b64m.b64decode(a_['data'][0]) for b_, a_ in zip(bks_, acc_) if a_}
-                px_m_ = await _live_px([_b58m.b58encode(v_[8:40]).decode() for v_ in banks_.values()])
-                mh2_ = _bmk.marginfi_held(chain_['marginfi'], banks_, {_b58m.b58decode(k_): v_ for k_, v_ in px_m_.items()})
-                if mh2_:
-                    bank_px_['marginfi'] = mh2_
-            except Exception as e_:
-                print('block marginfi banks:', str(e_)[:80])
-        if lp_:   # held mints → their authorities → the ones that are PumpSwap pools → quote vault reserves
-            try:
-                ms_ = list(lp_)[:100]
-                mi_ = ((await _rpc(http, 'getMultipleAccounts', [ms_, {'encoding': 'jsonParsed'}])) or {}).get('value') or []
-                auth_ = {m_: (((a_ or {}).get('data') or {}).get('parsed') or {}).get('info') or {} for m_, a_ in zip(ms_, mi_)}
-                cand_ = {m_: i_ for m_, i_ in auth_.items() if i_.get('mintAuthority')}
-                pa_ = [i_['mintAuthority'] for i_ in cand_.values()]
-                pacc_ = ((await _rpc(http, 'getMultipleAccounts', [pa_, {'encoding': 'base64'}])) or {}).get('value') or [] if pa_ else []
-                pools_ = {m_: _b64m.b64decode(a_['data'][0]) for m_, a_ in zip(cand_, pacc_) if a_ and a_.get('owner') == _bmk.CHAIN['pumpswap'][0]}
-                vk_ = {m_: _b58m.b58encode(p_[171:203]).decode() for m_, p_ in pools_.items()}
-                va_ = ((await _rpc(http, 'getMultipleAccounts', [list(vk_.values()), {'encoding': 'jsonParsed'}])) or {}).get('value') or [] if vk_ else []
-                vaults_ = {m_: float(((((a_ or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount', {}).get('uiAmount') or 0) for m_, a_ in zip(vk_, va_)}
-                qpx_ = await _live_px(sorted({_b58m.b58encode(p_[75:107]).decode() for p_ in pools_.values()}))
-                ph_ = _bmk.pumpswap_held({m_: (lp_[m_], int(cand_[m_].get('supply') or 0)) for m_ in pools_}, pools_, vaults_, qpx_)
-                if ph_:
-                    bank_px_['pumpswap'] = ph_
-            except Exception as e_:
-                print('block pumpswap pools:', str(e_)[:80])
-    px_ = await _live_px(list(bal_)) if bal_ else {}
-    for k_, m_ in _bmk.MINTS.items():
-        if bal_.get(m_):
-            out_[k_] = {'amount': round(bal_[m_], 6), 'usd': round(bal_[m_] * float(px_.get(m_) or 0), 2)}
-    for k_ in _bmk.NFT:
-        n_ = _bmk.nft_count(assets_, k_)
-        if n_:
-            out_[k_] = {'n': n_, 'ranges': await _fblock_ranges(k_, [a_['id'] for a_ in assets_ if a_.get('id') and _bmk.nft_count([a_], k_)])}
-    if kam_:
-        usd_ = sum(_fuse._f(p_.get('totalValueUsd') or p_.get('usdValue') or p_.get('value')) for p_ in kam_)
-        n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
-        if n_:
-            out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
-    for k_, h_ in (('save', _bmk.save_held(chain_['save'])), ('phoenix', _bmk.phoenix_held(chain_['phoenix'])), *bank_px_.items()):
-        if h_:
-            out_[k_] = h_
-    mh_ = _bmk.meteora_held(met_)
-    if mh_:
-        out_['meteora'] = mh_
-    _fblock_held[c['id']] = (now, out_, keys_)
-    return out_
-
-
-async def _fblock_ranges(kind, nft_mints):
-    """🎯 Each concentrated position's range vs its pool's price now (clmm_range): position PDAs → their accounts → their pools → in / out."""
-    import base64 as _b64
-    import clmm_range as _cr
-    if not nft_mints:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=12) as http:
-            pdas_ = [_cr.position_pda(kind, m_) for m_ in nft_mints[:20]]
-            acc_ = ((await _rpc(http, 'getMultipleAccounts', [pdas_, {'encoding': 'base64'}])) or {}).get('value') or []
-            pos_ = [_cr.parse_position(kind, _b64.b64decode((a_.get('data') or [''])[0])) if a_ else None for a_ in acc_]
-            pools_ = sorted({p_['pool'] for p_ in pos_ if p_})
-            pacc_ = ((await _rpc(http, 'getMultipleAccounts', [pools_, {'encoding': 'base64'}])) or {}).get('value') or [] if pools_ else []
-            pool_ = {k_: _cr.parse_pool(kind, _b64.b64decode((a_.get('data') or [''])[0])) for k_, a_ in zip(pools_, pacc_) if a_}
-        return _cr.summary([_cr.status(p_, pool_[p_['pool']]) for p_ in pos_ if p_ and pool_.get(p_['pool'])])
-    except Exception as e_:
-        print('block ranges:', str(e_)[:80])
-        return None
-
-
-async def _fblock_view(c, me=None, staff=False, rank=None):
-    now = time.time()
-    lots_ = _bmk.lots_of(c)
-    mk_ = (await familia_markets()) or {}
-    markets_ = {m_['key']: m_ for m_ in mk_.get('markets') or []}
-    held_ = await _fblock_reads(c, lots_, now) if lots_ else {}
-    try:
-        pools_ = (await familia_pools()).get('pools') or []
-    except Exception:
-        pools_ = []
-    mine_ = me is not None
-    rows_ = _bmk.view(lots_, markets_, held_, apys=_bmk.lst_apys(pools_), mine=mine_)
-    built_ = [b_ for b_ in rows_ if b_['state'] == 'built']
-    out_ = {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'buildings': rows_, 'built': len(built_), 'max': _bmk.MAX,
-            'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now),   # open plots to build on: always 4 until the block is full
-            'town': _bmk.town_of(c), 'townMax': _bmk.TOWN_MAX, 'townAll': list(_bmk.TOWN),   # 🏘 the tool buildings the family picked
-            'layout': _bmk.layout_of(c), 'layoutSaved': isinstance(c.get('layout'), dict), 'islandCells': _bmk.ISLAND_CELLS, 'layoutMax': _bmk.LAYOUT_MAX, 'stands': list(_bmk.STANDS),
-            'islandsPaid': max(1, int(c.get('islands') or 1)), 'islandMp': 0 if staff else _bmk.island_price()}   # 🏝 its arrangement (cells in order, islands of 15)
-    if mine_:
-        out_['total'] = round(sum(float(b_.get('usd') or 0) for b_ in built_), 2)
-        out_['canBuild'] = bool(staff or me == c.get('owner') or (rank or {}).get(me) == 'underboss')
-        on_ = {b_['key'] for b_ in rows_}
-        out_['catalog'] = [{'key': m_['key'], 'name': m_.get('name'), 'kind': m_.get('kind'), 'offer': m_.get('offer'), 'tvl': m_.get('tvl'),
-                            'proof': _bmk.proof_of(m_['key'])[0] or 'none', 'why': '' if _bmk.proof_of(m_['key'])[0] else _bmk.proof_of(m_['key'])[1]}
-                           for m_ in mk_.get('markets') or [] if m_.get('key') not in on_]
-    return out_
+# ↪ moved to rep_crews.py: _fblock_wallets, _fblock_reads, _fblock_ranges, _fblock_view
 
 
 class BlockAct(BaseModel):
@@ -6695,217 +5354,18 @@ async def familia_block_layout(p: BlockLayout):
 
 # 🗺 LA FAMILIA WORLD (family_world.py): the big city — 6 boroughs × 16 blocks, bridges, turf, CPU towns, cartels from FEELESS rep, raids as chess
 # moves, recruitment challenges, errands, rewards and the FEECAT redeem claim. Points only; the redeem is a claim the owner pays by hand.
-import family_world as _fworld
+import family_world as _fworld   # noqa: F401  (read by rep_admin_reads, rep_admin_routes as rs._fworld)
 
 _cartel_cache = {'at': 0.0, 'rows': []}
 
 
-def _cartels_now(now):
-    """Cartels rebuilt from the blocklist at most every 10 min (in a thread: 20K wallets)."""
-    if now - _cartel_cache['at'] < 600 and _cartel_cache['rows']:
-        return _cartel_cache['rows']
-    try:
-        _cartel_cache['rows'] = _fworld.cartels(_block_load()['wallets'], now)
-    except Exception:
-        pass
-    _cartel_cache['at'] = now
-    return _cartel_cache['rows']
-
-
-def _world_target(st, w, tid, now, cartels_):
-    """→ (target dict for the board, its borough, kind, stash). Families / CPU towns / cartels."""
-    if tid.startswith('cpu-'):
-        t = _fworld.cpu_town(tid, now)
-        if not t:
-            raise ValueError('No such town.')
-        return t, t['borough'], 'cpu', int(_fworld.cpu_stash(w, tid, now)['stash'])
-    if tid.startswith('cartel-'):
-        c = next((x for x in cartels_ if x['id'] == tid), None)
-        if not c:
-            raise ValueError('That cartel broke up.')
-        t = _fworld.cartel_town(c)
-        s = w['cpu'].setdefault(tid, {'stash': t['rate'] * 6, 'at': now})
-        s['stash'] = min(t['rate'] * 10, s['stash'] + t['rate'] * max(0.0, now - s['at']) / 3600)
-        s['at'] = now
-        return t, 'docks', 'cartel', int(s['stash'])
-    o = (st.get('crews') or {}).get(tid)
-    if not o:
-        raise ValueError('No such family.')
-    oc = _fcity.accrue(_fcity.city_of(o, now), now)
-    lots = [{'lot': int(k), 'b': v['b'], 'lvl': v['lvl']} for k, v in oc['lots'].items()]
-    guards = [r['lvl'] for r in _fcity.ready(oc, now, 'guard')]
-    home = _fworld.ensure_home(w, tid)
-    return {'id': tid, 'tag': o.get('tag'), 'name': o.get('name'), 'lots': lots, 'guards': guards}, _fworld.borough_of(home), 'family', int(oc['stash'])
-
-
-def _world_settle(st, w, r, now):
-    """A finished raid moves its loot: from the target's stash into the raiders' bank; wins counted for the challenges."""
-    if r.get('settled') or r['status'] != 'done':
-        return
-    r['settled'] = True
-    a = (st.get('crews') or {}).get(r['a']['id'])
-    tid = r['b']['id']
-    taken_ = int(r['loot'])
-    if tid.startswith(('cpu-', 'cartel-')):
-        s = w['cpu'].get(tid)
-        if s:
-            s['stash'] = max(0.0, s['stash'] - taken_)
-    else:
-        o = (st.get('crews') or {}).get(tid)
-        if o:
-            oc = _fcity.city_of(o, now)
-            taken_ = min(taken_, int(oc['stash']))
-            oc['stash'] = max(0.0, oc['stash'] - taken_)
-            oc['log'] = ([{'at': now, 'what': f"🚨 raided by {r['a']['tag']} — lost {taken_:,} MP"}] + (oc.get('log') or []))[:40]
-    if a:
-        ac = _fcity.city_of(a, now)
-        paid = int(taken_ * (_fworld.JUSTICE if r['kind'] == 'cartel' else 1))
-        r['paid'] = paid
-        ac['bank'] += paid
-        ac['mpEver'] = ac.get('mpEver', 0) + paid
-        m = a.setdefault('world', {})
-        if paid > 0:
-            m['raidsWon'] = int(m.get('raidsWon') or 0) + 1
-            k = {'cpu': 'cpuWins', 'cartel': 'cartelWins'}.get(r['kind'])
-            if k:
-                m[k] = int(m.get(k) or 0) + 1
-        if r['hurt']:
-            hs = sorted(_fcity.ready(ac, now, 'hitter'), key=lambda x: -x['lvl'])[:r['hurt']]
-            for h in hs:
-                h['hurt'] = now + 3600
-    w['log'] = ([{'at': now, 'what': f"⚔ {r['a']['tag']} raided {r['b']['tag']} — {r['end']}, {int(r.get('paid') or 0):,} MP"}] + w['log'])[:60]
-
-
-def _familia_rules():
-    """🏙 The owner's Familia rules (HQ › Build › 🏙 Familia), clamped — LIVE ones are applied to the engine on every world read / act."""
-    return _fworld.clean_rules(_admin_load().get('familiaRules') or {})
-
-
-def _world_tick(st, w, now):
-    _fworld.set_rules(_familia_rules())
-    for r in list(w['raids'].values()):
-        _fworld.tick(r, now)
-        _world_settle(st, w, r, now)
-        if r['status'] == 'done' and now - float(r.get('endAt') or now) > 6 * 3600:
-            w['raids'].pop(r['id'], None)
-
-
-def _world_metrics(st, c, now):
-    city = _fcity.city_of(c, now)
-    m = c.get('world') or {}
-    w = st.setdefault('world', _fworld.blank())
-    return {'errands': int(m.get('errands') or 0), 'collects': int(m.get('collects') or 0), 'streak': int((city.get('streak') or {}).get('days') or 0),
-            'raidsWon': int(m.get('raidsWon') or 0), 'cpuWins': int(m.get('cpuWins') or 0), 'cartelWins': int(m.get('cartelWins') or 0),
-            'members': len(c.get('members') or []), 'turf': len(_fworld.turf_of(w, c['id']))}
+# ↪ moved to rep_crews.py: _cartels_now, _world_target, _world_settle, _familia_rules, _world_tick, _world_metrics
 
 
 _fuse_fam_c = {'n': -1, 'v': None}
 
 
-def _fuse_family_stats(now):
-    """⚛ The Fuse wallet's real trades this week — shown in the creator's family (confirmed fills only, price result, fees apart)."""
-    try:
-        rows = _fw_full_ledger()
-    except Exception:
-        return None
-    if _fuse_fam_c['n'] == len(rows) and _fuse_fam_c['v']:
-        return _fuse_fam_c['v']
-    wk = [r for r in rows if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell') and now - float(r.get('at') or 0) < 7 * 86400]
-    sells = [r for r in wk if r['side'] == 'sell' and r.get('costUsd')]
-    real = sum(float(r.get('usd') or 0) - float(r.get('costUsd') or 0) for r in sells)
-    v = {'trades': len(wk), 'buys': sum(1 for r in wk if r['side'] == 'buy'), 'sells': len(sells),
-         'won': sum(1 for r in sells if float(r.get('usd') or 0) > float(r.get('costUsd') or 0)),
-         'volumeUsd': round(sum(float(r.get('usd') or 0) for r in wk), 2), 'realizedUsd': round(real, 2)}
-    _fuse_fam_c.update(n=len(rows), v=v)
-    return v
-
-
-def _world_feecat_rate():
-    h_ = (_fee_cfg().get('house') or {})   # 🏠 HQ › Core › house fees wins (the owner sets every fee in one place)
-    if h_.get('redeemMp') and h_.get('redeemFeecat'):
-        return (max(10_000, int(h_['redeemMp'])), max(1, int(h_['redeemFeecat'])))
-    cfg = _crew_cfg()
-    try:
-        return (max(10_000, int(cfg.get('redeemMp') or _fworld.FEECAT_RATE[0])), max(1, int(cfg.get('redeemFeecat') or _fworld.FEECAT_RATE[1])))
-    except (TypeError, ValueError):
-        return _fworld.FEECAT_RATE
-
-
-def _world_view(st, c, me, now, cartels_):
-    w = st.setdefault('world', _fworld.blank())
-    fams = []
-    for o in (st.get('crews') or {}).values():
-        _fworld.ensure_home(w, o['id'])
-        oc = _fcity.city_of(o, now)
-        ln_ = o.get('launch') or {}
-        fams.append({'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'power': _fcity.power(oc), 'color': (o.get('badge') or {}).get('c2') or ((o.get('badge') or {}).get('colors') or [None])[0],
-                     'launch': {'mint': ln_.get('mint'), 'symbol': ln_.get('symbol')} if ln_.get('mint') else None})
-    cpu_ = [_fworld.cpu_town(x[0], now) for x in _fworld.CPU]
-    try:
-        tr_ = _mt.trending(_json_load(MEME_PATH, {}), now)
-        word_ = (tr_[0].get('word') if tr_ and isinstance(tr_[0], dict) else (tr_[0] if tr_ else None))
-    except Exception:
-        word_ = None
-    v = _fworld.map_view(w, fams, cpu_, cartels_, me=c['id'] if c else None, boom_=_fworld.boom(word_ or 'ai'), now=now)
-    v['cpu'] = [{'id': t['id'], 'name': t['name'], 'tag': t['tag'], 'borough': t['borough'], 'level': t['level'], 'guards': len(t['guards']),
-                 'stash': int(_fworld.cpu_stash(w, t['id'], now)['stash'])} for t in cpu_]
-    v['cartels'] = cartels_
-    links_ = w.get('links') or {}
-    if links_:   # 🏦 a building set to a real pool wears its live APY / TVL (the hub's last read)
-        live_p = {r['id']: r for r in ((_fpl_cache.get('v') or {}).get('pools') or [])}
-        for b in v['blocks']:
-            ln = links_.get(b['id'])
-            if ln and b.get('owner'):
-                lp_ = live_p.get(ln['pool']) or {}
-                b['link'] = {**ln, 'apy': lp_.get('apy'), 'tvl': lp_.get('tvl'), 'pair': lp_.get('pair'), 'hold': lp_.get('hold'), 'app': lp_.get('app')}
-    v['log'] = w['log'][:20]
-    v['actions'] = {'attack': _fworld.ACTIONS_A, 'defend': _fworld.ACTIONS_D}
-    v['rate'] = {'mp': _world_feecat_rate()[0], 'feecat': _world_feecat_rate()[1]}
-    # 👑 the capital: five cities, Fee City's landmarks with their live numbers, the ranked ladder (power → CoD-style divisions)
-    v['cities'] = [{'key': k, 'name': n, 'boroughs': bs, 'vibe': vb, 'held': sum(1 for b in v['blocks'] if b['b'] in bs and b.get('owner')),
-                    'plots': sum(1 for b in v['blocks'] if b['b'] in bs)} for k, n, bs, vb in _fworld.CITIES]
-    ladder = sorted(fams, key=lambda f: -f['power'])
-    v['ranked'] = [{**f, 'place': i + 1, 'rank': _fworld.rank_of(f['power'], i + 1)} for i, f in enumerate(ladder[:25])]
-    creator = next((o for o in (st.get('crews') or {}).values() if _is_staff(o.get('owner'))), None)
-    stats_ = (_stats_cache.get('data') or {}) if isinstance(_stats_cache, dict) else {}
-    live_ = {'arena': {'raids': sum(1 for r in w['raids'].values() if r.get('status') == 'live'), 'minMp': int(_familia_rules()['fuseMinMp'])},
-             'house': {'mp': int(st.get('house') or 0)},
-             'mansion': {'tag': creator.get('tag'), 'name': creator.get('name'), 'power': next((f['power'] for f in fams if f['id'] == creator['id']), 0)} if creator else None,
-             'shield': {'flagged': int(stats_.get('blocklisted') or 0), 'snipers': int(stats_.get('snipers') or 0), 'bundlers': int(stats_.get('bundlers') or 0)},
-             'launch': {'coins': sum(1 for o in (st.get('crews') or {}).values() if o.get('launch'))}}
-    v['landmarks'] = [{'key': k, 'name': n, 'lore': lo, 'live': live_.get(k)} for k, n, lo in _fworld.LANDMARKS]
-    v['rules'] = {k: _familia_rules()[k] for k in _fworld.LIVE_RULES}
-    v['ffuse'] = _ffuse_view(st, c, now)
-    v['staff'] = bool(me and _is_staff(me))   # 👑 the creator sees the OVERWATCH door in the city
-    if c:
-        city = _fcity.city_of(c, now)
-        met = _world_metrics(st, c, now)
-        lv = {}
-        for l in city['lots'].values():
-            lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
-        cd = ((c.get('world') or {}).get('errandAt') or {}).get(me) or {}
-        docks = lv.get('docks', 0)
-        v['me'] = {'id': c['id'], 'tag': c.get('tag'), 'home': w['home'].get(c['id']), 'turf': _fworld.turf_of(w, c['id']), 'bank': int(city['bank']),
-                   'metrics': met, 'challenges': _fworld.challenge_rows(met, (c.get('world') or {}).get('done') or []),
-                   'errands': [{'store': k, 'name': e[0], 'how': e[1], 'cd': e[2], 'lvl': lv.get(k, 0), 'ready': max(0, int(e[2] - (now - float(cd.get(k) or 0))))}
-                               for k, e in _fworld.ERRANDS.items()],
-                   'rewards': [{'key': k, 'name': r[0], 'what': r[1], 'cost': r[2]} for k, r in _fworld.REWARDS.items()],
-                   'pts': int(((c.get('world') or {}).get('pts') or {}).get(me) or 0), 'title': ((c.get('world') or {}).get('titles') or {}).get(me),
-                   'shield': max(0, int(float((c.get('world') or {}).get('shieldUntil') or 0) - now)),
-                   'rush': max(0, int(float((c.get('world') or {}).get('rushUntil') or 0) - now)),
-                   'hitters': [r['lvl'] for r in _fcity.ready(city, now, 'hitter')],
-                   'reach': {b: _fworld.reach(w, c['id'], b, docks) for b in _fworld.BKEYS},
-                   'prices': {b['id']: _fworld.block_price(w, c['id'], b['id']) for b in v['blocks'] if not b.get('owner')},
-                   'moveMp': {b: int(_fworld.MOVE_MP * _fworld.tier(b) * (1 - 0.05 * lv.get('gas', 0))) for b in _fworld.BKEYS},
-                   'redeems': [x for x in (st.get('redeems') or []) if x.get('cid') == c['id']][:10],
-                   'rank': _fworld.rank_of(_fcity.power(city), next((r['place'] for r in v['ranked'] if r['id'] == c['id']), None)),
-                   'place': next((i + 1 for i, f in enumerate(ladder) if f['id'] == c['id']), None),
-                   'boss': bool(me and (_is_staff(me) or me == c.get('owner') or _city_ctx(c, me, now)[1].get(me) == 'underboss'))}
-        if _is_staff(c.get('owner')):
-            v['me']['fuse'] = _fuse_family_stats(now)
-        v['raids'] = [_fworld.raid_view(r, 'a' if r['a']['id'] == c['id'] else 'b') for r in w['raids'].values()
-                      if c['id'] in (r['a']['id'], r['b']['id'])][-8:]
-    return v
+# ↪ moved to rep_crews.py: _fuse_family_stats, _world_feecat_rate, _world_view
 
 
 @app.on_event('startup')
@@ -6991,25 +5451,7 @@ _kproof: dict = {}       # wallet → True (verified is cached; "not verified" n
 _kmeta: dict = {}        # ticker / mint → (at, market | None) — 60 s (10 min for a mint that is not a Kalshi outcome token)
 
 
-def _kt_need():
-    import kalshi_trade as _kt
-    if not _kt.key(os.environ):
-        raise HTTPException(503, "Kalshi trading opens when DFlow's production key lands (DFLOW_API_KEY) — the odds stay live meanwhile.")
-    return _kt
-
-
-async def _kt_proof(addr):
-    import kalshi_trade as _kt
-    if _kproof.get(addr):
-        return True
-    try:
-        r_ = await _fmk_http_get().get(f'{_kt.PROOF}/{addr}', timeout=8)
-        ok_ = bool(r_.status_code == 200 and (r_.json() or {}).get('verified'))
-    except Exception:
-        ok_ = False
-    if ok_:
-        _kproof[addr] = True
-    return ok_
+# ↪ moved to rep_crews.py: _kt_need, _kt_proof
 
 
 def _fmk_http_get():
@@ -7019,29 +5461,7 @@ def _fmk_http_get():
     return _fmk_http
 
 
-async def _kt_market(path_, cache_key, ttl=60, miss_ttl=60):
-    import kalshi_trade as _kt
-    hit_ = _kmeta.get(cache_key)
-    if hit_ and time.time() - hit_[0] < (ttl if hit_[1] else miss_ttl):
-        return hit_[1]
-    try:
-        r_ = await _fmk_http_get().get(f'{_kt.META}/{path_}', headers=_kt.headers(os.environ), timeout=8)
-        m_ = r_.json() if r_.status_code == 200 else None
-        if r_.status_code not in (200, 404):
-            return hit_[1] if hit_ else None   # DFlow blinked: the last good read, never a guess
-    except Exception:
-        return hit_[1] if hit_ else None
-    _kmeta[cache_key] = (time.time(), m_ if isinstance(m_, dict) else None)
-    if len(_kmeta) > 3000:
-        _kmeta.clear()
-    return _kmeta[cache_key][1]
-
-
-def _kt_addr(a):
-    a_ = str(a or '')
-    if not (32 <= len(a_) <= 44) or any(c_ not in '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz' for c_ in a_):
-        raise HTTPException(400, 'Not a Solana wallet.')
-    return a_
+# ↪ moved to rep_crews.py: _kt_market, _kt_addr
 
 
 # 🏦 THE BROKERAGE (brokers.py, DECISIONS #9): the user's OWN broker through SnapTrade, linked to their Familia wallet session
@@ -7053,155 +5473,13 @@ _brk_lock = asyncio.Lock()
 BROKER_SEAL_PATH = DATA_DIR / '.broker_seal'   # 🔐 the seal key FEELESS made for itself (0600) when BROKER_SECRET_KEY is not in .env
 
 
-def _brk_seal():
-    """Make sure a seal key exists (env first, else FEELESS's own 0600 file) — users' broker secrets are never stored in the clear."""
-    import brokers as _bk
-    if not os.environ.get('BROKER_SECRET_KEY'):
-        os.environ['BROKER_SECRET_KEY'] = _bk.seal_key_file(BROKER_SEAL_PATH)
-
-
-def _brk_need():
-    import brokers as _bk
-    c_, k_ = _bk.keys(os.environ)
-    _brk_seal()
-    if not c_:
-        raise HTTPException(503, 'Linking ANY broker opens when SnapTrade is set up (SNAPTRADE_CLIENT_ID · SNAPTRADE_CONSUMER_KEY) — Alpaca keys work now.')
-    return _bk, c_, k_
-
-
-async def _brk_call(method, path, query=None, body=None):
-    bk_, c_, k_ = _brk_need()
-    url_, hd_ = bk_.signed(method, path, query, body, c_, k_)
-    try:
-        r_ = await _fmk_http_get().request(method, url_, headers=hd_, json=body if body not in (None, {}) else None, timeout=20)
-    except Exception:
-        raise HTTPException(503, 'SnapTrade did not answer — try again.')
-    try:
-        d_ = r_.json()
-    except Exception:
-        d_ = {}
-    if r_.status_code >= 400:
-        raise HTTPException(502 if r_.status_code >= 500 else 400, f"Broker: {str((d_ or {}).get('detail') or (d_ or {}).get('message') or r_.status_code)[:160]}")
-    return d_
-
-
-def _brk_q(primary):
-    """The SnapTrade query for this wallet: a PERSONAL key → {} for the owner's (staff) wallets only, else None; a commercial key → its own
-    sealed SnapTrade user ({userId, userSecret}) or None until it links."""
-    import brokers as _bk
-    c_ = _bk.keys(os.environ)[0]
-    if not c_:
-        return None
-    if _bk.personal(c_):
-        return {} if _is_staff(primary) else None
-    u_ = _brk_user(primary)
-    return {'userId': u_[0], 'userSecret': u_[1]} if u_ else None
-
-
-def _brk_user(primary):
-    """(userId, userSecret) for this wallet, or None."""
-    import brokers as _bk
-    rec_ = (_json_load(BROKERS_PATH, {}) or {}).get(primary)
-    if not rec_:
-        return None
-    try:
-        return rec_['uid'], _bk.unseal(rec_['sec'], os.environ)
-    except Exception:
-        return None
-
-
-def _brk_alpaca(primary):
-    """This wallet's own Alpaca keys {key, secret, paper} (unsealed), or None."""
-    import brokers as _bk
-    rec_ = ((_json_load(BROKERS_PATH, {}) or {}).get(primary) or {}).get('alpaca')
-    if not rec_:
-        return None
-    try:
-        k_ = json.loads(_bk.unseal(rec_['sec'], os.environ))
-        return {'key': k_['key'], 'secret': k_['secret'], 'paper': bool(rec_.get('paper'))}
-    except Exception:
-        return None
-
-
-async def _alpaca_call(ak, method, path, body=None):
-    import brokers as _bk
-    try:
-        r_ = await _fmk_http_get().request(method, _bk.alpaca_base(ak['paper']) + path, headers=_bk.alpaca_headers(ak['key'], ak['secret']), json=body, timeout=15)
-    except Exception:
-        raise HTTPException(503, 'Alpaca did not answer — try again.')
-    try:
-        d_ = r_.json()
-    except Exception:
-        d_ = {}
-    if r_.status_code in (401, 403):
-        raise HTTPException(400, 'Alpaca refused these keys (check Key ID + Secret, and PAPER vs LIVE).')
-    if r_.status_code >= 400:
-        raise HTTPException(400, f"Alpaca: {str((d_ or {}).get('message') or r_.status_code)[:160]}")
-    return d_
-
-
-def _brk_cdc(primary):
-    """This wallet's own Crypto.com Exchange keys {key, secret} (unsealed), or None."""
-    import brokers as _bk
-    rec_ = ((_json_load(BROKERS_PATH, {}) or {}).get(primary) or {}).get('cdc')
-    if not rec_:   # 🔑 the owner's own Exchange pair from backend/.env rides the owner's wallet — no pasting
-        k_, s_ = (os.getenv('CRYPTO_COM_API_KEY') or '').strip(), (os.getenv('CRYPTO_COM_API_SECRET') or '').strip()
-        return {'key': k_, 'secret': s_} if k_ and s_ and _is_staff(primary) else None
-    try:
-        k_ = json.loads(_bk.unseal(rec_['sec'], os.environ))
-        return {'key': k_['key'], 'secret': k_['secret']}
-    except Exception:
-        return None
-
-
-async def _cdc_call(ck, method, params=None):
-    import brokers as _bk
-    try:
-        r_ = await _fmk_http_get().post(f'{_bk.CDC_API}/{method}', json=_bk.cdc_signed(method, params or {}, ck['key'], ck['secret']), timeout=15)
-    except Exception:
-        raise HTTPException(503, 'Crypto.com did not answer — try again.')
-    try:
-        d_ = r_.json()
-    except Exception:
-        d_ = {}
-    if r_.status_code in (401, 403) or str((d_ or {}).get('code')) in ('40101', '40102', '40103'):
-        raise HTTPException(400, 'Crypto.com refused these keys (check the key + secret, and that the key can trade).')
-    if r_.status_code >= 400 or (d_ or {}).get('code') not in (0, '0', None):
-        raise HTTPException(400, f"Crypto.com: {str((d_ or {}).get('message') or (d_ or {}).get('code') or r_.status_code)[:160]}")
-    return (d_ or {}).get('result') or {}
-
-
-def _cdc_dev_key():
-    """The Crypto.com Developer Platform / AI-agent key: CRYPTO_COM_DEVELOPER_API_KEY, or the owner's own .env note ("Crypto.com api" then a cdc_ token on the next line)."""
-    k_ = (os.getenv('CRYPTO_COM_DEVELOPER_API_KEY') or '').strip()
-    if k_:
-        return k_
-    try:
-        ls_ = [l_.strip() for l_ in (Path(__file__).parent / '.env').read_text().splitlines()]
-        for i_, l_ in enumerate(ls_[:-1]):
-            if 'crypto.com' in l_.lower() and ls_[i_ + 1].startswith('cdc_'):
-                return ls_[i_ + 1]
-    except Exception:
-        pass
-    return ''
+# ↪ moved to rep_crews.py: _brk_seal, _brk_need, _brk_call, _brk_q, _brk_user, _brk_alpaca, _alpaca_call, _brk_cdc, _cdc_call, _cdc_dev_key
 
 
 _cdc_inst: dict = {'at': 0.0, 'rows': []}
 
 
-async def _cdc_instruments():
-    """Crypto.com's public instrument list (spot · perpetuals · futures), one read per 10 min for everyone."""
-    import brokers as _bk
-    if time.time() - _cdc_inst['at'] < 600 and _cdc_inst['rows']:
-        return _cdc_inst['rows']
-    try:
-        r_ = await _fmk_http_get().get(f'{_bk.CDC_API}/public/get-instruments', timeout=12)
-        rows_ = ((r_.json() or {}).get('result') or {}).get('data') or []
-        if rows_:
-            _cdc_inst.update(at=time.time(), rows=rows_)
-    except Exception:
-        pass
-    return _cdc_inst['rows']
+# ↪ moved to rep_crews.py: _cdc_instruments
 
 
 _UPDATES_CACHE = {'at': 0.0, 'rows': []}
@@ -7211,9 +5489,7 @@ PAPER_PERPS_PATH = DATA_DIR / 'paper_perps.json'   # 📉 one paper book per wal
 _pperp_lock = asyncio.Lock()
 
 
-def _pperp_board():
-    """The Perps desk's live board → {coin: {mark, fundApr, maxLev, venues}} (the shared 60 s read)."""
-    return {r_['coin']: r_ for r_ in (_perps_cache.get('rows') or []) if r_.get('coin')}
+# ↪ moved to rep_crews.py: _pperp_board
 
 
 class PaperPerpAct(BaseModel):
@@ -7258,62 +5534,15 @@ class WorldAct(BaseModel):
 # your profile (XP → level → unlocks, the loadout you built), a one-use match token, the result (checked against the server's own clock → XP,
 # and a family member's kills feed the family bank a little), and ONLINE rooms over a WebSocket (positions + shots relayed, ≤ 8 a room).
 # Who you are: a signed-in wallet, else a verified Telegram player (tg_auth), else a guest (plays, saves nothing).
-import arena as _ar
-import tg_auth as _tga
+import arena as _ar   # noqa: F401  (read by rep_crews, rep_money_routes as rs._ar)
+import tg_auth as _tga   # noqa: F401  (read by rep_crews as rs._tga)
 
 ARENA_PATH = CREWS_PATH.parent / 'arena.json'
 _arena_tokens = {}
 _arena_rooms = {}   # room → {cid: {'ws', 'name', 'state'}}
 
 
-def _arena_day(now):
-    return time.strftime('%Y-%m-%d', time.gmtime(now))
-
-
-def _tg_user(tg):
-    return _tga.verify(tg, (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip()) if tg else None
-
-
-async def _tg_group(text):
-    """📲 a post to the owner's Telegram group (level-ups, the day's top shooter) with a PLAY button. Silent when it isn't set up."""
-    tok_, chat_ = (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip(), (os.getenv('TELEGRAM_GROUP_ID') or '').strip()
-    if not (tok_ and chat_ and text):
-        return False
-    app_ = (os.getenv('TELEGRAM_APP_URL') or '').strip()
-    body_ = {'chat_id': chat_, 'text': text, 'disable_web_page_preview': True}
-    if app_.startswith('https://'):
-        body_['reply_markup'] = {'inline_keyboard': [[{'text': '🎯 PLAY STRIKE ZONE', 'url': app_}]]}
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            r_ = await http.post(f'https://api.telegram.org/bot{tok_}/sendMessage', json=body_)
-            return r_.status_code == 200
-    except Exception:
-        return False
-
-
-def _arena_who(address, session, tg):
-    """→ (who, name) — a wallet, a Telegram player, or (None, 'guest')."""
-    if address and session:
-        return _session_or_401(address, session), ''
-    u = _tg_user(tg)
-    if tg and not u:
-        raise HTTPException(401, 'Telegram sign-in did not verify — reopen the game from the bot.')
-    return (f"tg:{u['id']}", u['name']) if u else (None, 'guest')
-
-
-def _arena_unlock_level(who, level):
-    """👑 the creator / staff wallets own every gun + part from day one (owner 2026-10-28); everyone else unlocks by level."""
-    try:
-        return 999 if who and not str(who).startswith('tg:') and _is_staff(who) else level
-    except Exception:
-        return level
-
-
-def _arena_profile(players, who):
-    p = players.get(who) or {}
-    lv = _ar.level_of(p.get('xp')); ul_ = _arena_unlock_level(who, lv['level'])
-    return {'xp': lv['total'], 'level': lv['level'], 'into': lv['into'], 'need': lv['need'], 'loadout': _ar.clean_loadout(p.get('loadout'), ul_),
-            'unlocked': _ar.unlocked(ul_), 'kills': int(p.get('kills') or 0), 'wins': int(p.get('wins') or 0), 'staff': ul_ != lv['level']}
+# ↪ moved to rep_crews.py: _arena_day, _tg_user, _tg_group, _arena_who, _arena_unlock_level, _arena_profile
 
 
 class ArenaWho(BaseModel):
@@ -7382,113 +5611,11 @@ async def arena_ws(ws: WebSocket, room: str = 'fee-city', name: str = 'guest'):
 
 
 # ⚔ FAMILY FUSE (family_fuse.py): two families' Fuse cards in the Fuse Arena stadium — paper or MP, spectator bids, the Arena's six duels.
-import family_fuse as _ffuse
+import family_fuse as _ffuse   # noqa: F401  (read by rep_admin_routes, rep_crews as rs._ffuse)
 _ffuse_mark = {'at': 0.0}
 
 
-def _ffuse_cards(st, c):
-    """The cards a family can field: Fuse designs its members published + the Fuse cards its members hold (the creator family: every design)."""
-    members = {m.get('address') if isinstance(m, dict) else m for m in c.get('members') or []}
-    members |= {w_ for m_ in list(members) if m_ for w_ in linked_of(m_)}   # 🐛 (P1 #7) a card made / held on a member's LINKED wallet counts too
-    staff_ = _is_staff(c.get('owner'))
-    hq_ = _json_load(FUSE_HQ_PATH, {})
-    out = []
-    for fid, f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).items():
-        if f.get('enabled', True) and (staff_ or f.get('creator') in members):
-            out.append(_ffuse.card_of(f'design:{fid}', f.get('name'), f.get('legs')))
-    for pos in hq_.get('positions') or []:
-        if pos.get('wallet') in members and not pos.get('closedAt'):
-            out.append(_ffuse.card_of(f"card:{pos['id']}", pos.get('name'), pos.get('legs')))
-    if staff_:   # 👑 the creator family fields the Arena's own Prime cards too (the real card first) — the ones standing over the stadium
-        for k_, pc_ in sorted(((hq_.get('prime') or {}).get('cards') or {}).items(), key=lambda kv: not (kv[1] or {}).get('real')):
-            if isinstance(pc_, dict) and pc_.get('legs'):
-                out.append(_ffuse.card_of(f'prime:{k_}', pc_.get('name') or f"{'REAL · ' if pc_.get('real') else ''}{k_.title()}", pc_.get('legs')))
-    seen_, uniq_ = set(), []
-    for x_ in out:
-        if x_['coins'] and x_['key'] not in seen_:
-            seen_.add(x_['key']); uniq_.append(x_)
-    return uniq_[:30]
-
-
-async def _ffuse_prices(cards):
-    legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for cd in cards if cd for l in cd['legs']]
-    pairs_ = await _fuse_pairs(legs) if legs else {}
-    return ({k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}, {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()})
-
-
-def _ffuse_book(f, side, prices, liqs, now):
-    cd = f[side]['card']
-    return _pgb.paper_book(f"ff:{f['id']}:{side}", {'name': cd['name'], 'legs': [{**l, 'weight': l['usd']} for l in cd['legs']]}, prices, liqs, now, 100.0)
-
-
-def _ffuse_pay(st, f, now):
-    """Move a settled / expired fight's MP + points: banks, bidders' member points, the house."""
-    crews_ = st.get('crews') or {}
-    paid = f.get('paid') or {}
-    if f['status'] == 'expired':
-        paid = {'fam': {f['a']['id']: f['mp']} if f['mp'] else {}, 'bids': {w: b['pts'] for w, b in f['bids'].items()}, 'house': 0}
-    for cid, mp in (paid.get('fam') or {}).items():
-        if crews_.get(cid) and mp:
-            _fcity.city_of(crews_[cid], now)['bank'] += int(mp)
-    import crews as _cr
-    for w, pts in (paid.get('bids') or {}).items():
-        o = _cr.crew_of(st, w)
-        if o and pts:
-            pm = o.setdefault('world', {}).setdefault('pts', {}); pm[w] = int(pm.get(w) or 0) + int(pts)
-    st['house'] = int(st.get('house') or 0) + int(paid.get('house') or 0)
-    if f['status'] == 'done' and f.get('ranked') and not f.get('elo') and crews_.get(f['a']['id']) and crews_.get(f['b']['id']):   # 🎖 ranked → ratings move once
-        ca_, cb_ = crews_[f['a']['id']], crews_[f['b']['id']]
-        ra_, rb_ = [int(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0) for x_ in (ca_, cb_)]
-        na_, nb_ = _ffuse.elo(ra_, rb_, {'a': 1, 'b': 0}.get(f.get('winner'), 0.5))
-        ca_.setdefault('world', {})['fuseElo'] = na_; cb_.setdefault('world', {})['fuseElo'] = nb_
-        f['elo'] = {'a': [ra_, na_], 'b': [rb_, nb_]}
-    w_ = st.setdefault('world', _fworld.blank())
-    w_['log'] = ([{'at': now, 'what': (f"⚔ Family Fuse: [{f[f['winner']]['tag']}] beat [{f['b' if f['winner'] == 'a' else 'a']['tag']}]" + (f" · +{(paid.get('fam') or {}).get(f[f['winner']]['id'], 0):,} MP" if f['mp'] else ' · paper'))
-                  if f.get('winner') in ('a', 'b') else f"⚔ Family Fuse [{f['a']['tag']}] vs [{f['b']['tag']}] — {'draw' if f['status'] == 'done' else 'nobody took it'}"}] + (w_.get('log') or []))[:60]
-
-
-async def _ffuse_tick(now, force=False):
-    """Mark every live Family Fuse at live prices (≤ every 20s), settle the ones past their bell, expire untaken challenges."""
-    if not force and now - _ffuse_mark['at'] < 20:
-        return
-    _ffuse_mark['at'] = now
-    st0 = _json_load(CREWS_PATH, {})
-    live = [f for f in ((st0.get('world') or {}).get('ffuse') or {}).values() if f['status'] == 'live']
-    if not live and not any(f['status'] == 'open' for f in ((st0.get('world') or {}).get('ffuse') or {}).values()):
-        return
-    prices, liqs = await _ffuse_prices([f[s]['card'] for f in live for s in ('a', 'b')])
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); store = st.setdefault('world', _fworld.blank()).setdefault('ffuse', {})
-        for f in list(store.values()):
-            if _ffuse.expire(f, now):
-                _ffuse_pay(st, f, now)
-            if f['status'] != 'live':
-                continue
-            for s_ in ('a', 'b'):
-                if f['books'].get(s_):
-                    f['books'][s_] = _pgb.paper_mark(f['books'][s_], prices, liqs, now)
-            d_ = _pgb.duels(f['books'].get('a'), f['books'].get('b'), f['bell'].get('a'), f['bell'].get('b'))
-            f['score'] = d_
-            if now >= f['ends']:
-                _ffuse.settle(f, _pgb.duel_winner(d_, (f['books'].get('a') or {}).get('pct'), (f['books'].get('b') or {}).get('pct')), now, d_)
-                _ffuse_pay(st, f, now)
-        done = sorted((f for f in store.values() if f['status'] in ('done', 'expired')), key=lambda f: -f.get('endAt', 0))
-        for f in done[_ffuse.LOG_KEEP:]:
-            store.pop(f['id'], None)
-        _json_save(CREWS_PATH, st)
-
-
-def _ffuse_view(st, c, now):
-    store = (st.get('world') or {}).get('ffuse') or {}
-    rows = sorted(store.values(), key=lambda f: (f['status'] not in ('live', 'open'), -f['at']))
-    out = {'fights': [_ffuse.view(f, now) for f in rows[:8]], 'mins': list(_ffuse.MINS), 'bid': [_ffuse.BID_MIN, _ffuse.BID_MAX], 'house': _ffuse.HOUSE,
-           'brackets': [{'key': k_, 'word': w_, 'from': lo_} for k_, w_, lo_ in _ffuse.BRACKETS],
-           'ladder': sorted(({'id': x_['id'], 'tag': x_.get('tag'), 'name': x_.get('name'), 'rating': int(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0),
-                              'bracket': _ffuse.bracket(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0)[1], 'badge': x_.get('badge')} for x_ in (st.get('crews') or {}).values()),
-                             key=lambda r_: -r_['rating'])[:12]}
-    if c:
-        out['cards'] = _ffuse_cards(st, c)
-    return out
+# ↪ moved to rep_crews.py: _ffuse_cards, _ffuse_prices, _ffuse_book, _ffuse_pay, _ffuse_tick, _ffuse_view
 
 
 # 🏦 FEE CITY'S MARKETS (fee_markets.py): real DeFi markets as buildings — DefiLlama TVL (one tiny call a market) + ONE DexScreener search for the
@@ -7527,7 +5654,7 @@ import sleep_money as _slm   # noqa: F401 (re-exported: tests and modules reach 
 _slm_cache = {'at': 0.0, 'km': None}
 
 
-import cat_fund as _cfund
+import cat_fund as _cfund   # noqa: F401  (read by rep_crews, rep_money_routes as rs._cfund)
 import wallet_swaps as _wswaps
 _cfund_plans: dict = {}   # f"{cat}:{owner}" → the transaction FEELESS built (memory only, PLAN_SEC) — a signed copy must match it byte for byte
 
@@ -7541,60 +5668,14 @@ class CatFundIn(BaseModel):
     creditUsd: float = 0.0     # 🧠 how much of `usd` becomes model credit; the rest goes into its wallet (one transaction)
 
 
-async def _cat_for_fund(cat_id, me):
-    """The agent (from the agent service) + its own wallet, owned by `me`. Raises HTTPException."""
-    if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cat_id or ''):
-        raise HTTPException(400, 'Not an agent id.')
-    r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', headers={'x-feeless-internal': _internal_key()}, timeout=8)   # the full record (its wallet) — the public view hides it
-    if r.status_code != 200:
-        raise HTTPException(404, 'Cat not found.')
-    cat = (r.json() or {}).get('cat') or {}
-    w = cat.get('agentWallet') or {}
-    if not w.get('address'):
-        raise HTTPException(400, 'Give it its own wallet first.')
-    if w.get('owner') != me:
-        raise HTTPException(403, "Only the wallet that made this agent's wallet can fund it.")
-    if w.get('provider', 'crossmint') not in ('crossmint', 'circle'):
-        raise HTTPException(400, "That wallet is watch-only (its key isn't held by Crossmint) — fund it straight from your own wallet; FEELESS can't trade from it.")
-    return cat, w
-
-
-def _cat_fund_rules(me=None):
-    """💵 What funding a cat costs, from HQ › Fees (owner 2026-10-29: "I wanna set how much per cat in cmd"): the one-time fee + the least a
-    first funding may be. A staff / creator wallet pays NO fee and may start from $1 ("I'm the owner — it shouldn't charge me the fee")."""
-    staff_ = bool(me) and _is_staff(me)
-    pool_ = _cpool.load(POOL_PATH)['cfg']
-    return {'feeUsd': 0.0, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else pool_['firstMinUsd'], 'topupMinUsd': _cfund.TOPUP_MIN_USD, 'depositPct': pool_['depositPct'],
-            'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
+# ↪ moved to rep_crews.py: _cat_for_fund, _cat_fund_rules
 
 
 import agent_pay as _apay   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
 _or_float: dict = {'at': 0.0, 'left': None}
 
 
-async def _openrouter_left(fresh=False):
-    """🛟 The real $ left on FEELESS's OpenRouter account (it pays every agent's model calls): read once a minute, a last good read kept 10 min, None = unknown. Low → the owner hears it, once a day."""
-    now = time.time()
-    if not fresh and _or_float['at'] and now - _or_float['at'] < 60:
-        return _or_float['left']
-    key_ = os.environ.get('OPENROUTER_API_KEY', '').strip()
-    left = None
-    if key_:
-        try:
-            async with httpx.AsyncClient(timeout=6) as http:
-                r = await http.get('https://openrouter.ai/api/v1/credits', headers={'Authorization': f'Bearer {key_}'})
-            if r.status_code == 200:
-                d_ = r.json().get('data') or {}
-                left = round(float(d_.get('total_credits') or 0) - float(d_.get('total_usage') or 0), 4)
-        except Exception:
-            left = None
-    if left is None and _or_float['at'] and now - _or_float['at'] < 600:
-        return _or_float['left']
-    _or_float.update(at=now, left=left)
-    if left is not None and left < _cfund.MODEL_FLOOR_USD:
-        for w_ in _owner_wallets():
-            notify(w_, 'alert', f"🧠 OpenRouter has ${left:.2f} left. Agents can't think and model credit sales are paused until you add credit at openrouter.ai/settings/credits.", '/terminal/feecat/agents', once=f"or-float:{time.strftime('%Y-%m-%d', time.gmtime())}")
-    return left
+# ↪ moved to rep_crews.py: _openrouter_left
 
 
 class CatModelLimitIn(BaseModel):
@@ -7612,30 +5693,12 @@ class CatWithdrawIn(BaseModel):
 _cat_out_busy: set = set()
 
 
-import price_gap as _pgap
+import price_gap as _pgap   # noqa: F401  (read by rep_crews as rs._pgap)
 _pgap_c = {'at': 0.0, 'v': None, 'book': {}}
 PGAP_SEC = 60.0
 
 
-async def _vault_gap_read():
-    now = time.time(); c = _pgap_c
-    pools_ = sorted(((await familia_pools()) or {}).get('pools') or [], key=lambda r_: -_fuse._f(r_.get('tvl')))
-    mints_ = list(dict.fromkeys(m_ for r_ in pools_ for m_ in (r_.get('mints') or []) if isinstance(m_, str) and 32 <= len(m_) <= 44))[:_pgap.TOKENS]
-
-    async def one_(m_):
-        try:
-            r_ = await _ai_http().get(f'https://api.dexscreener.com/token-pairs/v1/solana/{m_}', timeout=10)
-            j_ = r_.json() if r_.status_code == 200 else []
-            return j_ if isinstance(j_, list) else []
-        except Exception as e_:
-            print(f'[gaps] {m_[:6]}: {e_}')
-            return []
-    pairs_ = [p_ for ps_ in await asyncio.gather(*(one_(m_) for m_ in mints_)) for p_ in ps_]
-    if not pairs_ and c['v'] is not None:   # a failed read keeps the last good board
-        return c['v']
-    rows_ = _pgap.persist(c['book'], _pgap.gaps(pairs_, mints_), now)
-    c.update(at=now, v={'gaps': rows_, 'tokens': len(mints_), 'open': sum(1 for g_ in rows_ if g_.get('open')), 'cost': _pgap.COST_PCT, 'at': round(now, 1)})
-    return c['v']
+# ↪ moved to rep_crews.py: _vault_gap_read
 
 
 _pgap_coin = {}   # mint → {'at', 'v', 'book'} — one coin's gap board (SITE-11), ≤ 400 coins kept
@@ -7644,34 +5707,7 @@ _pgap_coin = {}   # mint → {'at', 'v', 'book'} — one coin's gap board (SITE-
 _pgap_fly = {}   # key → the one running read; callers that miss the cache together share it (no stampede on DexScreener)
 
 
-async def _pgap_once(key, make):
-    t_ = _pgap_fly.get(key)
-    if t_ is None:
-        t_ = _pgap_fly[key] = asyncio.ensure_future(make())
-        t_.add_done_callback(lambda _t, k_=key: _pgap_fly.pop(k_, None))
-    return await asyncio.shield(t_)
-
-
-async def _coin_gap_read(mint):
-    now = time.time(); c = _pgap_coin.get(mint)
-    try:
-        r_ = await _ai_http().get(f'https://api.dexscreener.com/token-pairs/v1/solana/{mint}', timeout=10)
-        pairs_ = r_.json() if r_.status_code == 200 else []
-        pairs_ = pairs_ if isinstance(pairs_, list) else []
-    except Exception as e_:
-        print(f'[coin gap] {mint[:6]}: {e_}')
-        pairs_ = []
-    if not pairs_ and c and c['v'] is not None:   # a failed read keeps the last good answer
-        return c['v']
-    if c is None:
-        if len(_pgap_coin) >= 400:
-            _pgap_coin.pop(min(_pgap_coin, key=lambda k_: _pgap_coin[k_]['at']), None)
-        c = _pgap_coin[mint] = {'at': 0.0, 'v': None, 'book': {}}
-    rows_ = _pgap.persist(c['book'], _pgap.gaps(pairs_, [mint]), now)
-    real_ = sum(1 for p_ in pairs_ if isinstance(p_, dict) and p_.get('chainId', 'solana') == 'solana' and _pgap._ok(p_))
-    c.update(at=now, v={'mint': mint, 'gap': rows_[0] if rows_ else None, 'pools': len(pairs_), 'realPools': real_, 'cost': _pgap.COST_PCT,
-                        'answered': bool(pairs_), 'at': round(now, 1)})
-    return c['v']
+# ↪ moved to rep_crews.py: _pgap_once, _coin_gap_read
 
 
 _fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
@@ -7684,55 +5720,14 @@ _flv_hits = _HITS('flv')     # ip → [times] (the leverage builder: 30 an hour 
 _flv_vaults = {}   # 'at' + 'rows': Jupiter Lend's vaults, read at most once every 30 s
 
 
-async def _jl_borrow(method, path, **kw):
-    return await _jl_lend(method, f'borrow/{path}', **kw)
-
-
-async def _jl_lend(method, path, **kw):
-    """One Jupiter Lend call (earn/… or borrow/…) over every key (a key at its rate limit falls through), then the public host. → (status, body)."""
-    hosts_ = [('https://api.jup.ag/lend/v1', {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [('https://lite-api.jup.ag/lend/v1', {})]
-    last_ = (503, {'error': 'Jupiter did not answer.'})
-    for base_, hdr_ in hosts_:
-        try:
-            r_ = await _ai_http().request(method, f"{base_}/{path}", headers=hdr_, timeout=12, **kw)
-        except Exception:
-            continue
-        try:
-            b_ = r_.json()
-        except Exception:
-            b_ = {}
-        if r_.status_code == 429:
-            last_ = (429, {'error': 'Jupiter is busy right now — try again in a minute.'})
-            continue
-        return r_.status_code, b_
-    return last_
-
-
-async def _jl_markets():
-    import lend_borrow as _lb
-    if time.time() - _flv_vaults.get('at', 0) > 30 or not _flv_vaults.get('rows'):
-        code_, b_ = await _jl_borrow('GET', 'vaults')
-        rows_ = _lb.markets(b_) if code_ == 200 else []
-        if rows_:
-            _flv_vaults.update(at=time.time(), rows=rows_)
-    return _flv_vaults.get('rows') or []
+# ↪ moved to rep_crews.py: _jl_borrow, _jl_lend, _jl_markets
 
 
 _fjp_hits = _HITS('fjp')    # ip → [times] (perps builds: 60 an hour per IP)
 _fjp_pool = {}    # 'at' + 'rows': Jupiter Perps pool info per market, read at most once a minute
 
 
-async def _jp_call(method, path, **kw):
-    """One Jupiter Perps API call → (status, body)."""
-    import jup_perps as _jp
-    try:
-        r_ = await _ai_http().request(method, f"{_jp.API}/{path}", timeout=15, **kw)
-    except Exception:
-        return 503, {'message': 'Jupiter Perps did not answer.'}
-    try:
-        return r_.status_code, r_.json()
-    except Exception:
-        return r_.status_code, {}
+# ↪ moved to rep_crews.py: _jp_call
 
 
 _fjp_stats: dict = {}   # 📊 Jupiter Perps market-stats per market, 10 s
@@ -7750,69 +5745,13 @@ _frun_tok = {}   # 'at' + 'rows': Jupiter Lend Earn's USDC / SOL doors, read at 
 _rng_cache: dict = {}   # key → (at, rows): the venues' own pool reads, 2 min
 
 
-async def _rng_get(key, url, params, parse):
-    hit_ = _rng_cache.get(key)
-    if hit_ and time.time() - hit_[0] < 120:
-        return hit_[1]
-    try:
-        r_ = await _fmk_http_get().get(url, params=params, timeout=12)
-        rows_ = parse(r_.json() if r_.status_code == 200 else {})
-    except Exception:
-        rows_ = None
-    if rows_ is None:
-        return hit_[1] if hit_ else []
-    _rng_cache[key] = (time.time(), rows_)
-    if len(_rng_cache) > 400:
-        _rng_cache.clear()
-    return rows_
+# ↪ moved to rep_crews.py: _rng_get
 
 
 AUTORANGE_PATH = DATA_DIR / 'autorange.json'   # {wallet: [armed band]} — the server watcher pings the phone when a band sits out of range
 
 
-async def _collective_band_pass():
-    """🏊 Each Collective pool with a band, against its live price: a ping to the owner when it sits out of range. It moves nothing."""
-    import range_pools as _rp
-    rows_ = [p_ for p_ in (_cpool.load(POOL_PATH).get('pools') or []) if p_.get('on') and p_.get('mint') and p_.get('bandLow') and p_.get('bandHigh')]
-    for p_ in rows_:
-        got_ = await familia_pools_ranges(mint=p_['mint'], quote='', top=0); px_ = next((x_['price'] for x_ in got_.get('pools') or [] if x_['pool'] == p_['address']), None)
-        band_, msg_ = _rp.watch_step({**(p_.get('watch') or {}), 'lo': p_['bandLow'], 'hi': p_['bandHigh'], 'sym': p_['pair']}, px_, time.time())
-        def keep(st, id_=p_['id'], b_=band_):
-            r_ = next((x_ for x_ in st.get('pools') or [] if x_['id'] == id_), None)
-            if r_:
-                r_['watch'] = {k_: b_[k_] for k_ in ('outSince', 'alertedAt') if b_.get(k_)}
-        _cpool.update(POOL_PATH, keep)
-        if msg_:
-            for w_ in list(_admin_wallets())[:3]:
-                notify(w_, 'autorange', msg_.replace('(your wallet signs)', '(by hand, on the venue)'), url='/terminal', meta={'claim': 'autorange', 'source': 'collective'})
-
-
-async def _autorange_watch():
-    """Every minute: each armed band vs its pool's own live price (the venue API, cached 2 min) → a phone ping when a move is due."""
-    import range_pools as _rp
-    while True:
-        await asyncio.sleep(60)
-        try:
-            await _collective_band_pass()
-            st_ = _json_load(AUTORANGE_PATH, {}) or {}
-            if not st_:
-                continue
-            px_ = {}
-            for mint_ in {r_['mint'] for rows_ in st_.values() for r_ in rows_}:
-                got_ = await familia_pools_ranges(mint=mint_, quote='', top=0)
-                px_.update({p_['pool']: p_['price'] for p_ in got_.get('pools') or []})
-            now_, changed_ = time.time(), False
-            for w_, rows_ in st_.items():
-                for i_, r_ in enumerate(rows_):
-                    nb_, msg_ = _rp.watch_step(r_, px_.get(r_['pool']), now_)
-                    if nb_ != r_:
-                        rows_[i_] = nb_; changed_ = True
-                    if msg_:
-                        notify(w_, 'autorange', msg_, url='/terminal/launch?mode=pools', meta={'claim': 'autorange', 'source': r_['venue'], 'pool': r_['pool']})
-            if changed_:
-                _json_save(AUTORANGE_PATH, st_)
-        except Exception as e:
-            print('autorange watch:', str(e)[:120])
+# ↪ moved to rep_crews.py: _collective_band_pass, _autorange_watch
 
 
 @app.on_event('startup')
@@ -7858,21 +5797,7 @@ import hq_pair as _hqp   # noqa: F401 (re-exported: tests and modules reach it a
 _hqp_store = {}
 
 
-def _lan_ip():
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('10.255.255.255', 1))   # no packet is sent: it only picks the interface the LAN route uses
-        return s.getsockname()[0]
-    except Exception:
-        return None
-    finally:
-        s.close()
-
-
-def _hqp_site(port):
-    ip = _lan_ip()
-    return f"http://{ip}:{int(port)}" if ip else None
+# ↪ moved to rep_crews.py: _lan_ip, _hqp_site
 
 
 _hqp_ip = _HITS('hqp')
@@ -7945,71 +5870,7 @@ CREW_PRIZES = (150, 100, 60)   # season points to EACH member of the week's top 
 import family_wars as _fwar
 
 
-async def _wars_tick(now):
-    """⚔ The family-war clock, every warm pass: void unanswered call-outs at the bell, start accepted ones, settle finished ones on the
-    teams' VERIFIED trades in the window (points pot only). Winners get an inbox note."""
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {})
-        if not st.get('wars'):
-            return
-        busy = [w for w in st['wars'] if w['state'] in (_fwar.OPEN, _fwar.SET, _fwar.LIVE)]
-        if not busy:
-            return
-        mem = {m for w in busy for t in (w.get('teams') or {}).values() for m in t}
-        before = [w['state'] for w in busy]
-        ev = _fwar.tick(st, _crew_pieces(list(mem), now) if mem else {}, now)
-        if ev or any(w['state'] != b_ for w, b_ in zip(busy, before)):
-            _json_save(CREWS_PATH, st)
-            _crew_cache['data'] = None
-    for w, kind in ev:
-        if kind != 'done' or not (w.get('result') or {}).get('winner'):
-            continue
-        win = w['result']['winner']
-        for cid in [w[win]] + list((w.get('allies') or {}).get(win) or []):
-            c = (st.get('crews') or {}).get(cid) or {}
-            try:
-                notify(c.get('owner'), 'family', f"🏆 [{c.get('tag')}] won the war — the pot of {_fwar.pot(w)} pts is in your chest", url='/terminal/leaderboard?lens=crews', once=f"war:{w['id']}:{cid}", push=False, meta={'claim': 'family war won', 'source': 'family_wars'})
-            except Exception:
-                pass
-
-
-async def _crew_season_tick(now):
-    """Once a week (the first pass after Monday 00:00 UTC): the top 3 RANKED crews (verified results over the last 7 days) pay their members season
-    points (150 / 100 / 60 each), an inbox note and a line in the Fuse chat. Recorded in crews.json so it never repeats."""
-    import crews as _cr
-    week0 = int((now // 86400 - time.gmtime(now).tm_wday) * 86400)
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {})
-        if st.get('awardedWeek') == week0 or not st.get('crews'):
-            return
-        members = [m for c in st['crews'].values() for m in c['members']]
-        top = [r for r in _cr.board(st, _crew_pieces(members, now), now) if r['ranked']][:3]
-        st['awardedWeek'] = week0; st.setdefault('awards', []).append({'week': week0, 'top': [{'id': r['id'], 'name': r['name'], 'pct': r['pct']} for r in top]})
-        st['awards'] = st['awards'][-26:]
-        _json_save(CREWS_PATH, st)
-    medal = ['🥇', '🥈', '🥉']
-    for i, r in enumerate(top):
-        c = st['crews'].get(r['id'])
-        for w in (c or {}).get('members') or []:
-            season_award(w, CREW_PRIZES[i], 'crew-week')
-            try:
-                notify(w, 'family', f"{medal[i]} Your family {c['name']} placed #{i + 1} this week ({r['pct']:+.1f}%): +{CREW_PRIZES[i]} season points", url='/terminal/leaderboard?lens=families', once=f'family:{week0}', push=False, meta={'source': 'family'})
-            except Exception:
-                pass
-    if top:
-        try:
-            _fuse_chat('fuse-lab', '🌹 Families of the week: ' + ' · '.join(f"{medal[i]} [{r['tag']}] {r['name']} {r['pct']:+.1f}%" for i, r in enumerate(top)), f'family-week-{week0}')
-        except Exception:
-            pass
-    _crew_cache['data'] = None
-
-
-def _crew_room_ok(room, address):
-    """crew-<id> rooms: only members post (anyone may read — crew rooms are public to read). → (is_crew_room, allowed)."""
-    if not str(room).startswith('crew-'):
-        return False, True
-    c = (_json_load(CREWS_PATH, {}).get('crews') or {}).get(room[5:])
-    return True, bool(c and primary_of(address) in {primary_of(m) for m in c['members']})
+# ↪ moved to rep_crews.py: _wars_tick, _crew_season_tick, _crew_room_ok
 
 
 # ---- ⚡ Free hourly call (predict.py): the engine's doors put a coin each on a ballot; pick the one that leads the next hour; points only --------
@@ -8017,77 +5878,15 @@ PREDICT_PATH = FUSE_HQ_PATH.parent / 'predict.json'
 _predict_lock = asyncio.Lock()
 
 
-def _predict_symbols():
-    sym = {r.get('mint'): r.get('symbol') for r in _runner_cands if r.get('mint') and r.get('symbol')}
-    sym.update({r['mint']: r.get('symbol') for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint') and r.get('symbol')})
-    return sym
+# ↪ moved to rep_predict.py: _predict_symbols
 
 
-import rep_markets as _repm
+import rep_markets as _repm   # noqa: F401  (read by rep_more_writes, rep_predict as rs._repm)
 REP_MARKETS_PATH = FUSE_HQ_PATH.parent / 'rep_markets.json'
 _rm_lock = asyncio.Lock()
 
 
-def _rm_rows():
-    """🛡 Rep markets' coins: Pump's own trending board first, then the open board's busiest — each with its age and rug meter (the same read
-    the trench list shows)."""
-    by = {r['mint']: r for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint')}
-    out, seen = [], set()
-    for src, mints in (('ptrend', [r.get('mint') for r in (_lens_rows.get('ptrend') or [])[:12]]), ('open', list(by)[:40])):
-        for m in mints:
-            if not m or m in seen:
-                continue
-            seen.add(m); r = _with_tv(by.get(m) or {'mint': m})
-            out.append({'mint': m, 'symbol': r.get('symbol') or (_predict_symbols().get(m)), 'src': src, 'ageH': r.get('ageH'), 'rug': (r.get('tv') or {}).get('rug')})
-    return [r for r in out if r.get('symbol')]
-
-
-async def _rm_tick(now):
-    """Every warm pass: mark open markets on live prices, settle what can be decided (season points for the week's net), open the hour's markets."""
-    async with _rm_lock:
-        st = _json_load(REP_MARKETS_PATH, {}) or {}
-        opn = [m for m in st.get('markets') or [] if m['state'] == 'open']
-        if opn:
-            px = await _jup_prices(sorted({m['mint'] for m in opn if m.get('mint')}), judge=True)
-            for m in opn:
-                if m.get('mint') and (px or {}).get(m['mint']):
-                    _repm.mark(m, px[m['mint']], now)
-        try:   # 🤖 live PoWs and PoPs open bid markets; their real results settle them
-            async with httpx.AsyncClient(timeout=5) as http_:
-                _repm.sync_agents(st, (await http_.get('http://127.0.0.1:5088/api/cats/bids/feed')).json().get('rows'), now)
-        except (httpx.HTTPError, ValueError) as e:
-            print(f'[rep-markets] agent feed: {str(e)[:100]}')
-        done = _repm.settle(st, now)
-        for m in done:
-            for s_ in m['stakes']:
-                b_ = _repm.bank(st, s_['w'], now); pts_ = _repm.season_pts(b_)
-                if str(s_['w']).startswith('agent:'):   # an agent's chips never earn season points
-                    continue
-                if pts_ > b_.get('pts', 0):
-                    season_award(s_['w'], pts_ - b_.get('pts', 0), 'rep-market'); b_['pts'] = pts_
-        hr = int(now // 3600)
-        if st.get('openedHour') != hr:
-            rows = _rm_rows()
-            if rows:
-                px = await _jup_prices([r['mint'] for r in rows[:30]], judge=True)
-                _repm.new_markets(st, rows, px or {}, now)
-                st['openedHour'] = hr
-        _json_save(REP_MARKETS_PATH, st)
-
-
-def _rep_of(wallets):
-    out = {}
-    for w in wallets:
-        hit = _trust_cache.get(w)
-        if hit:
-            out[w] = _fuse._f((hit[1] or {}).get('score'))
-        else:
-            out[w] = 50.0
-            try:
-                asyncio.get_running_loop().create_task(_trust_fill(w))
-            except RuntimeError:
-                pass
-    return out
+# ↪ moved to rep_predict.py: _rm_rows, _rm_tick, _rep_of
 
 
 class RepStake(BaseModel):
@@ -8098,36 +5897,7 @@ class RepStake(BaseModel):
     chips: int = 0
 
 
-async def _predict_tick(now):
-    """Every ~minute: settle rounds whose hour is over (biggest move wins, points via season_award, quest events, inbox note) and open this hour's ballot."""
-    import predict as _pr
-    async with _predict_lock:
-        d = _json_load(PREDICT_PATH, {'rounds': {}, 'players': {}}); rounds, players = d.setdefault('rounds', {}), d.setdefault('players', {})
-        due = [r for r in rounds.values() if r.get('status') == 'open' and now >= r['closesAt']]
-        if due:
-            px = await _jup_prices(sorted({c['mint'] for r in due for c in r['cands']}), judge=True)
-            for r in due:
-                res = _pr.settle(r, px or {})
-                r.update(winner=res['winner'], moves=res['moves'], settledAt=now, status='settled' if res['winner'] else 'void')
-                if res['winner']:
-                    win_sym = next((c['symbol'] for c in r['cands'] if c['mint'] == res['winner']), '')
-                    for w, pts in _pr.award(players, r, res['winner'], now):
-                        season_award(w, pts, 'free-call')
-                        try:
-                            notify(w, 'free-call', f"⚡ You called it: ${win_sym} led the hour (+{pts} pts)", url='/terminal/radar', once=f"fcall:{r['id']}", push=False, meta={'source': 'free-call'})
-                        except Exception:
-                            pass
-        rid = _pr.round_id(now)
-        if str(rid) not in rounds and now - rid < 3000:
-            lists = {k: v for k, v in _lens_rows.items()}
-            mints = [row.get('mint') for k, _l in _pr.DOORS for row in (lists.get(k) or [])[:8]]
-            px = await _jup_prices([m for m in mints if m], judge=True)
-            cands = _pr.candidates(lists, px or {}, _predict_symbols())
-            if len(cands) >= 2:
-                rounds[str(rid)] = _pr.new_round(now, cands)
-        for k in sorted(rounds)[:-48]:
-            rounds.pop(k, None)
-        _json_save(PREDICT_PATH, d)
+# ↪ moved to rep_predict.py: _predict_tick
 
 
 class PredictPick(BaseModel):
@@ -8152,18 +5922,7 @@ _track_cache: dict = {}
 _myedge_cache = {'at': 0.0, 'data': None}
 
 
-def _owner_edge_rec():
-    """🎯 The owner's own record by entry type (owner_edge.py): their logged hand picks joined to what the card's closed pieces did. 5 min cache."""
-    import owner_edge as _oe, pay_map as _pm
-    now = time.time()
-    if _myedge_cache['data'] and now - _myedge_cache['at'] < 300:
-        return _myedge_cache['data']
-    ledger = list(reversed(_fw_full_ledger()))   # newest first, from the in-memory copy (re-parsing 100K rows blocked the loop)
-    log = _json_load(PICK_STYLE_PATH, {}).get('log') or []
-    rec = _oe.records(log, _pm.pieces(ledger, 'degen'))
-    rec['thresholds'] = {'chase5m': _oe.CHASE_5M, 'thinVol': _oe.THIN_VOL, 'setupDip': _oe.SETUP_DIP, 'setupVol': _oe.SETUP_VOL}
-    _myedge_cache.update(at=now, data=rec)
-    return rec
+# ↪ moved to rep_predict.py: _owner_edge_rec
 
 
 _paymap_cache = {'at': 0.0, 'data': None}
@@ -8177,15 +5936,7 @@ KEEPER_LOCK = DATA_DIR / 'keeper.lock'
 _keeper_state = {'stopping': False, 'said': 0.0}
 
 
-def _is_keeper():
-    """🔒 Only ONE process on this machine may tick the cards and trade the Fuse wallet (see single.py). A process that is shutting
-    down, or that does not hold the lock, does nothing."""
-    if _keeper_state['stopping'] or os.environ.get('PYTEST_CURRENT_TEST'):
-        return not _keeper_state['stopping']
-    ok = _single.acquire(KEEPER_LOCK)
-    if not ok and time.time() - _keeper_state['said'] > 300:
-        _keeper_state['said'] = time.time(); print('keeper: another backend process holds the keeper lock — this one will not trade')
-    return ok
+# ↪ moved to rep_predict.py: _is_keeper
 
 
 @app.on_event('shutdown')
@@ -8205,49 +5956,7 @@ async def _keeper_stop():
         pass
 
 
-async def _prime_tick(now):
-    if not _is_keeper():
-        return 0
-    async with _prime_tick_lock:   # the warm loop and the 🔔 round bell never run two ticks at once
-        n = await _prime_tick_inner(now)
-    try:
-        await _fw_tick(time.time())   # 👛 real tier cards follow the engine with real swaps (its OWN clock: the tier tick above took seconds)
-    except Exception as e:
-        print('fuse wallet:', e)
-    return n
-
-
-async def _prime_bell_loop():
-    """🔔 Wake exactly when the next tier round is due (the 10s countdown on screen ends on time, never at 00:00 for a minute)."""
-    await asyncio.sleep(30)
-    while True:
-        try:
-            cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-            rcfg = _prime_real_cfg(); pcfg_b = _prime_cfg(); locks_b = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}
-            # ⏱ every card has its OWN clock: the real card's, a locked tier's, or the tier's entry in `clocks`
-            rot_of = lambda c: (rcfg if c.get('real') else _prime.clean_cfg(locks_b[c['tpl']]) if c.get('tpl') in locks_b else _prime.tier_cfg(pcfg_b, c.get('tpl')))['rotateHours'] * 3600
-            # deal time = round end + 10s bell (💵 real: `dealLeadSec` earlier · a floored card wakes when its rest ends, not every 5s)
-            due = min(((_fuse._f(c['flooredAt']) + max(60.0, _fuse._f(rcfg.get('floorRestMins') if c.get('real') else 0) * 60)) if c.get('flooredAt') else
-                       (_fuse._f(c.get('lastRotateAt')) + rot_of(c) + _prime.BELL_SEC - (_fuse._f(rcfg.get('dealLeadSec')) if c.get('real') else 0))
-                       for c in cards.values() if c.get('lastRotateAt')), default=time.time() + 60)
-            wait = due - time.time()
-            kick = _FW_KICK.get('at')   # ⏳ a real buy was just refused → re-pick that seat 15s later (never a whole tick later)
-            if kick and time.time() >= kick + _fw.RETRY_SEC:
-                _FW_KICK.pop('at', None)
-                wait = min(wait, 0.0)
-            if 0.5 < wait <= 12:   # 🔔 inside the 10s countdown: warm the candidates + prices now, so the re-deal is instant at 0
-                await _prime_candidates()
-                await asyncio.sleep(max(0.0, due - time.time()))
-                wait = 0
-            if wait <= 0.5:
-                await _prime_tick(time.time())
-                wait = 5
-            if _FW_KICK.get('at'):
-                wait = min(wait, _FW_KICK['at'] + _fw.RETRY_SEC - time.time())
-            await asyncio.sleep(max(1.0, min(60.0, wait + 0.2)))
-        except Exception as e:
-            print('prime bell:', e)
-            await asyncio.sleep(30)
+# ↪ moved to rep_predict.py: _prime_tick, _prime_bell_loop
 
 
 _guard_seen: dict = {}   # {mint: when the fast guard last woke the tick for it} — one wake per coin per 30s
@@ -8266,215 +5975,27 @@ _smart_now: dict = {}     # mint → (at, [(wallet, usd)]) smart wallets seen bu
 _burst_last: list = []    # [(mint, price)] coins showing a buy burst at the last flow entry — scored like any list ('burst')
 
 
-async def _smart_track(now):
-    """🐳 Every ~2 min: read the tapes of the real card's coins + Coming up's top 8, note each wallet's first buy, settle buys an hour old,
-    re-derive the smart set, flag coins a smart wallet is buying now. The radar's own record = edge proof key 'smart'."""
-    try:
-        rows = [r for r in _edge_rank()[:8] if r.get('pairAddress')]
-        held = [l for c in _prime_cards().values() if (c or {}).get('real') for l in c.get('legs') or [] if l.get('pairAddress') and l.get('mint') and l.get('symbol') != 'SOL']
-        pm = {r['pairAddress']: r['mint'] for r in rows}
-        pm.update({l['pairAddress']: l['mint'] for l in held})
-        await _flow_fetch(list(pm), max_age=60)
-        st = _json_load(SMART_PATH, {})
-        for p_, m_ in pm.items():
-            at_, tr_ = _flow_trades.get(p_, (0, []))
-            if tr_ and now - at_ < 120:
-                st = _dg.note_buys(st, m_, tr_, now)
-        due = list({b['m'] for b in st.get('buys') or [] if now - _fuse._f(b.get('at')) >= _dg.SETTLE_SEC})
-        jp = await _jup_prices(due, judge=True) if due else {}
-        st = _dg.settle(st, lambda m: (jp or {}).get(m), now)
-        await asyncio.to_thread(_json_save, SMART_PATH, st)   # ⚙ a big file: write it off the loop (Lag catcher: 1.9s stalls)
-        _smart.update(set=_dg.smart_set(st), at=now)
-        for p_, m_ in pm.items():
-            at_, tr_ = _flow_trades.get(p_, (0, []))
-            hits = _dg.smart_hits(tr_, _smart['set']) if now - at_ < 120 else []
-            if hits:
-                _smart_now[m_] = (now, hits)
-    except Exception as e:
-        print('smart wallets:', e)
+# ↪ moved to rep_predict.py: _smart_track, _smart_on
 
 
-def _smart_on(mint):
-    at, hits = _smart_now.get(mint, (0, []))
-    return hits if time.time() - at < 600 else []
-
-
-import real_learn as _rl
+import real_learn as _rl   # noqa: F401  (read by rep_ai, rep_predict as rs._rl)
 REAL_LEARN_PATH = FUSE_HQ_PATH.parent / 'real_learn.json'   # 🧠 every coin that left the real card: its buy snapshot → how it ended
 _rl_cache = {'at': 0.0, 'tbl': {}}
 
 
-def _learn_drops(before, after, price_of, now):
-    """🧠 Coins that LEFT a real card between two versions of it (gone, turned into a reserved seat, or replaced) → one lesson each."""
-    if not (before and before.get('real') and after):
-        return 0
-    stay = {l.get('mint') for l in after.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
-    gone = [l for l in before.get('legs') or [] if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') not in stay and l.get('symbol') != 'SOL']
-    if not gone:
-        return 0
-    st = _json_load(REAL_LEARN_PATH, {})
-    why = ((after.get('events') or [{}])[-1] or {}).get('kind') or ''
-    for l in gone:
-        st = _rl.note(st, l, price_of(l), now, why)
-    _json_save(REAL_LEARN_PATH, st)
-    _rl_cache['at'] = 0.0
-    return len(gone)
-
-
-def _real_table():
-    if time.time() - _rl_cache['at'] > 120:
-        _rl_cache.update(at=time.time(), tbl=_rl.table(_json_load(REAL_LEARN_PATH, {})))
-    return _rl_cache['tbl']
-
-
-async def _flow_fetch(pairs, max_age=12.0):
-    """🌊 The last 90s of real swaps for these pools (candles service trade tape, its own 15s cache) → {pair: window}. Parallel, 4s budget."""
-    now = time.time()
-    need = [p for p in dict.fromkeys(pairs) if p and now - _flow_now.get(p, (0, None))[0] > max_age]
-    async def one(http, p):
-        try:
-            r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{p}')
-            tr = (r.json() or {}).get('trades') or []
-            _flow_trades[p] = (time.time(), tr)   # 🐳 the raw tape: the smart-wallet radar reads who bought
-            return p, _flow.window(tr, time.time())
-        except Exception:
-            return p, None
-    if need and not os.environ.get('PYTEST_CURRENT_TEST'):
-        async with httpx.AsyncClient(timeout=4) as http:
-            for p, w in await asyncio.gather(*[one(http, p) for p in need[:12]]):
-                _flow_now[p] = (time.time(), w)
-    return {p: (_flow_now.get(p) or (0, None))[1] for p in pairs}
-
-
-def _flow_mark(mint, v, sym, now, held=False):
-    """🌊 Keep the newest buy / sell vital per coin for the page (held seats + coins checked before a seat) — bounded, 5 min."""
-    fm = _office.setdefault('flow', {})
-    fm[mint] = {**v, 'at': round(now, 1), 'sym': sym, 'held': held}
-    if len(fm) > 60:
-        for k_ in [k_ for k_, x_ in fm.items() if now - _fuse._f(x_.get('at')) > 300][:40]:
-            fm.pop(k_, None)
-
-
-def _flow_intel(mint):
-    """The wallets the rug radar watches for this coin: creator + top-10 wallets + bundle / sniper wallets (scan cache only)."""
-    hit = _intel_cache.get(mint)
-    it = (hit[1] if hit else {}) or {}
-    watch = {h.get('owner') for h in (it.get('topHolders') or [])[:10] if h.get('kind') == 'wallet' and h.get('owner')}
-    watch |= set((it.get('bundledWallets') or [])[:30]) | set((it.get('sniperWallets') or [])[:30])
-    watch.discard(it.get('creator'))
-    return {'creator': it.get('creator'), 'watch': watch}
+# ↪ moved to rep_predict.py: _learn_drops, _real_table, _flow_fetch, _flow_mark, _flow_intel
 
 
 _consig_c: dict = {'at': 0.0, 'v': {}}
 
 
-def _consig_plans(now):
-    """🤵 The Consigliere's live plan per coin type, re-learned from the real record every 5 min (consigliere.plans)."""
-    if now - _consig_c['at'] > 300:
-        try:
-            mtp_ = _seat.models_take((_g4_mem.get() or {}).get('log'), now)   # 🧠 the models' own take line competes with the spikes — kept only if it pays on real trades
-            _consig_c.update(at=now, v=_cg.plans((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [], (_after_mem.get() or {}).get('done') or {}, _ap.key_of, extra_spikes=(mtp_,) if mtp_ else ()))
-            _office['consigliere'] = _consig_c['v']
-        except Exception as e:
-            print('consigliere:', str(e)[:80])
-            _consig_c['at'] = now
-    return _consig_c['v']
+# ↪ moved to rep_predict.py: _consig_plans
 
 
 REAP_ADJ_SEC = 120.0   # Reaper moves a coin's lines at most every 2 min
 
 
-async def _reaper_lines(now, px):
-    """☠ REAPER TRADES HIS COINS LIVE (owner, 2026-10-18: "I barely see Reaper adjusting TP / SL"): for every agent coin on the real card, the
-    tape since our buy is tagged (chart_wallets: dev · snipers · bundles · top holders · whales · top traders) and Reaper moves its lines
-    (office.reaper_adjust) — written as the coin's own aiTp / aiSl, which his rules R6m / R5m obey. Your coins, your lines, OSSY / G4's seat: never."""
-    async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
-        d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {}); hit_ = False
-        reps_ = {r_.get('mint'): r_ for r_ in _office.get('reports') or []}
-        for tid_, c_ in cs_.items():
-            if not (c_ and c_.get('real') and c_.get('holdBy') == 'agents'):
-                continue
-            for l in c_.get('legs') or []:
-                m_ = l.get('mint')
-                if (not _uni.is_agent(l) or l.get('aiSeat') or l.get('picked') or l.get('ownerLvAt') or l.get('placeholder') or not l.get('real')
-                        or _fuse._f(l.get('units')) <= 0 or now - _fuse._f(l.get('reapAdjAt')) < REAP_ADJ_SEC):
-                    continue
-                tr_ = _flow_trades.get(l.get('pairAddress'))
-                pxn, ent = _fuse._f(px.get(m_)), _fuse._f(l.get('entry'))
-                if not tr_ or now - tr_[0] > 30 or pxn <= 0 or ent <= 0:
-                    continue
-                wm_ = _cw.moves_since(_cw.tag_trades(tr_[1], (_intel_cache.get(m_) or (0, None))[1] or {}), _fuse._f(l.get('at')))
-                rp_ = reps_.get(m_) or {}
-                adj_ = _of.reaper_adjust((pxn / ent - 1) * 100, _fuse._f(rp_.get('take')), _fuse._f(rp_.get('stop')), wm_, l.get('aiTp'), l.get('aiSl'))
-                if not adj_:
-                    continue
-                if adj_.get('tp'):
-                    l['aiTp'] = adj_['tp']
-                if adj_.get('sl'):
-                    l['aiSl'] = adj_['sl']
-                l['aiBy'], l['reapAdjAt'] = 'Reaper', now
-                c_.setdefault('events', []).append({'at': now, 'kind': 'agent', 'symbol': l.get('symbol'), 'mint': m_, 'why': f"☠ Reaper moved ${l.get('symbol')}: {adj_['why']} — {wm_['words']}"})
-                hit_ = True
-        if hit_:
-            d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
-    return hit_
-
-
-async def _flow_guard(now, px):
-    """🌊 + 🚨 on the real card(s): read each held coin's tape, sell what flow / the rug radar flags (like a fast stop), score each exit."""
-    rcfg = _prime_real_cfg()
-    all_c = [c for c in _prime_cards().values() if c.get('real') and not c.get('flooredAt')]
-    cards = [c for c in all_c if not c.get('holdAll')]
-    # 🎮 the AGENTS' seats: their tape is read on the same cadence (Reaper's R4 dump + R4r rug radar stand on it — the agents' card is held,
-    # so the engine's flow exit never touched it and the tape sat 60–160s old); nothing here exits an agent seat, Reaper decides
-    agent_legs = [l for c in all_c if c.get('holdAll') and c.get('holdBy') == 'agents' for l in c.get('legs') or [] if _flow.watched(l) and not _prime.safe_anchor(l)]
-    engine_on = not (rcfg.get('flowExit', 'off') == 'off' and not rcfg.get('rugRadar', True))
-    legs = [l for c in cards for l in c.get('legs') or [] if _flow.watched(l) and not _prime.safe_anchor(l)] if engine_on else []
-    if not legs and not agent_legs:
-        return False
-    flows = await _flow_fetch([l.get('pairAddress') for l in legs + agent_legs])
-    if agent_legs:
-        try:
-            await _reaper_lines(now, px)   # ☠ Reaper moves his own TP / SL from what the wallets did since the buy (never a sale here)
-        except Exception as e:
-            print('reaper lines:', str(e)[:100])
-    if not legs:
-        return False
-    intel = {l.get('mint'): _flow_intel(l.get('mint')) for l in legs}
-    hit_any, noted = False, []
-    async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
-        d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
-        for tid_, c_ in list(cs_.items()):
-            if not (c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll')):
-                continue
-            nw_, hits = _flow.flow_exits(c_, flows, px, rcfg, now, _prime.sell_usd, intel)
-            if hits:
-                _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
-                cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
-                hit_any = True
-                noted += [(e.get('flowKind') or e.get('kind'), e.get('mint'), e.get('px')) for e in nw_['events'][-len(hits):]]   # 🏔 climax sells keep their own record
-        if hit_any:
-            d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
-    if noted:   # 📏 the exit's own record: the coin's move in the hour AFTER we sold (negative = the exit saved money)
-        st = _json_load(FLOW_PROOF_PATH, {})
-        passing = {}
-        for k, m, p_ in noted:
-            if m and _fuse._f(p_) > 0:
-                passing.setdefault(k, []).append((m, _fuse._f(p_)))
-        _json_save(FLOW_PROOF_PATH, _trench.meta_track(st, passing, lambda m: None, now, keys=tuple(dict.fromkeys(list(st) + list(passing)))))
-    return hit_any
-
-
-async def _flow_settle(now):
-    """Settle flow / rug exits an hour after they sold (with the lens pass)."""
-    try:
-        st = _json_load(FLOW_PROOF_PATH, {})
-        due = [m for s_ in st.values() for m, o in (s_.get('open') or {}).items() if now - _fuse._f(o.get('at')) >= _trench.PROOF_SEC]
-        if due:
-            jp = await _jup_prices(due, judge=True)
-            _json_save(FLOW_PROOF_PATH, _trench.meta_track(st, {}, lambda m: (jp or {}).get(m), now, keys=tuple(st)))
-    except Exception as e:
-        print('flow settle:', e)
+# ↪ moved to rep_predict.py: _reaper_lines, _flow_guard, _flow_settle
 
 
 SEAT_HEARTBEAT_SEC = 8   # an empty agent seat gets a tier tick at least this often (the 30-second seat decision needs a tick to run in)
@@ -8484,185 +6005,7 @@ AGENT_GUARD_SEC = 3   # ⚡ while the agents hold a real seat the guard looks ev
 _guard_agents = {'held': False}
 
 
-async def _limit_check(now):
-    """🎯 LIMIT ORDERS: every guard pass, ONE batched live-price read for the real cards' limits; a crossed line hands the order to the card's
-    NORMAL path (buy → your seat pick / pick swap now · sell → ✂ to card cash) and the keeper is kicked. It never signs anything itself."""
-    cards_ = [c for c in _prime_cards().values() if c.get('real') and c.get('limits')]
-    ms_ = sorted({x.get('mint') for c in cards_ for x in c.get('limits') or [] if x.get('mint')})
-    if not ms_:
-        return
-    px_ = await _live_px(ms_)
-    fired = False
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-        for tpl_, c in list(cards.items()):
-            if not (c.get('real') and c.get('limits')):
-                continue
-            hit, keep, gone = _lim.due(c, px_, now)
-            if not hit and not gone:
-                continue
-            c = {**c, 'limits': keep, 'events': list(c.get('events') or [])}
-            for x in hit:
-                try:
-                    if x['side'] == 'buy':
-                        cand = {**x['cand'], 'price': x['firedPx']}
-                        c = _prime.queue_seat(c, cand, more=True) if x['target'] == '__seat__' else _prime.queue_swap(c, x['target'], {**cand, 'now': True})
-                    else:
-                        c = _prime.sell_leg_to_cash(c, x['pair'], {x['pair']: x['firedPx']}, now, x.get('pct') or 100)
-                    c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — hit at {x['firedPx']:.6g}"})
-                    fired = True
-                except Exception as e:
-                    c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — hit, but could not be placed: {str(e)[:80]}"})
-            for x in gone:
-                c['events'].append({'at': now, 'kind': 'limit', 'symbol': x.get('symbol'), 'why': f"{_lim.word(x)} — expired"})
-            cards[tpl_] = c
-        _json_save(FUSE_HQ_PATH, d)
-    if fired:
-        _fw_kick_now(); asyncio.ensure_future(_prime_tick(time.time()))
-
-
-async def _real_guard_loop():
-    """⚡ FAST GUARD for real-money cards: every ~10s ONE batched Jupiter price read for the coins a real card holds; a coin at
-    its stop / instant-swap line (or a rider off its trail) wakes the tier tick at once instead of waiting for the next
-    ~1-minute pass. Reads only; every decision and every order still goes through the normal tick + keeper checks."""
-    await asyncio.sleep(45)
-    while True:
-        try:
-            if _is_keeper():
-                # 🎮 a card the AGENTS control (holdAll by 'agents') is read too: its seats get the same fresh price every ~6s (P/L velocity +
-                # Reaper's hard lines wake the tick) — the engine's own fast stop / instant swap still act only on cards the engine runs
-                cards_all = [c for c in _prime_cards().values() if c.get('real') and not c.get('flooredAt') and (not c.get('holdAll') or c.get('holdBy') == 'agents')]
-                cards = [c for c in cards_all if not c.get('holdAll')]
-                agents_c = [c for c in cards_all if c.get('holdAll')]
-                try:
-                    await _limit_check(time.time())
-                except Exception as e:
-                    print('limit check:', str(e)[:100])
-                _guard_agents['held'] = any(not l.get('placeholder') and l.get('mint') for c in agents_c for l in c.get('legs') or [])
-                mints = [l.get('mint') for c in cards_all for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]
-                try:   # 🪑 EMPTY-SEAT HEARTBEAT (owner: "no seat should be empty, 30 secs to choose"): while an agent seat is empty the tier tick runs at
-                    # least every SEAT_HEARTBEAT_SEC, so the 30-second decision (cleared → best available) happens on time; the tick decides, nothing else
-                    now_h, seat_h = time.time(), _agents.get('seat') or {}
-                    if (agents_c and seat_h.get('empty') and seat_h.get('movesLeft') and not _prime_tick_lock.locked()
-                            and now_h - _fuse._f(_office.get('tickAt')) >= SEAT_HEARTBEAT_SEC and now_h - _fuse._f(_office.get('heartAt')) >= SEAT_HEARTBEAT_SEC):
-                        _office['heartAt'] = now_h; _office['heartbeats'] = int(_office.get('heartbeats') or 0) + 1
-                        asyncio.ensure_future(_prime_tick(now_h))
-                except Exception as e:
-                    print('seat heartbeat:', e)
-                if mints:
-                    for m in [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('mint') and not _prime.safe_anchor(l)]:
-                        _jup_px_cache.pop(m, None)   # a FRESH read for the ENGINE's stops (the shared 20s cache is too slow for a stop) — the agents' seats ride the shared cache (Reaper's ticks act on them; no extra Jupiter calls)
-                    px = await _jup_prices(mints)
-                    am_ = [l.get('mint') for c in agents_c for l in c.get('legs') or [] if l.get('mint') and not l.get('placeholder')]
-                    if am_:   # ⚡ the agents' seats are judged on the LIVE chart price (≤ 5s old, 1s after a swap), not the shared 20s cache: Reaper's stop
-                        try:  # / trail in `fast_reap` acted on a price up to 26s old — stops set at −12…−25% were first SEEN at −21…−84%
-                            px = {**px, **(await _live_px(am_))}
-                        except Exception as e:
-                            print('guard live px:', e)
-                    rcfg = _prime_real_cfg(); now = time.time()
-                    wake_ = False
-                    for c in agents_c:   # 📈 one real valuation read per agent seat + ☠ Reaper's hard lines (its stop · −45% · your stop) wake the tick at once
-                        _office_vels(c, px, now)
-                        stops_ = {r_.get('mint'): _fuse._f(r_.get('stop')) for r_ in _office.get('reports') or [] if r_.get('stop') is not None}
-                        for m_ in _so.hard_cross(c.get('legs'), px, stops_, _fuse._f(_oe.policy(rcfg).get('sl')) or None, _ci.CATASTROPHIC_STOP):
-                            if now - _guard_seen.get(m_, 0) >= 30:
-                                _guard_seen[m_] = now; wake_ = True
-                    if agents_c:
-                        try:   # ⚡ the chart drives the timing: a material live move on a seat / a waiting candidate wakes Reaper / Trigger now
-                            wake_ = (await _market_wake(agents_c, now)) or wake_
-                        except Exception as e:
-                            print('market wake:', e)
-                    if wake_:
-                        await _prime_tick(time.time())
-                    if now - _flow_at['t'] >= FLOW_EVERY:   # 🌊 + 🚨 flow exits and the rug radar, every ~15s
-                        _flow_at['t'] = now
-                        if await _flow_guard(now, px):
-                            try:
-                                await _fw_tick(now)
-                            except Exception as e:
-                                print('flow exit keeper:', str(e)[:120])
-                            await _prime_tick(time.time())
-                    # ☠⚡ AGENT SEATS: the card is held by the agents (`holdAll`) and their coins carry no card stop, so `fast_stop` never ran
-                    # for them — Reaper's stop for each seat is applied here, every 6s, not at the next tick
-                    try:
-                        reaped_ = False
-                        async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
-                            d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
-                            for tid_, c_ in list(cs_.items()):
-                                if not (c_ and c_.get('real')):
-                                    continue
-                                hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state(), prev=_reap_prev, ai_words=_ai_exit_words(None, now))
-                                try:   # 🎯 OSSY / G4's take-profit, every few seconds: honoured, or raised on a volume rush (office.rush_take)
-                                    fl_ = {l.get('pairAddress'): _flow.vital(w_) for l in c_.get('legs') or [] for at_, w_ in [(_flow_now.get(l.get('pairAddress')) or (0, None))] if w_ and now - _fuse._f(at_) <= 90}
-                                    tp_pulls_, tp_raise_ = _of.rush_take(c_.get('legs'), px, fl_, now)
-                                    if tp_raise_:
-                                        rz_ = {pr_: (pt_, wy_) for pr_, pt_, wy_ in tp_raise_}
-                                        c_ = {**c_, 'legs': [({**l, **rz_[l.get('pairAddress')][0]} if l.get('pairAddress') in rz_ else l) for l in c_.get('legs') or []],
-                                              'events': (list(c_.get('events') or []) + [{'at': now, 'kind': 'agent', 'move': 'lines', 'why': wy_} for _p, (_t, wy_) in rz_.items()])[-200:]}
-                                        cs_[tid_] = c_; reaped_ = True
-                                    hits_ = list(hits_) + [h_ for h_ in tp_pulls_ if h_[0] not in {x_[0] for x_ in hits_}]
-                                except Exception as e:
-                                    print('rush take:', str(e)[:120])
-                                _reap_prev.update({m_: (now, _fuse._f(v_)) for m_, v_ in (px or {}).items() if _fuse._f(v_) > 0})   # 🕯 the last live read per coin (spike confirm)
-                                nw_ = c_
-                                for pair_, why_ in hits_:
-                                    try:
-                                        nw_ = _prime.agent_pull(nw_, pair_, {pair_: px.get(next((l.get('mint') for l in nw_.get('legs') or [] if l.get('pairAddress') == pair_), None))}, {}, now, why_)
-                                        nw_['agentExitAt'] = now
-                                        _tk.KERNEL.note('reaper', 'EXIT (live chart)', str(why_)[:140], now, mint=next((l.get('mint') for l in c_.get('legs') or [] if l.get('pairAddress') == pair_), None), key=f'fast:{int(now)}')
-                                    except ValueError:
-                                        pass
-                                if nw_ is not c_:
-                                    _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
-                                    cs_[tid_] = nw_; reaped_ = True
-                            if reaped_:
-                                d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
-                        if reaped_:
-                            await _fw_tick(now)
-                            await _prime_tick(time.time())
-                    except Exception as e:
-                        print('fast reap:', str(e)[:120])
-                    hit = [s for c in cards for s in _prime.guard_hits(c, px, rcfg)]
-                    due = [l.get('mint') for c in cards for l in c.get('legs') or [] if l.get('symbol') in hit and now - _guard_seen.get(l.get('mint'), 0) >= 30]
-                    if due:
-                        _guard_seen.update({m: now for m in due})
-                        # ⚡ FAST STOP first: the coin at its stop leaves the card and the keeper sells NOW; the full tick (refill,
-                        # riders, instant swaps) runs after. Waking the whole tick first cost ~2 minutes ($AGENCY: −15% stop sold −31%).
-                        stopped = False
-                        async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
-                            d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
-                            for tid_, c_ in list(cs_.items()):
-                                if c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll'):
-                                    nw_ = _prime.fast_stop(c_, px, rcfg, now)
-                                    if nw_ is not c_:
-                                        _learn_drops(c_, nw_, lambda l: _fuse._f(px.get(l.get('mint'))), now)
-                                        cs_[tid_] = _prime.note_dropped(c_, nw_, now, rcfg['rotateHours'], {l.get('pairAddress'): px.get(l.get('mint')) for l in c_.get('legs') or []})
-                                        stopped = True
-                            if stopped:
-                                d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
-                        if stopped:
-                            try:
-                                await _fw_tick(now)
-                            except Exception as e:
-                                print('fast stop keeper:', str(e)[:120])
-                        await _prime_tick(time.time())
-        except Exception as e:
-            print('real guard:', str(e)[:120])
-        await asyncio.sleep(AGENT_GUARD_SEC if _guard_agents['held'] else _prime.GUARD_SEC)
-
-
-def _fw_market_rows(cards, books):
-    """Every pair whose live price can affect a card or its confirmed real-money book."""
-    rows = {}
-    for c in (cards or {}).values():
-        for l in list(c.get('legs') or []) + list((c.get('parked') or {}).values()):
-            if l.get('pairAddress'):
-                rows[l['pairAddress']] = {'pairAddress': l['pairAddress'], 'mint': l.get('mint')}
-    for b in (books or {}).values():
-        for mint, l in (b.get('legs') or {}).items():
-            if l.get('pair'):
-                rows[l['pair']] = {'pairAddress': l['pair'], 'mint': mint}
-    return list(rows.values())
+# ↪ moved to rep_predict.py: _limit_check, _real_guard_loop, _fw_market_rows
 
 
 LEAGUE_RESET = 'restart3-100'   # 2026-10-26: owner — "fix fuse arena paper cards … reset paper money with $100 each" (was 'restart2', 2026-10-19: owner — "arena numbers are off, reset all arena paper cards"
@@ -8673,156 +6016,21 @@ PRIME_RESET = 'paper100a'   # 2026-10-26: owner — "reset paper money with $100
 PRIME_UNIQUE = 'unique2'
 
 
-async def _prime_unique_fix(now):
-    """🃏 Once: undo "Add to all cards" — every paper card gets its OWN exits back (its explicit per-card edits are kept; any exit key it
-    lost to the shared edit returns to that card's unique default; the shared TP / stop go back to 'tier'). The real card is never touched."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        if pr.get('uniqueFix') == PRIME_UNIQUE:
-            return False
-        cfg = _prime.clean_cfg(pr.get('cfg') or {})
-        cfg['tierCfg'] = _prime.unique_exits(cfg['tierCfg'])
-        cfg['tp'] = cfg['sl'] = 0.0
-        pr['cfg'] = _prime.clean_cfg(cfg); pr['uniqueFix'] = PRIME_UNIQUE
-        _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, 'engine-auto', 'arena-prime', 'every paper card back on its own unique exits (real card untouched)'); _admin_save(ad)
-    return True
-
-
-def _cook_warn(card, pair, ack, rcfg=None):
-    """⏳ LET IT COOK: a real card's hand exit of a coin held under `pickLockMins` comes back as a 409 warning (the owner taps "do it anyway"
-    and the same request goes again with `ack`). Never a block, never on paper cards, never on the engine's own exits."""
-    if ack or not (card or {}).get('real'):
-        return
-    cfg_ = rcfg if rcfg is not None else _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
-    left = _prime.pick_lock(card, pair, cfg_, time.time())
-    if left:
-        l = next((x for x in card.get('legs') or [] if x.get('pairAddress') == pair), {})
-        raise HTTPException(409, f"⚠ ⏳ ${l.get('symbol')} was bought {max(0, int(cfg_['pickLockMins']) - left)} min ago — your lock is {int(cfg_['pickLockMins'])} min "
-                                 f"({left} min left). Coins sold inside 15 min lost $19.30 over 714 pieces (27% won); held 30–60 min won 59%. Let it cook?")
-
-
-async def _real_hold_fix(now):
-    """🍳 OWNER'S CALL (2026-10-08, "do all" after the pay-map): once, the real card lets a coin cook — min hold 30 min (round rotation, mover swaps,
-    trench fills and re-shapes wait; stops, rug shield, floor, the owner's hand still act at once) and a trench / ticket coin's initial comes out at +100%.
-    Evidence: held 30+ min 61% won +$5.32, sold inside 15 min 28% won −$17.55. The 5-min clock is untouched. Old values: data/realcfg_before_hold30.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        if pr.get('holdFix1') or not pr.get('realCfg'):
-            return False
-        rc = pr['realCfg']; new = {'minHoldMins': 30.0, 'trenchHouseAt': 100}
-        _json_save(DATA_DIR / 'realcfg_before_hold30.json', {k: rc.get(k) for k in new})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
-        pr['holdFix1'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _real_ride_fix(now):
-    """❄ OWNER'S DESIGN (2026-10-08: "if one coin runs it should be frozen on the card and skimming"): the real card's freeze (`rideAt`) was found at 0 = OFF,
-    so no coin ever locked — the lock bank (50%), the full-stack skim, the off-its-peak sell and the stepped trail all start at the lock and never ran
-    (the ledger shows plain skims only). Once, it goes back to the 5-min lock the trail (8%) was already set for: freeze at +15%. Old value: data/realcfg_before_ride.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('rideFix1') or not rc:
-            return False
-        if _fuse._f(rc.get('rideAt')) > 0:
-            pr['rideFix1'] = now; _json_save(FUSE_HQ_PATH, d); return False
-        _json_save(DATA_DIR / 'realcfg_before_ride.json', {'rideAt': rc.get('rideAt'), 'rideTrail': rc.get('rideTrail')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'rideAt': 15.0, 'rideTrail': _fuse._f(rc.get('rideTrail')) or 8.0})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'rideAt', 'rideTrail'})
-        pr['rideFix1'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _ladder_keep_fix(now):
-    """🪜 Once (2026-10-08): the owner tapped "4 coins" while the ladder was on, before taps beat the ladder — keep that tap."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('ladderKeepFix1') or not rc.get('ladder'):
-            return False
-        if int(_fuse._f(rc.get('coins'))) == 4:
-            pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'coins'})
-        pr['ladderKeepFix1'] = True
-        _json_save(FUSE_HQ_PATH, d)
-        return True
+# ↪ moved to rep_predict.py: _prime_unique_fix, _cook_warn, _real_hold_fix, _real_ride_fix, _ladder_keep_fix
 
 
 DEGEN_1009 = {'tpStakeUsd': 0.0, 'stackSkimUsd': 0.5, 'houseAt': 50, 'trenchHouseAt': 50, 'pickLockMins': 30, 'rideEnd': 'bank', 'minHoldMins': 30.0,
               'lockBankPct': 50.0, 'trenchAuto': False, 'ticketRide': False}
 
 
-def degen_patch_1009(rc):
-    """Pure: the 2026-10-09 config (owner: "fix my settings to be degen … cut these trench coins and move on") → (new realCfg, keys changed)."""
-    cyc = dict(rc.get('cycles') or {}); cyc['degen'] = 'press'   # 🗑 off the trench cycle: runners strike, then a mixed round
-    return _prime.clean_cfg({**rc, **DEGEN_1009, 'cycles': cyc}), sorted(set(DEGEN_1009) | {'cycles'})
-
-
-async def _degen_fix_1009(now):
-    """🎰→🏦 OWNER'S CALL (2026-10-09, after the pay-map + chain audit): once, the real card stops handing back its runs and leaves the trench.
-    Found: the "always keep $1 riding" floor was above every coin on a $1.39 card, so no peak sell / lock bank could fire — six coins rode
-    to 1.1–1.3× and gave it all back in 40 min. Changes: keep-riding floor off · full-stack skim to $0.50 · 🏠 initial out at +50% on EVERY
-    coin · ⏳ 30-min ask before a hand exit · ride over → 🏦 bank its profit · min hold 30m · bank 50% at the lock · trench off (auto buys,
-    tickets ride-or-rug, cycle → press). The tickets on the card lose ride-or-rug, so their stop applies again (the owner asked to cut them).
-    Every key joins realOwnerSet + ladderKeep (the ladder's trench stage would put trench back). Old values: data/realcfg_before_degen1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('degenFix1009') or not rc:
-            return False
-        new, keys = degen_patch_1009(rc)
-        _json_save(DATA_DIR / 'realcfg_before_degen1009.json', {k: rc.get(k) for k in keys})
-        pr['realCfg'] = new
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c['ticketRide'] = False
-                for l in c.get('legs') or []:
-                    if l.get('rideOrRug'):
-                        l.pop('rideOrRug', None)
-                        if l.get('slMode') == 'hold':
-                            l.pop('slMode', None)
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🏦 your degen setup: keep-riding floor off · initial out at +50% on every coin · ride over → bank its profit · min hold 30m · bank 50% at the lock · trench off (tickets get their stop back)'})
-        pr['degenFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: degen_patch_1009, _degen_fix_1009
 
 
 OVERNIGHT_1009 = {'runnerMinAgeH': 12, 'runnerMinLiqK': 50, 'runnerMinVolK': 50, 'runnerMinChg1h': 0, 'runnerMinBuy': 65,
                   'scoutPct': 0, 'moverSwap': False, 'newOnly': False, 'coins': 3, 'swapCapHr': 2, 'skimHoldRounds': 2}
 
 
-def overnight_patch_1009(rc):
-    """Pure: the 2026-10-09 overnight selection (owner: "make tweaks to configs so I can wake up positive — I allow") → (new realCfg, keys).
-    Copies WHAT the two paper cards that are up buy (Diamond +14.9%, Gold +10.2%: 12h+ coins, $50K+ pools, real volume, no "+20% on the
-    hour" chase, no scout) — the real card bought any age, no pool floor, only coins already up 20%, and a 20% scout hopped onto movers
-    (movers list −67% typical over 1h). Clock, stop, hold and exits are the owner's and are not touched. Not a promise of profit."""
-    return _prime.clean_cfg({**rc, **OVERNIGHT_1009}), sorted(OVERNIGHT_1009)
-
-
-async def _overnight_fix_1009(now):
-    """🌙 Once: apply `overnight_patch_1009` to the real card. Old values: data/realcfg_before_overnight1009.json. Keys → realOwnerSet + ladderKeep."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('overnightFix1009') or not rc:
-            return False
-        new, keys = overnight_patch_1009(rc)
-        _json_save(DATA_DIR / 'realcfg_before_overnight1009.json', {k: rc.get(k) for k in keys})
-        pr['realCfg'] = new
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌙 overnight setup: buys like the paper cards that are up — coins 12h+ old, $50K+ pools, $50K+/h volume, buyers 65%+, no chasing +20% hours, no scout · 3 coins · ≤ 2 swaps an hour. Your clock, stop, hold and exits unchanged.'})
-        pr['overnightFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: overnight_patch_1009, _overnight_fix_1009
 
 
 HUNT_1009 = {'coins': 2, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg1h': 40, 'runnerMinLiqK': 25, 'runnerMinBuy': 0, 'edgeGate': False,
@@ -8831,866 +6039,37 @@ HUNT_1009 = {'coins': 2, 'runnerMinAgeH': 12, 'runnerMinVolK': 50, 'runnerMinChg
 HUNT_1009_B = {'vitalMin': 35, 'organicMin': 5}   # the 50+ / 10% filter removed all 6 coins that cleared the hunt line
 
 
-def hunt_patch_1009(rc):
-    """Pure: the owner's "send it" (2026-10-09, "we're supposed to be trenching"): 2 coins on the 🚀 Runner hunt line (12h+, $50K/h, +40%
-    on the hour, $25K pool), the replay's own exits (stop −30, freeze +50, trail 30), 🏠 initial out at +50, ride over → bank. Runners only
-    (newOnly) — an empty seat waits in cash for the next hunt coin. Clock / hold / swap cap stay the owner's. → (new realCfg, keys)."""
-    return _prime.clean_cfg({**rc, **HUNT_1009}), sorted(HUNT_1009)
-
-
-async def _hunt_fix_1009(now):
-    """🚀 Once: apply `hunt_patch_1009` to the real card. Old values: data/realcfg_before_hunt1009.json. Keys → realOwnerSet + ladderKeep."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('huntFix1009') or not rc:
-            return False
-        new, keys = hunt_patch_1009(rc)
-        _json_save(DATA_DIR / 'realcfg_before_hunt1009.json', {k: rc.get(k) for k in keys})
-        pr['realCfg'] = new
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🚀 send it: 2 coins on the runner hunt line (12h+ · $50K/h · +40% on the hour) · stop −30 · freeze +50, trail 30 · 🏠 initial out at +50 · ride over → bank'})
-        pr['huntFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _hunt_fix_1009b(now):
-    """🚀 Once (same "send it"): the owner's vital filter (score 50+, 10% organic) removed all 6 coins clearing the hunt line → one step
-    looser (35+, 5%). Old values: data/realcfg_before_hunt1009b.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('huntFix1009b') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_hunt1009b.json', {k: rc.get(k) for k in HUNT_1009_B})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **HUNT_1009_B})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(HUNT_1009_B))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(HUNT_1009_B))
-        pr['huntFix1009b'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: hunt_patch_1009, _hunt_fix_1009, _hunt_fix_1009b
 
 
 TRENCH_1009 = {'rotateHours': 0.08, 'rotateConfirm': 2, 'trenchAuto': True, 'trenchSendOnly': True, 'trenchCoins': 2, 'minHoldMins': 15.0,
                'rideAt': 20.0, 'rideTrail': 15.0, 'trailStep': True, 'lockBankPct': 50.0, 'houseAt': 30, 'trenchHouseAt': 30, 'peakSellPct': 50.0, 'rideEnd': 'bank'}
 
 
-def trench_patch_1009(rc):
-    """Pure: the owner's 5-min / 2-round TRENCH setup (2026-10-09, "tweak my 5min 2 rnd configs so trenching is ez"), built on the card's
-    own record: scalp the stake, ride the house (trims +$21.89 / 74% won vs whole exits −$32.83) → lock at +20 and bank 50%, initial out at
-    +30, stepped trail; let it cook 15 min (exits < 15 min won 27%); trench = 🔥 SEND IT coins only (+0.5% vs the list's −79%), 2 of them.
-    Stops, flow exit and rug radar act at once. → (new realCfg, keys)."""
-    cyc = dict(rc.get('cycles') or {}); cyc['degen'] = 'trench'
-    return _prime.clean_cfg({**rc, **TRENCH_1009, 'cycles': cyc}), sorted(set(TRENCH_1009) | {'cycles'})
-
-
-async def _trench_fix_1009(now):
-    """🗑 Once: apply `trench_patch_1009` to the real card. Old values: data/realcfg_before_trench1009.json. Keys → realOwnerSet + ladderKeep."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('trenchFix1009') or not rc:
-            return False
-        new, keys = trench_patch_1009(rc)
-        _json_save(DATA_DIR / 'realcfg_before_trench1009.json', {k: rc.get(k) for k in keys})
-        pr['realCfg'] = new
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(keys))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(keys))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🗑 trench setup: 5-min rounds · patience 2 · 2 trench coins, 🔥 SEND IT only · lock +20 & bank 50% · initial out at +30 · stepped trail · cook 15 min'})
-        pr['trenchFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _procall_fix_1009(now):
-    """🎯 Once (owner, 2026-10-09: "get in early on the best possible new trenches"): the real card's trench seats follow proven callers."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('procallFix1009') or not rc:
-            return False
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'proCallEntry': True})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'proCallEntry'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'proCallEntry'})
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🎯 trench seats now follow PROVEN Pump callers first — a fresh call (≤ 15 min), still within 15% of the cap they called it at, safety-scanned'})
-        pr['procallFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _topseat_fix_1009(now):
-    """🔥 Once (owner, 2026-10-09: "make it a config and turn it on"): the real card's TOP 1/3 coin takes a seat by itself; flow exit stays on."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('topSeatFix1009') or not rc:
-            return False
-        new = {'topSeat': True, 'flowExit': rc.get('flowExit') if rc.get('flowExit') in ('normal', 'tight') else 'normal'}
-        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🔥 Top 3 auto-seat on: the TOP 1/3 coin takes your weakest non-winning seat (one per 10 min) · 🌊 buys-vs-sells exit sells it when sellers take over'})
-        pr['topSeatFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _trench_safe_fix_1009(now):
-    """🛡 Once (owner, 2026-10-09: "no extra seat, just make it run profits in trench safely"): trench ticket stop −30 → −20."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('trenchSafeFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_trenchsafe1009.json', {'trenchSlPct': rc.get('trenchSlPct')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'trenchSlPct': 20})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'trenchSlPct'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'trenchSlPct'})
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🛡 safe trench: busted reads (BOND RUN · EARLY RUSH · RUG BAIT · DUMPING · SLOW CURVE · BREAKOUT · FALLING KNIFE) and rug meter 50+ are never bought · trench ticket stop −20%'})
-        pr['trenchSafeFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: trench_patch_1009, _trench_fix_1009, _procall_fix_1009, _topseat_fix_1009, _trench_safe_fix_1009
 
 
 CLEAN_1009 = {'maxCoinPct': 35, 'bangerRefill': True, 'scoutPct': 0, 'stackSkimUsd': 0.0, 'secondTicketPct': 0, 'moverSwap': False}
 
 
-async def _clean_fix_1009(now):
-    """🧹 Once (owner, 2026-10-09: "do these and make sure configs clean and ez"): ⚖ no coin over 35% of the card · 🚀 open seats take a
-    banger first · and the settings taken OUT of Edit Fuse are switched off so nothing hidden keeps running (the scout was at 10%,
-    stack-skim at $0.50). Old values: data/realcfg_before_clean1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('cleanFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_clean1009.json', {k: rc.get(k) for k in CLEAN_1009})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **CLEAN_1009})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(CLEAN_1009))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(CLEAN_1009))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🧹 clean setup: ⚖ no coin over 35% of the card · 🚀 open seats take a banger first (proven caller → top 3 → cooling off) · 🏠 house riders ride outside your 4 seats · scout / stack-skim off'})
-        pr['cleanFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _flow_tight_fix_1009(now):
-    """🌊 Once (owner, 2026-10-09: "if I make buy-vs-sell tight it scalps and swaps faster? let's do it"): flow exit → tight (sellers 1.5×
-    buyers, $25, 4 trades, price −1.5% in 90s). Its own record (flow_proof) shows whether faster exits pay. Old: realcfg_before_flowtight.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('flowTightFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_flowtight.json', {'flowExit': rc.get('flowExit')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'flowExit': 'tight'})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'flowExit'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'flowExit'})
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌊 buys-vs-sells exit → TIGHT: sellers 1.5× buyers + price −1.5% in 90s sells the coin; the seat takes a banger'})
-        pr['flowTightFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: _clean_fix_1009, _flow_tight_fix_1009
 
 
 ENTRY_1009 = {'entryGate': True, 'flowMinHoldMins': 10, 'runnerMinChg1h': 0}
 
 
-async def _entry_fix_1009(now):
-    """🎯 Once (owner, 2026-10-09: "better entries … not getting in at highs, entries before the break, not −4¢"): clean entries on every
-    door, buys-vs-sells waits 10 min after a buy, and the hunt line no longer REQUIRES +40% on the hour (that rule bought the highs).
-    Old values: data/realcfg_before_entry1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('entryFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_entry1009.json', {k: rc.get(k) for k in ENTRY_1009})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ENTRY_1009})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ENTRY_1009))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ENTRY_1009))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🎯 clean entries: buyers 60%+, not chasing (+60% 1h / +3% 5m), 3%+ under its high, $50K+ pool, 6h+, $200K+/h on every door · buys-vs-sells waits 10 min after a buy · hunt line no longer needs +40%'})
-        pr['entryFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _vital_off_fix_1009(now):
-    """🫀 Once (2026-10-09): the vital-grade filter (35+ / 5% organic) is a hand-set score with no record, and it took the last coins
-    clearing the clean-entry gate to 0 — two seats sat open with $1.11. It is off as an ENGINE gate (grades still show on every row).
-    Old values: data/realcfg_before_vitaloff.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('vitalOffFix1009') or not rc:
-            return False
-        new = {'vitalMin': 0, 'organicMin': 0}
-        _json_save(DATA_DIR / 'realcfg_before_vitaloff.json', {k: rc.get(k) for k in new})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
-        pr['vitalOffFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _moon_fix_1009(now):
-    """🌙 Once (owner, 2026-10-09: "coins at 18K → 20M … got paid at 39K and skimmed to 40M"): the real card's trench / ticket coins play the
-    MOON LADDER — lock at 2× (the initial comes out there: trench 🏠 line 100), 25% at 3× / 5× / 10× / 20× / 50×, a 40% trail.
-    Old values: data/realcfg_before_moon1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('moonFix1009') or not rc:
-            return False
-        new = {'moonLadder': True, 'trenchHouseAt': 100}
-        _json_save(DATA_DIR / 'realcfg_before_moon1009.json', {k: rc.get(k) for k in new})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **new})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(new))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(new))
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c.setdefault('events', []).append({'at': now, 'kind': 'fix', 'why': '🌙 moon ladder: trench coins lock at 2× (your initial comes out there), 25% sells at 3×/5×/10×/20×/50×, the bag rides a 40% trail · 🌊 the tape now times entries and sells half the profit into a buying climax'})
-        pr['moonFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _floor_fix_1009(now):
-    """🧱 Once (owner, 2026-10-09: "added $1 — let's keep $3.62"): the run started at $3.61. A floor AT the start would sell on the first
-    1¢ wiggle; −10% (≈ $3.25) is the closest real protection — the whole card that far under its run start → every coin to cash, re-dealt."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('floorFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_floor1009.json', {'floorPct': rc.get('floorPct')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'floorPct': 10})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'floorPct'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'floorPct'})
-        pr['floorFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _flow_fix_1009(now):
-    """🌊 Once (owner, 2026-10-09: "fix card floor … we need to flow"): the −10% floor sold the whole card the moment it went on (the card
-    was already at −12%) and the vital filter (grade 50 · 5% organic) then left NO coin to re-deal into — $3.15 sat in cash. Floor −20%
-    (a 4-coin card with −30% coin stops reads −10% on two stops = a full round trip of the card for nothing), grade 35, organic off
-    (Jupiter reads most Pump coins 2–3% organic). Old values: data/realcfg_before_flow1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('flowFix1009') or not rc:
-            return False
-        ch = {'floorPct': 20, 'vitalMin': 35, 'organicMin': 0}
-        _json_save(DATA_DIR / 'realcfg_before_flow1009.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['flowFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
+# ↪ moved to rep_predict.py: _entry_fix_1009, _vital_off_fix_1009, _moon_fix_1009, _floor_fix_1009, _flow_fix_1009
 
 
 EDGE_AUDIT_PATH = FUSE_HQ_PATH.parent / 'edge_audit.json'
 
 
-async def _proof_gate_tick(now):
-    """🧪 Hourly: run the edge audit on our own records (edge_audit.audit) and, for a real card whose owner switched the PROOF GATE on
-    (cfg `proofGate`), hold it while no rule passes on unseen coins — ✋ hold all with `holdBy: 'proof'`: no engine BUY of any kind;
-    stops, the rug shield and profit takes keep running; the owner's own picks still work — and release it the hour a rule passes.
-    A hold the owner set by hand is never touched. Owner inbox once per change."""
-    import edge_audit as _ea
-    calls_ = list(_agents_mem.get().get('done') or [])   # a copy taken on the loop: the live object keeps changing while the audit runs in its thread
-    br_ = _json_load(BRAIN_PATH, {})
-    a = await asyncio.to_thread(lambda: _ea.audit(br_.get('done') or [], calls_, _ea.COST, now, _fuse._f(br_.get('cleanFrom'))))
-    _json_save(EDGE_AUDIT_PATH, {**a, 'gate': _ea.gate(a), 'words': _ea.words(a)})
-    g = _ea.gate(a)
-    if g == 'wait':
-        return a
-    told = None
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
-        if not (pr.get('realCfg') or {}).get('proofGate') or (pr.get('realCfg') or {}).get('agentControl'):   # 🎮 the owner handed the card to the agents: their call
-            return a
-        ch = False
-        for c in (pr.get('cards') or {}).values():
-            if not c.get('real'):
-                continue
-            if g == 'hold' and not c.get('holdAll'):
-                c['holdAll'] = True; c['holdBy'] = 'proof'; ch = True; told = _ea.words(a)
-                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': told}])[-60:]
-            elif g == 'trade' and c.get('holdAll') and c.get('holdBy') == 'proof':
-                c['holdAll'] = False; c.pop('holdBy', None); ch = True; told = _ea.words(a) + ' — the engine trades again'
-                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': told}])[-60:]
-        if ch:
-            _json_save(FUSE_HQ_PATH, d)
-    if told:
-        for w in _owner_wallets():
-            notify(w, 'admin', told, url='/terminal/fuse?tab=cards', once=f"proof-gate-{g}-{int(now // 86400)}", push=False)
-    return a
-
-
-async def _proof_gate_fix_1010(now):
-    """🧪 Once (owner, 2026-10-10, after the edge audit found 0 of 433 rules positive: "fix"): PROOF GATE on for the real card. Old value:
-    data/realcfg_before_proofgate1010.json. Off again: Edit Fuse › Safety, or ▶ Release on the card."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('proofGateFix1010') or not rc:
-            return False
-        ch = {'proofGate': True}
-        _json_save(DATA_DIR / 'realcfg_before_proofgate1010.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['proofGateFix1010'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    try:
-        await _proof_gate_tick(now)   # judge at once — never wait an hour to stop a bleed
-    except Exception as e:
-        print('proof gate:', e)
-    return True
-
-
-async def _proof_clean_1013(now):
-    """🩹 Once: every 1-hour paper record restarts (2026-10-13: 45–80% of their settled rows were −100% "vanished" coins that were alive —
-    the graders' price fallback timed out at 3s on a 5–7s batch). Those rows decided Devil's busted reads, paused lists, the edge score
-    and the proof gate. Settled rows only; open coins keep running; never a money record. Old rows: data/proof_before_clean1013.json."""
-    flag = DATA_DIR / 'proof_clean.json'
-    if _json_load(flag, {}).get('fix1013'):
-        return False
-    old, n = {}, 0
-    for path in (TRENCH_META_PATH, ENTRY_PROOF_PATH, CALL_PROOF_PATH, PROCALL_PROOF_PATH, BOTTOM_PROOF_PATH, LENS_PROOF_PATH, EDGE_PROOF_PATH, FLOW_PROOF_PATH):
-        st = _json_load(path, {})
-        new, k = _trench.proof_restart(st)
-        if k:
-            old[path.name] = st; n += k; _json_save(path, new)
-    doc = _json_load(TRENCH_CALLOUT_PATH, {})
-    new, k = _trench.proof_restart(doc.get('state') or {})
-    if k:
-        old[TRENCH_CALLOUT_PATH.name] = doc.get('state'); n += k; _json_save(TRENCH_CALLOUT_PATH, {**doc, 'state': new})
-    if old:
-        _json_save(DATA_DIR / 'proof_before_clean1013.json', old)
-    _json_save(flag, {'fix1013': now, 'rows': n})
-    return True
-
-
-async def _agent_open_fix_1012(now):
-    """⚡ Once (owner, 2026-10-12: "no blocks, no reputation scoring — volume and newness only; no seat should be empty"): `agentOpen` on.
-    The keeper's own buy checks (sell-back, price near market, pool floor) still run. Old value: data/realcfg_before_open1012.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentOpenFix1012') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_open1012.json', {'agentOpen': rc.get('agentOpen', False)})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentOpen': True})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentOpen'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentOpen'})
-        pr['agentOpenFix1012'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_real_fix_1012(now):
-    """💵 Once (owner, 2026-10-12, after the edge audit read NO PROVEN EDGE: "continue with real money unless more issues"): the agents trade
-    real money again (`agentPaper` False). Best available stays off, the held-card leaks stay closed, the real-money memory and the agent cost
-    caps stay on. Paper again: HQ › Agents › ⚙ Control (agentPaper) — old value in data/realcfg_before_agentreal1012.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentRealFix1012') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_agentreal1012.json', {'agentPaper': rc.get('agentPaper', True)})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentPaper': False})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentPaper'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentPaper'})
-        pr['agentRealFix1012'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-def _trail_fix_1014(now):
-    """🏄 Once (owner, 2026-10-14: "they TP 10% max most of the time — they need to be smarter degens"): Reaper's trail was promoted to
-    arm +4% / give back 35% by the OLD replay that ended where the agents sold. The full-move trail lab (168 real trades watched 30 min past
-    the sale) has arm +10% / give back 30% ahead on BOTH the typical trade (+7.7% vs +4.4%) and the average (−5.5% vs −6.3%). Set as an
-    owner correction (lineage); the shadow loop may move it again on new evidence. Stops and every hard safety exit are untouched."""
-    st = _office_state()
-    if st.get('trailFix1014'):
-        return False
-    st.update(_of.owner_tune(st, 'reaper', {'protectAt': 10.0, 'giveBackPct': 30.0},
-                             'owner: winners were banked at +5–10%; full-move trail lab: arm +10 / give 30 beats arm +4 / give 35 (typical +7.7% vs +4.4%)', now))
-    st['trailFix1014'] = now
-    return True
-
-
-async def _curve_fix_1011(now):
-    """🎢 Once (owner, 2026-10-11: "seats not filled means they too strict" — 11 of 41 hard NOs were fresh Pump coins on their launch curve,
-    which no agent seat could buy): agent seats may buy a curve coin (`agentCurve`), judged on the curve's own depth; every keeper check
-    still runs. Old value: data/realcfg_before_curve1011.json. Off again: HQ › Agents › ⚙ Control › 🎢."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('curveFix1011') or not rc:
-            return False
-        ch = {'agentCurve': True}
-        _json_save(DATA_DIR / 'realcfg_before_curve1011.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['curveFix1011'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _g4seat_fix_1016(now):
-    """🔁 Once (owner, 2026-10-16: "turn the G4 seat on in paper mode for the real card"): `agentAiSeat` = paper — G4 and the Mac model take
-    turns on a PAPER seat (no money). Old value: data/realcfg_before_g4seat1016.json. Change it: HQ › Agents › 🎛 Limits › 🧠 G4 SEAT."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('g4seatFix1016') or not rc:
-            return False
-        ch = {'agentAiSeat': 'paper'}
-        _json_save(DATA_DIR / 'realcfg_before_g4seat1016.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['g4seatFix1016'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _youticket_fix_1016(now):
-    """✋ Once (owner, 2026-10-16: "shouldn't be messing with my trades period — I choose"): the 🎟 small-ticket sizing of the owner's young
-    picks is OFF on the real card (`youngTicket` False) — a pick gets its full seat. Old value: data/realcfg_before_youticket1016.json.
-    Switch it back on: Edit Fuse › Safety › 🎟 Small ticket."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('youTicketFix1016') or not rc:
-            return False
-        ch = {'youngTicket': False}
-        _json_save(DATA_DIR / 'realcfg_before_youticket1016.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['youTicketFix1016'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _germline_fix_1016(now):
-    """🦠 Once (owner, 2026-10-16: "raise my germ line to 15%"): the real card's germ line 10% → 15% (`agentGermMax`; the replay's best of
-    8 / 15 / 25). Old value: data/realcfg_before_germline1016.json. Change it again: HQ › Agents › 🎛 Limits › 🦠 GERM PLAY."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('germLineFix1016') or not rc:
-            return False
-        ch = {'agentGermMax': 15}
-        _json_save(DATA_DIR / 'realcfg_before_germline1016.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['germLineFix1016'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    _uni.set_band(pr['realCfg'])
-    return True
-
-
-async def _mcfloor_fix_1016(now):
-    """🎯 Once (owner, 2026-10-16: "lower my MC band floor to $10K so newer launches reach the agents"): the real card's band floor
-    $20K → $10K (`agentMcMin`). Old value: data/realcfg_before_mcfloor1016.json. Change it again: HQ › Agents › 🎛 Limits › 🎯 UNIVERSE."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('mcFloorFix1016') or not rc:
-            return False
-        ch = {'agentMcMin': 10_000.0}
-        _json_save(DATA_DIR / 'realcfg_before_mcfloor1016.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['mcFloorFix1016'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    _uni.set_band(pr['realCfg'])
-    return True
-
-
-async def _minage_fix_1014(now):
-    """🐣 Once (2026-10-14): the agents' youngest-coin control (`agentMinAgeH`) was shown but enforced nowhere after the 2026-10-12 refactor —
-    the card held 0.5 h on screen while every trade it made was any age. Now that it IS enforced, a 0.5 h line would block 209 of the 273
-    real trades on record, and those are the BEST bucket for a minutes-long scalp (0–5 min old: 72% won, median +5%; 1–6 h: 32% won,
-    −5.4% avg; rugs ~8–11% in every bucket). So the card is set to what it really ran on — any age — and the owner chooses from here.
-    Old value: data/realcfg_before_minage1014.json. Change: HQ › Agents › 🎛 controls › 🎯 UNIVERSE › Youngest coin."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('minAgeFix1014') or not rc:
-            return False
-        ch = {'agentMinAgeH': 0}
-        _json_save(DATA_DIR / 'realcfg_before_minage1014.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['minAgeFix1014'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _armed_fix_1013(now):
-    """🎯 Once (owner, 2026-10-13: "seat filling is the problem … keep seats full"): entry mode ARMED on the real card — a seat empty past the
-    seat target takes the best ARMED coin at half a seat, and the empty-seat target drops to 15s. Old values: data/realcfg_before_armed1013.json.
-    Back: HQ › Agents › 🎛 controls › Entry = agents."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('armedFix1013') or not rc:
-            return False
-        ch = {'agentEntry': 'armed', 'agentSeatTarget': 15}
-        _json_save(DATA_DIR / 'realcfg_before_armed1013.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['armedFix1013'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_control_set(on, now):
-    """🎮 Switch agent control of the real card on / off: ON = the card is held by the agents (their moves only); OFF = that hold is
-    released (the proof gate, when on, judges the card again at its next tick)."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'agentControl': bool(on)})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentControl'})
-        for c in (pr.get('cards') or {}).values():
-            if not c.get('real'):
-                continue
-            if on and (not c.get('holdAll') or c.get('holdBy') == 'proof'):
-                c['holdAll'] = True; c['holdBy'] = 'agents'
-                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': "🎮 the agents control every seat — the engine's own swaps are off"}])[-60:]
-            elif not on and c.get('holdBy') == 'agents':
-                c['holdAll'] = False; c.pop('holdBy', None); c.pop('agentWant', None)
-                c['events'] = (list(c.get('events') or []) + [{'kind': 'hold', 'at': now, 'why': '🎮 agent control off — the card is back on its own settings'}])[-60:]
-        _json_save(FUSE_HQ_PATH, d)
-
-
-async def _desk_buys_fix_1105(now):
-    """⚖ Once (owner, 2026-11-05: "Yes, stop their buys"): the desk's agents validate proofs instead of trading. Their new real buys stop; their exits and the owner's own picks run as before. It can be switched back in HQ › Agents. Old value: data/realcfg_before_deskbuys1105.json."""
-    d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
-    if pr.get('deskBuysFix1105') or not pr.get('realCfg'):
-        return False
-    _json_save(DATA_DIR / 'realcfg_before_deskbuys1105.json', {'deskBuysOff': (pr.get('realCfg') or {}).get('deskBuysOff', False), 'at': now})
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'deskBuysOff': True}); pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'deskBuysOff'}); pr['deskBuysFix1105'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_control_fix_1010(now):
-    """🎮 Once (owner, 2026-10-10 ~12:30 after a $1 top-up: "the agents should have control over my seats and switching coins … allow them
-    real moves on my real money card — GO"): agent control ON. Said once before the switch: the edge audit reads 0 of 453 rules positive
-    and their ENTER calls −4% typical; the owner's call. Old value: data/realcfg_before_agentcontrol1010.json."""
-    d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
-    if pr.get('agentControlFix1010') or not pr.get('realCfg'):
-        return False
-    _json_save(DATA_DIR / 'realcfg_before_agentcontrol1010.json', {'agentControl': (pr.get('realCfg') or {}).get('agentControl')})
-    await _agent_control_set(True, now)
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['agentControlFix1010'] = now; _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_duty_fix_1010(now):
-    """🕙 Once (owner, 2026-10-10: "profit and move on … putting something on the card every 10 min"): their take line on the real seat goes
-    from +50% to +10% (bank it, move on). Old value: data/realcfg_before_agentduty1010.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentDutyFix1010') or not rc:
-            return False
-        ch = {'agentTakePct': 10}
-        _json_save(DATA_DIR / 'realcfg_before_agentduty1010.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['agentDutyFix1010'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _keephalf_fix_1010(now):
-    """🔐 Once (owner, 2026-10-10 01:40, after a $1 top-up: "they must keep coins and profit going on card while I'm asleep — very smart money"):
-    KEEP HALF on for the real card (`arena_prime.half_back`). Old value: data/realcfg_before_keephalf1010.json. Off again in Edit Fuse › Exits."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('keepHalfFix1010') or not rc:
-            return False
-        ch = {'keepHalf': True}
-        _json_save(DATA_DIR / 'realcfg_before_keephalf1010.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['keepHalfFix1010'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _floor_off_fix_1009(now):
-    """🧱 Once (owner, 2026-10-09: "MAKE A OFF OPTION FOR CARD/TRENCHCOIN FLOOR — I lost a dollar getting trenches swapped"): the −20% card
-    floor sold the whole card at 15:44, frozen coins included, and −25% ticket stops kept shaking trench coins out. Card floor OFF and
-    trench-coin stop OFF (tickets ride or rug — the rug shield still sells a pulled pool). Old values: data/realcfg_before_flooroff1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('floorOffFix1009') or not rc:
-            return False
-        ch = {'floorPct': 0, 'trenchSlPct': 100}
-        _json_save(DATA_DIR / 'realcfg_before_flooroff1009.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['floorOffFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _night_off_fix_1017(now):
-    """🌙 Once (owner, 2026-10-17 ~02:00: "disable night guard and let them trench again"): night guard (drawdown / streak pauses) and the
-    night shift (00:00–09:00: 15% seats, 30-min min age, chart must say ENTER NOW, no valve) OFF on the real card. Rug-level exits, stops and
-    every keeper check are unchanged. Old values: data/realcfg_before_nightoff1017.json. Back on = the 🌙 switches in 🎛 Limits."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('nightOffFix1017') or not rc:
-            return False
-        ch = {'nightGuard': False, 'nightShift': False}
-        _json_save(DATA_DIR / 'realcfg_before_nightoff1017.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['nightOffFix1017'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _rush_fix_1009(now):
-    """⚡ Once (owner, 2026-10-09: "upgrade engine to rush me — I'm trenching and giving the keys, open the door"): the real card RUSHES —
-    the trench drop takes the Rush board's coin every 10 min (was 30, SEND IT only — usually nothing), and may take the seat of any of the
-    owner's picks that is not frozen and not making money (❄ frozen coins are never touched). Tickets stay small (15%), stop off, 🏠 at 2×.
-    Old values: data/realcfg_before_rush1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('rushFix1009') or not rc:
-            return False
-        ch = {'trenchRush': True, 'trenchEvery': 10, 'trenchSendOnly': False, 'trenchAuto': True}
-        _json_save(DATA_DIR / 'realcfg_before_rush1009.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['rushFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _volcycle_fix_1009(now):
-    """🌊 Once (owner, 2026-10-09: "need to be cycling new volume coins"): the real card's volume cycle ON, every 10 min. Old value:
-    data/realcfg_before_volcycle1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('volCycleFix1009') or not rc:
-            return False
-        ch = {'volCycle': True, 'volEvery': 10}
-        _json_save(DATA_DIR / 'realcfg_before_volcycle1009.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['volCycleFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _degen_crazy_fix_1009(now):
-    """🧨 Once (owner, 2026-10-09: "go degen crazy and get us back to $4 — we are in this, not just me"): faster cycling with the guards that
-    were added the same afternoon kept — rush + volume cycle every 5 min, trench tickets 25% of the card (ride or rug, 🏠 at 2×), 2 trench
-    coins. Full seats still need 6h+ / $50K pools; rush still skips thin pools, busted reads and coins that already ran.
-    Old values: data/realcfg_before_crazy1009.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('crazyFix1009') or not rc:
-            return False
-        ch = {'trenchEvery': 5, 'volEvery': 5, 'trenchStakePct': 25, 'trenchCoins': 2, 'trenchRush': True, 'volCycle': True}
-        _json_save(DATA_DIR / 'realcfg_before_crazy1009.json', {k: rc.get(k) for k in ch})
-        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-        pr['crazyFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_test_fix_1009(now):
-    """🤖 Once (owner, 2026-10-09: "once 5 min is complete they must go through a real-money Fuse card test — my Fuse card"): the agents'
-    feed into the real card is switched ON; it does nothing until the 5-minute paper desk has 10×'d in one run (`agents.stage`)."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentTestFix1009') or not rc:
-            return False
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentFeed': True})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentFeed'})
-        pr['agentTestFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_learn_fix_1009(now):
-    """🎓 Once (owner, 2026-10-09: "they do it on the creator wallet / Fuse wallet's real-money card to learn before I fund them"): the agents
-    get ONE learning seat now — a 10% ticket, held until profit, pulled at once if its pool drains. Old value: data/realcfg_before_agentlearn.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentLearnFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_agentlearn.json', {k: rc.get(k) for k in ('agentLearn', 'agentLearnPct')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentLearn': True, 'agentLearnPct': 10})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentLearn', 'agentLearnPct'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentLearn', 'agentLearnPct'})
-        pr['agentLearnFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _agent_seat_fix_1009(now):
-    """🤖 Once (owner, 2026-10-09: "agents don't just get one small seat, they run 1 whole seat and suggest for the other 3"): the learning
-    seat becomes a WHOLE seat (`agentLearnPct` 100). Old value: data/realcfg_before_agentseat.json."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('agentSeatFix1009') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_agentseat.json', {k: rc.get(k) for k in ('agentLearn', 'agentLearnPct')})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'agentLearn': True, 'agentLearnPct': 100})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'agentLearn', 'agentLearnPct'})
-        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {'agentLearn', 'agentLearnPct'})
-        pr['agentSeatFix1009'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _ticket_ride_fix(now):
-    """🎰 OWNER'S TRENCH STYLE (2026-10-08: "look how I'm trenching these new narratives — if it gets rugged oh well, gotta be a good one, and pull"):
-    once, the real card's tickets go RIDE OR RUG (`ticketRide`: no stop, the 🏠 pull takes the initial out) — the tickets already on the card too.
-    Old value: data/realcfg_before_ticketride.json. Off again = Edit Fuse › Safety › 🎰 Tickets: ride or rug → off."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        rc = pr.get('realCfg') or {}
-        if pr.get('rugFix1') or not rc:
-            return False
-        _json_save(DATA_DIR / 'realcfg_before_ticketride.json', {'ticketRide': rc.get('ticketRide', False)})
-        pr['realCfg'] = _prime.clean_cfg({**rc, 'ticketRide': True})
-        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'ticketRide'})
-        for c in (pr.get('cards') or {}).values():
-            if c.get('real'):
-                c['ticketRide'] = True
-                for l in c.get('legs') or []:
-                    if l.get('ticket') and not l.get('placeholder'):
-                        l.pop('sl', None); l.update(slMode='hold', rideOrRug=True)
-        pr['rugFix1'] = now
-        _json_save(FUSE_HQ_PATH, d)
-    return True
-
-
-async def _prime_reset_paper(now):
-    """🔁 Start every paper tier card over at PAPER_START_USD ($100), once. Their old runs go to the permanent record + `prime.archive`; the tick deals
-    fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        if pr.get('reset') == PRIME_RESET:
-            return 0
-        cards = pr.get('cards') or {}
-        gone = {k: c for k, c in cards.items() if not c.get('real')}
-        for k, c in gone.items():
-            try:
-                _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': k, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': f'restart on ${PAPER_START_USD:g}'})
-            except Exception as e:
-                print('card records (reset):', e)
-        pr['archive'] = ((pr.get('archive') or []) + [{'at': now, 'why': f'paper restart on ${PAPER_START_USD:g}', 'cards': {k: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')} for k, c in gone.items()}}])[-20:]
-        pr['cards'] = {k: c for k, c in cards.items() if c.get('real')}
-        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'sizeUsd': PAPER_START_USD})
-        if PRIME_RESET == 'paper20c':   # ⚡ Next Level: off the owner's picking habit (−27%), onto the agents' judged list
-            tp_ = dict((pr.get('cfg') or {}).get('tierPick') or {})
-            tp_['next'] = {'pickStyle': 'agents'}
-            pr['cfg'] = _prime.clean_cfg({**pr['cfg'], 'tierPick': tp_})
-            pr['humanTiers'] = [t_ for t_ in (pr.get('humanTiers') if pr.get('humanTiers') is not None else HUMAN_TIERS_DEFAULT) if t_ != 'next']
-        pr['reset'] = PRIME_RESET
-        _json_save(FUSE_HQ_PATH, d)
-    return len(gone)
-
-
-def _proven_candidates(hours):
-    """The engine's strategies that ENDED UP on the replay for the round length nearest `hours` (pg_sim byClock) as reset candidates (exits + selection numbers)."""
-    import paper_reset as _pr
-    bc = _json_load(PG_SIM_PATH, {}).get('byClock') or {}
-    rows = [(float(k), v) for k, v in bc.items() if v.get('strategies')]
-    if not rows:
-        return []
-    clock, v = min(rows, key=lambda kv: abs(kv[0] - hours * 60))
-    return [c for c in (_pr.from_sim(x.get('cfg') or {}) for x in v['strategies'] if x.get('profitable')) if c]
-
-
-def _paper_broke(d, cards, px, now):
-    """♻ A PAPER tier card worth ≤ 40% of what was put in (−60%, owner 2026-10-08: "paper cards must sl at −60%, we can't promote dead cards") restarts on the full paper size with a NEW config; the config it died on is SCRAPPED (never dealt again).
-    Needs ≥ 5 rounds, ≥ 1h on the card, one reset per tier per 6h; a locked tier and the real card are never touched. The next tick deals the fresh card."""
-    import paper_reset as _pr
-    pr_ = d.setdefault('prime', {}); locks = pr_.get('locks') or {}; cfg = _prime.clean_cfg(pr_.get('cfg') or {})
-    last = pr_.setdefault('brokeAt', {}); out = dict(cards)
-    for tid, c in cards.items():
-        if c.get('real') or tid in locks:
-            continue
-        v = _prime.value(c, px, {})
-        if not _pr.is_broke(c, v, now, last.get(tid, 0)):
-            continue
-        old = _pr.current(cfg, tid)
-        others = [_prime.tier_cfg(cfg, t).get('pickStyle') for t, x in cards.items() if t != tid and not x.get('real')]
-        new = _pr.fresh_config(old, pr_.get('scrapped') or [], others, _proven_candidates(_fuse._f((cfg.get('clocks') or {}).get(tid)) or 1.0))
-        pr_['scrapped'] = ((pr_.get('scrapped') or []) + [_pr.scrap_row(tid, c, old, v, now)])[-_pr.SCRAP_KEEP:]
-        _pr.apply(pr_, tid, new); cfg = _prime.clean_cfg(pr_.get('cfg') or {})
-        try:
-            _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': tid, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': 'went broke — restarted on a new config'})
-        except Exception as e:
-            print('card records (broke):', e)
-        pr_['archive'] = ((pr_.get('archive') or []) + [{'at': now, 'why': 'broke → new config', 'cards': {tid: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')}}}])[-40:]
-        ren = pr_.setdefault('renewed', {})
-        ren[tid] = {'at': now, 'text': _pr.describe(new['cfg']), 'source': new['source'], 'n': int((ren.get(tid) or {}).get('n') or 0) + 1}
-        last[tid] = now; out.pop(tid, None)
-        try:
-            _fuse_chat('fuse-lab', f"♻ {c.get('label') or tid} went broke (${v:.2f} of ${_fuse._f(c.get('putInUsd')) or _fuse._f(c.get('startUsd')):.0f}) — it restarts on a NEW config ({new['source']}): {_pr.describe(new['cfg'])}. The old one is scrapped.", f"broke-{tid}-{int(now // 3600)}")
-        except Exception:
-            pass
-    return out
+# ↪ moved to rep_predict.py: _proof_gate_tick, _proof_gate_fix_1010, _proof_clean_1013, _agent_open_fix_1012, _agent_real_fix_1012, _trail_fix_1014
+# ↪ moved to rep_predict.py: _curve_fix_1011, _g4seat_fix_1016, _youticket_fix_1016, _germline_fix_1016, _mcfloor_fix_1016, _minage_fix_1014
+# ↪ moved to rep_predict.py: _armed_fix_1013, _agent_control_set, _desk_buys_fix_1105, _agent_control_fix_1010, _agent_duty_fix_1010
+# ↪ moved to rep_predict.py: _keephalf_fix_1010, _floor_off_fix_1009, _night_off_fix_1017, _rush_fix_1009, _volcycle_fix_1009, _degen_crazy_fix_1009
+# ↪ moved to rep_predict.py: _agent_test_fix_1009, _agent_learn_fix_1009, _agent_seat_fix_1009, _ticket_ride_fix, _prime_reset_paper
+# ↪ moved to rep_predict.py: _proven_candidates, _paper_broke
 
 
 async def _prime_tick_inner(now):
@@ -10843,23 +7222,7 @@ async def _prime_tick_inner(now):
 CARD_RECORDS_PATH = DATA_DIR / 'card_records.json'   # → card_records.db: every ended run of every tier card, append-only, forever
 
 
-def _hq_ver():
-    try:
-        st = FUSE_HQ_PATH.stat(); return (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return None
-
-
-def _record_runs(before, cards):
-    """📜 Permanent record: each run that just ended on a tier card goes into the append-only ledger (never trimmed, never edited)."""
-    try:
-        lg = _store.Ledger(CARD_RECORDS_PATH, table='runs')
-        for tid, c in cards.items():
-            for r in c.get('runs') or []:   # runs keep only the last 10 on the card — the timestamp tells what's new
-                if _fuse._f(r.get('at')) > before.get(tid, 0.0):
-                    lg.append({**r, 'card': tid, 'label': c.get('label'), 'real': bool(c.get('real'))})
-    except Exception as e:
-        print('card records:', e)
+# ↪ moved to rep_predict.py: _hq_ver, _record_runs
 
 
 PRIME_DS_BUDGET = 3.0     # DexScreener is only the FALLBACK price here (Jupiter wins for every coin it knows); after a restart its paced
@@ -10867,19 +7230,7 @@ PRIME_DS_BUDGET = 3.0     # DexScreener is only the FALLBACK price here (Jupiter
 _prime_stages: dict = {}
 
 
-async def _prime_reads(rows):
-    """The three reads a Prime view needs, AT ONCE: DexScreener pairs (budgeted), Jupiter prices, SOL/USD. Stage times are kept."""
-    async def timed(name, coro, default, budget=None):
-        t0 = time.perf_counter()
-        try:
-            return await (asyncio.wait_for(coro, timeout=budget) if budget else coro)
-        except Exception:
-            return default
-        finally:
-            _prime_stages[name] = round((time.perf_counter() - t0) * 1000)
-    px, jup, sol = await asyncio.gather(timed('dexscreener', _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in rows]), {}, PRIME_DS_BUDGET),
-                                        timed('jupiter', _jup_prices([l.get('mint') for l in rows]), {}), timed('sol', _sol_usd_live(), 0.0))
-    return dict(px or {}), jup or {}, sol or 0.0
+# ↪ moved to rep_predict.py: _prime_reads
 
 
 async def _prime_view():
@@ -10935,8 +7286,7 @@ PRIME_STALE_SEC = 30.0    # this young: served at once while ONE background rebu
 _prime_resp: dict = {'at': 0.0, 'data': None, 'task': None, 'cleared': 0.0, 'snap': False, 'savedAt': 0.0}
 
 
-def _prime_resp_clear():
-    _prime_resp.update(at=0.0, data=None, task=None, cleared=time.time())
+# ↪ moved to rep_predict.py: _prime_resp_clear
 
 
 PRIME_SNAPSHOT_PATH = DATA_DIR / 'prime_snapshot.json'   # 💾 the last good answer, served on the FIRST request after a restart
@@ -10944,55 +7294,7 @@ PRIME_SNAP_MAX = 900.0      # a snapshot older than 15 min is never served
 PRIME_SNAP_EVERY = 60.0     # written at most once a minute
 
 
-async def _prime_resp_build():
-    t0 = time.time()
-    data = await _fuse_prime_build()
-    if t0 >= _prime_resp['cleared']:   # a build that began before an owner write never refills the cache with the old state
-        _prime_resp.update(at=time.time(), data=data, snap=False)
-        _prime_stages['buildMs'] = round((time.time() - t0) * 1000)
-        if time.time() - _prime_resp.get('savedAt', 0) > PRIME_SNAP_EVERY and not os.environ.get('PYTEST_CURRENT_TEST'):
-            _prime_resp['savedAt'] = time.time()
-            try:
-                await asyncio.to_thread(_json_save, PRIME_SNAPSHOT_PATH, {'at': time.time(), 'data': data})
-            except Exception:
-                pass
-    return data
-
-
-def _prime_snapshot(now=None):
-    """The last good /fuses/prime from disk (≤ PRIME_SNAP_MAX old) → (at, data) or None. Read once, on the first request after a start."""
-    now = time.time() if now is None else now
-    try:
-        j = _json_load(PRIME_SNAPSHOT_PATH, {}) or {}
-    except Exception:
-        return None
-    return (j['at'], j['data']) if j.get('data') is not None and now - _fuse._f(j.get('at')) < PRIME_SNAP_MAX else None
-
-
-async def _prime_warm():
-    """Warm /fuses/prime once, 20s after startup — after the keeper and the agents loop have started; it never blocks them."""
-    await asyncio.sleep(20)
-    try:
-        if _prime_resp['data'] is None or _prime_resp.get('snap'):
-            await _prime_resp_build()
-    except Exception as e:
-        print('prime warm:', type(e).__name__)
-
-
-async def _fuse_prime_build():
-    """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    _rc = _prime_real_cfg() if any((c or {}).get('real') for c in _prime_cards().values()) else {}
-    _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
-    _ht, _hp, _hn = _human_style()
-    _rcard = _real_card() if _rc else None
-    _lst = (_rcard or {}).get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard)) if _rcard else None
-    _lkeep = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('ladderKeep') or []
-    _lad = {**_prime.ladder_view(_lst), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2), 'keys': _prime.ladder_keys(_lst), 'keep': _lkeep} if _rcard else None
-    _fnow = time.time()
-    _flv = {p: {**{k: w.get(k) for k in ('buyUsd', 'sellUsd', 'n', 'pxChg', 'sellShare')}, 'age': round(_fnow - at)} for p, (at, w) in list(_flow_now.items()) if w and _fnow - at < 90}
-    _fpr = _trench.meta_proof(_json_load(FLOW_PROOF_PATH, {}), keys=('flow', 'rug'))
-    return {'flow': _flv, 'flowProof': _fpr, 'ladder': _lad, 'meta': _prime.meta_for(_fuse._f(_rc.get('rotateHours')) or 1.0, _seed) if _rc else None, 'cards': await _prime_view(), 'humanStyle': {'tiers': _ht, 'picks': _hn, 'need': _ps.MIN_PICKS, 'ready': bool(_hp), 'words': _ps.words(_hp),
-                           'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_peek().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
+# ↪ moved to rep_predict.py: _prime_resp_build, _prime_snapshot, _prime_warm, _fuse_prime_build
 
 
 # ---- 👛 FUSE WALLET (backend/fuse_wallet.py): the owner's Fuse Circle wallet funds the tier cards with REAL money ----
@@ -13000,7 +9302,7 @@ import taught_rules as _trl   # noqa: F401  (read by rep_ai, rep_money_routes as
 # ↪ moved to rep_ai.py: _taught_rules, _taught_stamp, _taught_view
 import regret as _rg
 import capital as _cap
-import after_path as _ap
+import after_path as _ap   # noqa: F401  (read by rep_ai, rep_predict as rs._ap)
 REGRET_PATH = DATA_DIR / 'regret.json'
 _regret: dict = {'b': None, 'at': 0.0, 'savedAt': 0.0}
 
@@ -13453,92 +9755,19 @@ _holder_cache = {}
 _bug_ip_hits = _HITS('bug')
 
 
-def _admin_wallets():
-    try:
-        granted = _hq_auth.granted_wallets(_json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'])
-    except Exception:
-        granted = []
-    return _hq_auth.owner_wallets(os.environ.get('FEELESS_ADMIN_WALLETS', '')) + granted
-
-
-def _admin_load():
-    try:
-        d = _cached_json(ADMIN_PATH)
-    except Exception:
-        d = {}
-    d.setdefault('badges', {}); d.setdefault('airdrops', []); d.setdefault('audit', [])
-    return d
-
-
-def _badge_limits():
-    raw = _admin_load().get('badgeLimits') or {}
-    return {'profile': max(0, min(12, int(raw.get('profile', 3)))),
-            'chat': max(0, min(12, int(raw.get('chat', 3))))}
-
-
-def _admin_save(d):
-    ADMIN_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = ADMIN_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(ADMIN_PATH)
+# ↪ moved to rep_hq.py: _admin_wallets, _admin_load, _badge_limits, _admin_save
 
 
 _parse_cache = {}
 
 
-def _cached_json(path):
-    """Parse a JSON store once per on-disk version (mtime+size). Hot endpoints read these on every
-    request; re-parsing multi-MB files each time is what would melt under thousands of users."""
-    st = path.stat()
-    key = (st.st_mtime_ns, st.st_size)
-    hit = _parse_cache.get(str(path))
-    if hit and hit[0] == key:
-        return hit[1]
-    t0 = time.perf_counter()
-    obj = json.loads(path.read_text())
-    _json_cost_note('load', path, t0)
-    _parse_cache[str(path)] = (key, obj)
-    return obj
+# ↪ moved to rep_hq.py: _cached_json
 
 
 _json_cost = {}   # 'load:runners.json' → [times, seconds] (bounded by the number of stores; shown by the loop-lag catcher)
 
 
-def _json_cost_note(kind, path, t0):
-    c = _json_cost.setdefault(f'{kind}:{path.name}', [0, 0.0])
-    c[0] += 1; c[1] += time.perf_counter() - t0
-
-
-def _json_load(path, default):
-    try:
-        obj = _cached_json(path)
-    except Exception:
-        return default
-    if isinstance(obj, dict) and 'paths' not in obj and str(path) == str(RUNNERS_PATH):   # 🗂 runners.json's price paths come from their own store
-        obj['paths'] = _paths_mem.get()
-    return obj
-
-
-def _json_save(path, d):
-    t0 = time.perf_counter()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    body = d
-    if isinstance(d, dict) and 'paths' in d and str(path) == str(RUNNERS_PATH):   # 🗂 the runner price paths (1.8 MB of a 3 MB file) live in memory + their own file, written ≤ 1/min
-        _paths_mem.put(d['paths'], time.time())
-        body = {k: v for k, v in d.items() if k != 'paths'}
-    tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(body)); tmp.replace(path)
-    if isinstance(d, dict):   # ⚡ what was written IS the current version: the next load reads it, never re-parses it (fuse_hq.json: 178 re-parses in 7 min)
-        st = path.stat(); _parse_cache[str(path)] = ((st.st_mtime_ns, st.st_size), d)
-    _json_cost_note('save', path, t0)
-
-
-def _json_save_soft(path, d):
-    """For a worker thread and a BIG store nobody mutates meanwhile: the pure-Python encoder yields the GIL between chunks, so the
-    event loop keeps answering (json.dumps holds it for the whole document: 0.46s for 31 MB)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix('.tmp')
-    with open(tmp, 'w') as f:
-        for chunk in json.JSONEncoder().iterencode(d):
-            f.write(chunk)
-    tmp.replace(path)
+# ↪ moved to rep_hq.py: _json_cost_note, _json_load, _json_save, _json_save_soft
 
 
 # Lookups that answer 404 by design when there's simply no data yet (a creator never seen before).
@@ -13562,9 +9791,7 @@ def _guard_s():
     return _guard_state
 
 
-def _guard_save():
-    s = _guard_s()
-    _json_save(GUARD_PATH, {k: s[k] for k in ('suspects', 'blocks', 'log')})
+# ↪ moved to rep_hq.py: _guard_save
 
 
 import defence as _def
@@ -13584,12 +9811,7 @@ def _def_s():
     return _def_state
 
 
-def _def_save(force=False):
-    now = time.time()
-    if force or now - _def_dirty['at'] > 15:   # an attack burst writes the file at most every 15s
-        _def_dirty['at'] = now
-        s = _def_s(); _def.prune(s, now)
-        _json_save(DEF_PATH, {k: s[k] for k in ('blocks', 'rules', 'incidents', 'uaHits')})
+# ↪ moved to rep_hq.py: _def_save
 
 
 # ⚔️ SEC-1 War Room: the owner-only security dashboard's state (war_room.py). Sits on top of _def; all data is observed on our own server.
@@ -13611,12 +9833,7 @@ def _war_s():
     return _war_state
 
 
-def _war_save(force=False):
-    now = time.time()
-    if force or now - _war_dirty['at'] > 15:
-        _war_dirty['at'] = now
-        s = _war_s(); _war.prune(s, now)
-        _json_save(WAR_PATH, {k: s[k] for k in ('seq', 'events', 'captures', 'canaries', 'hits', 'nets', 'netSeen', 'sigs', 'revoked', 'reports', 'moves')})
+# ↪ moved to rep_hq.py: _war_save
 
 
 _BOUNTY_SCOPE = {
@@ -13708,55 +9925,7 @@ def _require_admin(request: Request) -> str:
 ROLE_SCOPES, ROLE_READ = _hq_auth.ROLE_SCOPES, _hq_auth.ROLE_READ   # 🔐 scoped roles (hq_auth.py)
 
 
-def _role_of(addr):
-    return _hq_auth.role_of(addr, _owner_wallets(), _json_load(DATA_DIR / 'roles.json', {'grants': {}})['grants'])
-
-
-def _role_gate(addr, request):
-    role = _role_of(addr)
-    _hq_auth.check_role(role, getattr(getattr(request, 'url', None), 'path', ''), getattr(request, 'method', 'GET'))
-
-
-def _audit(d, admin, action, detail):
-    d['audit'].append({'at': time.time(), 'admin': admin, 'action': action, 'detail': detail})
-    d['audit'] = d['audit'][-300:]
-
-
-async def _token_holders(mint: str):
-    hit = _holder_cache.get(mint)
-    if hit and time.time() - hit[0] < 120:
-        return hit[1]
-    owners = {}
-    accounts = {}
-    async with httpx.AsyncClient(timeout=40) as http:
-        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
-            filters = [{'memcmp': {'offset': 0, 'bytes': mint}}]
-            if program.startswith('Tokenkeg'):
-                filters.insert(0, {'dataSize': 165})
-            try:
-                accts = await _rpc(http, 'getProgramAccounts', [program, {'encoding': 'jsonParsed', 'filters': filters}])
-            except Exception:
-                accts = None
-            for a in accts or []:
-                info = _parsed_info(a.get('account'))
-                amt = float(((info.get('tokenAmount') or {}).get('uiAmount')) or 0)
-                if amt > 0 and info.get('owner'):
-                    owners[info['owner']] = owners.get(info['owner'], 0) + amt
-                    if amt > accounts.get(info['owner'], ('', 0))[1]:
-                        accounts[info['owner']] = (a.get('pubkey'), amt)
-            if owners:
-                break
-    price = None
-    try:
-        async with httpx.AsyncClient(timeout=8) as http:
-            price = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={mint}')).json().get(mint) or {}).get('usdPrice') or 0) or None
-    except Exception:
-        pass
-    total = sum(owners.values()) or 1
-    rows = sorted(({'owner': o, 'amount': v, 'pct': v / total * 100, 'usd': v * price if price else None, 'tokenAccount': accounts.get(o, (None,))[0]} for o, v in owners.items()), key=lambda r: -r['amount'])
-    out = {'mint': mint, 'price': price, 'holders': len(rows), 'rows': rows, 'at': time.time()}
-    _holder_cache[mint] = (time.time(), out)
-    return out
+# ↪ moved to rep_hq.py: _role_of, _role_gate, _audit, _token_holders
 
 
 class AdminBadge(BaseModel):
@@ -13803,11 +9972,7 @@ class BugReport(BaseModel):
     address: Optional[str] = None
 
 
-def _bug_key(text, page):
-    """Crash identity: the message + the component that threw (stack frames / hot-update hashes dropped) + the page path."""
-    t = _re.sub(r'\s+·\s+at .*$', '', str(text or '').strip())
-    t = _re.sub(r'[0-9a-f]{12,}', '#', t)
-    return f"{t[:300]}|{str(page or '').split('?')[0]}"
+# ↪ moved to rep_hq.py: _bug_key
 
 
 SUPPORT_PATH = DATA_DIR / 'support.json'   # 🛟 polls + "me too" marks (support.py); the reports themselves stay in bugs.json
@@ -13831,10 +9996,7 @@ class SupportAct(BaseModel):
 BUG_FRESH_S = 3 * 86400   # 🐞 HQ's open-bug count: reports seen in 3 days (a dev-reload crash from weeks ago is not news)
 
 
-def _bug_seen(b):
-    """When a bug report last fired, in seconds (reports carry ms or s)."""
-    x = float(b.get('lastAt') or b.get('at') or 0)
-    return x / 1000 if x > 1e12 else x
+# ↪ moved to rep_hq.py: _bug_seen
 
 
 import presence as _pres   # noqa: F401 (re-exported: tests and modules reach it as rs.X)
@@ -13853,22 +10015,7 @@ _street_here: dict = {}   # city → {wallet: last heartbeat} — memory only
 _street_typing: dict = {}   # city → {wallet: last keystroke beat} — memory only (✍ typing presence)
 
 
-def _street_fams():
-    """wallet → its family's street look {id, tag, color, badge, don} — badge_view once per family per read."""
-    import crews as _cr
-    st_ = _json_load(CREWS_PATH, {}) or {}
-    cache_ = {}
-
-    def fam(addr):
-        c_ = _cr.crew_of(st_, primary_of(addr)) or _cr.crew_of(st_, addr)
-        if not c_:
-            return None
-        if c_['id'] not in cache_:
-            b_ = _cr.badge_view(c_, st_.get('awards'), _crew_cfg(), _is_staff(c_.get('owner')))
-            cache_[c_['id']] = {'id': c_['id'], 'tag': c_.get('tag'), 'name': c_.get('name'), 'color': b_.get('c1'), 'badge': b_, 'owner': c_.get('owner')}
-        f_ = cache_[c_['id']]
-        return {k_: v_ for k_, v_ in f_.items() if k_ != 'owner'} | {'don': primary_of(addr) == primary_of(f_.get('owner') or '')}
-    return fam
+# ↪ moved to rep_hq.py: _street_fams
 
 
 class StreetTyping(BaseModel):
@@ -13927,18 +10074,7 @@ def _legal_s():
     return _legal_state
 
 
-def _legal_save():
-    s = _legal_s(); _json_save(LEGAL_PATH, {k: s[k] for k in ('accept', 'cfg', 'requests')})
-
-
-def _legal_me(wallet, session, fresh=False):
-    """The signed wallet (its primary). fresh=True: signed in within the last 24 h (a delete can't ride a week-old session)."""
-    me = _session_or_401(wallet, session)
-    if fresh:
-        rec = _sess()['s'].get(hashlib.sha256((session or '').encode()).hexdigest()) or {}
-        if rec.get('exp', 0) - SESSION_TTL < time.time() - 86400:
-            raise HTTPException(401, 'Sign in again first (a delete needs a sign-in from the last 24 hours).')
-    return me
+# ↪ moved to rep_hq.py: _legal_save, _legal_me
 
 
 class LegalAccept(BaseModel):
@@ -13960,90 +10096,7 @@ class LegalCfg(BaseModel):
     cfg: dict
 
 
-def _legal_hold(wallet, feature, request=None):
-    """⚖ LEGAL-1 (d): refuse a money route for a wallet the legal gate holds, so a direct API call can't skip the browser's check. Exits
-    never come here (callers skip them). Agent wallets (FEELESS-made, gated when their owner funded them) pass."""
-    w_ = str(wallet or '')
-    if not w_:
-        return
-    why_ = _legal.hold(_legal_s(), feature, primary_of(w_), _legal.country_of(request.headers) if request is not None else None)
-    if why_ and w_ not in _any_agent_wallets():   # the agents store is read only when the answer would refuse
-        raise HTTPException(403, why_)
-
-
-def _legal_parts(me):
-    """Every off-chain store holding this wallet's rows (read-only). Secrets are scrubbed later by legal.scrub."""
-    def own(a):
-        return bool(a) and primary_of(str(a)) == me
-    subs = (_push_load().get('subs') or {}).values()
-    return {
-        'profile': _prof().get(me),
-        'follows': (_fol().get('following') or {}).get(me),
-        'notifications': _notif().get(me),
-        'push': [{'watch': v.get('watch'), 'prefs': v.get('prefs')} for v in subs if own((v.get('prefs') or {}).get('address'))],
-        'dmPrefs': _json_load(DM_PREFS_PATH, {}).get(me),
-        'identities': {a: v for a, v in (_ids().get('links') or {}).items() if (v or {}).get('primary') == me and a != me},
-        'dms': [m for th in _json_load(DM_PATH, {}).values() if isinstance(th, list) for m in th if me in (m.get('from'), m.get('to'))][-2000:],
-        'chat': [m for msgs in (_chat_load().get('rooms') or {}).values() if isinstance(msgs, list) for m in msgs
-                 if m.get('identity') == me or own(m.get('address'))][-2000:],
-        'sessions': {'signedIn': sum(1 for v in (_sess().get('s') or {}).values() if own(v.get('address')))},
-        'consent': (_legal_s().get('accept') or {}).get(me),
-        'receipts': [r for r in _receipt_rows() if isinstance(r, list) and len(r) > 2 and own(r[2])][-2000:],
-        'points': _pts().get(me),
-        'quests': _qs().get(me),
-        'referrals': {'invited': (_json_load(REF_PATH, {'by': {}}).get('by') or {}).get(me)},
-    }
-
-
-async def _legal_wipe(me):
-    """Delete the personal / social rows (legal.DELETE). Sessions + push go first: they're matched through linked accounts."""
-    def own(a):
-        return bool(a) and primary_of(str(a)) == me
-    n = {}
-    async with _admin_lock:
-        d = _sess(); s_ = d.get('s') or {}
-        gone = [t for t, v in s_.items() if own(v.get('address'))]
-        for t in gone:
-            s_.pop(t, None)
-        n['sessions'] = len(gone); _json_save(SESSIONS_PATH, d)
-        d = _push_load(); subs = d.get('subs') or {}
-        gone = [sid for sid, v in subs.items() if own(((v or {}).get('prefs') or {}).get('address'))]
-        for sid in gone:
-            subs.pop(sid, None)
-        n['push'] = len(gone); _push_save(d)
-        d = _fol(); n['follows'] = len((d.get('following') or {}).pop(me, None) or []); _json_save(FOLLOW_PATH, d)
-        import sql_store as _sqls
-        n['notifications'] = len(_notif().update(me, lambda box: _sqls.Result(None, box or [])) or [])
-        d = _json_load(DM_PREFS_PATH, {}); n['dmPrefs'] = 0 if d.pop(me, None) is None else 1; _json_save(DM_PREFS_PATH, d)
-        d = _json_load(DM_PATH, {}); k_ = 0
-        for key, th in list(d.items()):
-            if not isinstance(th, list):
-                continue
-            keep = [m for m in th if m.get('from') != me]
-            k_ += len(th) - len(keep)
-            if keep:
-                d[key] = keep
-            else:
-                d.pop(key, None)
-        n['dms'] = k_; _json_save(DM_PATH, d)
-        d = _ids(); links = d.get('links') or {}
-        gone = [a for a, v in links.items() if (v or {}).get('primary') == me]
-        for a in gone:
-            links.pop(a, None)
-        n['identities'] = len([a for a in gone if a != me]); _json_save(IDENTITY_PATH, d)
-    async with _chat_lock:
-        d = _chat_load(); k_ = 0
-        for room, msgs in list((d.get('rooms') or {}).items()):
-            if not isinstance(msgs, list):
-                continue
-            keep = [m for m in msgs if not (m.get('identity') == me or m.get('address') == me)]
-            k_ += len(msgs) - len(keep)
-            d['rooms'][room] = keep
-        n['chat'] = k_; CHAT_PATH.write_text(json.dumps(d))
-    had = _prof().get(me) is not None
-    _prof().update(me, lambda _old: None)
-    n['profile'] = 1 if had else 0
-    return n
+# ↪ moved to rep_hq.py: _legal_hold, _legal_parts, _legal_wipe
 
 
 class GuardDecision(BaseModel):
@@ -18985,3 +15038,236 @@ _verdict_acts = _rep_ai._verdict_acts
 _retired = _rep_ai._retired
 _verdict_build = _rep_ai._verdict_build
 _verdict_tick = _rep_ai._verdict_tick
+
+import rep_hq as _rep_hq   # noqa: E402  🧹 moved by scripts/move-section.py
+_admin_wallets = _rep_hq._admin_wallets
+_admin_load = _rep_hq._admin_load
+_badge_limits = _rep_hq._badge_limits
+_admin_save = _rep_hq._admin_save
+_cached_json = _rep_hq._cached_json
+_json_cost_note = _rep_hq._json_cost_note
+_json_load = _rep_hq._json_load
+_json_save = _rep_hq._json_save
+_json_save_soft = _rep_hq._json_save_soft
+_guard_save = _rep_hq._guard_save
+_def_save = _rep_hq._def_save
+_war_save = _rep_hq._war_save
+_role_of = _rep_hq._role_of
+_role_gate = _rep_hq._role_gate
+_audit = _rep_hq._audit
+_token_holders = _rep_hq._token_holders
+_bug_key = _rep_hq._bug_key
+_bug_seen = _rep_hq._bug_seen
+_street_fams = _rep_hq._street_fams
+_legal_save = _rep_hq._legal_save
+_legal_me = _rep_hq._legal_me
+_legal_hold = _rep_hq._legal_hold
+_legal_parts = _rep_hq._legal_parts
+_legal_wipe = _rep_hq._legal_wipe
+
+import rep_predict as _rep_predict   # noqa: E402  🧹 moved by scripts/move-section.py
+_predict_symbols = _rep_predict._predict_symbols
+_rm_rows = _rep_predict._rm_rows
+_rm_tick = _rep_predict._rm_tick
+_rep_of = _rep_predict._rep_of
+_predict_tick = _rep_predict._predict_tick
+_owner_edge_rec = _rep_predict._owner_edge_rec
+_is_keeper = _rep_predict._is_keeper
+_prime_tick = _rep_predict._prime_tick
+_prime_bell_loop = _rep_predict._prime_bell_loop
+_smart_track = _rep_predict._smart_track
+_smart_on = _rep_predict._smart_on
+_learn_drops = _rep_predict._learn_drops
+_real_table = _rep_predict._real_table
+_flow_fetch = _rep_predict._flow_fetch
+_flow_mark = _rep_predict._flow_mark
+_flow_intel = _rep_predict._flow_intel
+_consig_plans = _rep_predict._consig_plans
+_reaper_lines = _rep_predict._reaper_lines
+_flow_guard = _rep_predict._flow_guard
+_flow_settle = _rep_predict._flow_settle
+_limit_check = _rep_predict._limit_check
+_real_guard_loop = _rep_predict._real_guard_loop
+_fw_market_rows = _rep_predict._fw_market_rows
+_prime_unique_fix = _rep_predict._prime_unique_fix
+_cook_warn = _rep_predict._cook_warn
+_real_hold_fix = _rep_predict._real_hold_fix
+_real_ride_fix = _rep_predict._real_ride_fix
+_ladder_keep_fix = _rep_predict._ladder_keep_fix
+degen_patch_1009 = _rep_predict.degen_patch_1009
+_degen_fix_1009 = _rep_predict._degen_fix_1009
+overnight_patch_1009 = _rep_predict.overnight_patch_1009
+_overnight_fix_1009 = _rep_predict._overnight_fix_1009
+hunt_patch_1009 = _rep_predict.hunt_patch_1009
+_hunt_fix_1009 = _rep_predict._hunt_fix_1009
+_hunt_fix_1009b = _rep_predict._hunt_fix_1009b
+trench_patch_1009 = _rep_predict.trench_patch_1009
+_trench_fix_1009 = _rep_predict._trench_fix_1009
+_procall_fix_1009 = _rep_predict._procall_fix_1009
+_topseat_fix_1009 = _rep_predict._topseat_fix_1009
+_trench_safe_fix_1009 = _rep_predict._trench_safe_fix_1009
+_clean_fix_1009 = _rep_predict._clean_fix_1009
+_flow_tight_fix_1009 = _rep_predict._flow_tight_fix_1009
+_entry_fix_1009 = _rep_predict._entry_fix_1009
+_vital_off_fix_1009 = _rep_predict._vital_off_fix_1009
+_moon_fix_1009 = _rep_predict._moon_fix_1009
+_floor_fix_1009 = _rep_predict._floor_fix_1009
+_flow_fix_1009 = _rep_predict._flow_fix_1009
+_proof_gate_tick = _rep_predict._proof_gate_tick
+_proof_gate_fix_1010 = _rep_predict._proof_gate_fix_1010
+_proof_clean_1013 = _rep_predict._proof_clean_1013
+_agent_open_fix_1012 = _rep_predict._agent_open_fix_1012
+_agent_real_fix_1012 = _rep_predict._agent_real_fix_1012
+_trail_fix_1014 = _rep_predict._trail_fix_1014
+_curve_fix_1011 = _rep_predict._curve_fix_1011
+_g4seat_fix_1016 = _rep_predict._g4seat_fix_1016
+_youticket_fix_1016 = _rep_predict._youticket_fix_1016
+_germline_fix_1016 = _rep_predict._germline_fix_1016
+_mcfloor_fix_1016 = _rep_predict._mcfloor_fix_1016
+_minage_fix_1014 = _rep_predict._minage_fix_1014
+_armed_fix_1013 = _rep_predict._armed_fix_1013
+_agent_control_set = _rep_predict._agent_control_set
+_desk_buys_fix_1105 = _rep_predict._desk_buys_fix_1105
+_agent_control_fix_1010 = _rep_predict._agent_control_fix_1010
+_agent_duty_fix_1010 = _rep_predict._agent_duty_fix_1010
+_keephalf_fix_1010 = _rep_predict._keephalf_fix_1010
+_floor_off_fix_1009 = _rep_predict._floor_off_fix_1009
+_night_off_fix_1017 = _rep_predict._night_off_fix_1017
+_rush_fix_1009 = _rep_predict._rush_fix_1009
+_volcycle_fix_1009 = _rep_predict._volcycle_fix_1009
+_degen_crazy_fix_1009 = _rep_predict._degen_crazy_fix_1009
+_agent_test_fix_1009 = _rep_predict._agent_test_fix_1009
+_agent_learn_fix_1009 = _rep_predict._agent_learn_fix_1009
+_agent_seat_fix_1009 = _rep_predict._agent_seat_fix_1009
+_ticket_ride_fix = _rep_predict._ticket_ride_fix
+_prime_reset_paper = _rep_predict._prime_reset_paper
+_proven_candidates = _rep_predict._proven_candidates
+_paper_broke = _rep_predict._paper_broke
+_hq_ver = _rep_predict._hq_ver
+_record_runs = _rep_predict._record_runs
+_prime_reads = _rep_predict._prime_reads
+_prime_resp_clear = _rep_predict._prime_resp_clear
+_prime_resp_build = _rep_predict._prime_resp_build
+_prime_snapshot = _rep_predict._prime_snapshot
+_prime_warm = _rep_predict._prime_warm
+_fuse_prime_build = _rep_predict._fuse_prime_build
+
+import rep_crews as _rep_crews   # noqa: E402  🧹 moved by scripts/move-section.py
+_crew_pieces = _rep_crews._crew_pieces
+_crew_book = _rep_crews._crew_book
+_crew_name = _rep_crews._crew_name
+_seat_of = _rep_crews._seat_of
+_crew_cfg = _rep_crews._crew_cfg
+_crew_badge_usd = _rep_crews._crew_badge_usd
+_crew_view = _rep_crews._crew_view
+_pay_sig_used = _rep_crews._pay_sig_used
+_pay_hold = _rep_crews._pay_hold
+_verify_sol_payment = _rep_crews._verify_sol_payment
+_verify_sol_payment_held = _rep_crews._verify_sol_payment_held
+_city_ctx = _rep_crews._city_ctx
+_city_rivals = _rep_crews._city_rivals
+_city_tax = _rep_crews._city_tax
+_fblock_wallets = _rep_crews._fblock_wallets
+_fblock_reads = _rep_crews._fblock_reads
+_fblock_ranges = _rep_crews._fblock_ranges
+_fblock_view = _rep_crews._fblock_view
+_cartels_now = _rep_crews._cartels_now
+_world_target = _rep_crews._world_target
+_world_settle = _rep_crews._world_settle
+_familia_rules = _rep_crews._familia_rules
+_world_tick = _rep_crews._world_tick
+_world_metrics = _rep_crews._world_metrics
+_fuse_family_stats = _rep_crews._fuse_family_stats
+_world_feecat_rate = _rep_crews._world_feecat_rate
+_world_view = _rep_crews._world_view
+_kt_need = _rep_crews._kt_need
+_kt_proof = _rep_crews._kt_proof
+_kt_market = _rep_crews._kt_market
+_kt_addr = _rep_crews._kt_addr
+_brk_seal = _rep_crews._brk_seal
+_brk_need = _rep_crews._brk_need
+_brk_call = _rep_crews._brk_call
+_brk_q = _rep_crews._brk_q
+_brk_user = _rep_crews._brk_user
+_brk_alpaca = _rep_crews._brk_alpaca
+_alpaca_call = _rep_crews._alpaca_call
+_brk_cdc = _rep_crews._brk_cdc
+_cdc_call = _rep_crews._cdc_call
+_cdc_dev_key = _rep_crews._cdc_dev_key
+_cdc_instruments = _rep_crews._cdc_instruments
+_pperp_board = _rep_crews._pperp_board
+_arena_day = _rep_crews._arena_day
+_tg_user = _rep_crews._tg_user
+_tg_group = _rep_crews._tg_group
+_arena_who = _rep_crews._arena_who
+_arena_unlock_level = _rep_crews._arena_unlock_level
+_arena_profile = _rep_crews._arena_profile
+_ffuse_cards = _rep_crews._ffuse_cards
+_ffuse_prices = _rep_crews._ffuse_prices
+_ffuse_book = _rep_crews._ffuse_book
+_ffuse_pay = _rep_crews._ffuse_pay
+_ffuse_tick = _rep_crews._ffuse_tick
+_ffuse_view = _rep_crews._ffuse_view
+_cat_for_fund = _rep_crews._cat_for_fund
+_cat_fund_rules = _rep_crews._cat_fund_rules
+_openrouter_left = _rep_crews._openrouter_left
+_vault_gap_read = _rep_crews._vault_gap_read
+_pgap_once = _rep_crews._pgap_once
+_coin_gap_read = _rep_crews._coin_gap_read
+_jl_borrow = _rep_crews._jl_borrow
+_jl_lend = _rep_crews._jl_lend
+_jl_markets = _rep_crews._jl_markets
+_jp_call = _rep_crews._jp_call
+_rng_get = _rep_crews._rng_get
+_collective_band_pass = _rep_crews._collective_band_pass
+_autorange_watch = _rep_crews._autorange_watch
+_lan_ip = _rep_crews._lan_ip
+_hqp_site = _rep_crews._hqp_site
+_wars_tick = _rep_crews._wars_tick
+_crew_season_tick = _rep_crews._crew_season_tick
+_crew_room_ok = _rep_crews._crew_room_ok
+
+import rep_runners as _rep_runners   # noqa: E402  🧹 moved by scripts/move-section.py
+_runner_cfg = _rep_runners._runner_cfg
+_intel_boot = _rep_runners._intel_boot
+_intel_fresh = _rep_runners._intel_fresh
+_enrich_scan = _rep_runners._enrich_scan
+_enrich_pump = _rep_runners._enrich_pump
+_runner_intel = _rep_runners._runner_intel
+_meme_tick = _rep_runners._meme_tick
+_runner_live = _rep_runners._runner_live
+_runner_live_build = _rep_runners._runner_live_build
+_runner_track = _rep_runners._runner_track
+_smart_buyers = _rep_runners._smart_buyers
+_token_prices = _rep_runners._token_prices
+_jup_prices = _rep_runners._jup_prices
+_judge_fill = _rep_runners._judge_fill
+_runner_tick = _rep_runners._runner_tick
+_runner_loop = _rep_runners._runner_loop
+
+import rep_seasons as _rep_seasons   # noqa: E402  🧹 moved by scripts/move-section.py
+_season_rows = _rep_seasons._season_rows
+_season_wins = _rep_seasons._season_wins
+_fuse_season_tick = _rep_seasons._fuse_season_tick
+_season_race = _rep_seasons._season_race
+_series_24h = _rep_seasons._series_24h
+_fuse_score = _rep_seasons._fuse_score
+_bred_load = _rep_seasons._bred_load
+_bred_tick = _rep_seasons._bred_tick
+_fuse_autopilot_tick = _rep_seasons._fuse_autopilot_tick
+_shield_alerts = _rep_seasons._shield_alerts
+_fuse_autopilot_loop = _rep_seasons._fuse_autopilot_loop
+_card_look = _rep_seasons._card_look
+_fuse_chat = _rep_seasons._fuse_chat
+_fuse_chat_tick = _rep_seasons._fuse_chat_tick
+_battle_view = _rep_seasons._battle_view
+_league_card = _rep_seasons._league_card
+_league_extra = _rep_seasons._league_extra
+_league_playground = _rep_seasons._league_playground
+_arena_auto_refresh = _rep_seasons._arena_auto_refresh
+_feecat_raw = _rep_seasons._feecat_raw
+_feecat_card = _rep_seasons._feecat_card
+_arena_mega = _rep_seasons._arena_mega
+_card_dna_tag = _rep_seasons._card_dna_tag
+_fuse_candidates = _rep_seasons._fuse_candidates
+_champ_view = _rep_seasons._champ_view
