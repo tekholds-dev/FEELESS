@@ -118,6 +118,7 @@ import datetime as dt   # noqa: F401  (read by fc_desk as rs.dt)
 import postiz as _pz   # 📮 POC-PLAY item 8: a picked week board posts for real through Postiz's official OAuth API   # noqa: F401  (read by fc_desk as rs._pz)
 import week_plan as _wk   # 🗓 POC-PLAY: week boards + brain-made week scenarios, each filed as a PoC   # noqa: F401  (read by fc_desk as rs._wk)
 import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into the PoC as new versions   # noqa: F401  (read by fc_desk as rs._pplay)
+import owner_models as _om   # 🪦 the owner's own 3D models a build carries   # noqa: F401  (read by fc_cat_work, fc_desk as rs._om)
 import pub_tunnel as _pubt   # 🔗 https links for a swap's references (OpenRouter takes no data URL)   # noqa: F401  (read by fc_desk as rs._pubt)
 import clip_source as _cs   # 🎞 where a swap clip may come from, and how ffmpeg cuts it (owner 2026-11-17)   # noqa: F401  (read by fc_desk, fc_cat_work as rs._cs)
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key   # noqa: F401  (read by fc_desk, fc_studio as rs._mg)
@@ -1928,6 +1929,7 @@ _eco_desk_save = _fc_desk._eco_desk_save
 _play_path = _fc_desk._play_path
 _play_load = _fc_desk._play_load
 _play_save = _fc_desk._play_save
+_studio_slot = _fc_desk._studio_slot
 _ws_ask = _fc_desk._ws_ask
 _answered_by = _fc_desk._answered_by
 talk_targets = _fc_desk.talk_targets

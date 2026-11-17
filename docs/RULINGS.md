@@ -10,6 +10,10 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-17
+- **3D studio follows the open proof** (owner: "objects or code tabs it should be as reference to the proof im using unless im in postatics home page … should start as blank canvas"): opened from a PoStatic folder, Objects and Code show and save THAT folder's scene and code and file into it; opened from the PoStatic home they start blank and file a new PoStatic.
+- **A studio model goes into a build** (owner: "choose a asset/model … have them tweak it … add to the trench build filing … uniquely use the new 3d tombstone throughout the site"): a model as set in the studio (size, turn, spin) can be added to any PoStatic folder; every build of that folder uses that exact model throughout the site.
+
 ## 2026-11-16
 - **Proposals always, with why** (owner: "always do proposals and tell me why u did it and why its vital"): every report has a Proposed section; each line says what, why, and why it is vital.
 - **Both minds work on every filing** (owner: "when i file a proof both minds work unless i selected for only one"): a filed proof runs Mind A and Mind B; only his pick of one mind runs one. A mind that comes back blank is asked once more before it counts as a pass.

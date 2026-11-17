@@ -692,6 +692,11 @@ def _play_load(cat_id, name):
         return None
 
 
+def _studio_slot(base, ws_id=''):
+    """🗂 The 3D studio's own save (scene '3d', module 'code3d'): one per PoStatic folder, and one for a scene started from the PoStatic home."""
+    return f'{base}_{ws_id}' if ws_id else base
+
+
 def _play_save(cat_id, name, data):
     rs = _rs()
     f_ = rs._play_path(cat_id, name); f_.parent.mkdir(parents=True, exist_ok=True); tmp_ = f_.with_suffix('.tmp'); tmp_.write_bytes(rs._ck.seal_bytes(rs.json.dumps(data).encode(), cat_id)); tmp_.replace(f_)
@@ -798,7 +803,7 @@ def _ws_rewind(cat, cat_id, doc, n, now):
                 keep = rs._feat.new_doc({'id': 'w' + rs.secrets.token_hex(5), 'kind': 'build', 'name': doc.get('name'), 'at': round(now)}); keep['versions'] = [got['cut'][i]]; keep['archived'] = True; rs._ws_save(cat_id, keep); f.update(ws=keep['id'], version=1)
     first, second = rs._play.scene_from_html(((doc.get('versions') or [{}])[-1] or {}).get('html'))
     if first:
-        doc['scene3d'] = rs._play.clean_scene(first); doc['scene3dNext'] = rs._play.clean_scene(second) if second else None; rs._play_save(cat_id, '3d', {'scene': doc['scene3d'], 'mind': doc['scene3d']})
+        doc['scene3d'] = rs._play.clean_scene(first); doc['scene3dNext'] = rs._play.clean_scene(second) if second else None; rs._play_save(cat_id, rs._studio_slot('3d', doc.get('id')), {'scene': doc['scene3d'], 'mind': doc['scene3d']})
     talk = rs._play_load(cat_id, 'convo')
     if isinstance(talk, list) and got['at']:
         rs._play_save(cat_id, 'convo', [r for r in talk if not isinstance(r, dict) or float(r.get('at') or 0) <= got['at'] or r.get('kind') != 'pos'])
@@ -877,7 +882,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         if doc.get('scene3dNext') and slot == 'scene3d' and rs.re.search(r'(?i)\broom\b', str(text)):
             doc['scene3dNext'] = rs._play.ensure_asks(doc['scene3dNext'], text, doc.get('name'))
         first_, next_ = doc.get('scene3d'), doc.get('scene3dNext')
-        rs._feat.add_version(doc, rs._play.lock_site(rs._play.to_html(first_, doc.get('name'), next_)), 'FEELESS', rs.time.time()); rs._play_save(cat_id, '3d', {'scene': doc[slot], 'mind': doc[slot]})
+        rs._feat.add_version(doc, rs._play.lock_site(rs._play.to_html(first_, doc.get('name'), next_)), 'FEELESS', rs.time.time()); rs._play_save(cat_id, rs._studio_slot('3d', doc.get('id')), {'scene': doc[slot], 'mind': doc[slot]})
         rs._feat.add_msg(doc, 'FEELESS', f"Page {len(doc['versions'])} is ready. Open Static to try it. Read from the page: {rs._play.page_facts(first_, next_)} The numbers are samples until the coin is live. The 3D and your words did not change.", rs.time.time())
         return 0.0, '', False
     if not brains:
@@ -898,7 +903,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         print_['mood'] = 'space'
     mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', prompt, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = rs._kits.stash_line(rs.KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
     was_ = doc.get(slot) if wrong_ else None
-    kit_read_ = rs._play.rejected_line(was_) + rs._kits.line(rs.KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._convo(cat) + ('\n' + rs._play.print_line(print_) if print_ else '')
+    kit_read_ = rs._play.rejected_line(was_) + rs._kits.line(rs.KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._convo(cat) + ('\n' + rs._play.print_line(print_) if print_ else '') + rs._om.scene_line(doc.get('models3d'))
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
@@ -916,7 +921,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         return cost, 'It did not send a usable scene.', own
     if print_:
         scene = rs._play.apply_print(scene, print_); rs._play_save(cat_id, 'prints', ([*(rs._play_load(cat_id, 'prints') or []), print_])[-40:])
-    scene = rs._play.lead_up(await resolve(scene))
+    scene = rs._om.on_set(rs._play.lead_up(await resolve(scene)), doc.get('models3d'))   # 🪦 the owner's own models stand on the set, exact files
     if print_ and not scene.get('hero') and not any(o.get('asset') for o in scene['objects']):   # nothing named is in the library: a code-built centrepiece holds the set, and the message names what was missing
         scene['hero'] = rs._play.HEROES[len(prompt) % len(rs._play.HEROES)]
     if not scene['objects'] and not scene.get('hero'):
@@ -938,7 +943,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
                 m_ = rs.re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
         except Exception as e:   # noqa: BLE001 — the build still stands without its check
             checked = f'The check did not finish: {str(e)[:60]}'
-    scene = rs._play.ensure_asks(rs._play.drop_rejected(scene, was_), text, doc.get('name'))
+    scene = rs._om.on_set(rs._play.ensure_asks(rs._play.drop_rejected(scene, was_), text, doc.get('name')), doc.get('models3d'))   # a check never takes them away
     rs._play_save(cat_id, 'usedAssets', list(dict.fromkeys([*(rs._play_load(cat_id, 'usedAssets') or []), *[(o.get('asset') or {}).get('id') for o in scene.get('objects') or [] if o.get('asset')]]))[-400:])
     keep_cam = scene.get('camera') if any(o['name'] == 'Back wall' for o in scene['objects']) else None; scene['camera'] = [0, 0, 0]; scene = rs._play._frame(rs._assets.compose(scene)); scene['camera'] = rs._play.room_camera(scene) if keep_cam else scene['camera']   # every build is framed by code on what really landed
     async with rs.httpx.AsyncClient(timeout=120) as h_:
@@ -964,7 +969,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
                         first_ = fixed_; doc[slot if slot == 'scene3d' else 'scene3d'] = first_; html = rs._play.lock_site(rs._play.to_html(first_, doc.get('name'), next_), usable_)
             except Exception as e:   # noqa: BLE001 — a look that fails never costs the page
                 print(f'[look] {str(e)[:120]}')
-    doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; rs._feat.add_version(doc, html, by, rs.time.time()); rs._play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); rs._play_save(cat_id, 'refs', rs._play.add_reference(rs._play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
+    doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; rs._feat.add_version(doc, html, by, rs.time.time()); rs._play_save(cat_id, rs._studio_slot('3d', doc.get('id')), {'scene': scene, 'mind': scene}); rs._play_save(cat_id, 'refs', rs._play.add_reference(rs._play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
     rs._feat.add_msg(doc, by, (f"{say} " if say else '') + f"Page {len(doc['versions'])} is ready. Open Static to try it." + (f" {by} built it, {check_by} checked it against your words{': ' + checked.rstrip('.') if checked else ''}." if check_by and check_by != by and fresh_ else '') + f" Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {rs._play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in rs._play.MOODS else '') + f' Read from the page: {rs._play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not rs._play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', rs.time.time())
     return cost, '', own
 
@@ -1029,7 +1034,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', text, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_
             picks_ = list(rs._ads.KITS) if doc.get('ad') else picks_   # 🎬 an ad gets GSAP, never a game kit (Phaser dragged in the game playtest and its STATE / SCORE counter, 2026-11-11)
             stash_, doc['kitsStash'] = rs._kits.stash_line(rs.KITS_DIR, 'pos', text, picks_)
-            kits_ = rs._kits.use_line(picks_) + stash_ + rs._parts.offer_line(rs._parts.offer(rs._parts_path(), text)) + rs._mark_lessons() + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            kits_ = rs._kits.use_line(picks_) + stash_ + rs._parts.offer_line(rs._parts.offer(rs._parts_path(), text)) + rs._mark_lessons() + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._recall(cat, 'Code', text) + rs._om.page_line(doc.get('models3d'))   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -1066,7 +1071,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     faults_ = rs._feat.page_faults(html)
                     if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
                         css_, fix_usd_, paid_own = await rs._ws_ask(cat, brains[i], rs._feat.REPAIR_SYS, rs._feat.repair_prompt(html, faults_), 3000); cost += fix_usd_; html = rs._feat.add_css(html, css_)
-                    html = rs._kits.open_for_kits(rs._kits.with_kit_tags(html, picks_), picks_); doc['kitsUsed'] = rs._kits.kit_report(html, picks_); doc['kitsOutside'] = rs._kits.outside_files(html, picks_)
+                    pk3_ = [*picks_, 'three'] if doc.get('models3d') and 'three' not in picks_ else picks_   # 🪦 the owner's models are live three.js
+                    html = rs._kits.open_for_kits(rs._kits.with_kit_tags(rs._om.mount(html, doc.get('models3d')), pk3_), pk3_); doc['kitsUsed'] = rs._kits.kit_report(html, picks_); doc['kitsOutside'] = rs._kits.outside_files(html, picks_)
                     cur = html; rs._feat.add_version(doc, html, name(i), rs.time.time()); rs._parts_used(cat_id, ws_id, html); rs._feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', rs.time.time())
                 else:
                     stop_why = stop_why or 'Its answer held no page.'

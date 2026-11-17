@@ -543,3 +543,5 @@ body.fx-lite .fea-side-pane { animation: none; } @media (prefers-reduced-motion:
 .pdr-judge.is-beats u s { background: var(--m-accent); }
 .pdr-judge u i { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--m-text); opacity: .7; }
 .pdr-judge em { grid-column: 1 / -1; font-style: normal; font-size: 11px; color: var(--m-dim); }
+/* 🪦 the 3D models a build carries (owner 2026-11-17) */
+.fea-models { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; } .fea-models .m-chip { display: inline-flex; align-items: center; gap: 5px; } .fea-models .m-chip em { font: inherit; opacity: .7; } .fea-models button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 2px; min-width: 20px; min-height: 20px; } .fea-models button:disabled { opacity: .4; cursor: not-allowed; }

@@ -723,10 +723,27 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             return {'filed': rows_[-1], 'pocFolders': rs._poc_view(cat)}
         raise rs.HTTPException(400, 'No such step.')
     if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
-        saved_ = rs._play_load(cat_id, '3d') or {}
+        # 🗂 owner 2026-11-17: opened from a proof, Objects and Code work on THAT proof and file into it; from the PoStatic home they start blank and file a new one
+        ws_ = rs.re.sub(r'[^a-z0-9]', '', str((p.tools or {}).get('ws') or ''))[:40]; proof_ = rs._ws_load(cat_id, ws_) if ws_ else None
+        if ws_ and (not proof_ or proof_.get('kind') != 'build'):
+            raise rs.HTTPException(404, 'That PoStatic folder is gone.')
+        k3_, kc_ = rs._studio_slot('3d', ws_), rs._studio_slot('code3d', ws_)
+        saved_ = rs._play_load(cat_id, k3_) or {}
+        def proof3d_(want):   # the open proof gets a new page; from home a new PoStatic folder is made
+            if proof_:
+                return proof_, next((w_ for w_ in rs._ws_list(cat) if w_.get('id') == ws_), {'id': ws_, 'name': proof_.get('name')})
+            try:
+                r_ = rs._feat.new_folder(cat, 'build', want[:40], rs.time.time())
+            except ValueError as e:
+                raise rs.HTTPException(409, str(e))
+            return rs._feat.new_doc(r_), r_
         if p.op == 'play3d_get':
-            c3_ = rs._play_load(cat_id, 'code3d') or {}
-            return {'code': c3_.get('code') or '', 'codeChat': c3_.get('chat') or [], 'minds': [str(b_).split('/')[-1] for b_ in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]], 'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **rs._play.menu()}
+            if not proof_:   # a blank stage and a blank module each time it opens from home: nothing of the last scene or page comes back
+                rs._play_save(cat_id, k3_, {}); rs._play_save(cat_id, kc_, {}); saved_ = {}
+            c3_ = rs._play_load(cat_id, kc_) or {}; builds_ = [{'id': w_['id'], 'name': w_.get('name')} for w_ in rs._ws_list(cat) if w_.get('kind') == 'build' and w_.get('id')]
+            return {'code': c3_.get('code') or '', 'codeChat': c3_.get('chat') or [], 'minds': [str(b_).split('/')[-1] for b_ in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]], 'scene': saved_.get('scene') or (proof_ or {}).get('scene3d'), 'mind': saved_.get('mind'),
+                    'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:] if proof_ else [], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'builds': builds_[-40:],
+                    'proof': {'id': ws_, 'name': proof_.get('name'), 'models3d': rs._om.view(proof_.get('models3d'))} if proof_ else None, **rs._play.menu()}
         now_scene_ = rs._play.clean_scene((p.tools or {}).get('scene'))
         if p.op in ('play3d_template', 'play3d_mood'):   # 🧱 a whole set in one tap, with no model and no cost
             base_ = rs._play.template_scene(p.job) if p.op == 'play3d_template' else rs._play.clean_scene(rs._play.dress(now_scene_, p.job, str(len(now_scene_['objects']))))
@@ -737,7 +754,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             base_ = rs._play.lead_up(base_)
             if p.op == 'play3d_template':
                 base_['camera'] = [0, 0, 0]; base_ = rs._play._frame(rs._assets.compose(base_))
-            rs._play_save(cat_id, '3d', {**saved_, 'scene': base_})
+            rs._play_save(cat_id, k3_, {**saved_, 'scene': base_})
             return {'scene': base_, 'say': f"Ready. Real assets: {', '.join(dict.fromkeys(used_)) or 'none'}." + (f" Not in the library: {', '.join(missing_)}." if missing_ else '')}
         if p.op == 'play3d_take':   # 🗂 a 3D scene this owner filed (any of its agents) opens back in the playground
             src_ = str(p.to or cat_id); c2_ = store['cats'].get(src_)
@@ -746,7 +763,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             sc_ = (rs._ws_load(src_, rs.re.sub(r'[^a-z0-9]', '', str(p.job or ''))) or {}).get('scene3d')
             if not isinstance(sc_, dict):
                 raise rs.HTTPException(404, 'That scene is gone.')
-            sc_ = rs._play.clean_scene(sc_); rs._play_save(cat_id, '3d', {**saved_, 'scene': sc_})
+            sc_ = rs._play.clean_scene(sc_); rs._play_save(cat_id, k3_, {**saved_, 'scene': sc_})
             return {'scene': sc_, 'say': 'Your filed scene is open. It saves as you work.'}
         if p.op == 'play3d_preview':   # the real page, exactly as it would file
             if not now_scene_['objects'] and not now_scene_.get('game') and not now_scene_.get('hero'):
@@ -755,7 +772,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 await rs._assets.ensure(h_, rs.KITS_DIR); ready_, _u, _m = await rs._assets.fill(h_, rs.KITS_DIR, now_scene_)
             return {'preview': rs._feat.preview(rs._play.lock_site(rs._play.to_html(ready_, str(p.job or '3D scene'))))}
         if p.op == 'play3d_save':
-            rs._play_save(cat_id, '3d', {**saved_, 'scene': now_scene_})
+            rs._play_save(cat_id, k3_, {**saved_, 'scene': now_scene_})
             return {'ok': True}
         if p.op == 'play3d_assets':   # 🎁 real CC0 assets. The list and the real file addresses come from Poly Haven's own API
             async with rs.httpx.AsyncClient(timeout=30) as h_:
@@ -783,13 +800,13 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 await rs._assets.ensure(h_, rs.KITS_DIR); scene_, used_, missing_ = await rs._assets.fill(h_, rs.KITS_DIR, scene_, many=bool(rs._assets.MANY.search(str(p.text))))
             if used_ or missing_:
                 say_ = f"{say_} Used: {', '.join(used_[:6]) or 'nothing real'}." + (f" Not found: {', '.join(missing_[:4])}." if missing_ else '')
-            rs._play_save(cat_id, '3d', {'scene': scene_, 'mind': scene_})
+            rs._play_save(cat_id, k3_, {'scene': scene_, 'mind': scene_})
             return {'scene': scene_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': note_}
         if p.op == 'play3d_code':   # 💻 the code playground: a mind writes or changes the module; with two minds they take turns leading
             brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
             if not brains_ or not str(p.text or '').strip():
                 raise rs.HTTPException(400, 'Pick a model for this agent, and say what to make.')
-            code_s_ = rs._play_load(cat_id, 'code3d') or {}; turn_ = int(code_s_.get('turn') or 0); was_ = str(p.job or code_s_.get('code') or '')[:40000]
+            code_s_ = rs._play_load(cat_id, kc_) or {}; turn_ = int(code_s_.get('turn') or 0); was_ = str(p.job or code_s_.get('code') or '')[:40000]
             pick_ = str(p.to if p.to is not None else 'both'); i_ = int(pick_) if pick_ in ('0', '1') and int(pick_) < len(brains_) else turn_ % len(brains_)   # 🧠 owner 2026-11-11: pick the mind that writes, or let them take turns
             raw_, usd_, _own = await rs._ws_ask(cat, brains_[i_], rs._play.CODE_SYS + rs._recall(cat, 'Code', str(p.text)), (f'THE CODE NOW:\n{was_}\n\n' if was_ else '') + f'MAKE THIS: {str(p.text)[:1200]}', 16000)
             code_, say_ = rs._play.code_reply(raw_)
@@ -798,22 +815,19 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             if rs._play.code_cut(code_):   # 🛡 a reply that hit its length cap opens black: say so, keep the old code
                 raise rs.HTTPException(502, f"Mind {'AB'[i_]}'s code was cut off before the end, and nothing changed. Ask for a smaller scene or try again.")
             chat_ = (list(code_s_.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': round(rs.time.time())}, {'by': f"Mind {'AB'[i_]}", 'model': rs._answered_by(brains_[i_], rs._WS_VIA.get()), 'text': str(say_ or 'Done.')[:400], 'usd': round(float(usd_ or 0), 5), 'at': round(rs.time.time())}])[-30:]
-            rs._play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1, 'chat': chat_, 'prev': was_})
+            rs._play_save(cat_id, kc_, {'code': code_, 'turn': turn_ + 1, 'chat': chat_, 'prev': was_})
             return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'model': rs._answered_by(brains_[i_], rs._WS_VIA.get()), 'usd': round(float(usd_ or 0), 5), 'chat': chat_, 'prev': was_}
         if p.op == 'play3d_code_save':   # 💾 its owner's own edits stay with the playground
-            rs._play_save(cat_id, 'code3d', {**(rs._play_load(cat_id, 'code3d') or {}), 'code': str(p.job or '')[:60000]})
+            rs._play_save(cat_id, kc_, {**(rs._play_load(cat_id, kc_) or {}), 'code': str(p.job or '')[:60000]})
             return {'saved': True}
         if p.op == 'play3d_code_file':   # 📄 the running module becomes a real page and a PoStatic, the same locked page anyone opens
-            code_ = str(p.job or (rs._play_load(cat_id, 'code3d') or {}).get('code') or '')
+            code_ = str(p.job or (rs._play_load(cat_id, kc_) or {}).get('code') or '')
             if 'THREE' not in code_:
                 raise rs.HTTPException(400, 'Write or ask for some three.js first.')
-            try:
-                row_ = rs._feat.new_folder(cat, 'build', str(p.text or '3D playground')[:40], rs.time.time())
-            except ValueError as e:
-                raise rs.HTTPException(409, str(e))
-            doc_ = rs._feat.new_doc(row_); doc_['versions'] = [{'html': rs._play.code_page(code_, row_['name']), 'by': '3D playground', 'at': round(rs.time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]
+            doc_, row_ = proof3d_(str(p.text or '3D playground'))
+            rs._feat.add_version(doc_, rs._play.code_page(code_, doc_.get('name')), '3D playground', rs.time.time()); doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]
             filed_ = rs._feat.file_static(cat, doc_, '3D playground', rs.time.time()); rs._ws_save(cat_id, doc_); rs.keep_owned(cat); rs._save(store)
-            return {'folder': row_, 'filed': filed_, 'workspaces': rs._ws_list(cat)}
+            return {'folder': row_, 'filed': filed_, 'into': doc_.get('name') if proof_ else '', 'workspaces': rs._ws_list(cat)}
         if p.op == 'play3d_file':
             if not now_scene_['objects'] and not now_scene_.get('hero'):
                 raise rs.HTTPException(400, 'Add something to the scene first.')
@@ -822,13 +836,26 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 rs._play.add_note(cat, '3d', note_)
             async with rs.httpx.AsyncClient(timeout=120) as h_:
                 await rs._play.embed_pictures(h_, [now_scene_])
+            doc_, _row = proof3d_(str(p.job or '3D scene'))
+            doc_['scene3d'] = now_scene_; rs._feat.add_version(doc_, rs._play.lock_site(rs._play.to_html(now_scene_, doc_.get('name'), doc_.get('scene3dNext') if proof_ else None)), '3D studio', rs.time.time()); doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; rs._ws_save(cat_id, doc_)
+            filed_ = rs._feat.file_static(cat, doc_, '3D studio', rs.time.time()); rs.keep_owned(cat); rs._save(store); rs._play_save(cat_id, k3_, {**saved_, 'scene': now_scene_, 'mind': now_scene_})
+            return {'filed': filed_, 'into': doc_.get('name') if proof_ else '', 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': rs._ws_list(cat)}
+        if p.op in ('play3d_model_to', 'play3d_model_drop'):   # 🪦 owner 2026-11-17: a model as the owner set it goes to a build, and that build's agent uses this exact model throughout the site
+            to_ = rs.re.sub(r'[^a-z0-9]', '', str((p.tools or {}).get('to') or ''))[:40]; doc_ = rs._ws_load(cat_id, to_) if to_ else None
+            if not doc_ or doc_.get('kind') != 'build':
+                raise rs.HTTPException(404, 'Pick one of your PoStatic folders.')
+            if doc_.get('busy'):   # its running build saves the folder when it ends, and would drop this change
+                raise rs.HTTPException(409, f"{doc_.get('name')} is building right now. Add it when that build ends.")
+            if p.op == 'play3d_model_drop':
+                doc_['models3d'] = rs._om.drop(doc_.get('models3d'), (p.tools or {}).get('id')); rs._ws_save(cat_id, doc_)
+                return {'models3d': rs._om.view(doc_['models3d'])}
             try:
-                row_ = rs._feat.new_folder(cat, 'build', str(p.job or '3D scene')[:40], rs.time.time())
+                row_ = rs._om.take((p.tools or {}).get('obj'), rs.time.time(), (proof_ or {}).get('name') or '3D studio')
             except ValueError as e:
-                raise rs.HTTPException(409, str(e))
-            doc_ = rs._feat.new_doc(row_); doc_['scene3d'] = now_scene_; doc_['versions'] = [{'html': rs._play.lock_site(rs._play.to_html(now_scene_, row_['name'])), 'by': '3D studio', 'at': round(rs.time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; rs._ws_save(cat_id, doc_)
-            filed_ = rs._feat.file_static(cat, doc_, '3D studio', rs.time.time()); rs.keep_owned(cat); rs._save(store); rs._play_save(cat_id, '3d', {**saved_, 'scene': now_scene_, 'mind': now_scene_})
-            return {'filed': filed_, 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': rs._ws_list(cat)}
+                raise rs.HTTPException(400, str(e))
+            doc_['models3d'] = rs._om.add(doc_.get('models3d'), row_)
+            rs._feat.add_msg(doc_, 'FEELESS', f"{row_['name']} is in this build, set as you left it in the 3D studio. Every build from here uses this exact model throughout the site.", rs.time.time()); rs._ws_save(cat_id, doc_)
+            return {'models3d': rs._om.view(doc_['models3d']), 'say': f"{row_['name']} is in {doc_.get('name')}. Its next build uses it throughout the site."}
         raise rs.HTTPException(400, 'No such step.')
     if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here
         b_ = cat.setdefault('brainsCfg', {}); st_ = rs._debate.load(rs.DATA_DIR)

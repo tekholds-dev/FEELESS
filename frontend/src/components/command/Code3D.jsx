@@ -1,10 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import '../../styles/code3d.css';
+import { ModelTo } from './ModelTo';
 
 // 💻 The 3D code playground (owner 2026-11-07: "a real 3D playground like GPT's, not just artifacts"). Real three.js you or its minds write,
 // running live beside the code in the same locked sandbox a filed page uses: three.js loads, nothing else does. File it and it is a PoStatic.
 const THREE_TAG = '<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>';
-const CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: blob:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\' https://cdn.jsdelivr.net/npm/three@0.170.0/; connect-src blob: data:">';
+// 🪦 a real model's files load only from the hosts the server allows (asset_packs.SAFE_URL), and only when the code really names one
+const HOSTS = [['https://dl.polyhaven.org/', 'https://dl.polyhaven.org'], ['https://raw.githubusercontent.com/ToxSam/', 'https://raw.githubusercontent.com/ToxSam/'], ['https://raw.githubusercontent.com/nasa/', 'https://raw.githubusercontent.com/nasa/'], ['https://huggingface.co/datasets/allenai/objaverse/', 'https://huggingface.co https://*.hf.co https://*.huggingface.co']];
+const cspOf = code => { const on = HOSTS.filter(([seen]) => String(code || '').includes(seen)).map(([, allow]) => ` ${allow}`).join(''); return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:${on}; style-src 'unsafe-inline'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/three@0.170.0/; connect-src blob: data:${on}">`; };
+const oneLine = t => String(t || '').replace(/\s+/g, ' ').slice(0, 60);
+export const modelCode = (a, height = 1.6) => `
+// 🪦 ${oneLine(a.name)}: a real model (${a.lic === 'by' ? `CC BY, by ${oneLine(a.by)}` : 'CC0'}). Move, size or restyle it here, or ask its minds.
+import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => {
+  const files = ${JSON.stringify(a.files || {})}, lm = new THREE.LoadingManager();
+  lm.setURLModifier(u => files[decodeURI(u.split('/').pop().split('?')[0])] || u);
+  new GLTFLoader(lm).load(${JSON.stringify(a.url)}, g => {
+    const m = g.scene, box = new THREE.Box3().setFromObject(m), k = ${height} / (box.getSize(new THREE.Vector3()).y || 1);
+    m.scale.setScalar(k); m.position.y = -box.min.y * k; m.name = ${JSON.stringify(oneLine(a.name))}; scene.add(m);
+  });
+});
+`;
 // 🛡 the preview's watcher: crashes, AND a page that never drew (owner 2026-11-12, AGT-17: NOVA "opened black" and nothing said why). WebGL keeps its
 // last frame here (preview only) so it can be looked at: no canvas, or almost nothing lit after 6 s, is reported as black instead of "running".
 const ERR = "<script>function say(t,m){try{parent.postMessage({t:t,m:String(m||'').slice(0,240)},'*')}catch(_){}}addEventListener('error',function(e){say('p3c-err',e.message+(e.lineno?' (line '+Math.max(1,e.lineno-1)+')':''))});addEventListener('unhandledrejection',function(e){say('p3c-err',e.reason&&e.reason.message||e.reason)});"
@@ -13,7 +28,7 @@ const ERR = "<script>function say(t,m){try{parent.postMessage({t:t,m:String(m||'
   + "setTimeout(function(){if(!look(false))setTimeout(function(){look(true)},3500)},2500);"
   // ⏱ real frame rate, measured inside the page on this machine's GPU (AGT-17 "real FPS"): frames per second + the slowest frame, once a second
   + "(function(){var n=0,t0=0,w=0,l=0;function f(t){if(!t0)t0=t;if(l&&t-l>w)w=t-l;l=t;n++;if(t-t0>=1000){say('p3c-fps',Math.round(n*1000/(t-t0))+'|'+Math.round(w));n=0;t0=t;w=0}requestAnimationFrame(f)}requestAnimationFrame(f)})()</script>";
-export const pageOf = code => `<!doctype html><html><head><meta charset="utf-8">${CSP}${THREE_TAG}${ERR}<style>html,body{margin:0;height:100%;overflow:hidden;background:#05070a}canvas{display:block}</style></head><body><script type="module">\n${String(code || '').replace(/<\/script/gi, '<\\/script')}\n</script></body></html>`;
+export const pageOf = code => `<!doctype html><html><head><meta charset="utf-8">${cspOf(code)}${THREE_TAG}${ERR}<style>html,body{margin:0;height:100%;overflow:hidden;background:#05070a}canvas{display:block}</style></head><body><script type="module">\n${String(code || '').replace(/<\/script/gi, '<\\/script')}\n</script></body></html>`;
 
 const BASE = (body, loop) => `import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -40,6 +55,12 @@ ${loop}
 });
 `;
 export const STARTERS = [
+  ['Blank', 'An empty stage: write your own, ask its minds, or add a real model', BASE(`scene.background = new THREE.Color('#05070a');
+const ground = new THREE.Mesh(new THREE.CircleGeometry(12, 64), new THREE.MeshStandardMaterial({ color: '#3a4d44', roughness: 0.9 }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+scene.add(new THREE.GridHelper(24, 24, '#4f6b5e', '#2a3a33'));
+scene.add(new THREE.HemisphereLight('#ffffff', '#223344', 1.4));
+const sun = new THREE.DirectionalLight('#ffffff', 2.5); sun.position.set(3, 6, 4); scene.add(sun);`, '')],
   ['Glow knot', 'A metal knot under two coloured lights', BASE(`scene.background = new THREE.Color('#05070a');
 const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1.2, 0.38, 220, 32), new THREE.MeshStandardMaterial({ color: '#d7fbe8', metalness: 0.9, roughness: 0.18 }));
 scene.add(knot);
@@ -68,7 +89,7 @@ const field = new THREE.Mesh(new THREE.PlaneGeometry(14, 14, 120, 120), mat);
 field.rotation.x = -Math.PI / 2.4; scene.add(field);`, `  mat.uniforms.uT.value = t + pointer.x;`)],
 ];
 
-export function Code3D({ cat, work, initial = '', minds = [], chat: chat0 = [] }) {
+export function Code3D({ cat, work, initial = '', minds = [], chat: chat0 = [], proof = null, builds = [] }) {
   const [code, setCode] = useState(initial || STARTERS[0][2]); const [run, setRun] = useState(initial || STARTERS[0][2]); const [err, setErr] = useState(''); const [ok, setOk] = useState(false); const [fps, setFps] = useState(null);
   const [who, setWho] = useState('both'); const [chat, setChat] = useState(chat0); const [prev, setPrev] = useState(''); const log = useRef(null);
   useEffect(() => { log.current?.scrollTo?.({ top: 1e6 }); }, [chat.length]);
@@ -80,7 +101,11 @@ export function Code3D({ cat, work, initial = '', minds = [], chat: chat0 = [] }
   const askMinds = async (e, said0) => { e?.preventDefault?.(); const q = (said0 || ask).trim(); if (!q) return; const j = await go('play3d_code', { text: q, job: code, to: who }); if (j?.code) { setPrev(code); setCode(j.code); setRun(j.code); setErr(''); setAsk(''); if (j.chat) setChat(j.chat); setSaid(`${j.by}${j.model ? ` (${j.model})` : ''} wrote it · $${Number(j.usd || 0).toFixed(4)}`); } };
   const undo = () => { if (!prev) return; setCode(prev); setRun(prev); setPrev(''); setErr(''); setSaid('Back to the code before that change.'); };
   const save = async () => { const j = await go('play3d_code_save', { job: code }); if (j) setSaid('Saved with this agent.'); };
-  const file = async () => { const j = await go('play3d_code_file', { job: code, text: name }); if (j?.filed) setSaid(`Filed as PoStatic #${j.filed.n}. It runs as its own page.`); };
+  const file = async () => { const j = await go('play3d_code_file', { job: code, text: name }); if (j?.filed) setSaid(j.into ? `Saved into ${j.into} as its newest page, filed as PoStatic #${j.filed.n}.` : `Filed as PoStatic #${j.filed.n}. It runs as its own page.`); };
+  // 🪦 a real model from the shelf goes into the code (its minds can tweak it), and from here to a build that uses it throughout the site
+  const [shelf, setShelf] = useState(false); const [q, setQ] = useState(''); const [rows, setRows] = useState([]); const [models, setModels] = useState([]); const [adding, setAdding] = useState('');
+  useEffect(() => { if (!shelf) return undefined; let on = true; const t = setTimeout(() => { Promise.resolve().then(() => work(cat.id, { op: 'play3d_assets', job: 'model', text: q })).then(j => { if (on) setRows((j.rows || []).slice(0, 24)); }).catch(e => on && setSaid(`⚠ ${e.message}`)); }, 250); return () => { on = false; clearTimeout(t); }; }, [shelf, q, cat.id, work]);
+  const addModel = async r => { setAdding(r.id); setSaid(''); try { const { asset } = await work(cat.id, { op: 'play3d_assets', job: 'model', to: r.id }); const next = `${code.replace(/\s+$/, '')}\n${modelCode(asset)}`; setCode(next); setRun(next); setErr(''); setModels(ms => [...ms.filter(m => m.asset.id !== asset.id), { id: `code-${asset.id}`, shape: 'model', name: asset.name, asset, pos: [0, 0, 0], rot: [0, 0, 0], scale: [1, 1, 1], height: 1.6, spin: 0 }]); setSaid(`${asset.name} is in the code. Move or restyle it there, or ask its minds.`); } catch (e) { setSaid(`⚠ ${e.message}`); } setAdding(''); };
   return <div className="p3c" data-testid="p3c">
     <section className="p3c-code"><header className="p3c-bar"><span className="m-seg" role="group" aria-label="Starters">{STARTERS.map(([t, tip, c]) => <button key={t} type="button" className={code === c ? 'active' : ''} onClick={() => { setCode(c); setRun(c); setErr(''); }} data-tip={tip} data-testid={`p3c-start-${t}`}>{t}</button>)}</span><small className="m-num" data-tip="Lines of code">{lines} lines</small></header>
       <div className="p3c-edit"><pre className="p3c-gut" aria-hidden="true">{Array.from({ length: lines }, (_, i) => i + 1).join('\n')}</pre><textarea value={code} onChange={e => setCode(e.target.value)} spellCheck={false} aria-label="three.js code" data-testid="p3c-input" onKeyDown={e => { if (e.key === 'Tab') { e.preventDefault(); const el = e.target; const s = el.selectionStart; setCode(code.slice(0, s) + '  ' + code.slice(el.selectionEnd)); requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = s + 2; }); } if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { setErr(''); setRun(code + ' '); } }} /></div>
@@ -90,7 +115,9 @@ export function Code3D({ cat, work, initial = '', minds = [], chat: chat0 = [] }
       <form className="p3c-ask" onSubmit={askMinds}><input className="m-input" value={ask} onChange={e => setAsk(e.target.value)} placeholder="Ask its minds: add bloom, make it rain, turn it into a planet…" aria-label="Ask its minds to change the code" data-testid="p3c-ask" /><button type="submit" className="m-btn m-go" disabled={!!busy || !ask.trim()} data-tip="One model call. With two minds they take turns" data-testid="p3c-send">{busy === 'play3d_code' ? 'Writing…' : 'Ask'}</button><button type="button" className="m-btn" disabled={!prev || !!busy} onClick={undo} data-tip="Back to the code before the last change" data-testid="p3c-undo">Undo</button></form></section>
     <section className="p3c-run"><header className="p3c-bar"><span className={`p3c-dot${err ? ' is-bad' : ok ? ' is-ok' : ''}`} aria-hidden="true" /><b>{err ? 'STOPPED' : ok ? 'RUNNING' : 'STARTING'}</b><small>three.js 0.170 · locked sandbox</small>{fps && !err ? <span className={`p3c-fps m-num ${fps.f >= 50 ? 'is-ok' : fps.f >= 30 ? 'is-warn' : 'is-bad'}`} data-tip={`Real frames per second on this machine's GPU, measured inside the page. Slowest frame in the last second: ${fps.w} ms`} data-testid="p3c-fps">{fps.f} FPS</span> : null}<button type="button" className="m-btn" onClick={() => { setErr(''); setRun(code + ' '); }} data-tip="Run it again (Cmd/Ctrl + Enter)" data-testid="p3c-run">↻ Run</button></header>
       <iframe ref={frame} key={page.length + run.slice(-8)} title="3D playground" sandbox="allow-scripts" srcDoc={page} data-testid="p3c-frame" />
-      <footer className="p3c-foot"><input className="m-input" value={name} maxLength={40} onChange={e => setName(e.target.value)} aria-label="Page name" /><button type="button" className="m-btn" disabled={!!busy} onClick={save} data-tip="Keeps this code with the agent" data-testid="p3c-save">Save</button><button type="button" className="m-btn m-go" disabled={!!busy || !!err} onClick={file} data-tip="Makes a real page of it and files it as a PoStatic" data-testid="p3c-file">File as PoStatic</button></footer>
+      <footer className="p3c-foot"><input className="m-input" value={name} maxLength={40} onChange={e => setName(e.target.value)} aria-label="Page name" /><button type="button" className="m-btn" aria-pressed={shelf} onClick={() => setShelf(v => !v)} data-tip="Real models from the 3D library, put into this code" data-testid="p3c-models">Add a model</button><button type="button" className="m-btn" disabled={!!busy} onClick={save} data-tip={proof ? `Keeps this code with ${proof.name}` : 'Keeps this code until you leave'} data-testid="p3c-save">Save</button><button type="button" className="m-btn m-go" disabled={!!busy || !!err} onClick={file} data-tip={proof ? `Makes a real page of it and adds it to ${proof.name}` : 'Makes a real page of it and files it as a new PoStatic'} data-testid="p3c-file">{proof ? 'Save to this proof' : 'File as PoStatic'}</button></footer>
+      {shelf ? <div className="p3c-models" data-testid="p3c-shelf"><input className="m-input" value={q} onChange={e => setQ(e.target.value)} placeholder="tombstone, chair, camera…" aria-label="Find a real model" data-testid="p3c-q" /><div className="p3c-mrows">{rows.map(r => <button key={r.id} type="button" disabled={!!adding} onClick={() => addModel(r)} data-tip={`${r.name} · ${r.lic || 'CC0'}`} data-testid={`p3c-m-${r.id}`}>{r.thumb ? <img src={r.thumb} alt="" loading="lazy" /> : null}<span>{adding === r.id ? 'Adding…' : r.name}</span></button>)}{!rows.length ? <small>No model by that word. Try another.</small> : null}</div>
+        {models.map(m => <div key={m.id} className="p3c-mto"><b>{m.name}</b><ModelTo obj={m} builds={builds} proof={proof} cat={cat} work={work} onSaid={setSaid} onErr={t => t && setSaid(`⚠ ${t}`)} /></div>)}</div> : null}
       {said ? <p className="p3c-said" role="status" data-testid="p3c-said">{said}</p> : null}</section>
   </div>;
 }

@@ -68,7 +68,8 @@ def test_the_whole_journey_ask_change_ask_again_and_file(monkeypatch, tmp_path):
     row = r.json()['filed']; assert row['kind'] == 'PoStatic' and store['cats']['g']['psFolders'][-1]['id'] == row['id']
     page = fs._git_page('g', row['ws'])[0]; assert 'THREE.WebGLRenderer' in page and '#ff0000' in page
     st = fs._page_stats('g', row['ws'], 1); assert st['visuals'] == 0 or st['fns'] > 0   # the grader can read it like any page
-    assert post('play3d_get').json()['scene']['objects'][0]['color'] == '#ff0000'
+    assert post('play3d_get').json()['scene'] is None   # 🗂 owner 2026-11-17: from the PoStatic home the studio opens blank
+    assert post('play3d_get', tools={'ws': row['ws']}).json()['scene']['objects'][0]['color'] == '#ff0000'   # from its proof, the proof's own scene
 
 
 def test_a_bad_reply_changes_nothing_and_only_the_owner_gets_in(monkeypatch, tmp_path):
@@ -76,8 +77,9 @@ def test_a_bad_reply_changes_nothing_and_only_the_owner_gets_in(monkeypatch, tmp
     async def fake(*a):
         return 'I cannot do 3D', 0.0, False
     monkeypatch.setattr(fs, '_ws_ask', fake)
-    assert post('play3d_save', tools={'scene': {'objects': [OBJ]}}).status_code == 200
-    assert post('play3d_ask', text='x', tools={'scene': {'objects': [OBJ]}}).status_code == 502 and post('play3d_get').json()['scene']['objects'][0]['name'] == 'Tower'
+    ws = post('feature_create', text='build', job='Tower page').json()['folder']['id']
+    assert post('play3d_save', tools={'scene': {'objects': [OBJ]}, 'ws': ws}).status_code == 200
+    assert post('play3d_ask', text='x', tools={'scene': {'objects': [OBJ]}, 'ws': ws}).status_code == 502 and post('play3d_get', tools={'ws': ws}).json()['scene']['objects'][0]['name'] == 'Tower'
     assert post('play3d_file', tools={'scene': {'objects': []}}).status_code == 400
     assert c.post('/api/cats/g/work', json={'ownerId': 'x', 'session': 'x', 'op': 'play3d_get'}).status_code in (401, 403)
 
@@ -210,7 +212,7 @@ def test_a_full_3d_prompt_to_postatic_builds_real_assets_and_checks_against_the_
     said = doc['messages'][-1]['text']; assert 'Real assets: Camera 01' in said and 'Added the chair you named' in said
     assert fs._WS_DONE and fs._WS_DONE[-1]['doc']['id'] == row['id']
     fs._WS_DONE.clear()
-    assert fs._play_load('g', '3d')['scene']['page']['headline'] == 'GLINT'   # the studio opens on what it built
+    assert fs._play_load('g', f"3d_{row['id']}")['scene']['page']['headline'] == 'GLINT'   # the studio opens on what it built, in that proof (owner 2026-11-17)
 
 
 def test_a_plain_page_request_still_takes_the_normal_build():
@@ -535,7 +537,7 @@ def test_every_studio_and_features_button_reaches_the_server_and_gets_a_real_pag
     got = post('play3d_get').json(); assert len(got['moods']) == len(ps.MOODS) and {t['kind'] for t in got['templates']} == {'site', 'game', 'film'}
     for t in ps.TEMPLATES:
         r = post('play3d_template', job=t['id']); assert r.status_code == 200, r.text
-        sc = r.json()['scene']; assert sc['mood'] == t['brief']['mood']; assert post('play3d_get').json()['scene']['mood'] == sc['mood']
+        sc = r.json()['scene']; assert sc['mood'] == t['brief']['mood']; assert fs._play_load('g', '3d')['scene']['mood'] == sc['mood']
         r = post('play3d_preview', job=t['name'], tools={'scene': sc}); assert r.status_code == 200, r.text; assert 'three' in r.json()['preview']
         r = post('tools_showcase', job=t['id']); assert r.status_code == 200, r.text; assert t['name'].lower() in r.json()['preview'].lower()
         if t['kind'] == 'game':
@@ -577,7 +579,7 @@ def test_the_editor_library_lists_what_every_proof_made_and_a_filed_scene_opens_
     assert 'image' not in by and not any('powshot' in str(r.get('src')) for r in j['rows'])   # site snapshots are evidence, never content
     assert by['video']['src'] == '/api/cats/g/showad/pob' and by['video']['proof'] == 'PoB' and by['3d']['ws'] == ws and by['3d']['cat'] == 'g'
     post('play3d_save', tools={'scene': {'objects': []}})
-    t = post('play3d_take', job=ws, to='g').json(); assert t['scene']['objects'][0]['name'] == OBJ['name'] and post('play3d_get').json()['scene']['objects']
+    t = post('play3d_take', job=ws, to='g').json(); assert t['scene']['objects'][0]['name'] == OBJ['name'] and fs._play_load('g', '3d')['scene']['objects']
     assert post('play3d_take', job=ws, to='x').status_code == 403 and post('play3d_take', job='wnope', to='g').status_code == 404
 
 
@@ -593,4 +595,4 @@ def test_the_code_studio_lets_the_owner_pick_the_mind_and_keeps_the_thread(monke
     assert used == ['y/beta-pro'] and j['by'] == 'Mind B' and j['model'] == 'beta-pro' and j['prev'] == 'old code'
     assert [m['by'] for m in j['chat']] == ['you', 'Mind B'] and j['chat'][1]['usd'] == 0.0012
     post('play3d_code', text='again', to='0'); post('play3d_code', text='and again', to='both')
-    assert used[1] == 'x/alpha-7b' and len(post('play3d_get').json()['codeChat']) == 6
+    assert used[1] == 'x/alpha-7b' and len(fs._play_load('g', 'code3d')['chat']) == 6

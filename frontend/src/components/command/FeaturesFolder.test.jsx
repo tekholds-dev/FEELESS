@@ -327,6 +327,26 @@ test('🧊 a device with no 3D still opens the playground, says so plainly, and 
   await act(async () => { root.unmount(); }); el.remove();
 });
 
+test('🪦 opened on a proof, every studio step carries it; a model as set goes to a build; the Code tab loads a model only from its host', async () => {
+  const Playground3D = require('./Playground3D').default; const { pageOf, modelCode } = require('./Code3D');
+  const calls = []; const asset = { id: 'Tomb_01', name: 'Tombstone', url: 'https://dl.polyhaven.org/t.gltf', files: {} };
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'play3d_get') return { scene: null, canAsk: true, proof: { id: 'w1', name: 'TRENCH', models3d: [] }, builds: [{ id: 'w2', name: 'Shop' }, { id: 'w1', name: 'TRENCH' }] }; if (b.op === 'play3d_assets') return b.to ? { asset } : { rows: [{ id: 'Tomb_01', name: 'Tombstone', kind: 'model', thumb: '' }], credit: 'Poly Haven' }; if (b.op === 'play3d_model_to') return { say: 'Tombstone is in TRENCH.', models3d: [] }; return {}; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<Playground3D cat={{ id: 'c' }} work={fake} proof={{ id: 'w1', name: 'TRENCH' }} onBack={() => {}} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 300)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('p3d-where').textContent).toBe('IN TRENCH'); expect(q('p3d-back').textContent).toContain('TRENCH'); expect(q('p3d-file').textContent).toBe('Save to this proof');
+  await act(async () => { q('p3d-asset-Tomb_01').click(); await new Promise(r => setTimeout(r, 0)); });
+  expect(q('p3d-to-pick').value).toBe('w1');   // this proof first
+  await act(async () => { q('p3d-to-send').click(); await new Promise(r => setTimeout(r, 0)); });
+  const sent = calls.find(c => c.op === 'play3d_model_to'); expect(sent.tools.to).toBe('w1'); expect(sent.tools.obj.asset.url).toBe(asset.url); expect(sent.tools.obj.height).toBe(1);
+  expect(q('p3d-said').textContent).toContain('Tombstone is in TRENCH');
+  expect(calls.filter(c => c.op.startsWith('play3d_')).every(c => c.tools?.ws === 'w1')).toBe(true);   // every step works on THIS proof
+  await act(async () => { root.unmount(); }); el.remove();
+  const page = pageOf(`import * as THREE from 'three'; const scene = new THREE.Scene();${modelCode({ ...asset, name: 'Tomb\n</script>' })}`);
+  expect(page).toContain('connect-src blob: data: https://dl.polyhaven.org'); expect(page).not.toMatch(/<\/script>'/); expect(pageOf('x')).not.toContain('polyhaven');
+});
+
 test('🔔 only a newly filed proof raises an alert, and the first look only counts', () => {
   const { proofsDone } = require('./CatWorkbench');
   const d = { psFolders: [{ status: 'closed', topic: 'GLINT' }, { status: 'closed' }], powFolders: [{ status: 'open' }] };

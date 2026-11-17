@@ -429,7 +429,7 @@ def _ws_view(cat_id, ws_id):
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed.', 'at': round(rs.time.time())}]; rs._ws_save(cat_id, d_)
     rs._media_resume(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost', 'character')}, 'unfinished': rs._feat.unfinished_of(d_), 'cfg': rs._feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': rs._feat.preview(rs._ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not rs._feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None, 'storeCheck': d_.get('storeCheck')}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost', 'character')}, 'unfinished': rs._feat.unfinished_of(d_), 'cfg': rs._feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': rs._feat.preview(rs._ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'models3d': rs._om.view(d_.get('models3d')), 'cut': bool(v_) and not rs._feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None, 'storeCheck': d_.get('storeCheck')}
 
 
 def _media_dir():
