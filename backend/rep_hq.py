@@ -1,6 +1,8 @@
 """🧹 FEELESS HQ — moved whole out of reputation_service.py by scripts/move-section.py (owner 2026-11-16 cleanup).
 Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches reputation_service still
 reaches it, and every function here is still reachable on reputation_service under its own name. Constants, classes and state live in the service."""
+from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
+from typing import Optional  # noqa: F401
 
 
 def _rs():
@@ -314,4 +316,74 @@ async def _legal_wipe(me):
     rs._prof().update(me, lambda _old: None)
     n['profile'] = 1 if had else 0
     return n
+
+
+def _guard_s():
+    """Counters live in memory; suspects, approved blocks and the decision log persist (guard.json)."""
+    rs = _rs()
+    if rs._guard_state is None:
+        rs._guard_state = rs._guard.new_state()
+        saved = rs._json_load(rs.GUARD_PATH, {})
+        for k in ('suspects', 'blocks', 'log'):
+            if isinstance(saved.get(k), type(rs._guard_state[k])):
+                rs._guard_state[k] = saved[k]
+    return rs._guard_state
+
+
+def _def_s():
+    rs = _rs()
+    if rs._def_state is None:
+        rs._def_state = rs._def.new_state()
+        saved = rs._json_load(rs.DEF_PATH, {})
+        for k in ('blocks', 'rules', 'incidents', 'uaHits'):
+            if isinstance(saved.get(k), type(rs._def_state[k])):
+                rs._def_state[k] = saved[k]
+    return rs._def_state
+
+
+def _war_s():
+    rs = _rs()
+    if rs._war_state is None:
+        rs._war_state = rs._war.new_state()
+        saved = rs._json_load(rs.WAR_PATH, {})
+        for k in ('seq', 'events', 'captures', 'canaries', 'hits', 'nets', 'netSeen', 'sigs', 'revoked', 'reports', 'moves'):
+            if k in saved and isinstance(saved[k], type(rs._war_state[k])):
+                rs._war_state[k] = saved[k]
+    return rs._war_state
+
+
+def _require_admin(request: Request) -> str:
+    """Session proof: the admin wallet signs `FEELESS HQ\\naddress:{a}\\nts:{ts}` (valid a day) — rules in hq_auth.py."""
+    rs = _rs()
+    addr = rs._hq_auth.check_session(request.headers.get('x-admin-address', ''), request.headers.get('x-admin-ts', ''),
+                                  request.headers.get('x-admin-sig', ''), rs._admin_wallets(), rs._verify_wallet, rs.time.time())
+    try:   # 🛡 the same HQ signature from a new fingerprint = a stolen session (flagged + tarpitted, the owner sees it in Security)
+        ip_ = rs._guard.client_ip(request.headers, request.client.host if request.client else '', rs.os.environ.get('FEELESS_TRUST_PROXY') == '1')
+        sig_ = request.headers.get('x-admin-sig', ''); ua_ = request.headers.get('user-agent', '')
+        if rs._def.seen_sig(rs._def_s(), sig_, ip_, ua_, request.url.path):
+            rs._def_save(force=True)
+        if rs._war.note_sig(rs._war_s(), sig_, ip_, ua_):   # ⚔️ same HQ signature from a second device → revoke (owner re-signs)
+            rs._war_save(force=True)
+        if rs._war.sig_revoked(rs._war_s(), sig_):
+            raise rs.HTTPException(401, 'This session was used from another device and has been revoked — sign in again.')
+    except rs.HTTPException:
+        raise
+    except Exception:
+        pass
+    rs._role_gate(addr, request)
+    return addr
+
+
+def _legal_s():
+    rs = _rs()
+    if rs._legal_state is None:
+        st = rs._legal.new_state(); saved = rs._json_load(rs.LEGAL_PATH, {})
+        if isinstance(saved.get('accept'), dict):
+            st['accept'] = saved['accept']
+        if isinstance(saved.get('cfg'), dict):
+            st['cfg'] = rs._legal.clean_cfg(saved['cfg'])
+        if isinstance(saved.get('requests'), list):
+            st['requests'] = saved['requests']
+        rs._legal_state = st
+    return rs._legal_state
 

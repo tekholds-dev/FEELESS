@@ -1510,3 +1510,16 @@ def _alliance_view(wallet=''):
     st = rs._json_load(rs.ALLIANCES_PATH, {}) or {}; days = int(st.get('days') or _al.DEFAULT_DAYS); now = rs.time.time()
     return {'days': days, 'rows': [_al.public(a, days, now, wallet) for a in sorted(st.get('rows') or [], key=lambda x: -len(x['members']))]}
 
+
+def circle_profile_view(prof: dict) -> dict:
+    """The stored profile in the editor's short field names."""
+    rs = _rs()
+    return {k: prof.get(real) for k, real in rs.CIRCLE_PROFILE_KEYS.items()}
+
+
+def circle_profile_merge(prev: dict, edit: dict) -> dict:
+    """The stored profile with the editor's fields laid over it (the editor used short names the profile never stored:
+    name / avatar / banner were silently dropped)."""
+    rs = _rs()
+    return {**prev, **{real: edit[k] for k, real in rs.CIRCLE_PROFILE_KEYS.items() if k in edit}}
+

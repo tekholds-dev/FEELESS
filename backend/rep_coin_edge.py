@@ -260,3 +260,17 @@ async def _arena_settle(px=None, now=None):
             rs._json_save(rs.FUSE_HQ_PATH, d)
     return d
 
+
+async def _crowd_build():
+    rs = _rs()
+    trades = rs._json_load(rs.FEELESS_TRADES_PATH, {})
+    now = rs.time.time()
+    toks = list({t.get('token') for rows in trades.values() for t in rows or [] if t.get('side', 'buy') == 'buy' and t.get('token')})[:600]
+    prices = await rs._token_prices(toks) if toks else {}
+    skills = {w: rs._crowd.trader_skill(rows, prices, now) for w, rows in trades.items()}
+    el = rs._crowd.elites(skills, exclude=set(rs._protected_wallets()))
+    data = {'elites': len(el), 'scored': sum(1 for s in skills.values() if s['n']), 'flow': rs._crowd.elite_flow(trades, el, now), 'at': now,
+            'rule': f"elite = ≥{rs._crowd.ELITE_N} verified buys scored after 24h, ≥{rs._crowd.ELITE_WR:g}% won ≥ +{rs._crowd.WIN_PCT:g}%, avg ≥ +{rs._crowd.ELITE_AVG:g}%"}
+    rs._crowd_cache.update(at=now, data=data, elites_set=el)   # the set stays server-side; the API returns counts only
+    return data
+

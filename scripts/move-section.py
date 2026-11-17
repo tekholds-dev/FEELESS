@@ -73,16 +73,50 @@ def why_not(fn, glob, models, early, pats):
     for dflt in fn.args.defaults + [x for x in fn.args.kw_defaults if x is not None]:
         if any(isinstance(n, ast.Name) and n.id not in mr.OK_ANN for n in ast.walk(dflt)):
             return 'default names a module value'
-    if fn.returns is not None:
-        return 'return annotation'
-    if any(isinstance(n, (ast.Global, ast.Nonlocal)) for n in ast.walk(fn)):
-        return 'global / nonlocal'
+    why = global_ok(fn)
+    if why:
+        return why
     if mr.bound_names(fn) & {'rs', '_rs', '_RSM'} or any(isinstance(n, ast.Name) and n.id in ('rs', '_rs', '_RSM') for n in ast.walk(fn)):
         return 'uses the name rs'
     if any(isinstance(n, (ast.ClassDef, ast.Match)) for n in ast.walk(fn)):
         return 'class or match inside'
     if any(isinstance(m, ast.NamedExpr) for c in ast.walk(fn) if isinstance(c, mr.COMP) for m in ast.walk(c)):
         return 'walrus inside a comprehension'
+    return None
+
+
+def _own_nodes(fn):
+    """fn's own statements and expressions, not those inside a nested def / lambda / comprehension (their names are their own scope)."""
+    out, todo = [], list(ast.iter_child_nodes(fn))
+    while todo:
+        n = todo.pop(); out.append(n)
+        if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda) + mr.COMP):
+            todo.extend(ast.iter_child_nodes(n))
+    return out
+
+
+def fn_globals(fn):
+    """Names fn declares `global` (in its own body)."""
+    return {g for n in _own_nodes(fn) if isinstance(n, ast.Global) for g in n.names}
+
+
+def global_ok(fn):
+    """`global X` moves as `rs.X` everywhere in fn (one module variable, read and written on the service, the same as before) — only when that
+    rewrite is exact: each `global` alone on its own line, none in a nested scope, and no nested scope binds X itself. `nonlocal` is local to fn."""
+    G = fn_globals(fn); src_lines = getattr(fn, '_lines')
+    for n in ast.walk(fn):
+        if isinstance(n, ast.Global) and n not in _own_nodes(fn):
+            return 'global inside a nested function'
+    for n in _own_nodes(fn):
+        if isinstance(n, ast.Global):
+            line = src_lines[n.lineno - 1]
+            if n.lineno != n.end_lineno or not re.fullmatch(r'\s*global [\w, ]+\s*(#.*)?\n?', line):
+                return 'global shares its line'
+    for n in ast.walk(fn):
+        if n is not fn and isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda) + mr.COMP) and mr.scope_binds(n) & G:
+            return 'a nested scope binds a global name'
+    if G & {'rs', '_rs', '_RSM'}:
+        return 'uses the name rs'
     return None
 
 
@@ -97,6 +131,11 @@ def rewrite(fn, lines, glob, models):
     hits = [(n.lineno - 1 - start, col(n), n.id, 'rs.') for n in mr.global_loads(fn, glob)]
     hits += [(n.lineno - 1 - start, col(n), n.id, '_RSM.') for a in fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs if a.annotation
              for n in ast.walk(a.annotation) if isinstance(n, ast.Name) and n.id in models]
+    hits += [(n.lineno - 1 - start, col(n), n.id, '_RSM.') for n in ast.walk(fn.returns) if isinstance(n, ast.Name) and n.id in glob] if fn.returns else []
+    G = fn_globals(fn); seen = {(h[0], h[1]) for h in hits}
+    hits += [(n.lineno - 1 - start, col(n), n.id, 'rs.') for n in ast.walk(fn) if isinstance(n, ast.Name) and n.id in G
+             and (n.lineno - 1 - start, col(n)) not in seen]
+    drop = {n.lineno - 1 - start for n in _own_nodes(fn) if isinstance(n, ast.Global)}
     by_line = {}
     for li, c, name, pre in hits:
         by_line.setdefault(li, []).append((c, name, pre))
@@ -114,10 +153,12 @@ def rewrite(fn, lines, glob, models):
     indent = re.match(r'\s*', lines[body0.lineno - 1]).group(0)
     if body0.lineno == fn.lineno:   # a one-line def: `def f(): return x` → split it so rs can come first
         return None, None
-    if hits:
+    for i in drop:
+        seg[i] = None
+    if any(pre == 'rs.' for *_, pre in hits):
         at = (body0.end_lineno if doc else body0.lineno - 1) - start
         seg.insert(at, f'{indent}rs = _rs()\n')
-    return ''.join(seg), (start, end)
+    return ''.join(x for x in seg if x is not None), (start, end)
 
 
 def main():
@@ -147,6 +188,7 @@ def main():
     for fn in tree.body:
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)) or not (o.a <= fn.lineno < o.b):
             continue
+        fn._lines = lines
         why = why_not(fn, glob, models, early, pats)
         if not why and fn.body[0].lineno == fn.lineno:
             why = 'one-line def'
@@ -178,18 +220,34 @@ def main():
     body = re.sub(r'\n{4,}', '\n\n\n', ''.join(lines))
     names = [fn.name for fn in moves]
     routes = any(fn.decorator_list for fn in moves)
-    head = (f'"""🧹 {o.title or mod} — moved whole out of {o.svc}.py by scripts/move-section.py (owner 2026-11-16 cleanup).\n'
-            f'Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches {o.svc} still\n'
-            f'reaches it, and every function here is still reachable on {o.svc} under its own name. Constants, classes and state live in the service."""\n'
-            + (f'import {o.svc} as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)\n' if routes else '')
-            + ('from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\nfrom typing import Optional  # noqa: F401\n\nrouter = APIRouter()\n\n\n' if routes else '\n\n')
-            + f'def _rs():\n    import {o.svc}\n    return {o.svc}\n\n\n')
-    if dst.exists():
-        dst.write_text(dst.read_text().rstrip('\n') + '\n\n\n' + '\n\n'.join(out) + '\n')
+    code = '\n\n'.join(out); old = dst.read_text() if dst.exists() else ''
+    hints = set()   # names inside a quoted type hint ('TradeLanded'): never run, but pyflakes reads them → a TYPE_CHECKING import
+    for fn in moves:
+        for an in [a.annotation for a in fn.args.posonlyargs + fn.args.args + fn.args.kwonlyargs] + [fn.returns]:
+            if isinstance(an, ast.Constant) and isinstance(an.value, str):
+                hints |= {n.id for n in ast.walk(ast.parse(an.value, mode='eval')) if isinstance(n, ast.Name) and n.id in glob}
+    need = []   # what this module's top must have for the code it now holds (each added once)
+    if (routes or '_RSM.' in code) and ' as _RSM' not in old:
+        need.append(f'import {o.svc} as _RSM  # noqa: E402,F401  (body models / annotations; this module is imported at the END of the service)')
+    if (routes or re.search(r'\b(Request|Query|Header|Optional)\b', code)) and 'from fastapi import APIRouter' not in old:
+        need.append('from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\nfrom typing import Optional  # noqa: F401')
+    if hints - {h for h in hints if re.search(rf'TYPE_CHECKING:.*\b{h}\b', old)}:
+        need.append(f'from typing import TYPE_CHECKING\nif TYPE_CHECKING:  # quoted type hints only\n    from {o.svc} import {", ".join(sorted(hints))}  # noqa: F401')
+    if routes and 'router = APIRouter()' not in old:
+        need.append('\nrouter = APIRouter()')
+    top = '\n'.join(need)
+    if old:
+        if top:
+            old = old.replace('\n\n\ndef _rs():', '\n' + top + '\n\n\ndef _rs():', 1)
+        dst.write_text(old.rstrip('\n') + '\n\n\n' + code + '\n')
     else:
-        dst.write_text(head + '\n\n'.join(out) + '\n')
+        dst.write_text(f'"""🧹 {o.title or mod} — moved whole out of {o.svc}.py by scripts/move-section.py (owner 2026-11-16 cleanup).\n'
+                       f'Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches {o.svc} still\n'
+                       f'reaches it, and every function here is still reachable on {o.svc} under its own name. Constants, classes and state live in the service."""\n'
+                       + (top + '\n') + '\n\n' + f'def _rs():\n    import {o.svc}\n    return {o.svc}\n\n\n' + code + '\n')
     wired = f'import {mod} as _{mod}' in body
-    tail = ('' if wired else f'\nimport {mod} as _{mod}   # noqa: E402  🧹 moved by scripts/move-section.py\n' + (f'app.include_router(_{mod}.router)\n' if routes else '')) \
+    tail = ('' if wired else f'\nimport {mod} as _{mod}   # noqa: E402  🧹 moved by scripts/move-section.py\n') \
+        + (f'app.include_router(_{mod}.router)\n' if routes and f'app.include_router(_{mod}.router)' not in body else '') \
         + ''.join(f'{n} = _{mod}.{n}\n' for n in names)
     SRC.write_text(body.rstrip('\n') + '\n' + tail)
     print(f'moved {len(names)} → {dst.relative_to(ROOT)}')

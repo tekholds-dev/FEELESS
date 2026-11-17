@@ -1,6 +1,11 @@
 """🧹 Crews — moved whole out of reputation_service.py by scripts/move-section.py (owner 2026-11-16 cleanup).
 Same code: every name it reads from the service is looked up there when it runs (as rs.<name>), so a test that patches reputation_service still
 reaches it, and every function here is still reachable on reputation_service under its own name. Constants, classes and state live in the service."""
+import reputation_service as _RSM  # noqa: E402,F401  (body models / annotations; this module is imported at the END of the service)
+from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
+from typing import Optional  # noqa: F401
+
+router = APIRouter()
 
 
 def _rs():
@@ -1286,4 +1291,130 @@ def _crew_room_ok(room, address):
         return False, True
     c = (rs._json_load(rs.CREWS_PATH, {}).get('crews') or {}).get(room[5:])
     return True, bool(c and rs.primary_of(address) in {rs.primary_of(m) for m in c['members']})
+
+
+@router.get('/api/reputation/familia/perps')
+async def familia_perps():
+    """📉 The Perps Desk building: the busiest perps markets (Hyperliquid's public market data) — one shared read a minute; read-only."""
+    rs = _rs()
+    import perps_desk as _pdk
+    now = rs.time.time()
+    if now - rs._perps_cache['at'] > 60:
+        if rs._fmk_http is None:
+            rs._fmk_http = rs.httpx.AsyncClient(timeout=8, limits=rs.httpx.Limits(max_connections=8))
+        try:
+            r_ = await rs._fmk_http.post(_pdk.INFO, json={'type': 'metaAndAssetCtxs'}, timeout=8)
+            rows_ = _pdk.rows(r_.json()) if r_.status_code == 200 else []
+        except Exception:
+            rows_ = []
+        rs._perps_cache.update(at=now, rows=rows_ or rs._perps_cache['rows'])
+    return {'markets': rs._perps_cache['rows'], 'at': round(rs._perps_cache['at'])}
+
+
+@router.get('/api/reputation/familia/kalshi')
+async def familia_kalshi():
+    """⏱ Kalshi's live UP / DOWN markets (US-legal, CFTC-regulated; read-only) — kalshi_odds.MARKETS: BTC · ETH · SOL · DOGE · XRP (each one's
+    15-minute "up?" + the ladder strike nearest the live mark) and S&P 500 · Nasdaq-100 (the soonest window's at-the-money strike). One shared
+    read every 10 s, every market in parallel; a failed read keeps the last good one."""
+    rs = _rs()
+    import kalshi_odds as _ko
+    now = rs.time.time()
+    if now - rs._kalshi_cache['at'] > 10:
+        if rs._fmk_http is None:
+            rs._fmk_http = rs.httpx.AsyncClient(timeout=8, limits=rs.httpx.Limits(max_connections=8))
+        marks_ = {r_.get('coin'): r_.get('mark') for r_ in rs._perps_cache.get('rows') or []}
+
+        async def get(path_, params_):
+            try:
+                r_ = await rs._fmk_http.get(f'{_ko.API}/{path_}', params=params_, timeout=8)
+                return r_.json() if r_.status_code == 200 else None
+            except Exception:
+                return None
+
+        async def one(key_, m_):
+            if m_['kind'] == 'index':   # the soonest window only (the Nasdaq ladder is 1,000+ rows across days)
+                ev_ = await get('events', {'series_ticker': m_['day'], 'status': 'open', 'limit': 20})
+                et_ = _ko.soonest_event((ev_ or {}).get('events')) if ev_ is not None else None
+                mk_ = await get('markets', {'event_ticker': et_, 'limit': 1000}) if et_ else None
+                if ev_ is None or (et_ and mk_ is None):
+                    return key_, None
+                up_ = _ko.atm((mk_ or {}).get('markets'))
+                return key_, {'up': up_, 'day': None, 'ladder': _ko.ladder((mk_ or {}).get('markets'), (up_ or {}).get('target'))}
+            f_, d_ = await rs.asyncio.gather(get('markets', {'series_ticker': m_['m15'], 'status': 'open', 'limit': 50}),
+                                          get('markets', {'series_ticker': m_['day'], 'status': 'open', 'limit': 1000}))
+            if f_ is None and d_ is None:
+                return key_, None
+            m15_ = _ko.fifteen((f_ or {}).get('markets')) if f_ is not None else None
+            mark_ = marks_.get(key_) or (m15_ or {}).get('target')
+            return key_, {'up': m15_, 'm15': m15_, 'day': _ko.nearest((d_ or {}).get('markets'), mark_) if d_ is not None else None,
+                          'ladder': _ko.ladder((d_ or {}).get('markets'), mark_) if d_ is not None else []}   # 🎯 the strike ladder
+        got_ = await rs.asyncio.gather(*[one(k_, m_) for k_, m_ in _ko.MARKETS.items()])
+        rows_ = dict(rs._kalshi_cache['rows'])
+        for k_, row_ in got_:
+            if row_ is None:
+                continue
+            old_ = rows_.get(k_) or {}
+            rows_[k_] = {**row_, 'up': row_['up'] or old_.get('up'), 'name': _ko.MARKETS[k_]['name'], 'kind': _ko.MARKETS[k_]['kind']}
+        rs._kalshi_cache.update(at=now, rows=rows_)
+    import kalshi_trade as _kt
+    return {'coins': rs._kalshi_cache['rows'], 'at': round(rs._kalshi_cache['at']), 'venue': 'Kalshi (CFTC-regulated)', 'tradable': bool(_kt.key(rs.os.environ)), 'min': _kt.MIN_USD, 'max': _kt.MAX_USD}
+
+
+def _fmk_http_get():
+    rs = _rs()
+    if rs._fmk_http is None:
+        rs._fmk_http = rs.httpx.AsyncClient(timeout=8, limits=rs.httpx.Limits(max_connections=8))
+    return rs._fmk_http
+
+
+async def _fpl_fetch():
+    """DefiLlama's yield list (every chain, ~10 MB — trimmed to the Solana rows we keep, never stored whole) + our own trending pair feed."""
+    rs = _rs()
+    if rs._fmk_http is None:
+        rs._fmk_http = rs.httpx.AsyncClient(timeout=8, limits=rs.httpx.Limits(max_connections=8))
+
+    async def llama():
+        try:
+            r = await rs._fmk_http.get('https://yields.llama.fi/pools', timeout=40)
+            return [x for x in ((r.json() or {}).get('data') or []) if x.get('chain') == 'Solana'] if r.status_code == 200 else []
+        except Exception:
+            return []
+
+    async def feed(kind):
+        try:
+            r = await rs._fmk_http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': 1})
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+    ll, tr, nw = await rs.asyncio.gather(llama(), feed('trending'), feed('new'))
+    return ll, tr + nw
+
+
+async def _fmk_fetch():
+    rs = _rs()
+    if rs._fmk_http is None:
+        rs._fmk_http = rs.httpx.AsyncClient(timeout=8, limits=rs.httpx.Limits(max_connections=8))
+
+    async def tvl(slug):
+        try:
+            r = await rs._fmk_http.get(f'https://api.llama.fi/tvl/{slug}')
+            return slug, float(r.text) if r.status_code == 200 else None
+        except Exception:
+            return slug, None
+
+    async def dex():
+        try:
+            r = await rs._fmk_http.get('https://api.dexscreener.com/latest/dex/search?q=SOL')
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+
+    async def trending():   # 🪙 NEW MONEY: the search above answers SOL's own pools (no coins left after the SOL / stable filter) — our own trending feed has the coins
+        try:
+            r = await rs._fmk_http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1})
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+    res = await rs.asyncio.gather(*[tvl(m[3]) for m in rs._fmk.MARKETS], dex(), trending())
+    return {k: v for k, v in res[:-2] if v}, res[-2] + res[-1]
 

@@ -1428,3 +1428,10 @@ async def _proof_build(force=False):
     rs._proof_cache.update(at=now, data=data)
     return data
 
+
+def _sf_client():
+    rs = _rs()
+    if rs._sf_http is None or rs._sf_http.is_closed:
+        rs._sf_http = rs.httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0 (FEELESS FEEd)'}, follow_redirects=True)
+    return rs._sf_http
+
