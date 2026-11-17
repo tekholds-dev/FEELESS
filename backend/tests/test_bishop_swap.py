@@ -333,6 +333,7 @@ def test_the_tunnel_server_serves_only_fresh_token_files(tmp_path):
     d = tmp_path / 'g' / 'pub'; d.mkdir(parents=True); tok = 'A' * 32
     (d / f'{tok}.mp4').write_bytes(b'CLIP'); (tmp_path / 'g' / 'secret.png').write_bytes(b'NO')
     assert pt.url_in('INF |  https://red-fox-12.trycloudflare.com  |') == 'https://red-fox-12.trycloudflare.com' and pt.url_in('no url') == ''
+    assert pt.connected('2026-11-17T19:44:02Z INF Registered tunnel connection connIndex=0 location=lax01') and not pt.connected('INF Starting tunnel')
     port = pt.serve(tmp_path); base = f'http://127.0.0.1:{port}'
     assert urllib.request.urlopen(f'{base}/g/pub/{tok}.mp4').read() == b'CLIP'
     assert urllib.request.urlopen(f'{base}/ok').read() == b'ok'

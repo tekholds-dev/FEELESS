@@ -24,6 +24,11 @@ def url_in(line):
     m = URL.search(str(line or '')); return m.group(0) if m else ''
 
 
+def connected(line):
+    """True when cloudflared's log line says the tunnel reached Cloudflare's edge (it answers from the internet from then on)."""
+    return 'Registered tunnel connection' in str(line or '')
+
+
 def file_for(root, path):
     """The file a request path may get: a token-named reference under <root>/<cat>/pub, younger than 2 hours. Else None."""
     m = NAME.match(str(path or '').split('?', 1)[0])
@@ -88,21 +93,7 @@ async def _idle_close():
             stop()
 
 
-async def _reachable(url, wait_s):
-    import httpx
-    end = time.time() + wait_s
-    async with httpx.AsyncClient(timeout=6) as h:
-        while time.time() < end:
-            try:
-                if (await h.get(f'{url}/ok')).status_code == 200:
-                    return True
-            except httpx.HTTPError:
-                pass
-            await asyncio.sleep(2)
-    return False
-
-
-async def ensure(root, start_s=30, reach_s=40):
+async def ensure(root, start_s=45):
     """→ the tunnel's https address (starting the server and the tunnel if needed). ValueError when it cannot open."""
     _st['used'] = time.time()
     _st['lock'] = _st['lock'] or asyncio.Lock()
@@ -117,24 +108,35 @@ async def ensure(root, start_s=30, reach_s=40):
         # --config /dev/null: the owner's old ~/.cloudflared/config.yml 404s a bare quick tunnel; 127.0.0.1, not localhost (that dials ::1)
         p = await asyncio.create_subprocess_exec(exe, 'tunnel', '--config', '/dev/null', '--no-autoupdate', '--url', f'http://127.0.0.1:{port}',
                                                  stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
-        url, end = '', time.time() + start_s
-        while not url and time.time() < end:
+        # ready = its address is known AND it reached Cloudflare's edge. No test fetch from this Mac: a brand-new trycloudflare name
+        # often fails here first, and macOS then remembers that "not found" for a while although the internet already reaches it.
+        url, up, end = '', False, time.time() + start_s
+        while not (url and up) and time.time() < end:
             try:
                 line = await asyncio.wait_for(p.stderr.readline(), max(0.1, end - time.time()))
             except asyncio.TimeoutError:
                 break
             if not line:
                 break
-            url = url_in(line.decode('utf-8', 'replace'))
-        if not url:
-            p.terminate(); raise ValueError('the public link for your clip did not open (Cloudflare quick tunnel). Try again in a minute, or set PUBLIC_SITE_URL')
+            s = line.decode('utf-8', 'replace'); url = url or url_in(s); up = up or connected(s)
+        if not (url and up):
+            p.terminate(); raise ValueError('the private link for your clip did not open (Cloudflare). Try again in a minute')
 
         async def _drain():   # keep reading its log so the pipe never fills and stalls it
             while await p.stderr.readline():
                 pass
         asyncio.create_task(_drain())
         _st['proc'], _st['url'] = p, url
-        if not await _reachable(url, reach_s):
-            stop(); raise ValueError('the public link for your clip opened but did not answer yet. Try again in a minute, or set PUBLIC_SITE_URL')
+        await asyncio.sleep(3)   # its DNS name settles at the edge
         asyncio.create_task(_idle_close())
         return url
+
+
+def warm(root):
+    """Open the link ahead of a swap (the swap panel opened), so the swap itself does not wait. Errors wait for the swap to say them."""
+    async def _go():
+        try:
+            await ensure(root)
+        except Exception:   # noqa: BLE001 — the swap reports it with the words the owner sees
+            pass
+    asyncio.get_running_loop().create_task(_go())

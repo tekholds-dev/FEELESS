@@ -1221,6 +1221,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         return {'powFolders': (cat.get('powFolders') or [])[::-1]}
     if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked OpenRouter / fal.ai / Replicate (+ the viral presets)
         linked = {r['provider'] for r in rs._ck.public(cat) if r.get('saved') and r['provider'] in rs._mg.PROVIDERS}
+        if 'openrouter' in linked and not rs._public_site():
+            rs._pubt.warm(rs._media_dir())   # 🔗 the swap's private link opens now, so "Swap in the character" does not wait for it
         return {**rs._mg.catalog(linked, rs._media_house(cat)), 'swapCapUsd': float(cat.get('swapCapUsd') or rs._mg.SWAP_CAP_USD), 'swapUsed': dict(cat.get('swapUsed') or {}),
                 'swapLast': cat.get('swapLast'), 'publicRefs': bool(rs._public_site()), 'houseLeftUsd': round(max(0.0, rs._mg.HOUSE_DAILY_USD - rs._media_house_spent()), 2) if rs._media_house(cat) else None}
     if p.op == 'media_cap':   # 💵 the owner's own cap per swap (he names the value; 0.5 to 50 dollars)
