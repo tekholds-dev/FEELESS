@@ -222,7 +222,7 @@ async def _media_run(cat_id, ws_id, mid):
                     try:
                         f_clip = rs._media_dir() / cat_id / str(md['fromClip']['url']).rsplit('/', 1)[-1]; ext_c = f_clip.suffix.lstrip('.').lower()
                         clip_du = f"data:video/{'quicktime' if ext_c == 'mov' else ext_c};base64,{rs.base64.b64encode(f_clip.read_bytes()).decode()}"
-                        if md.get('modelId') in rs._mg.SEEDANCE_SWAP:   # 🎭 OpenRouter: light copies ride in the request (clip ≤720p, no sound; picture ≤1280 px)
+                        if md.get('modelId') in rs._mg.OR_SWAP:   # 🎭 OpenRouter: light copies as https links (clip ≤720p, no sound, the part it makes; picture ≤1280 px)
                             clip_du, img_du = await rs._swap_refs(cat_id, f_clip, rs._media_dir() / cat_id / str(md['fromImg']['url']).rsplit('/', 1)[-1], rs._mg.swap_max(md['modelId']))
                         meth, url, heads, body = rs._mg.v2v_req(md['modelId'], key, img_du, clip_du, md.get('note') or '', md.get('secs'), md.get('aspect'))
                     except (OSError, KeyError, ValueError) as e:
@@ -233,7 +233,7 @@ async def _media_run(cat_id, ws_id, mid):
                 try:
                     hd = rs._mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
                 except ValueError as e:
-                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=f'{r.status_code}: {e}'); return
+                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=rs._mg.plain_why(r.status_code, e)); return
                 rs._media_set(cat_id, ws_id, mid, keep, status='running', handle=hd, step='queued')
             started = float(md.get('at') or rs.time.time())
             while True:
@@ -242,7 +242,7 @@ async def _media_run(cat_id, ws_id, mid):
                 r = await h.get(hd['status'], headers=rs._mg.auth(md['provider'], key))
                 st, why = rs._mg.state_of(md['provider'], r.json() if r.status_code == 200 else {'status': 'running'})
                 if st == 'failed':
-                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=why or 'The provider stopped it.'); return
+                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=rs._mg.plain_why(None, why) if why else 'The provider stopped it.'); return
                 if st == 'done':
                     break
                 if why != md.get('step'):
@@ -532,7 +532,7 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=Non
     without fal.ai linked; the list-price estimate rides on the card before it starts."""
     rs = _rs()
     mid_ = str(t_.get('swap') or '')
-    if mid_ == 'auto':   # 💬 a chat ask ("replace the main character with Bishop"): OpenRouter's clean Seedance when linked, else fal.ai's Wan
+    if mid_ == 'auto':   # 💬 a chat ask ("replace the main character with Bishop"): the model picked last, else Runway Aleph 2 (real footage) on OpenRouter, else fal.ai's Wan
         mid_ = rs._mg.swap_auto(linked, (cat or {}).get('swapLast')) or ''
         if not mid_:
             raise rs.HTTPException(400, 'Link your OpenRouter key first: the swap runs on your own OpenRouter account (Seedance 2.0).')
@@ -555,11 +555,11 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=Non
         raise rs.HTTPException(400, 'Make or pick the character picture first (👤 Make him the character).')
     if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
         raise rs.HTTPException(429, 'Three are already making. Wait for one to finish.')
-    seed_ = mid_ in rs._mg.SEEDANCE_SWAP; shape_ = {}; most_ = rs._mg.swap_max(mid_)
-    if not seed_ and float(cmd_.get('secs') or 0) > most_ + 0.5:
-        raise rs.HTTPException(400, f'{rs._mg.V2V[mid_][1]} takes {most_} s at most. That clip is {float(cmd_.get("secs") or 0):.0f} s: pick a Seedance swap, or add it again with a start.')
-    if seed_:
-        if float(cmd_.get('secs') or 0) < rs._mg.SEEDANCE_MIN_S - 0.5:
+    ref_ = mid_ in rs._mg.OR_SWAP; shape_ = {}; most_ = rs._mg.swap_max(mid_)   # an OpenRouter swap makes the first `most_` s itself
+    if not ref_ and float(cmd_.get('secs') or 0) > most_ + 0.5:
+        raise rs.HTTPException(400, f'{rs._mg.V2V[mid_][1]} takes {most_} s at most. That clip is {float(cmd_.get("secs") or 0):.0f} s: pick an OpenRouter swap, or add it again with a start.')
+    if ref_:
+        if mid_ in rs._mg.SEEDANCE_SWAP and float(cmd_.get('secs') or 0) < rs._mg.SEEDANCE_MIN_S - 0.5:
             raise rs.HTTPException(400, f'Seedance makes {rs._mg.SEEDANCE_MIN_S} to {most_} s. That clip is {float(cmd_.get("secs") or 0):.1f} s: add a longer one.')
         w_, h_ = cmd_.get('w'), cmd_.get('h')
         if not (w_ and h_):

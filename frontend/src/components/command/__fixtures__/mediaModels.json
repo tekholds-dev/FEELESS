@@ -401,7 +401,7 @@
   {
    "id": "or-seedance-swap",
    "label": "Seedance 2.0 · Replace",
-   "why": "The clean one: ByteDance built it to keep one face the same in every frame",
+   "why": "AI or cartoon clips only (ByteDance refuses a real person). Keeps one face the same in every frame",
    "rate": 4.3e-06,
    "by": "tokens",
    "provider": "openrouter",
@@ -409,12 +409,12 @@
    "ready": true,
    "maxS": 15,
    "added": "2026-04-14",
-   "rec": 1
+   "rec": 2
   },
   {
    "id": "or-seedance25-flash-swap",
    "label": "Seedance 2.5 Flash · Replace",
-   "why": "The newest Seedance, fast tier: up to 30 s, so a whole 17 s reel fits",
+   "why": "AI or cartoon clips only (ByteDance refuses a real person). Newest Seedance, up to 30 s",
    "rate": 4.3e-06,
    "by": "tokens",
    "provider": "openrouter",
@@ -422,12 +422,12 @@
    "ready": true,
    "maxS": 30,
    "added": "2026-11-15",
-   "rec": 2
+   "rec": 3
   },
   {
    "id": "or-seedance25-swap",
    "label": "Seedance 2.5 · Replace",
-   "why": "ByteDance's top tier, built for video editing: up to 30 s, sharpest result, costs the most",
+   "why": "AI or cartoon clips only (ByteDance refuses a real person). Top tier, up to 30 s, costs the most",
    "rate": 6.4e-06,
    "by": "tokens",
    "provider": "openrouter",
@@ -435,12 +435,12 @@
    "ready": true,
    "maxS": 30,
    "added": "2026-08-07",
-   "rec": 3
+   "rec": 4
   },
   {
    "id": "or-seedance-fast-swap",
    "label": "Seedance 2.0 Fast · Replace",
-   "why": "The 2.0 swap, quicker and about 40% cheaper, a little softer",
+   "why": "AI or cartoon clips only (ByteDance refuses a real person). Quicker, about 40% cheaper",
    "rate": 2.475e-06,
    "by": "tokens",
    "provider": "openrouter",
@@ -448,12 +448,12 @@
    "ready": true,
    "maxS": 15,
    "added": "2026-04-14",
-   "rec": 4
+   "rec": 5
   },
   {
    "id": "or-seedance-mini-swap",
    "label": "Seedance 2.0 Mini · Replace",
-   "why": "The cheapest swap: fine for a test, softer faces",
+   "why": "AI or cartoon clips only (ByteDance refuses a real person). The cheapest, softer faces",
    "rate": 2.1e-06,
    "by": "tokens",
    "provider": "openrouter",
@@ -461,7 +461,20 @@
    "ready": true,
    "maxS": 15,
    "added": "2026-08-11",
-   "rec": 5
+   "rec": 6
+  },
+  {
+   "id": "or-aleph-swap",
+   "label": "Runway Aleph 2 · Replace",
+   "why": "For real footage (an IG or TikTok clip with real people): Runway's editor puts your character in. First 10 s",
+   "rate": 0.28,
+   "by": "seconds",
+   "provider": "openrouter",
+   "needsChar": true,
+   "ready": true,
+   "maxS": 10,
+   "added": "2026-07-29",
+   "rec": 1
   }
  ],
  "swapMaxS": 30,
@@ -470,6 +483,6 @@
   "or-seedance25-flash-swap": 2,
   "or-seedance-swap": 1
  },
- "swapLast": "or-seedance25-flash-swap",
+ "swapLast": "or-aleph-swap",
  "publicRefs": false
 }

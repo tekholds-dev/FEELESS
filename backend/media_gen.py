@@ -108,15 +108,23 @@ V2V = {
 # OpenRouter's live /videos/models (read 2026-11-17, 33 models) that is billed `video_tokens_with_video_input` = takes YOUR clip as a video
 # reference. → id: (model, label, why, $ per token with a video input, longest it makes in s, the day OpenRouter added it, rank in Recommended)
 SEEDANCE = {
-    'or-seedance-swap': ('bytedance/seedance-2.0', 'Seedance 2.0 · Replace', 'The clean one: ByteDance built it to keep one face the same in every frame', 0.0000043, 15, '2026-04-14', 1),
-    'or-seedance25-flash-swap': ('bytedance/seedance-2.5-flash', 'Seedance 2.5 Flash · Replace', 'The newest Seedance, fast tier: up to 30 s, so a whole 17 s reel fits', 0.0000043, 30, '2026-11-15', 2),
-    'or-seedance25-swap': ('bytedance/seedance-2.5', 'Seedance 2.5 · Replace', 'ByteDance\'s top tier, built for video editing: up to 30 s, sharpest result, costs the most', 0.0000064, 30, '2026-08-07', 3),
-    'or-seedance-fast-swap': ('bytedance/seedance-2.0-fast', 'Seedance 2.0 Fast · Replace', 'The 2.0 swap, quicker and about 40% cheaper, a little softer', 0.000002475, 15, '2026-04-14', 4),
-    'or-seedance-mini-swap': ('bytedance/seedance-2.0-mini', 'Seedance 2.0 Mini · Replace', 'The cheapest swap: fine for a test, softer faces', 0.0000021, 15, '2026-08-11', 5),
+    'or-seedance-swap': ('bytedance/seedance-2.0', 'Seedance 2.0 · Replace', 'AI or cartoon clips only (ByteDance refuses a real person). Keeps one face the same in every frame', 0.0000043, 15, '2026-04-14', 2),
+    'or-seedance25-flash-swap': ('bytedance/seedance-2.5-flash', 'Seedance 2.5 Flash · Replace', 'AI or cartoon clips only (ByteDance refuses a real person). Newest Seedance, up to 30 s', 0.0000043, 30, '2026-11-15', 3),
+    'or-seedance25-swap': ('bytedance/seedance-2.5', 'Seedance 2.5 · Replace', 'AI or cartoon clips only (ByteDance refuses a real person). Top tier, up to 30 s, costs the most', 0.0000064, 30, '2026-08-07', 4),
+    'or-seedance-fast-swap': ('bytedance/seedance-2.0-fast', 'Seedance 2.0 Fast · Replace', 'AI or cartoon clips only (ByteDance refuses a real person). Quicker, about 40% cheaper', 0.000002475, 15, '2026-04-14', 5),
+    'or-seedance-mini-swap': ('bytedance/seedance-2.0-mini', 'Seedance 2.0 Mini · Replace', 'AI or cartoon clips only (ByteDance refuses a real person). The cheapest, softer faces', 0.0000021, 15, '2026-08-11', 6),
 }
 V2V.update({k: (v[0], v[1], v[2], v[3], 'tokens') for k, v in SEEDANCE.items()})
 SEEDANCE_SWAP = set(SEEDANCE)
-V2V_PROVIDER = {'or-flux-edit': 'openrouter', **{k: 'openrouter' for k in SEEDANCE}}   # the rest run on fal.ai
+# 🎬 owner's real run 2026-11-17: Seedance answered "the input video may contain real person" to a saved IG reel (ByteDance's own rule, before
+# any charge). Runway Aleph 2 edits real footage: OpenRouter /videos with input_references [video_url, image_url] + prompt + aspect_ratio
+# (its page lists no duration or resolution field: unlisted fields are refused), $0.28 per output second. Its longest clip is not published,
+# so it gets the first 10 s (≤ $2.80, under the default $3 cap).
+ALEPH = {'or-aleph-swap': ('runway/aleph-2', 'Runway Aleph 2 · Replace', 'For real footage (an IG or TikTok clip with real people): Runway\'s editor puts your character in. First 10 s',
+                           0.28, 10, '2026-07-29', 1)}
+V2V.update({k: (v[0], v[1], v[2], v[3], 'seconds') for k, v in ALEPH.items()})
+OR_SWAP = {**SEEDANCE, **ALEPH}   # the OpenRouter swaps: your clip (trimmed to what the model makes) + the character picture, as https links
+V2V_PROVIDER = {'or-flux-edit': 'openrouter', **{k: 'openrouter' for k in OR_SWAP}}   # the rest run on fal.ai
 SWAP_CAP_USD = 3.0        # 💵 one swap never costs more than this unless the owner raises his own cap (0.5 to 50)
 CLIP_KEEP_S = 30          # a clip is kept up to 30 s (the longest a swap model makes); a model that makes less uses the first part
 SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the reference image) is the character. Keep EVERYTHING of video 1: the same scene, background, camera moves, framing, timing, actions, '
@@ -128,7 +136,7 @@ SEEDANCE_MIN_S = 4        # Seedance makes 4 s at least
 
 def swap_max(model_id):
     """The longest a swap model makes, in seconds (Seedance 2.5: 30; the rest 15)."""
-    return SEEDANCE[model_id][4] if model_id in SEEDANCE else MAX_CLIP_S
+    return OR_SWAP[model_id][4] if model_id in OR_SWAP else MAX_CLIP_S
 
 
 def swap_auto(linked, last=None):
@@ -136,7 +144,7 @@ def swap_auto(linked, last=None):
     clean Seedance, else fal.ai's Wan Replace."""
     if last in V2V and last not in V2V_NO_CHAR and v2v_provider(last) in linked:
         return last
-    return 'or-seedance-swap' if 'openrouter' in linked else 'fal-wan-replace' if 'fal' in linked else None
+    return 'or-aleph-swap' if 'openrouter' in linked else 'fal-wan-replace' if 'fal' in linked else None
 V2V_NO_CHAR = {'or-flux-edit'}                  # an edit needs your words, not a character picture
 
 
@@ -151,7 +159,7 @@ def v2v_cost(model_id, seconds, fps=30):
     ep, _l, _w, rate, by = V2V[model_id]
     if by == 'tokens':
         return round(SEEDANCE_PX * 24 * seedance_len(seconds, swap_max(model_id)) / 1024 * rate, 2)
-    billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else float(seconds)
+    billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else min(float(seconds), swap_max(model_id)) if model_id in ALEPH else float(seconds)
     return round(billed * rate, 2)
 
 
@@ -173,6 +181,13 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
             'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'duration': seedance_len(seconds, swap_max(model_id)), 'resolution': '720p',
             'aspect_ratio': aspect or '9:16', 'generate_audio': False,
             'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
+    if model_id in ALEPH:
+        if not image or not video:
+            raise ValueError('A swap needs your clip and the character picture.')
+        note = ' '.join(str(prompt or '').split())[:400]
+        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
+            'model': ep, 'prompt': SWAP_RULE + (f' The owner asked: {note}' if note else ''), 'aspect_ratio': aspect or '9:16',
+            'input_references': [{'type': 'video_url', 'video_url': {'url': video}}, {'type': 'image_url', 'image_url': {'url': image}}]}
     if model_id == 'or-flux-edit':
         if not str(prompt or '').strip():
             raise ValueError('Say what to change in the clip.')
@@ -186,9 +201,18 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
     return 'POST', f'https://queue.fal.run/{ep}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, body
 
 
+def plain_why(code, text):
+    """A provider's refusal in words the owner can act on (the raw text stays after it)."""
+    t = ' '.join(str(text or '').split())[:300]
+    if 'real person' in t.lower():
+        return (f'ByteDance\'s Seedance refuses a clip with a real person in it (its own rule; nothing was charged). '
+                f'Pick Runway Aleph 2 for real footage. ({t})')
+    return f'{code}: {t}' if code else t
+
+
 def v2v_list(linked):
     return [{'id': k, 'label': lb, 'why': why, 'rate': rate, 'by': by, 'provider': v2v_provider(k), 'needsChar': k not in V2V_NO_CHAR, 'ready': v2v_provider(k) in linked,
-             'maxS': swap_max(k), **({'added': SEEDANCE[k][5], 'rec': SEEDANCE[k][6]} if k in SEEDANCE else {})}
+             'maxS': swap_max(k), **({'added': OR_SWAP[k][5], 'rec': OR_SWAP[k][6]} if k in OR_SWAP else {})}
             for k, (_e, lb, why, rate, by) in V2V.items()]
 
 

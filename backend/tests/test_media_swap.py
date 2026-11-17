@@ -32,7 +32,7 @@ def test_requests_match_fal_schemas_and_costs_follow_each_models_billing():
     assert mg.v2v_cost('fal-wan-replace', 10, 32) == 1.2        # 10 s × 32 fps / 16 = 20 billed s × $0.06
     assert mg.v2v_cost('fal-kling3-motion', 10, 60) == 1.26     # Kling bills real seconds
     assert {r['id']: r['ready'] for r in mg.v2v_list({'openrouter'})} == {'fal-wan-replace': False, 'fal-kling3-motion': False, 'or-flux-edit': True, 'or-seedance-swap': True, 'or-seedance-fast-swap': True,
-        'or-seedance25-flash-swap': True, 'or-seedance25-swap': True, 'or-seedance-mini-swap': True}
+        'or-seedance25-flash-swap': True, 'or-seedance25-swap': True, 'or-seedance-mini-swap': True, 'or-aleph-swap': True}
     assert mg.catalog({'fal'})['swapMaxS'] == 30   # a clip is kept up to 30 s (Seedance 2.5 makes 30)
 
 

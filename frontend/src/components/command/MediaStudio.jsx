@@ -101,7 +101,7 @@ const forgetSpot = () => { try { localStorage.removeItem(SWAP_SPOT); } catch { /
 export function swapEst(m, c) {   // the price before you press: tokens = 720p pixels × 24 fps × whole seconds (4–15) / 1024 (OpenRouter's Seedance billing)
   if (!m || !c) return null; const s = Number(c.secs) || 0;
   if (m.by === 'tokens') return 921600 * 24 * Math.min(m.maxS || 15, Math.max(4, Math.round(s || 4)))   /* = media_gen.seedance_len */ / 1024 * m.rate;
-  return (m.by === 'frames' ? s * Number(c.fps || 30) / 16 : s) * m.rate;
+  return (m.by === 'frames' ? s * Number(c.fps || 30) / 16 : m.rec ? Math.min(s, m.maxS || s) : s) * m.rate;   // an OpenRouter swap bills only the part it makes
 }
 // 🏷 the picker (owner 2026-11-17: "choose from recommended, top used etc … the latest ai video generators ppl using"): every swap model OpenRouter
 // takes your clip on, sorted four ways. Most used = what YOU ran here (no public chart of video-model use exists to read).

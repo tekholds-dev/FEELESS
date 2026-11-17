@@ -64,7 +64,7 @@ def test_seedance_swap_request_matches_openrouters_videos_api_and_its_price():
     assert mg.v2v_req('or-seedance-fast-swap', OR_KEY, 'I', 'V', '', 15, '16:9')[3]['model'] == 'bytedance/seedance-2.0-fast'
     assert mg.v2v_cost('or-seedance-swap', 15) == 1.39 and mg.v2v_cost('or-seedance-fast-swap', 15) == 0.8   # 921,600 px × 24 fps × 15 s / 1024 tokens
     assert (mg.seedance_len(2), mg.seedance_len(9.6), mg.seedance_len(40)) == (4, 10, 15)
-    assert mg.swap_auto({'openrouter', 'fal'}) == 'or-seedance-swap' and mg.swap_auto({'fal'}) == 'fal-wan-replace' and mg.swap_auto(set()) is None
+    assert mg.swap_auto({'openrouter', 'fal'}) == 'or-aleph-swap' and mg.swap_auto({'fal'}) == 'fal-wan-replace' and mg.swap_auto(set()) is None
 
 
 # ── the whole flow, served ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ def test_a_chat_ask_swaps_the_newest_clip_on_openrouter_with_no_fal_key(monkeypa
         return None
     monkeypatch.setattr(fs, '_media_run', no_run)
     assert post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True}).status_code == 200
-    ask = {'swap': 'auto', 'clip': 'last'}
+    ask = {'swap': 'or-seedance-swap', 'clip': 'last'}
     r = post(op='media_make', job=ws, text='replace the main character with bishop', tools=ask)
     assert r.status_code == 400 and 'OpenRouter' in r.json()['detail']   # nothing linked: no swap, and it says what to link
     ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
@@ -135,7 +135,7 @@ def test_seedance_needs_four_seconds_and_a_character(monkeypatch, tmp_path):
     fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=2.0); _fake_ffmpeg(monkeypatch, fs, [])
     ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
     post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True})
-    r = post(op='media_make', job=ws, text='swap him for bishop', tools={'swap': 'auto', 'clip': 'last'})
+    r = post(op='media_make', job=ws, text='swap him for bishop', tools={'swap': 'or-seedance-swap', 'clip': 'last'})
     assert r.status_code == 400 and '4 to 15 s' in r.json()['detail']
 
 
@@ -256,13 +256,13 @@ def test_post_puts_the_edit_and_its_source_clip_in_a_poc_folder(monkeypatch, tmp
 # ── 2026-11-17 round 2: the model picker, the cap, a 17 s reel, public links ────────────────────────────────────────────────────────────────
 def test_every_seedance_swap_takes_the_clip_and_the_longest_it_makes():
     rows = {r['id']: r for r in mg.v2v_list({'openrouter'})}
-    assert {k for k, r in rows.items() if r.get('rec')} == set(mg.SEEDANCE) and rows['or-seedance-swap']['rec'] == 1
+    assert {k for k, r in rows.items() if r.get('rec')} == set(mg.OR_SWAP) and rows['or-aleph-swap']['rec'] == 1 and rows['or-seedance-swap']['rec'] == 2
     assert rows['or-seedance25-flash-swap']['maxS'] == 30 and rows['or-seedance-swap']['maxS'] == 15 and rows['or-seedance25-flash-swap']['added'] == '2026-11-15'
     b = mg.v2v_req('or-seedance25-flash-swap', OR_KEY, 'I', 'V', '', 17.2, '9:16')[3]
     assert b['model'] == 'bytedance/seedance-2.5-flash' and b['duration'] == 17          # a whole 17 s reel on 2.5
     assert mg.v2v_req('or-seedance-swap', OR_KEY, 'I', 'V', '', 17.2, '9:16')[3]['duration'] == 15   # 2.0 makes its first 15 s
     assert mg.v2v_cost('or-seedance25-flash-swap', 17) == 1.58 and mg.v2v_cost('or-seedance25-swap', 17) == 2.35
-    assert mg.swap_auto({'openrouter'}, 'or-seedance25-swap') == 'or-seedance25-swap' and mg.swap_auto({'openrouter'}, 'fal-wan-replace') == 'or-seedance-swap'
+    assert mg.swap_auto({'openrouter'}, 'or-seedance25-swap') == 'or-seedance25-swap' and mg.swap_auto({'openrouter'}, 'fal-wan-replace') == 'or-aleph-swap'
     assert cs.ref_args('/c.mp4', '/o.mp4', 15)[cs.ref_args('/c.mp4', '/o.mp4', 15).index('-t') + 1] == '15.00'
 
 
@@ -344,3 +344,25 @@ def test_the_tunnel_server_serves_only_fresh_token_files(tmp_path):
     os.utime(d / f'{tok}.mp4', (1, 1))
     with pytest.raises(urllib.error.HTTPError):
         urllib.request.urlopen(f'{base}/g/pub/{tok}.mp4')   # older than 2 hours: gone
+
+
+# ── 2026-11-17 round 3: the owner's real IG reel was refused by Seedance ("may contain real person") → Runway Aleph 2 ─────────────────────────
+def test_real_footage_goes_to_runway_aleph_with_the_character_and_only_its_listed_fields(monkeypatch, tmp_path):
+    b = mg.v2v_req('or-aleph-swap', OR_KEY, 'https://t.trycloudflare.com/g/pub/i.jpg', 'https://t.trycloudflare.com/g/pub/v.mp4', 'keep his chain', 17.2, '9:16')[3]
+    assert set(b) == {'model', 'prompt', 'aspect_ratio', 'input_references'} and b['model'] == 'runway/aleph-2'   # its page lists no duration / resolution
+    assert b['input_references'] == [{'type': 'video_url', 'video_url': {'url': 'https://t.trycloudflare.com/g/pub/v.mp4'}}, {'type': 'image_url', 'image_url': {'url': 'https://t.trycloudflare.com/g/pub/i.jpg'}}]
+    assert mg.v2v_cost('or-aleph-swap', 17.2) == 2.8 and mg.v2v_cost('or-aleph-swap', 6) == 1.68   # $0.28 per second it makes, the first 10 s
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=17.2); ran = []; _fake_ffmpeg(monkeypatch, fs, ran)
+    async def no_run(*a):
+        return None
+    monkeypatch.setattr(fs, '_media_run', no_run)
+    ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
+    post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True})
+    md = post(op='media_make', job=ws, text='replace the guy with bishop', tools={'swap': 'auto', 'clip': 'last'}).json()['doc']['messages'][-1]['media']
+    assert md['modelId'] == 'or-aleph-swap' and md['usd'] == 2.8 and md['secs'] == 10 and md['keepSound']   # the chat's default for real clips
+
+
+def test_a_real_person_refusal_says_what_to_do():
+    w = mg.plain_why(400, "HTTP 400: The request failed because the input video 'content[1]' may contain real person.")
+    assert w.startswith("ByteDance's Seedance refuses a clip with a real person") and 'Runway Aleph 2' in w and 'nothing was charged' in w
+    assert mg.plain_why(400, 'bad aspect') == '400: bad aspect' and mg.plain_why(None, 'stopped') == 'stopped'
