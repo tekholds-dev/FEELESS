@@ -79,7 +79,7 @@ def test_the_comp_exam_on_his_openrouter_writes_receipts_and_stops_at_the_cap(tm
     import comp_v2_exam as ex
     store = {'cats': {'fee': {'id': 'fee', 'ownerStaff': True, 'ownerWallet': 'W', 'apiKeys': {'openrouter': {'sealed': ck.seal('sk-or-test', 'fee'), 'at': 5}}},
                       'happy': {'id': 'happy', 'ownerWallet': 'W'}}}
-    (tmp_path / 'feecats.json').write_text(json.dumps(store)); (tmp_path / 'spend_caps.json').write_text(json.dumps({'W': 1}))
+    (tmp_path / 'feecats.json').write_text(json.dumps(store)); (tmp_path / 'spend_caps.json').write_text(json.dumps({'owner': 1}))
     led = tmp_path / 'model_receipts.jsonl'; led.write_text(json.dumps(_row('happy', 0.5)) + '\n')
     donor, check = ex.owner_spend(tmp_path / 'feecats.json', tmp_path)
     assert donor == 'fee'
@@ -104,3 +104,31 @@ def test_the_comp_exam_on_his_openrouter_writes_receipts_and_stops_at_the_cap(tm
     assert url == 'https://openrouter.ai/api/v1/chat/completions' and set(body) == {'model', 'max_tokens', 'messages'}   # no LM Studio switches
     rows = [json.loads(x) for x in led.read_text().splitlines()]
     assert [r['cat'] for r in rows[1:]] == ['fee', 'fee'] and all(r['funding'] == 'owner key' and r['for'] == 'COMP exam' for r in rows[1:])
+
+
+def test_his_staff_agents_share_one_cap_wallet_or_not():
+    cats = [{'id': 'fee', 'ownerStaff': True}, {'id': 'happy', 'ownerStaff': True, 'ownerWallet': 'W'}, {'id': 'side', 'ownerWallet': 'W'},
+            {'id': 'user', 'ownerWallet': 'Z'}, {'id': 'lone'}]
+    assert sg.group(cats, cats[0]) == ('owner', ['fee', 'happy', 'side'])   # Fee has no wallet but spends the owner's key
+    assert sg.group(cats, cats[2]) == ('W', ['happy', 'side']) and sg.group(cats, cats[3]) == ('Z', ['user']) and sg.group(cats, cats[4]) == ('lone', ['lone'])
+
+
+def test_a_short_aleph_clip_is_priced_at_its_minimum():
+    import media_gen as mg
+    assert mg.v2v_cost('or-aleph-swap', 1.5) == 0.56 and mg.v2v_cost('or-aleph-swap', 10) == 2.8
+
+
+def test_a_hold_is_let_go_when_its_folder_is_gone(monkeypatch, tmp_path):
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path)
+    fs._SPEND_HOLD['mgone'] = ('owner', 2.8)
+    fs._media_set('g', 'wnope', 'mgone', None, status='failed', why='x')
+    assert 'mgone' not in fs._SPEND_HOLD
+
+
+def test_any_route_at_the_cap_answers_429_in_plain_words(monkeypatch, tmp_path):
+    fs, c, store, ws, post = _setup(monkeypatch, tmp_path)
+    async def over(*a, **k):
+        raise sg.OverCap('Stopped before it cost anything: your $1.00 day cap.')
+    monkeypatch.setattr(fs, '_media_swap', over)
+    r = post(op='media_make', job=ws, text='x', tools={'swap': 'auto'})
+    assert r.status_code == 429 and 'day cap' in r.json()['detail']

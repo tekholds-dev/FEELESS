@@ -131,6 +131,7 @@ SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the 
              'gestures and lighting, frame by frame. Replace only the main character of video 1 with the character in image 1: the same face, '
              'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
 ALEPH_PROMPT_MAX = 1000   # Runway's promptText limit
+ALEPH_MIN_USD = 0.56      # OpenRouter's /videos/models for Aleph 2: minimum_cents_per_generation 56 (read 2026-11-17)
 ALEPH_RULE = ('Replace the main person in this video with the person in the keyframe picture: their face, hair, skin, build and outfit, '
               'in every frame, moving exactly as the original person moves. Keep everything else of the video the same: the scene, '
               'background, other people, camera moves, framing, timing, actions and lighting.')
@@ -164,7 +165,7 @@ def v2v_cost(model_id, seconds, fps=30):
     if by == 'tokens':
         return round(SEEDANCE_PX * 24 * seedance_len(seconds, swap_max(model_id)) / 1024 * rate, 2)
     billed = float(seconds) * float(fps or 30) / 16 if by == 'frames' else min(float(seconds), swap_max(model_id)) if model_id in ALEPH else float(seconds)
-    return round(billed * rate, 2)
+    return round(max(billed * rate, ALEPH_MIN_USD if model_id in ALEPH else 0), 2)
 
 
 def seedance_len(seconds, most=MAX_CLIP_S):

@@ -37,7 +37,8 @@ def judge_key(status, key_j, credits_j):
 
 def judge_video(models_j, aspect='9:16'):
     """The swap models we send to still exist, and Aleph 2 still accepts exactly what we send it (its keyframe as passthrough)."""
-    rows_ = {r.get('id'): r for r in ((models_j or {}).get('data') or models_j or []) if isinstance(r, dict)} if isinstance(models_j, (dict, list)) else {}
+    items = models_j.get('data') or [] if isinstance(models_j, dict) else models_j if isinstance(models_j, list) else []
+    rows_ = {r.get('id'): r for r in items if isinstance(r, dict)}
     out = []
     for mid, v in mg.OR_SWAP.items():
         r = rows_.get(v[0])

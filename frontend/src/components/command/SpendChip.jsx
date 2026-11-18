@@ -15,7 +15,7 @@ export default function SpendChip({ cat, work, seed = null, compact = false, sta
   const [s, setS] = useState(seed); const [open, setOpen] = useState(false); const [cap, setCap] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback(() => { if (!cat?.id || !work) return; work(cat.id, { op: 'spend' }).then(j => j?.spend && setS(j.spend)).catch(e => setErr(e.message)); }, [cat?.id, work]);
   useEffect(() => { if (seed) setS(seed); }, [seed]);
-  useEffect(() => { if (!seed) load(); }, [load, seed, stamp]);   // `stamp` moves when a request in this folder ends: the total moves with it
+  useEffect(() => { if (!seed || stamp !== '') load(); }, [load, seed, stamp]);   // `stamp` moves when a request in this folder ends: the total moves with it
   useEffect(() => { if (open) load(); }, [open, load]);
   useEffect(() => {
     if (!open) return undefined;

@@ -168,11 +168,9 @@ def _media_house_add(usd):
 def _spend_owner(cat, store=None):
     """💵 → (the owner's key, his agents' ids, {id: name}): one day cap across every agent of the same owner wallet."""
     rs = _rs()
-    w = rs.owner_wallet(cat or {})
-    if not w:
-        return str((cat or {}).get('id') or ''), [(cat or {}).get('id')], {(cat or {}).get('id'): (cat or {}).get('name') or 'agent'}
-    cats = [c for c in ((store or rs._load()).get('cats') or {}).values() if rs.owner_wallet(c) == w]
-    return w, [c.get('id') for c in cats], {c.get('id'): c.get('name') or 'agent' for c in cats}
+    cats = list(((store or rs._load()).get('cats') or {}).values())
+    key, ids = rs._sg.group(cats, cat or {}); names = {c.get('id'): c.get('name') or 'agent' for c in cats if c.get('id') in ids}
+    return key, ids, names
 
 
 def _spend_cap(owner):
@@ -183,11 +181,21 @@ def _spend_cap(owner):
         return rs._sg.DAILY_CAP_USD
 
 
+def _ledger_size():
+    try:
+        return (_rs().DATA_DIR / 'model_receipts.jsonl').stat().st_size
+    except OSError:
+        return 0
+
+
 def _spend_now(cat, store=None):
     """→ (owner, ids, names, cap, $ done today, $ still making)"""
     rs = _rs()
     owner, ids, names = rs._spend_owner(cat, store)
-    rows = rs._sg.read_rows(rs.DATA_DIR / 'model_receipts.jsonl', rs._sg.day_start())
+    since = rs._sg.day_start(); c_ = rs._SPEND_ROWS
+    if c_.get('since') != since or c_.get('dir') != str(rs.DATA_DIR) or rs.time.time() - c_.get('at', 0) > 3 or c_.get('size') != _ledger_size():
+        c_.update(since=since, dir=str(rs.DATA_DIR), at=rs.time.time(), size=_ledger_size(), rows=rs._sg.read_rows(rs.DATA_DIR / 'model_receipts.jsonl', since))   # 💵 re-read when it grew
+    rows = c_['rows']
     making = sum(u for o, u in rs._SPEND_HOLD.values() if o == owner)
     return owner, ids, names, rs._spend_cap(owner), rs._sg.spent(rows, ids, rs._sg.day_start()), making, rows
 
@@ -235,7 +243,7 @@ async def _media_run(cat_id, ws_id, mid):
     try:
         d_ = rs._ws_load(cat_id, ws_id) or {}; m_ = rs._media_msg(d_, mid)
         if not m_:
-            return
+            rs._spend_release(mid); return
         keep = rs.json.loads(rs.json.dumps(m_)); md = m_['media']
         cat = (rs._load()['cats'].get(cat_id) or {})
         key = rs._ck.key_for(cat, md['provider'], data_dir=rs.DATA_DIR) or (rs.os.environ.get('OPENROUTER_API_KEY', '').strip() if md.get('house') and rs._media_house(cat) else None)

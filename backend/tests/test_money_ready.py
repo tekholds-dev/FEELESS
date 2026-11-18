@@ -52,3 +52,8 @@ def test_each_gap_says_the_one_thing_to_do(monkeypatch):
     assert 'cloudflared' in bad['public-link'] and 'Raise it' in bad['day-cap'] and 'video-or-seedance-swap' in bad
     assert asyncio.run(mr.run(H(key_code=401), 'k', FLAG))['rows'][0]['say'].startswith('OpenRouter refused your key')
     assert 'Paste one' in asyncio.run(mr.run(H(), '', FLAG))['rows'][0]['say']
+
+
+def test_a_bare_list_of_models_is_judged_too():
+    rows = mr.judge_video(VIDEOS['data'])
+    assert any(r['id'] == 'aleph-shape' and r['ok'] for r in rows) and mr.judge_video(None) and not mr.judge_video('x')[0]['ok']

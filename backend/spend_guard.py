@@ -51,6 +51,25 @@ def spent(rows, cat_ids, since):
     return round(sum(float(r.get('usd') or 0) for r in own_rows(rows, cat_ids, since)), 4)
 
 
+def _wallet(c):
+    return str((c or {}).get('ownerWallet') or ((c or {}).get('agentWallet') or {}).get('owner') or '')
+
+
+def group(cats, cat):
+    """→ (cap key, agent ids): whose money one call spends. The owner's staff agents share his key (cat_keys' donor rule), so they are one
+    group with every agent of their wallets, wallet or not; anyone else is their wallet's agents, or just that agent. Pure."""
+    cats = [c for c in cats or [] if isinstance(c, dict)]; cat = cat or {}
+    if cat.get('ownerStaff') or cat.get('isLeader'):
+        staff = [c for c in cats if c.get('ownerStaff') or c.get('isLeader')]
+        ws = {_wallet(c) for c in staff if _wallet(c)}
+        ids = sorted({c.get('id') for c in staff} | {c.get('id') for c in cats if _wallet(c) in ws} | {cat.get('id')})
+        return 'owner', ids
+    w = _wallet(cat)
+    if not w:
+        return str(cat.get('id') or ''), [cat.get('id')]
+    return w, sorted({c.get('id') for c in cats if _wallet(c) == w} | {cat.get('id')})
+
+
 def clean_cap(v):
     """→ the cap as a float, or ValueError in plain words."""
     try:
@@ -100,5 +119,9 @@ def caps_read(path):
 
 
 def caps_write(path, caps):
-    with open(path, 'w') as f_:
+    """Written whole, then swapped in, so the exam never reads half a file."""
+    import os
+    tmp = f'{path}.tmp'
+    with open(tmp, 'w') as f_:
         f_.write(json.dumps(caps))
+    os.replace(tmp, path)

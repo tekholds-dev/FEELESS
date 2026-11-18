@@ -888,6 +888,12 @@ JOBS_KEEP = 60   # AGT-9: proofs' research jobs land here too, so room for both
 
 
 app = FastAPI(title='FEELESS Cats')
+
+
+@app.exception_handler(_sg.OverCap)
+async def _over_cap(_request, exc):   # 💵 the owner's day cap, from any route that asks a paid model: said plainly, never a 500
+    from starlette.responses import JSONResponse
+    return JSONResponse({'detail': str(exc)}, status_code=429)
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 _RATE: dict = {}   # (ip, agent) → recent owner-call times
 RATE_MAX, RATE_WIN = 90, 60   # 🔒 owner doors: 90 calls a minute per IP per agent (a poll is 40/min at most), then 429
@@ -1409,6 +1415,7 @@ _SCORES_HTTP: list = []
 
 MEDIA_HOUSE_PATH = DATA_DIR / 'media_house.json'   # {'YYYY-MM-DD': usd booked on FEELESS's OpenRouter key}
 SPEND_CAPS_PATH = DATA_DIR / 'spend_caps.json'   # 💵 {owner wallet or agent id: his day cap in dollars}
+_SPEND_ROWS = {}   # 💵 today's ledger rows, re-read when the ledger grows or after 3 s
 _SPEND_HOLD = {}   # 💵 {media id: (owner key, list-price $)} while it makes: counted against the day cap before its receipt lands
 
 

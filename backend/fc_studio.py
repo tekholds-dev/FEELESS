@@ -444,6 +444,8 @@ def _media_msg(doc, mid):
 def _media_set(cat_id, ws_id, mid, keep=None, **fields):
     """Writes a job's state into its folder message. A run that saved over it puts the message back (never a lost job)."""
     rs = _rs()
+    if fields.get('status') in ('done', 'failed'):
+        rs._spend_release(mid)   # 💵 first, so a folder deleted mid-make never leaves its hold on the day cap
     d_ = rs._ws_load(cat_id, ws_id)
     if not d_:
         return None
@@ -455,8 +457,10 @@ def _media_set(cat_id, ws_id, mid, keep=None, **fields):
     m_['media'] = {**(m_.get('media') or {}), **fields}
     rs._ws_save(cat_id, d_)
     md_ = m_['media']
-    if fields.get('status') in ('done', 'failed'):
-        rs._spend_release(mid)   # 💵 a finished make's receipt replaces its hold; a refused one never cost anything
+    if fields.get('status') == 'failed' and md_.get('handle') and not md_.get('house') and float(md_.get('usd') or 0) > 0:
+        # 💵 the provider took the job before it failed: counted at list price (it may bill a failed run), so the cap never under-counts
+        rs._receipt_write({'id': str(mid), 'cat': cat_id, 'at': rs.time.time(), 'provider': (rs._mg.PROVIDERS.get(md_.get('provider')) or {}).get('name') or md_.get('provider'),
+                           'model': md_.get('model'), 'usd': float(md_.get('usd') or 0), 'tokens': None, 'status': 'failed after the provider took it (list price, may be charged)', 'funding': 'owner key'})
     if fields.get('status') == 'done' and fields.get('url'):   # 🎬 a filed PoC of this folder gets the new file too (made after filing, it still shows)
         try:
             st_ = rs._load(); c_ = st_['cats'].get(cat_id)

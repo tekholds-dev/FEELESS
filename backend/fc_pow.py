@@ -1532,7 +1532,11 @@ async def _live_read(cat, site, force=False, now=None):
     if not rs._pw.can_draft(site, now):
         site['note'] = 'Changed, but it reached its 4 drafts for today.'
         return site['note']
-    raw_, _u, _o = await rs._ws_ask(cat, brains[0], rs._pw.SYS + rs._play.notes_line(cat, 'live'), rs._pw.ask_text(site, fresh_ or text_[:rs._pw.MAX_TEXT]), 600); rs._pw.note_draft(site, now); row_, why_ = rs._pw.parse(raw_)
+    try:
+        raw_, _u, _o = await rs._ws_ask(cat, brains[0], rs._pw.SYS + rs._play.notes_line(cat, 'live'), rs._pw.ask_text(site, fresh_ or text_[:rs._pw.MAX_TEXT]), 600); rs._pw.note_draft(site, now); row_, why_ = rs._pw.parse(raw_)
+    except rs._sg.OverCap as e:   # 💵 his day cap: this check waits for tomorrow
+        site['note'] = str(e)
+        return site['note']
     site['checks'] = int(site.get('checks') or 0) + 1; site['lastUsd'] = round(float(_u or 0), 5); site['spentUsd'] = round(float(site.get('spentUsd') or 0) + float(_u or 0), 5); site['lastAt'] = round(now)   # 💵 what each read really cost
     if row_:
         row_.update(site=site['host'], url=site['url'], at=round(now)); cat['pocDrafts'] = (list(cat.get('pocDrafts') or []) + [row_])[-40:]; site['note'] = 'New draft.'
@@ -1584,7 +1588,10 @@ async def _pocwatch_check(cat, w, now=None):
         row.update(ok=False, why='Pick a model for this agent first.')
     else:
         rs._CALL_CTX.set({'kind': 'poc', 'ref': w['id'], 'minds': brains[:1]})
-        raw_, usd_, own_ = await rs._ws_ask(cat, brains[0], rs._pw.WATCH_SYS, rs._pw.ask_watch(w, text_, fresh_), 500)
+        try:
+            raw_, usd_, own_ = await rs._ws_ask(cat, brains[0], rs._pw.WATCH_SYS, rs._pw.ask_watch(w, text_, fresh_), 500)
+        except rs._sg.OverCap as e:   # 💵 his day cap: the watch waits for tomorrow
+            row.update(ok=False, why=str(e)); rs._pw.add_check(w, row); return row
         head_, steps_ = rs._pw.parse_watch(raw_, len(w['steps']))
         row['usd'] = round(float(usd_ or 0), 5)
         if usd_ and not own_ and cat.get('brainsCfg'):

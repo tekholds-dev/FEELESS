@@ -54,11 +54,9 @@ def owner_spend(store_path=None, data=None):
     except (OSError, ValueError):
         cats = []
     got = cat_keys.newest_owner_row(cats, 'openrouter'); donor = got[1] if got else None
-    me = next((c for c in cats if c.get('id') == donor), {})
-    w = str(me.get('ownerWallet') or (me.get('agentWallet') or {}).get('owner') or '')
-    ids = [c.get('id') for c in cats if w and str(c.get('ownerWallet') or (c.get('agentWallet') or {}).get('owner') or '') == w] or [donor]
+    key, ids = sg.group(cats, next((c for c in cats if c.get('id') == donor), {'id': donor}))   # the same group the service counts
     try:
-        cap = sg.clean_cap(sg.caps_read(data / 'spend_caps.json').get(w or str(donor), sg.DAILY_CAP_USD))
+        cap = sg.clean_cap(sg.caps_read(data / 'spend_caps.json').get(key, sg.DAILY_CAP_USD))
     except ValueError:
         cap = sg.DAILY_CAP_USD
 
