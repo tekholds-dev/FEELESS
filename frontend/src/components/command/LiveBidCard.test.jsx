@@ -47,3 +47,19 @@ test('🧩 the team bid and the parlay slip on the same game ride one card: "2 s
   expect(cards).toHaveLength(2); expect(cards[1].textContent).toContain('2-leg parlay'); expect(cards[1].textContent).toContain('SGA 30+');
   act(() => root.unmount()); global.fetch = f;
 });
+
+test('🎯 no parlay: its best picks show in the folder, and a pick he placed sits beside the team slip', async () => {
+  const { KalshiPicks, noParlay } = require('./KalshiDoor'); const { sameGameSlips } = require('./CatWorkbench');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react-dom/test-utils');
+  const g = [{ id: 'G1', sport: 'nba' }]; const pk = (id, extra = {}) => ({ id, ticker: `T${id}`, side: 'yes', title: `Pick ${id}`, price: 0.57, conf: [70], status: 'waiting', pick: true, ...extra });
+  const slip = { id: 'par', games: g, kalshi: { kind: 'parlay', status: 'failed', why: 'duplicated_legs' }, kalshiPicks: [pk('a'), pk('b', { orderId: 'o9', status: 'filled', filled: 1, count: 1, usd: 0.57 })] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<KalshiPicks f={slip} catId="c" work={jest.fn()} />); });
+  expect(el.querySelectorAll('[data-testid=kalshi-ticket]')).toHaveLength(2); expect(el.querySelector('[data-testid=kalshi-picks]').textContent).toContain('No parlay');
+  await act(async () => { root.render(<KalshiPicks f={{ ...slip, kalshi: { kind: 'parlay', status: 'waiting' }, kalshiPicks: [pk('a')] }} catId="c" work={jest.fn()} />); });
+  expect(el.querySelector('[data-testid=kalshi-picks]')).toBeNull();   // the slip is still waiting: no picks yet
+  expect(noParlay({ kind: 'parlay', status: 'refused' })).toBe(true); expect(noParlay({ kind: 'parlay', status: 'sent', orderId: 'q' })).toBe(false);
+  const team = { id: 'lac', games: g, kalshi: { orderId: 'o1', filled: 2 } };
+  expect(sameGameSlips({ pobFolders: [team, slip] }, team).map(x => x.id)).toEqual(['par', 'par:b']);
+  act(() => root.unmount());
+});

@@ -1,6 +1,6 @@
 import { useOnScreen } from '../../lib/fxPause';
 import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
-import { KalshiDoor, KalshiTicket, KalshiHedge } from './KalshiDoor';
+import { KalshiDoor, KalshiTicket, KalshiHedge, KalshiPicks } from './KalshiDoor';
 import { pobGroups, runLabel, gameName, sportOf, sportLabel, teamsOf } from '../../lib/pobGroups';
 import { useLogos, logoFor } from '../../lib/teamLogos';
 import { LiveBidCard } from './LiveBidCard';
@@ -343,8 +343,11 @@ export function liveBidOf(d) {
   return all.filter(f => f?.kalshi?.orderId && Number(f.kalshi.filled) > 0 && !f.kalshi.outcome && (f.games || []).some(g => g && g.state === 'in' && !g.final))
     .sort((a, b) => Number(b.at || 0) - Number(a.at || 0))[0] || null;
 }
-export function sameGameSlips(d, f) {   // every other PoB its agent put a Kalshi slip on for this folder's game. Pure.
-  const gid = f?.games?.[0]?.id; return gid == null ? [] : (d?.pobFolders || []).filter(x => x.id !== f.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(gid)));
+export function sameGameSlips(d, f) {   // every other Kalshi slip its agent put on this folder's game, and each best pick he placed. Pure.
+  const gid = f?.games?.[0]?.id; if (gid == null) return [];
+  const on = (d?.pobFolders || []).filter(x => (x.games || []).some(gm => String(gm.id) === String(gid)));
+  const picks = x => (x.kalshiPicks || []).filter(k => k.orderId).map(k => ({ ...x, id: `${x.id}:${k.id}`, kalshi: k }));
+  return [...on.filter(x => x.id !== f.id && x.kalshi), ...on.flatMap(picks)];
 }
 export function deskProofs(d) {
   const all = newestProofs(d, 999); const leadId = d?.deskProof?.id || liveBidOf(d)?.id; const at = leadId ? all.findIndex(x => x.id === leadId) : -1;
@@ -1225,7 +1228,7 @@ function PobTopic({ f, catId, onMark }) {
       {f.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={f.graded === k ? 'active' : ''} aria-pressed={f.graded === k} onClick={() => onMark(f.id, f.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}</header>
     {r ? <p className="dsk-note">{r.lesson}</p> : null}<BrowseNote f={f} /><SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
     {(f.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{f.agreed.map((x, i) => <li key={x} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{x}</b><small>both minds, blind</small></li>)}</ul> : null}
-    {f.kalshi ? <KalshiTicket t={f.kalshi} catId={catId} work={work} /> : f.kalshiSplit?.length ? <KalshiHedge rows={f.kalshiSplit} /> : null}
+    {f.kalshi ? <KalshiTicket t={f.kalshi} catId={catId} work={work} /> : f.kalshiSplit?.length ? <KalshiHedge rows={f.kalshiSplit} /> : null}<KalshiPicks f={f} catId={catId} work={work} />
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
       {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
       <Browsed b={f.browsed?.[c.mind]} /></section>)}</div>
@@ -1290,7 +1293,7 @@ function PobReading({ x, leaf, catId, onLeaf, onMark }) {
     {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={apiUrl(`/api/cats/${catId}/powshot/${x.id}/${big.file}?${agentAuthQuery()}`)} alt={big.site} /></div> : null}</>;
   if (leaf === 'sites') return <SitesRead rows={x.sitesRead} />;
   return <div className="pob-read" data-testid={`pob-read-${x.id}`}>
-    {x.kalshi ? <KalshiTicket t={x.kalshi} catId={catId} work={work} /> : x.kalshiSplit?.length ? <KalshiHedge rows={x.kalshiSplit} /> : null}
+    {x.kalshi ? <KalshiTicket t={x.kalshi} catId={catId} work={work} /> : x.kalshiSplit?.length ? <KalshiHedge rows={x.kalshiSplit} /> : null}<KalshiPicks f={x} catId={catId} work={work} />
     {minds.length ? <div className="pfl-minds">{minds.map((m, i) => <section key={i} className={`pfl-mind m-glass${m.pick ? ' has-pick' : ''}`} style={{ '--i': i }}>
       <small className="m-label">MIND {m.mind}{m.name ? ` · ${String(m.name).split('/').pop()}` : ''}</small>
       {m.pick && m.pick.confidence == null ? <><b>{m.pick.pick}</b><em>{String(m.pick.why || '').slice(0, 140)}</em></> : m.pick ? <><b>{m.pick.pick}</b><span className="pfl-conf" role="img" aria-label={`${m.pick.confidence}% sure`}><s style={{ transform: `scaleX(${Math.min(1, (Number(m.pick.confidence) || 0) / 100)})` }} /></span><em className="m-num">{m.pick.confidence}% sure</em></> : <><b className="is-pass">Passed</b><em>{String(m.pass || 'no answer').slice(0, 140)}</em></>}

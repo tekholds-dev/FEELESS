@@ -50,8 +50,7 @@ async def _kalshi_refresh(cat, kid_, pem_, limit=6):
     async with rs.httpx.AsyncClient(timeout=10) as h_:
         for b_ in rows_:
             await rs._kalshi_confirm(h_, kid_, pem_, b_)
-            for f_ in cat.get('pobFolders') or []:   # the ticket on the proof says the same as the ledger
-                tk_ = f_.get('kalshi') or {}
+            for tk_ in (t_ for f_ in cat.get('pobFolders') or [] for t_ in rs._kb.tickets_of(f_)):   # the ticket on the proof (or one of its picks) says the same as the ledger
                 if tk_.get('orderId') == b_['orderId']:
                     tk_.update({k: b_.get(k) for k in ('status', 'filled', 'usd', 'kalshiStatus', 'confirmedAt', 'confirmErr')})
     return len(rows_)
@@ -85,8 +84,7 @@ async def _kalshi_settle_pass(http, store, now):
                 await rs.asyncio.wait_for(rs._pob_final(c, b), 90)
             except Exception as e:   # noqa: BLE001 — the settle itself already stands
                 print(f'[kalshi] final summary: {str(e)[:100]}')
-        for f_ in c.get('pobFolders') or []:   # the ticket on the proof shows the same
-            tk_ = f_.get('kalshi') or {}
+        for tk_ in (t_ for f_ in c.get('pobFolders') or [] for t_ in rs._kb.tickets_of(f_)):   # the ticket on the proof (or one of its picks) shows the same
             if b.get('orderId') and tk_.get('orderId') == b['orderId']:
                 tk_.update({k: b.get(k) for k in ('livePx', 'result', 'outcome', 'settledAt', 'pxHist') if b.get(k) is not None})
     if todo_:
@@ -307,6 +305,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     kb_pick_ = rs._kb.chosen(calls, {m['ticker'] for m in kb_rows_}) if kb_rows_ and not kb_menu_ else None
     if kb_menu_:   # 🧩 one slip: both minds' same legs bid; otherwise the stronger slip waits for his tap
         slip_ = rs._kb.slip_of(calls, kb_menu_, kb_cfg_['minConf'])
+        base['kalshiPicks'] = rs._kb.picks_of(calls, kb_menu_, kb_cfg_['minConf'], rid, now)   # 🎯 no parlay → his list of best single picks
         if slip_:
             base['kalshi'] = rs._kb.slip_ticket(slip_, kb_menu_, rid, now)
             if not slip_.get('by') and rs._kb.sends_now(kb_cfg_, by_):

@@ -157,3 +157,7 @@ body.theme-day .bd-head b { color: var(--ppd-wn5); } body.theme-day .bd-head sma
 .bd-filebtn { min-height: 36px; white-space: nowrap; }
 .bd-proofs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; scroll-snap-type: x proximity; } .bd-proofs:empty { display: none; } .bd-proofs > * { flex: 0 0 96px; scroll-snap-align: start; }
 .pob-read { display: grid; gap: 10px; } .pob-read > .dsk-xgrid { margin-top: 4px; }
+/* 🎯 no parlay → its best picks, each its own two-tap bid (owner 2026-11-17) */
+.kd-picks { display: grid; gap: 6px; margin: 8px 0; padding: 10px; border-radius: var(--m-r); border: 1px dashed var(--m-line-hi); background: color-mix(in srgb, var(--m-accent) 5%, transparent); }
+.kd-picks header { display: grid; gap: 2px; } .kd-picks header b { font: 700 12.5px var(--f-ui); color: var(--m-text); } .kd-picks header small { font: 500 11px/1.4 var(--f-ui); color: var(--m-dim); }
+.kd-picks .kd-ticket { margin: 0; }

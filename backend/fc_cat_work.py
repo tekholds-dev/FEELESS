@@ -1047,7 +1047,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if p.op == 'kalshi_cfg':
             cat['kalshiCfg'] = rs._kb.cfg(p.tools); rs.keep_owned(cat); rs._save(store)
         if p.op in ('kalshi_bid', 'kalshi_skip'):
-            tk_ = next((f_.get('kalshi') for f_ in cat.get('pobFolders') or [] if (f_.get('kalshi') or {}).get('id') == p.job), None)
+            tk_ = next((f_.get('kalshi') for f_ in cat.get('pobFolders') or [] if (f_.get('kalshi') or {}).get('id') == p.job), None) \
+                or next((k_ for f_ in cat.get('pobFolders') or [] for k_ in f_.get('kalshiPicks') or [] if k_.get('id') == p.job), None)   # 🎯 one of its best picks
             if not tk_:
                 raise rs.HTTPException(404, 'That ticket is gone.')
             if tk_.get('status') != 'waiting':
@@ -1099,7 +1100,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         gid_ = str(p.job or '')
         on_ = [f for f in (cat.get('pobFolders') or [])[-40:] if any(str(g.get('id')) == gid_ for g in f.get('games') or [])]
         rows_ = [{'folder': f.get('id'), 'n': f.get('n'), 'pick': g.get('side') or g.get('short'), 'won': g.get('won'), 'score': g.get('score')} for f in on_ for g in (f.get('games') or []) if str(g.get('id')) == gid_]
-        bids_ = [{'n': f.get('n'), **rs._kb.room_view(f['kalshi'])} for f in on_ if (f.get('kalshi') or {}).get('ticker') or (f.get('kalshi') or {}).get('kind') == 'parlay']   # 🎯 every Kalshi slip on this game, live in the room (a parlay has no one ticker: it was hidden, 2026-11-17)
+        bids_ = [{'n': f.get('n'), **rs._kb.room_view(f['kalshi'])} for f in on_ if (f.get('kalshi') or {}).get('ticker') or (f.get('kalshi') or {}).get('kind') == 'parlay'] \
+            + [{'n': f.get('n'), **rs._kb.room_view(k_)} for f in on_ for k_ in f.get('kalshiPicks') or [] if k_.get('orderId')]   # 🎯 the best picks he placed sit beside the slip   # 🎯 every Kalshi slip on this game, live in the room (a parlay has no one ticker: it was hidden, 2026-11-17)
         return {'calls': rows_, 'bids': bids_, 'final': [x for f in on_ for x in f.get('final') or []][-2:], 'agent': cat.get('name')}
     if p.op == 'desk_seats':   # 🎩 the card's seats as they stand, for its owner's desk
         if cat.get('handle') != 'sicarios':

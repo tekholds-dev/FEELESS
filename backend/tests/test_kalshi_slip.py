@@ -348,3 +348,34 @@ def test_research_starts_on_this_games_own_espn_page():
     assert g['id'] == 'g2' and kb.game_named('Lakers vs Suns', OPEN) is None
     assert 'https://www.espn.com/nba/game/_/gameId/401910006' in kb.game_page({'id': '401910006', 'sport': 'nba'})
     assert kb.game_page({'id': '1', 'sport': 'cricket'}) == '' and kb.game_page(None) == ''
+
+
+SPR = _m('KXNBASPREAD-26NOV17UTALAC-LAC5', 0.57)
+LAC = _m('KXNBAGAME-26NOV17UTALAC-LAC', 0.68)
+UTA = _m('KXNBAGAME-26NOV17UTALAC-UTA', 0.33)
+AST8 = _m('KXNBAAST-26NOV17UTALAC-LACJHARDEN13-8', 0.54)
+AST10 = _m('KXNBAAST-26NOV17UTALAC-LACJHARDEN13-10', 0.31)
+PTS = _m('KXNBAPTS-26NOV17UTALAC-LACKLEONARD2-25', 0.50)
+JMENU = [SPR, LAC, UTA, AST8, AST10, PTS]
+
+
+def test_a_leg_another_leg_guarantees_never_goes_in_the_slip():
+    """🧩 owner 2026-11-17: both parlays died at Kalshi with 400 duplicated_legs ('LAC winning by 5+ already guarantees LAC winning')."""
+    assert kb.implied(SPR['ticker'], LAC['ticker']) and kb.implied(LAC['ticker'], SPR['ticker']) and kb.implied(AST8['ticker'], AST10['ticker'])
+    assert not kb.implied(SPR['ticker'], UTA['ticker']) and not kb.implied(LAC['ticker'], PTS['ticker']) and not kb.implied(AST8['ticker'], PTS['ticker'])
+    legs = kb._legs(_call('A', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68), (AST8['ticker'], 'yes', 60), (AST10['ticker'], 'yes', 58), (PTS['ticker'], 'yes', 55)]), {m['ticker']: m for m in JMENU})
+    assert list(legs) == [SPR['ticker'], AST8['ticker'], PTS['ticker']]   # the first of each repeated pair stays
+    # the exact Jazz vs Clippers slip: spread + moneyline → one real leg left, so no slip is built (it goes to his best picks instead)
+    assert kb.slip_of([_call('A', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68)]), _call('B', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68)], 1)], JMENU, 50) is None
+
+
+def test_no_parlay_gives_his_list_of_best_single_picks_to_tap():
+    """🎯 owner 2026-11-17: "if no parlay -> a list of best picks to choose from and they submit along with the other lac to win slip"."""
+    calls = [_call('gpt', [(SPR['ticker'], 'yes', 62), (PTS['ticker'], 'yes', 44)]), _call('glm', [(LAC['ticker'], 'yes', 68), (SPR['ticker'], 'yes', 70), (AST8['ticker'], 'no', 80)], 1)]
+    rows = kb.picks_of(calls, JMENU, 50, 'pob9', now=1)
+    assert [r['ticker'] for r in rows] == [SPR['ticker'], LAC['ticker']]   # best first; under his 50% and a NO (YES-only order API) are left out
+    assert rows[0]['conf'] == [70] and rows[0]['offer'] == 'glm' and rows[0]['status'] == 'waiting' and rows[0]['pick'] and rows[0]['folder'] == 'pob9' and rows[0]['price'] == 0.57
+    assert len({r['id'] for r in rows}) == 2 and kb.picks_of([], JMENU, 50, 'x') == []
+    assert kb.no_parlay(None) and kb.no_parlay({'kind': 'parlay', 'status': 'failed'}) and kb.no_parlay({'kind': 'parlay', 'status': 'refused'})
+    assert not kb.no_parlay({'kind': 'parlay', 'status': 'waiting'}) and not kb.no_parlay({'kind': 'parlay', 'status': 'sent', 'orderId': 'q'})
+    assert [t['id'] for t in kb.tickets_of({'kalshi': {'id': 'a'}, 'kalshiPicks': rows})] == ['a', *[r['id'] for r in rows]]

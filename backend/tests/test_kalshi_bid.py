@@ -274,3 +274,28 @@ def test_review_fixes_resting_text_confidence_and_utc():
     o = kb.offer(calls, {'T'}, 65)
     assert o['by'] == 'A' and o['conf'] == [70]
     assert kb._ts('2026-07-01T00:00:00Z') == 1782864000 and kb._ts('2026-12-01T00:00:00Z') == 1796083200
+
+
+def test_tapping_one_of_its_best_picks_sends_exactly_one_order_through_the_same_door(monkeypatch):
+    """🎯 owner 2026-11-17: no parlay → he picks from its best single picks; each goes out like any straight bid, every guard on."""
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    _, pem = _pem(); now = time.time()
+    pick = {'id': 'kb9', 'ticker': PICK['ticker'], 'side': 'yes', 'conf': [70], 'price': 0.4, 'status': 'waiting', 'folder': 'pob9', 'title': 'Orlando wins', 'pick': True, 'offer': 'glm'}
+    store = {'cats': {'g': {'id': 'g', 'name': 'Ann', 'ownerId': 'g', 'revoked': False, 'kalshiCfg': {'mode': 'approve', 'bidUsd': 1, 'dayUsd': 3, 'floorUsd': 2, 'minConf': 65},
+                            'pobFolders': [{'id': 'pob9', 'kind': 'PoB', 'topic': 'orlando parlay', 'kalshi': {'id': 'kbP', 'kind': 'parlay', 'status': 'failed'}, 'kalshiPicks': [pick]}]}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **kw: f'a952bcbe-ec3b-4b5b-b8f9-11dae589608c {pem}' if prov == 'kalshi' else None)
+    sent = []; mk = _mkt(close=now + 7200)
+    async def market(h, t): return mk
+    async def balance(h, k, p, m=None): return 10.0
+    async def place(h, k, p, body): sent.append(body); return {'order_id': 'o-9', 'status': 'resting'}
+    async def unstarted(h, m): return True
+    monkeypatch.setattr(fs._kb, 'market', market); monkeypatch.setattr(fs._kb, 'balance', balance); monkeypatch.setattr(fs._kb, 'place', place); monkeypatch.setattr(fs._kb, 'unstarted', unstarted)
+    c = TestClient(fs.app); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
+    j = post('kalshi_bid', job='kb9').json()
+    assert len(sent) == 1 and sent[0]['ticker'] == PICK['ticker'] and j['ticket']['orderId'] == 'o-9' and pick['orderId'] == 'o-9'
+    assert post('kalshi_bid', job='kb9').status_code == 409 and len(sent) == 1   # one tap, one order
+    assert store['cats']['g']['pobFolders'][0]['kalshi']['status'] == 'failed'   # the failed slip is untouched

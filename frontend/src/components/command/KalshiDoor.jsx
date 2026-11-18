@@ -63,6 +63,18 @@ export function KalshiTicket({ t: t0, catId, work, onDone }) {
   </section>;
 }
 
+// 🎯 NO PARLAY → ITS BEST PICKS (owner 2026-11-17: "if no parlay -> a list of best picks to choose from and they submit along with the other lac
+// to win slip"): the slip did not go through (Kalshi would not build it, no maker quoted, or he skipped it), so every leg a mind backed over his
+// minimum is its own single bid, best first. He taps the ones he wants: each is the same two-tap Approve as any straight bid, every guard on.
+export const noParlay = k => !k || (k.kind === 'parlay' && !k.orderId && ['failed', 'refused', 'skipped'].includes(k.status));
+export function KalshiPicks({ f, catId, work }) {
+  const rows = f?.kalshiPicks || []; const placed = rows.filter(k => k.orderId);
+  if (!rows.length || (!noParlay(f.kalshi) && !placed.length)) return null;
+  return <section className="kd-picks" aria-label="Its best picks" data-testid="kalshi-picks"><header><b>🎯 {f.kalshi ? 'No parlay' : 'Its best picks'} · pick what you want</b>
+    <small>{rows.length} pick{rows.length > 1 ? 's' : ''} over your minimum, best first. Each goes out on its own, beside your other slips on this game.</small></header>
+    {rows.map(k => <KalshiTicket key={k.id} t={k} catId={catId} work={work} />)}</section>;
+}
+
 // ⚖ HEDGE (owner 2026-11-14): the minds did not agree on one Kalshi side, so there is no ticket. Each mind's side and the live odds, nothing to send.
 export function KalshiHedge({ rows }) {
   return <section className="kd-hedge m-glass" data-testid="kalshi-hedge"><b>⚖ THE MINDS SPLIT · no real bid</b><small>A real bid needs both minds on the same market and side. Here is each side with Kalshi's live price.</small>

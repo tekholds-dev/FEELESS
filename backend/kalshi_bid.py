@@ -776,13 +776,34 @@ def slip_brief(menu, n):
             'the stronger slip to place with a tap. If you cannot back ' + str(n) + ' legs, give fewer and say why in "pass":\n' + '\n'.join(leg_line(m) for m in menu))
 
 
-def _legs(c, by):
-    """One mind's legs: {ticker: (side, conf, why)}, one side per market, one winner per game. Pure."""
+def _subject(t):
+    """'KXNBASPREAD-26NOV17UTALAC-LAC5' → ('KXNBASPREAD', '26NOV17UTALAC', 'LAC'): the series, the game, and who it is about (the line stripped). Pure."""
+    p = str(t or '').split('-')
+    return (p[0], p[1] if len(p) > 1 else '', re.sub(r'\d+$', '', p[2]) if len(p) > 2 else '')
+
+
+def implied(a, b):
+    """🧩 owner 2026-11-17: Kalshi refuses a slip whose legs repeat each other ('Los Angeles C winning by 5+ already guarantees Los Angeles C
+    winning'). Two YES legs on the same game and the same team/player where one guarantees the other: a spread and that team's win, or two lines
+    of one ladder (8+ and 10+ assists). Pure."""
+    sa, sb = _subject(a), _subject(b)
+    if not sa[1] or sa[1] != sb[1] or not sa[2] or sa[2] != sb[2]:
+        return False
+    if sa[0] == sb[0]:
+        return a != b
+    spread = lambda s: 'SPREAD' in s
+    return (spread(sa[0]) and sb[0] in PROP_SERIES) or (spread(sb[0]) and sa[0] in PROP_SERIES)
+
+
+def _legs(c, by, slip=True):
+    """One mind's legs: {ticker: (side, conf, why)}, one side per market, one winner per game, no leg another leg already guarantees. Pure."""
     out, games = {}, set()
     for p in c.get('picks') or []:
         k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
         t, s = str((k or {}).get('ticker') or '').strip(), str((k or {}).get('side') or '').lower()
         if t not in by or s not in ('yes', 'no') or t in out:
+            continue
+        if slip and s == 'yes' and any(v[0] == 'yes' and implied(t, u) for u, v in out.items()):   # the first (its strongest) of the two stays
             continue
         if t.split('-')[0] in PROP_SERIES:   # a game-winner leg: only one per game
             if game_key(by[t]) in games:
@@ -810,6 +831,33 @@ def slip_of(calls, menu, min_conf):
         if len(ok) >= SLIP_MIN and (not best or score > best[0]):
             best = (score, {'legs': [{'ticker': t, 'side': legs[t][0], 'conf': [legs[t][1]]} for t in ok], 'by': c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}", 'why': [legs[t][2] for t in ok]})
     return best[1] if best else None
+
+
+PICKS_MAX = 5
+
+
+def picks_of(calls, menu, min_conf, folder_id, now=None):
+    """🎯 owner 2026-11-17 ("if no parlay -> a list of best picks to choose from and they submit along with the other lac to win slip"): every
+    leg either mind backed at or over his minimum, one per market, best confidence first, each its own single-market ticket that waits for HIS
+    tap (the same order path and guards as any straight bid). Pure."""
+    by = {m['ticker']: m for m in menu or []}; best = {}
+    for c in calls or []:
+        name = c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}"
+        for t, (s, conf, why) in _legs(c, by, slip=False).items():   # singles: a spread and its win are two fine bets
+            if conf >= min_conf and s == 'yes' and (t not in best or conf > best[t]['conf'][0]):   # Kalshi's order API buys YES only here
+                best[t] = {'ticker': t, 'side': s, 'conf': [conf], 'why': [why], 'by': name}
+    rows = sorted(best.values(), key=lambda p: -p['conf'][0])[:PICKS_MAX]
+    return [{**ticket(p, by[p['ticker']], folder_id, now), 'offer': p['by'], 'pick': True} for p in rows]
+
+
+def tickets_of(f):
+    """A folder's own ticket and its best picks. Pure."""
+    return [t for t in [(f or {}).get('kalshi'), *((f or {}).get('kalshiPicks') or [])] if isinstance(t, dict)]
+
+
+def no_parlay(tk):
+    """A slip that did not go through (Kalshi would not build it, no maker quoted, or he skipped it), or none at all. Pure."""
+    return not tk or (tk.get('kind') == 'parlay' and not tk.get('orderId') and tk.get('status') in ('failed', 'refused', 'skipped'))
 
 
 def fair_of(legs):

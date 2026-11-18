@@ -3,6 +3,7 @@ import { ProofTools } from '../components/command/ProofTools';
 import { PobShelf } from '../components/command/CatWorkbench';
 import { LiveBidCard } from '../components/command/LiveBidCard';
 import { ProofMonitorBody } from '../components/command/ProofMonitor';
+import { KalshiPicks } from '../components/command/KalshiDoor';
 import '../styles/meta.css';
 import '../styles/terminal.css';
 
@@ -25,6 +26,11 @@ function FileShelf() {
 }
 export default function BidsHarness() {
   const [said, setSaid] = useState([]);
+  if (window.location.search.includes('picks')) {   // 🎯 `?picks`: a parlay Kalshi would not build → its best single picks, one already placed
+    const pk = (id, t, px, c, x = {}) => ({ id, ticker: `KXNBA-${id}`, side: 'yes', title: t, price: px, conf: [c], status: 'waiting', pick: true, offer: 'glm-5.3', why: ['ESPN matchup page: LAC 5-1 at home'], ...x });
+    const f = { id: 'par', kalshi: { kind: 'parlay', status: 'failed', why: 'Kalshi would not build the slip (400): duplicated_legs' }, kalshiPicks: [pk('a', 'Los Angeles C wins by over 4.5 points', 0.57, 70), pk('b', 'James Harden: 8+ assists', 0.54, 64, { orderId: 'o9', status: 'filled', filled: 1, count: 1, usd: 0.54 }), pk('c', 'Kawhi Leonard: 25+', 0.5, 58)] };
+    return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}><section style={{ maxWidth: 560 }}><KalshiPicks f={f} catId="c" work={async () => ({})} /></section></main>;
+  }
   if (window.location.search.includes('slips')) {   // 🧩 `?slips=<espn id>`: the team bid + a parlay slip on one real game, in the chat card and on a desk monitor
     const gid = new URLSearchParams(window.location.search).get('slips') || '401910006'; const g = [{ id: gid, sport: 'nba', side: 'Los Angeles Clippers', label: 'Jazz at Clippers', state: 'pre' }];
     const team = { id: 'h21', n: 21, topic: 'Jazz vs Clippers team to win', games: g, sites: ['kalshi.com', 'espn.com', 'covers.com'], browsed: { 0: { sites: ['kalshi.com', 'espn.com'] }, 1: { sites: ['polymarket.com'] } },
