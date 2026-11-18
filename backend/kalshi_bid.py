@@ -413,6 +413,8 @@ def spent_today(bids, now=None):
 def sends_now(c, by):
     """A PoB the owner asked for (`by` 'you') sends its ticket at once; one his scheduled auto run filed ('auto') only when AUTO is on —
     otherwise it waits for his tap. Every guard in `check` still runs either way."""
+    if by == 'test':   # 🧪 Slice 0: a TEST proof on Sicario's agent never bids
+        return False
     return by != 'auto' or cfg(c)['mode'] == 'auto'
 
 

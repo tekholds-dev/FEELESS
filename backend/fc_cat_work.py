@@ -718,7 +718,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             if not stats_.get('clips') and not what_:
                 raise rs.HTTPException(400, 'Edit something first.')
             rs._play.add_note(cat, 'edit', rs._play.style_note(stats_)); rows_ = list(cat.get('pocFolders') or [])
-            rows_.append({'id': f'poc{rs.secrets.token_hex(5)}', 'n': rs._next_n(rows_), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': ' '.join(str(p.job or 'An edit').split())[:60], 'calls': [], 'by': 'Editor', **({'edit': stats_} if stats_.get('clips') else {}), **({'design': {'layers': int(rs._play._num(what_.get('layers'), 0, 200, 0)), 'size': str(what_.get('size') or '')[:12]}} if what_ else {})})
+            rows_.append(rs._record_file(cat, 'poc', {'id': f'poc{rs.secrets.token_hex(5)}', 'n': rs._next_n(rows_), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': ' '.join(str(p.job or 'An edit').split())[:60], 'calls': [], 'by': 'Editor', **({'edit': stats_} if stats_.get('clips') else {}), **({'design': {'layers': int(rs._play._num(what_.get('layers'), 0, 200, 0)), 'size': str(what_.get('size') or '')[:12]}} if what_ else {})}))   # 🧾 Slice 0: an edit by hand records that no mind ran
             cat['pocFolders'] = rows_[-60:]; rs.keep_owned(cat); rs._save(store); rs._play_save(cat_id, 'edit', {**saved_, 'project': project_, 'mind': project_})
             return {'filed': rows_[-1], 'pocFolders': rs._poc_view(cat)}
         raise rs.HTTPException(400, 'No such step.')
@@ -965,9 +965,13 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             rows_ = await rs._eco_pools(http_)
         try:
             list_ = cat.setdefault('poeFolders', []); f_ = rs._ecm.make_call(rows_, len(list_) + 1)
+            if rs._foot_back(cat, 'poe', f_):   # 👣 Slice 0: the same two pools as a past call → sent back once: the next deepest pools no call used
+                bad_ = {r.get('addr') for x in list_ if isinstance(x, dict) for r in ((x.get('baseline') or {}).get('pick'), (x.get('baseline') or {}).get('other')) if isinstance(r, dict)}
+                fresh_ = [r for r in rows_ if r.get('addr') not in bad_]
+                f_ = rs._ecm.make_call(fresh_ if len(fresh_) >= 2 else rows_[2:] if len(rows_) >= 4 else rows_, len(list_) + 1)
         except ValueError as e:
             raise rs.HTTPException(400, str(e)[:160])
-        list_.append(f_); rs.keep_owned(cat); rs._save(store)
+        list_.append(rs._record_file(cat, 'poe', f_)); rs.keep_owned(cat); rs._save(store)   # 🧾 Slice 0: its record says no mind ran (pure math), its sources, its footprint (and TEST)
         return {'poeFolders': cat['poeFolders'][::-1]}
     if p.op == 'eco_grade':   # grades every due market call from fresh real numbers. Pure math, no one marks it
         due_ = [f for f in cat.get('poeFolders') or [] if f.get('kind') == 'market' and not f.get('graded') and rs.time.time() >= float(f.get('due') or 0)]
@@ -1520,7 +1524,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             raise rs.HTTPException(400, 'No answer from its minds in this folder yet.')
         rows_ = list(cat.get('pocFolders') or [])
         media_ = rs._poc_media(doc_)   # 🎬 the images / video made in this folder ride on the filed proof (owner 2026-11-12: Bishop filed with nothing to see)
-        rows_.append({'id': f'poc{int(rs.time.time())}', 'ws': doc_.get('id'), 'n': rs._next_n(rows_), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True, **({'media': media_} if media_ else {})})
+        rows_.append(rs._record_file(cat, 'poc', {'id': f'poc{int(rs.time.time())}', 'ws': doc_.get('id'), 'n': rs._next_n(rows_), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True, 'sitesRead': list((doc_ or {}).get('sitesRead') or [])[:12], **({'media': media_} if media_ else {})}))   # 🧾 Slice 0
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows_)} “{str(doc_.get('name') or 'Its answer')[:40]}” is filed from its folder chat" + (f' with {len(media_)} made file{"s" if len(media_) > 1 else ""}' if media_ else '') + '. Nothing was posted.', 'at': rs.time.time(), 'open': 'features'}])[-200:]
         rs._feed_push(cat['id'], {'tone': 'done', 'kind': 'PoC', 'text': f"PoC filed: {str(doc_.get('name') or 'its folder')[:40]}", 'ref': doc_.get('id')})
         cat['pocFolders'] = rows_[-60:]; rs.keep_owned(cat); rs._save(store)
@@ -2390,7 +2394,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         poc_ = rs.re.match(r'^\s*(?:file|make|start)\s+a\s+poc\b\s*(.*)$', str(p.text or ''), rs.re.I)
         if poc_ and (cat.get('brainsCfg') or {}).get('brains') and cat_id not in rs._POC_BUSY:   # 📣 "file a poc lakers memes"
             rs._POC_BUSY.add(cat_id); rs.asyncio.create_task(rs._poc_file(cat_id, poc_.group(1).strip()[:120]))
-            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': '📣 Filing a PoC. Both minds read what is trending now and propose blind. Paid model calls. Nothing is posted.', 'at': rs.time.time(), 'open': 'features'}])[-200:]
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': '📣 Filing a PoC. Both minds read what is trending now and propose blind. ' + ('A TEST on free local minds, $0. ' if rs._test_live(cat, 'poc') else 'Paid model calls. ') + 'Nothing is posted.', 'at': rs.time.time(), 'open': 'features'}])[-200:]
             rs.keep_owned(cat); rs._save(store)
             return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         pob_topic_ = rs._pob.topic_of(p.text) if not (site_cmd_ and not site_cmd_.get('why')) else None
@@ -2430,8 +2434,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if pob_topic_:   # 🏈 "file a pob best nfl picks": researched like a PoW, filed in Bids
             ok_, say_ = rs._pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
-                cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; cat['pobBy'] = 'auto' if p.auto else 'you'; rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
-                say_ = f'🎲 Filing a PoB on {pob_topic_}. Kalshi first, then major sites in its own windows; both minds call it blind. Paid model calls. ' + ('One parlay slip from Kalshi\'s own legs: it bids if both back the same legs, otherwise the stronger slip waits for your tap, inside your caps.' if rs._kb.mode_of(pob_topic_) == 'parlay' else 'A real Kalshi bid only if both back the same market, inside your caps.')
+                cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; cat['pobBy'] = 'test' if rs._test_live(cat, 'pob') else 'auto' if p.auto else 'you'; rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
+                say_ = f'🎲 Filing a PoB on {pob_topic_}. Kalshi first, then major sites in its own windows; both minds call it blind. ' + ('A TEST on free local minds, $0: it never bids.' if rs._test_live(cat, 'pob') else 'Paid model calls. ' + ('One parlay slip from Kalshi\'s own legs: it bids if both back the same legs, otherwise the stronger slip waits for your tap, inside your caps.' if rs._kb.mode_of(pob_topic_) == 'parlay' else 'A real Kalshi bid only if both back the same market, inside your caps.'))
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': say_, 'at': rs.time.time(), 'open': 'bids'}])[-200:]
             rs.keep_owned(cat); rs._save(store)
             return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
@@ -2446,7 +2450,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 cat.pop('proofSite', None)
                 if rs.re.search(r'\b(board|chips?|coins?)\b', str(p.text or ''), rs.re.I):   # only when asked: the free-chip coin board
                     cat['pobBoard'] = True
-                cat['pobBy'] = 'auto' if p.auto else 'you'; rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
+                cat['pobBy'] = 'test' if rs._test_live(cat, 'pob') else 'auto' if p.auto else 'you'; rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': say_, 'at': rs.time.time(), 'open': 'bids'}])[-200:]
             rs.keep_owned(cat); rs._save(store)
             return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}

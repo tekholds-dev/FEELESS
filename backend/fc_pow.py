@@ -179,7 +179,7 @@ def _pow2_research(cat, f, coin, mind_i, now):
         rs._work_start(cat['id'], cat, rs._pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
     except rs.HTTPException:
         return False
-    t_new = rs._WORK[cat['id']]['task']
+    t_new = rs._WORK[cat['id']]['task']; f['readTids'] = (list(f.get('readTids') or []) + [t_new['id']] if t_new.get('id') else list(f.get('readTids') or []))[-12:]   # 🧾 Slice 0: its windows' calls are logged under read:<task>
     ch_ = (f.get('charts') or {}).get(coin['mint']) or []
     t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${coin['sym']}: {rs._pow.chart_line(ch_)}"}] + ([{'from': 'archive', 'text': f"{rp['prior']} — do NOT repeat it: new sites, new facts"}] if rp.get('prior') else [])
     t_new['powPlan'] = list(f.get('plan') or [])
@@ -270,6 +270,7 @@ def _pow2_research_pair(cat, f, coins, now):
         rs._work_start(cat['id'], cat, f"A: ${a_['sym']}\nB: ${b_['sym']}", None, None, a_, pows={0: a_, 1: b_})
     except rs.HTTPException:
         return False
+    f['readTids'] = (list(f.get('readTids') or []) + [rs._WORK[cat['id']]['task'].get('id')])[-12:] if rs._WORK[cat['id']]['task'].get('id') else f.get('readTids') or []   # 🧾 Slice 0: its windows' calls are logged under read:<task>
     t_new = rs._WORK[cat['id']]['task']; t_new['powPlan'] = list(f.get('plan') or []); t_new['handoffs'] = []
     for i, (c, rp) in enumerate(zip(coins, (a_, b_))):
         ch_ = (f.get('charts') or {}).get(c['mint']) or []
@@ -403,6 +404,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
         d_ = rs.POWSHOTS_DIR / rs.re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / 'report.md').write_text(md_)
     except OSError as e:
         print(f'[pow2] report not kept: {e}')
+    rs._record_file(cat, 'pow', f, now)   # 🧾 Slice 0: the minds that really ran, its sources, its footprint (and TEST)
     cat['powFolders'] = rs._pow.trim_folders((cat.get('powFolders') or []) + [rs._pow.folder_public(f)])   # 📌 kept folders are never trimmed
     won = (f.get('pnlPct') or 0) > 0
     b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': 'WIN' if won else 'PoW', 'sym': f.get('sym') or '', 'by': ['pow'],
@@ -530,7 +532,7 @@ async def _pow2_tick(http, store, cat, now):
         f['loop'] = rs._pl.pow_loop(cat.get('powFolders'), dropped)
         f['models'] = [rs._pl._short(m) for m in ms[:2]]
         f['lead'] = rs._pl.lead_of(rs._pl.mind_board(cat), rs._pl.pow_topics(coins), f['models']) if minds > 1 else None   # 🧠 the mind with the better record here opens and has the last word
-        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped, phase='choose' if fallback_ else 'propose', fallback=fallback_, turn=0, proposed={})
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')) or bool(rs._test_live(cat, 'pow', now)), testRun=bool(rs._test_live(cat, 'pow', now)), dropped=dropped, phase='choose' if fallback_ else 'propose', fallback=fallback_, turn=0, proposed={})
         if fallback_:
             f['plan'] = ['one safe FEELESS intake coin and one safe Pump coin are the shared options', 'both minds compare them and agree on a research favorite', 'each coin is researched, then both minds decide the one to file or buy']
             rs._pow2_say(f, 'engine', 'two-source fallback: both minds compare the same safe FEELESS and Pump coins, research each, then agree')
@@ -639,7 +641,7 @@ async def _pow2_tick(http, store, cat, now):
         tr_ = rs._pow.agree_trade(list((f.get('trades') or {}).values())) or tr_   # the final coin; the safer of their trades
         f.update(sol=tr_['sol'], tp=tr_['tp'], sl=tr_['sl'])
         rs._pow2_say(f, 'engine', f"they set the trade: {tr_['sol']:g} SOL · take profit +{tr_['tp']:g}% · stop −{tr_['sl']:g}%")
-        if cat.get('handle') == 'sicarios' and (cat.get('brainsCfg') or {}).get('cardSeat') and not f.get('propose'):   # 🎩 no wallet here: the agreed coin goes to a free seat on the card, and every guard of that seat decides
+        if cat.get('handle') == 'sicarios' and (cat.get('brainsCfg') or {}).get('cardSeat') and not f.get('propose') and not f.get('testRun'):   # 🧪 a TEST never reaches the card   # 🎩 no wallet here: the agreed coin goes to a free seat on the card, and every guard of that seat decides
             sent_ = await rs._card_seat_send(http, f, c, tr_, now); f['cardSeat'] = sent_
             rs._pow2_say(f, 'engine', f"sent ${c['sym']} to the Fuse card seat" if sent_.get('ok') else f"the card refused ${c['sym']}: {sent_.get('why')}")
             rs._pow2_close(cat, f, f"🎩 ${c['sym']}: {'sent to the Fuse card seat' if sent_.get('ok') else 'the card refused it: ' + str(sent_.get('why'))}", now)
@@ -1609,10 +1611,10 @@ def _pocwatch_file(cat, w, now=None):
     rs = _rs()
     now = round(now or rs.time.time()); rep_ = rs._pw.report(w); w.update(status='done', doneAt=now, report=rep_)
     rows_ = list(cat.get('pocFolders') or [])
-    rows_.append({'id': f'poc{rs.secrets.token_hex(5)}', 'n': rs._next_n(rows_), 'kind': 'PoC', 'by': 'Watch', 'at': now, 'status': 'closed', 'paper': True,
-                  'topic': f"Watch · {w['host']}"[:60], 'calls': [], 'cost': rep_['spentUsd'],
+    rows_.append(rs._record_file(cat, 'poc', {'id': f'poc{rs.secrets.token_hex(5)}', 'n': rs._next_n(rows_), 'kind': 'PoC', 'by': 'Watch', 'at': now, 'status': 'closed', 'paper': True,
+                  'topic': f"Watch · {w['host']}"[:60], 'calls': [], 'cost': rep_['spentUsd'], 'callRefs': [w.get('id')], 'sites': [w.get('url')] if w.get('url') else [],
                   'watch': {'id': w['id'], 'url': w['url'], 'steps': w['steps'], 'hours': w['hours'], 'perHour': w['perHour'], 'startedAt': w['startedAt'], 'report': rep_,
-                            'checks': [{k: c.get(k) for k in ('at', 'ok', 'sha', 'changed', 'newLines', 'usd', 'headline', 'steps', 'why', 'carried')} for c in w.get('checks') or []]}})
+                            'checks': [{k: c.get(k) for k in ('at', 'ok', 'sha', 'changed', 'newLines', 'usd', 'headline', 'steps', 'why', 'carried')} for c in w.get('checks') or []]}}, now))   # 🧾 Slice 0: its watch calls are logged under the watch id
     cat['pocFolders'] = rows_[-60:]
     seen_ = sum(1 for x in rep_['steps'] if x['verdict'] == 'seen')
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"👁 PoC watch on {w['host']} is done: {rep_['read']} checks in {w['hours']} h, {seen_} of {len(rep_['steps'])} steps seen, ${rep_['spentUsd']:.4f}. The report is in the PoC folder.", 'at': rs.time.time(), 'open': 'poc'}])[-200:]
@@ -1909,7 +1911,8 @@ async def _pop_read(http, market):
 
 def _pop_file(cat, rec, line):
     rs = _rs()
-    cat['popFolders'] = rs._pop.trim(list(cat.get('popFolders') or []) + [{**rec, 'n': rs._pop.number(cat), 'kits': rs._KIT_LAST.get((cat.get('id'), 'pop')) or []}])
+    f_ = rs._record_file(cat, 'pop', {**rec, 'n': rs._pop.number(cat), 'kits': rs._KIT_LAST.get((cat.get('id'), 'pop')) or []})   # 🧾 Slice 0: the minds that really ran, its sources, its footprint (and TEST)
+    cat['popFolders'] = rs._pop.trim(list(cat.get('popFolders') or []) + [f_])
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': rs.time.time(), 'open': 'pop'}])[-200:]
 
 
@@ -1972,7 +1975,7 @@ async def _minds_ask(asks, secs):
     return list(await rs.asyncio.gather(*(one(a) for a in asks)))
 
 
-async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
+async def _pop_open(http, cat, do, who, now, browsed=None, read_why='', tid=None):
     """📉 file a PoP / 💡 propose one. Both start blind. Only a proposal gets the second round: split minds see each other's call once and may hold or change."""
     rs = _rs()
     propose = do == 'propose'; icon = '💡 pPoP' if propose else '📉 PoP'
@@ -1985,10 +1988,13 @@ async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
     charts = [c for c in await rs.asyncio.gather(*(rs._pop_chart(http, r['market']) for r in reads)) if c]
     sources = await rs._pop_gather(http, cat, reads, idx, rid, now)
+    if browsed and rs._foot_back(cat, 'pop', {'id': rid, 'at': round(now), 'sources': sources, 'browsed': browsed}, now):   # 👣 Slice 0: mostly what a past PoP read → back once for new sources
+        rs._POP_WANT[cat['id']] = f"{do}:{who or ''}"; rs._POW_WAKE.set()
+        return
     loop_ = rs._pl.perp_loop(cat.get('popFolders'))   # 🔁 the Proof Loop: both minds study their last proofs before they call
     lead_ = rs._pl.lead_of(rs._pl.mind_board(cat), rs._pl.pop_topics(reads), names)   # 🧠 each mind sees who has the better record here
     shared = '\n'.join([rs._pop.market_line(r) for r in reads] + charts) + rs._pl.perp_note(loop_) + rs._pl.lead_note(lead_)
-    shared += rs._foot.note('pop', cat.get('popFolders'))
+    shared += rs._foot.note('pop', cat.get('popFolders')) + rs._prec.back_line(cat.get('footBack'), 'pop', now)
     shared += rs._convo(cat)
     read_, sites_read_ = await rs._site_reads('pop', (cat['id'], cat.get('name')))
     shared += rs._feat._sources.proof_line('pop') + read_ + rs._recall(cat, 'Perps', ' '.join(str(r.get('market') or '') for r in reads))
@@ -2003,7 +2009,7 @@ async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
         second = [rs._pop.parse_call(x) if x else parsed[k] for k, x in enumerate(again)]   # a mind that went silent keeps its first call
         calls = [{'mind': i, 'name': names[i], **(c or {'why': str(again[k] or calls[k].get('why') or '')[:160]}), 'first': rs._pop.call_line(parsed[k])[:60], 'changed': (c or {}).get('side') != (parsed[k] or {}).get('side') or (c or {}).get('market') != (parsed[k] or {}).get('market')} for k, (i, c) in enumerate(zip(idx, second))]
         trade, why = rs._pop.agree(second); conviction = 'argued'; final_calls = second
-    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'loop': loop_, 'lead': lead_, 'kernel': rs._kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads, 'sources': sources, 'sitesRead': sites_read_, 'browsed': browsed or {}, 'browseWhy': read_why}
+    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'loop': loop_, 'lead': lead_, 'kernel': rs._kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads, 'sources': sources, 'sitesRead': sites_read_, 'browsed': browsed or {}, 'browseWhy': read_why, **({'readTid': tid} if tid else {})}
     both_ = [c for c in final_calls if c and c.get('market') and c.get('side')] if not trade else []
     px_of = {r['market']: r['px'] for r in reads}
     if len(both_) == 2 and all(c['market'] in px_of for c in both_) and not cat.get('popCard'):   # 💡 still split: you pick which mind's paper trade runs
@@ -2067,8 +2073,8 @@ async def _pop_begin(http, cat, do, who, now):
         return
     t_ = rs._WORK[cat['id']]['task']
     if len(t_.get('jobs') or []) > 1:   # 👣 each mind its own two sites and angle (owner 2026-11-15: "the other brain researches … uniquely")
-        foot_ = rs._foot.plan('pop', '', rs._book.apply(cat.get('siteBook'), 'pop', list(rs._foot.POP_SITES)), cat.get('popFolders'))
-        t_['jobs'] = [rs._foot.pop_goal(foot_['sites'][i_], foot_['angles'][i_]) for i_ in range(2)][:len(t_['jobs'])]
+        foot_ = rs._foot.plan('pop', '', rs._prec.fresh_sites(cat.get('footBack'), 'pop', now, rs._book.apply(cat.get('siteBook'), 'pop', list(rs._foot.POP_SITES))), cat.get('popFolders'))
+        t_['jobs'] = [rs._foot.pop_goal(foot_['sites'][i_], foot_['angles'][i_]) + rs._prec.back_line(cat.get('footBack'), 'pop', now) for i_ in range(2)][:len(t_['jobs'])]
     cat['popRead'] = {'do': do, 'who': who, 'at': round(now), 'tid': t_['id']}
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '🌐 Reading perps sites in its own windows first. Watch its monitors.', 'at': now, 'open': 'pop'}])[-200:]
 
@@ -2097,7 +2103,7 @@ async def _pop_tick(http, cat, now):
         if done:
             cat.pop('popRead', None)
             if not (cat.get('popRun') if rd.get('do') == 'start' else cat.get('popCard')):
-                await rs._pop_open(http, cat, rd.get('do'), rd.get('who'), now, notes, why)
+                await rs._pop_open(http, cat, rd.get('do'), rd.get('who'), now, notes, why, tid=rd.get('tid'))
 
 
 def _kalshi_say_no(cat, tk):

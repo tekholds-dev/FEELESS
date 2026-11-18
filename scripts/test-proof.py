@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""🧪 Slice 0 · one TEST proof on Sicario's agent (free local minds only: OSSY + G4 on the owner's own LM Studio, $0, no money).
+It goes through the live service (feecat_service on :5088, which has the LAN route to G4), files into that kind's own folder marked TEST,
+and adds a Test bench row. A TEST PoW is a proposal (nothing bought, never the card seat), a TEST PoB never bids, nothing is posted.
+
+  .venv/bin/python scripts/test-proof.py --kind pob --topic "best nba picks tonight" --wait
+  .venv/bin/python scripts/test-proof.py --kind poe --wait
+  .venv/bin/python scripts/test-proof.py --kind pop --stop        # an open paper PoP files now
+  .venv/bin/python scripts/test-proof.py --state                  # the last TEST of every kind
+
+The internal key is read from backend/data/internal.key and sent as a header; it is never printed."""
+import argparse
+import json
+import pathlib
+import sys
+import time
+import urllib.error
+import urllib.request
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+BASE = 'http://127.0.0.1:5088/api/cats/internal/test-proof'
+
+
+def call(method, body=None):
+    key = (ROOT / 'backend' / 'data' / 'internal.key').read_text().strip()
+    req = urllib.request.Request(BASE, method=method, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={'x-feeless-internal': key, 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return r.status, json.loads(r.read() or b'{}')
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b'{}')
+
+
+def summary(last):
+    if not last:
+        return 'no TEST filed yet'
+    ch = ' · '.join(f"{c['key']} {'✓' if c['ok'] else '✗'}" for c in last.get('checks') or [])
+    ran = ', '.join(f"{r['asked']}→{'/'.join(r.get('answered') or [])} ({r['calls']})" for r in last.get('ran') or [] if r.get('ok')) or 'none'
+    return (f"#{last.get('n')} {last.get('id')} · {ch}\n  minds that ran: {ran}\n  sources: {len((last.get('read') or {}).get('sites') or [])} sites"
+            f" {((last.get('read') or {}).get('sites') or [])[:6]}\n  footprint: {(last.get('foot') or {})}\n  bench: {(last.get('test') or {}).get('bench')}"
+            + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else ''))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--kind', choices=('pow', 'pop', 'pob', 'poc', 'pos', 'poe'))
+    ap.add_argument('--topic', default='')
+    ap.add_argument('--wait', action='store_true', help='wait until the TEST files (up to --mins)')
+    ap.add_argument('--mins', type=float, default=40)
+    ap.add_argument('--stop', action='store_true', help='PoP only: stop the open paper trade so it files now')
+    ap.add_argument('--state', action='store_true')
+    a = ap.parse_args()
+    if a.state or not a.kind:
+        code, j = call('GET')
+        for k, v in (j.get('tests') or {}).items():
+            print(f"{k}: {'RUNNING · ' if v.get('running') else ''}{summary(v.get('last'))}")
+        return 0 if code == 200 else 1
+    code, j = call('GET'); before = (((j.get('tests') or {}).get(a.kind) or {}).get('last') or {}).get('id')
+    code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start'})
+    print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
+    if code != 200 or not a.wait:
+        return 0 if code == 200 else 1
+    t0 = time.time(); gone = None
+    while time.time() - t0 < a.mins * 60:
+        time.sleep(20)
+        code, j = call('GET'); st = (j.get('tests') or {}).get(a.kind) or {}; last = st.get('last') or {}
+        if last.get('id') and last.get('id') != before:
+            print(f'filed after {round(time.time() - t0)} s:\n{summary(last)}'); return 0
+        if not st.get('running'):   # a reload drops the in-memory claim, but a PoW/PoB run carries its own TEST mark and still files TEST
+            gone = gone or time.time()
+            if a.kind not in ('pow', 'pob') or time.time() - gone > 600:
+                print('the TEST claim ended with no TEST folder filed (see the agent chat)'); return 1
+    print(f'still running after {a.mins} min'); return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())

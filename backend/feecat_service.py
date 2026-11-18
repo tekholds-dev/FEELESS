@@ -95,6 +95,7 @@ import game_desk as _gdesk   # 🎮 the Game desk: AI builds, fixes and plans ga
 import poc_watch as _pw   # noqa: F401  (read by fc_desk, fc_pow as rs._pw)
 import idea_board as _ideas   # noqa: F401  (read by fc_desk as rs._ideas)
 import proof_footprint as _foot   # noqa: F401  (read by fc_desk, fc_hive as rs._foot)
+import proof_record as _prec   # noqa: F401  🧾 Slice 0: the true record on every filed proof (minds from the call log, sources, footprint gate, TEST)
 import collective_stash as _stash
 import collective_kits as _kits   # noqa: F401  (read by fc_cats, fc_desk as rs._kits)
 import agent_topup as _topup   # noqa: F401  (read by fc_pow as rs._topup)
@@ -377,6 +378,7 @@ _OR_KNOBS = contextvars.ContextVar('or_knobs', default=None)   # 🎛 MODEL-CFG:
 _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
 _ANSWER: contextvars.ContextVar = contextvars.ContextVar('mind_answer', default=None)   # 🧾 COL-2: the deepest caller says who REALLY answered
 _CALL_CTX: contextvars.ContextVar = contextvars.ContextVar('proof_call', default=None)   # 🧾 the proof a call belongs to: kind, ref, minds, mind
+_TEST_ON: dict = {}   # 🧪 Slice 0: (cat id, kind) → the TEST claim Claude started on Sicario's agent; the next filing of that kind takes it
 
 
 # ↪ moved to fc_core.py: _heard, _mind_call
@@ -817,6 +819,9 @@ class AlreadySent(Exception):
 
 def _kb_once(fn):
     async def run(cat, tk):
+        if tk.get('test'):   # 🧪 Slice 0: a ticket from a TEST proof is paper, tapped or not: nothing is ever sent (§1)
+            tk.update(status='test', why='A TEST proof never bids: nothing was sent.', doneAt=round(time.time()))
+            return tk
         _kb_claim(tk.get('id'), cat)
         return await fn(cat, tk)
     run.__name__ = fn.__name__; run.__wrapped__ = fn
@@ -972,6 +977,12 @@ class WeekRunIn(BaseModel):
 
 
 # ↪ moved to fc_cats.py: week_plans_internal
+
+
+class TestProofIn(BaseModel):   # 🧪 Slice 0: Claude's TEST proof on Sicario's agent (internal key only)
+    kind: str
+    topic: str = ''
+    op: str = 'start'
 
 
 class OutsideReviewIn(BaseModel):
@@ -2074,6 +2085,12 @@ _feed_push = _fc_studio._feed_push
 
 import fc_cats as _fc_cats   # noqa: E402  🧹 moved by scripts/move-section.py
 app.include_router(_fc_cats.router)
+import fc_test as _fc_test   # noqa: E402  🧪 Slice 0: TEST proofs on Sicario's agent + the true record on every filing
+app.include_router(_fc_test.router)
+_record_file = _fc_test._record_file
+_foot_back = _fc_test._foot_back
+_test_live = _fc_test._test_live
+_test_view = _fc_test._test_view
 rate_ok = _fc_cats.rate_ok
 _kit_pins = _fc_cats._kit_pins
 _review_rows = _fc_cats._review_rows

@@ -21,7 +21,9 @@ import GROW from './growFixture.json';
 import ASSETS from './assetsFixture.json';
 import REAL from './realShelfFixture.json';   // real_world.resolve on the live CC0 library, 2026-11-15   // asset_packs.search('water') with each Sketchfab picture looked up, 2026-11-07   // reputation_service._grow_rows, the live board on 2026-11-07
 import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a real unsent proof (Happy Assistant), 2026-11-07
-import ECO from './ecoFixture.json';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
+import ECO from './ecoFixture.json';
+import TRC from './trueRecordFixture.json';   // 🧾 Sicario's real filed folders (record fields only), exported from feecats.json after the Slice 0 TEST runs, 2026-11-18
+import { TrueRecord } from '../components/command/TrueRecord';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
 import { WatchWall } from '../components/command/ProofRooms';
 import { CommandCenter } from '../components/command/CommandCenter';
@@ -76,6 +78,9 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/[?&]trc\b/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: 'var(--m-bg, #07040d)', padding: 16, boxSizing: 'border-box', display: 'grid', gap: 14, maxWidth: 880 }}>   {/* ?trc — the true record strip of every proof kind on Sicario's real folders, then the PoEco window with its TEST tiles */}
+    {['pow', 'pop', 'pob', 'poc', 'pos', 'poe'].map(k => <div key={k} className="prf-head" data-testid={`trc-row-${k}`}>{(TRC[k] || []).length ? <TrueRecord kind={k} folders={TRC[k]} /> : <p className="m-mute">{k}: no folder filed yet</p>}</div>)}
+    <EcoFolder cat={{ id: 'sic', name: "Sicario's", handle: 'sicarios' }} d={{ poeFolders: TRC.poe || [] }} setD={() => {}} work={async () => ({ poeFolders: TRC.poe || [] })} onCommand={() => {}} /></div>;
   if (/sic/.test(window.location.search) && !window.__sicFetch) { window.__sicFetch = true; const real = window.fetch; const W = [{ i: 0, model: 'local/ossy', status: 'working', provider: 'lan', url: 'https://dexscreener.com/solana', bubble: 'reading the holders of $CARLO', steps: [{ action: 'open', thought: 'open DexScreener' }], cost: 0 }, { i: 1, model: 'local/g4', status: 'working', provider: 'lan', url: 'https://rugcheck.xyz', bubble: 'checking the mint and freeze authority', steps: [{ action: 'open', thought: 'open RugCheck' }], cost: 0 }];
     const SIC = { id: 'sic', name: "Sicario's", handle: 'sicarios', brainsCfg: { brains: ['local/ossy', 'local/g4'], endless: true, cardSeat: true }, hive: { on: true }, powFolders: [{ id: 'p1', status: 'closed' }], pobFolders: [] };
     window.fetch = (u, o) => { const url = String(u); if (/\/api\/cats\?/.test(url)) return Promise.resolve(new Response(JSON.stringify({ cats: [SIC] }), { status: 200 })); if (/\/api\/cats\/sic\/work/.test(url)) { const b = JSON.parse(o?.body || '{}'); return Promise.resolve(new Response(JSON.stringify(b.op === 'desk_seats' ? { seats: { seats: 4, held: 2, ai: 1, free: 2 } } : { live: true, providers: ['lan'], cap: 0.05, credit: 9.2, chat: [{ by: 'you', text: 'file a PoW' }, { by: 'cats', text: 'Both minds are reading $CARLO' }], task: { id: 't', text: 'PoW $CARLO', status: 'working', cap: 0.05, cost: 0 }, windows: W, powFolders: SIC.powFolders }), { status: 200 })); } return real(u, o); }; }

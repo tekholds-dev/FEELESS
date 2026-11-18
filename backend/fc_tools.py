@@ -42,10 +42,10 @@ async def _week_file(cat_id, ws, topic):
             cost += usd or 0; paid_own = paid_own or own
             if not plan:
                 print(f'[week] {cat_id} {key}: {why}'); continue
-            rows.append({'id': f'poc{int(rs.time.time())}{i}', 'ws': ws, 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True,
+            rows.append(rs._record_file(c_, 'poc', {'id': f'poc{int(rs.time.time())}{i}', 'ws': ws, 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True,
                          'topic': f'Week plan · {name}' + (f' · {topic}' if topic else ''), 'week': {**plan, 'style': key},
                          'calls': [{'mind': i, 'name': str(brains[i % len(brains)]).split('/')[-1][:24], 'angle': name, 'post': plan['idea'] or f"{len(plan['posts'])} posts", 'why': f"{len(plan['posts'])} posts over the week"}],
-                         'cost': round(usd or 0, 5), **({'media': media_} if media_ else {})})
+                         'cost': round(usd or 0, 5), **({'media': media_} if media_ else {})}))   # 🧾 Slice 0: the true record
             filed.append(name)
         c_['pocFolders'] = rows[-60:]
         say_ = f"🗓 {len(filed)} week plan{'s' if len(filed) != 1 else ''} filed as PoCs ({', '.join(filed)}). Nothing was posted." if filed else '🗓 No week plan came back usable. Try again.'
@@ -57,6 +57,10 @@ async def _week_file(cat_id, ws, topic):
         print(f'[week] {cat_id}: {str(e)[:140]}')
     finally:
         rs._WEEK_BUSY.discard(cat_id)
+
+
+POC_SHOTS = ('https://news.ycombinator.com/', 'https://news.google.com/', 'https://en.wikipedia.org/wiki/Main_Page', 'https://github.com/trending',
+             'https://www.producthunt.com/', 'https://www.bbc.com/news')   # 👣 Slice 0: the free snapshot pages a PoC rotates through (3 a proof, least used first)
 
 
 async def _poc_file(cat_id, topic, ws=None):
@@ -71,7 +75,7 @@ async def _poc_file(cat_id, topic, ws=None):
         notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
         read_, sites_read_ = await rs._site_reads('poc', (cat['id'], cat.get('name')))
         async def one(i, m):
-            return i, await rs._ws_ask(cat, m, rs._feat.POC_SYS.format(name='Mind ' + 'AB'[i]) + rs._foot.note('poc', cat.get('pocFolders'), i) + rs._feat._sources.proof_line('poc') + read_ + rs._recall(cat, 'Content', topic) + rs._know.for_ask(topic) + rs._foot.note('poc', cat.get('pocFolders'), i), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
+            return i, await rs._ws_ask(cat, m, rs._feat.POC_SYS.format(name='Mind ' + 'AB'[i]) + rs._foot.note('poc', cat.get('pocFolders'), i) + rs._feat._sources.proof_line('poc') + read_ + rs._recall(cat, 'Content', topic) + rs._know.for_ask(topic) + rs._foot.note('poc', cat.get('pocFolders'), i) + rs._prec.back_line(cat.get('footBack'), 'poc', rs.time.time()), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
         for i, (raw, usd, own) in await rs.asyncio.gather(*(one(i, m) for i, m in enumerate(brains))):
             cost += usd; paid_own = own
             try:
@@ -81,7 +85,8 @@ async def _poc_file(cat_id, topic, ws=None):
             calls.append({'mind': i, 'name': str(brains[i]).split('/')[-1][:24], **{k: str(d_.get(k) or '')[:300] for k in ('angle', 'post', 'why', 'trend')}})
         shots_ = []
         words_ = rs._marks.words_of([x for v in tr.values() for x in (v or [])[:3]] + [topic or ''])
-        for n_, r_ in enumerate(await rs._fb.shots(['https://news.ycombinator.com/', 'https://news.google.com/', 'https://en.wikipedia.org/wiki/Main_Page'], words_, rs.time.time())):   # 🖍 what it found, snapshotted free, with what it read boxed
+        shot_at_ = rs._prec.fresh_sites(cat.get('footBack'), 'poc', rs.time.time(), rs._foot.order_sites('poc', list(POC_SHOTS), cat.get('pocFolders')), keep=3)[:3]   # 👣 Slice 0: the pages used least lately first, a sent-back repeat's pages left out
+        for n_, r_ in enumerate(await rs._fb.shots(shot_at_, words_, rs.time.time())):   # 🖍 what it found, snapshotted free, with what it read boxed
             try:
                 d_ = rs.POWSHOTS_DIR / rs.re.sub(r'[^a-z0-9]', '', pid_); d_.mkdir(parents=True, exist_ok=True); name_ = f"{rs.re.sub(r'[^a-z0-9]', '', r_['site'])[:30]}_{n_}.jpg"; (d_ / name_).write_bytes(r_['jpg'])
                 shots_.append({'site': r_['site'], 'url': r_['url'], 'title': r_['title'], 'file': name_, 'at': round(rs.time.time()), 'found': list(r_['found'])[:12], 'missing': r_['missing'][:12], 'sha': r_['sha']})
@@ -90,7 +95,13 @@ async def _poc_file(cat_id, topic, ws=None):
         store = rs._load(); c_ = store['cats'].get(cat_id)
         if c_:
             rows = list(c_.get('pocFolders') or [])
-            rows.append({'id': pid_, 'kits': rs._KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
+            f_ = {'id': pid_, 'kits': rs._KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)}
+            if rs._foot_back(c_, 'poc', f_):   # 👣 Slice 0: mostly what a past PoC read and said → back once, from other pages, before it files
+                if cost and not paid_own and c_.get('brainsCfg'):
+                    rs._lc.charge(c_['brainsCfg'], cost)
+                rs._save(store)
+                return await rs._poc_file(cat_id, topic, ws)
+            rows.append(rs._record_file(c_, 'poc', f_))
             c_['pocFolders'] = rows[-60:]
             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows)} is filed: {len(calls)} ideas from what is trending. Nothing was posted.", 'at': rs.time.time(), 'open': 'features'}])[-200:]
             if cost and not paid_own and c_.get('brainsCfg'):

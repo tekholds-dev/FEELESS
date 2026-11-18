@@ -853,6 +853,7 @@ def _ws_pass(store):
         if o['doc']:   # 💻 the page it built is filed as a PoStatic
             filed_ = rs._feat.file_static(c_, o['doc'], (o['doc']['versions'][-1] or {}).get('by') or 'Mind', rs.time.time())
             filed_['cost'] = round(float(o['cost'] or 0), 6)
+            rs._record_file(c_, 'pos', filed_)   # 🧾 Slice 0: the minds that really built it (PoStatic folders recorded none), its sources, its footprint (and TEST)
 
 
 async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
@@ -1098,13 +1099,22 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 async with rs.httpx.AsyncClient(timeout=12) as http_r:
                     refs_ = await rs._tools.build_refs(http_r, text, cfg_['depth'] == 'deep') if cfg_['research'] else []
                 doc['stage'] = 'suggest'; rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': 'suggest'}}); open_ = [r for r in refs_ if r.get('open')]
-                menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
-                plan_ = rs._OR_PLUGINS.set(tuple(rs._feat.or_plugins(cfg_, json_reply=True)))
-                try:
-                    raw_, usd_, own_ = await rs._ws_ask(cat, brains[order[0]], rs._feat.plan_sys(text) + rs._feat._sources.proof_line('pos') + read_ + rs._recall(cat, 'Code', text) + rs._foot.note('pos', cat.get('psFolders')), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
-                finally:
-                    rs._OR_PLUGINS.reset(plan_)
-                cost += usd_; paid_own = own_; doc['lastCost'] = round(cost, 6); doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': rs._feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(rs.time.time()), 'approved': not cfg_['suggest']}
+                back_ = None
+                for try_ in range(2):   # 👣 Slice 0: a plan that reads mostly the references a past PoStatic read is sent back ONCE, with those left out
+                    menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
+                    plan_ = rs._OR_PLUGINS.set(tuple(rs._feat.or_plugins(cfg_, json_reply=True)))
+                    try:
+                        raw_, usd_, own_ = await rs._ws_ask(cat, brains[order[0]], rs._feat.plan_sys(text) + rs._feat._sources.proof_line('pos') + read_ + rs._recall(cat, 'Code', text) + rs._foot.note('pos', cat.get('psFolders')) + (rs._prec.back_line({'pos': back_}, 'pos', rs.time.time()) if try_ else ''), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                    finally:
+                        rs._OR_PLUGINS.reset(plan_)
+                    cost += usd_; paid_own = own_; doc['lastCost'] = round(cost, 6); doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': rs._feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(rs.time.time()), 'approved': not cfg_['suggest']}
+                    draft_ = {'id': 'draft', 'ws': ws_id, 'topic': str(doc.get('name') or 'Page')[:60], 'refs': [{k: r.get(k) for k in ('title', 'url', 'source')} for r in doc['plan']['plan'].get('refs') or []]}
+                    store_b_ = rs._load(); c_b_ = store_b_['cats'].get(cat_id)
+                    if try_ or not c_b_ or not rs._foot_back(c_b_, 'pos', draft_):
+                        break
+                    back_ = c_b_['footBack']['pos']; rs._save(store_b_); bad_ = set(back_.get('avoid') or [])
+                    kept_ = [r for r in open_ if rs._prec._host(r.get('url')) not in bad_]
+                    open_ = kept_ if len(kept_) >= 2 else open_
                 if cfg_['suggest']:
                     doc['stage'] = 'approve'; rs._feat.add_msg(doc, name(order[0]), 'I read the current best builds and wrote a plan. Approve it or tell me what to change.', rs.time.time())
                     doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); rs._ws_save(cat_id, doc)

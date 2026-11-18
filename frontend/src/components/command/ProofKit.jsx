@@ -1,4 +1,5 @@
 import { KitPick } from './KitPick';
+import { TrueRecord } from './TrueRecord';
 import { assertLegal } from '../../lib/legal';
 import { useSolPrice } from '../../lib/solPrice';
 import { ChatSettings } from '../chat/ChatKit';
@@ -204,8 +205,9 @@ export function CostTicket({ usd, rows = null, title = 'Receipt' }) {
   return <span className={`cost-t${open ? ' is-open' : ''}`} ref={box}><button type="button" className="cost-t-b m-num" aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(x => !x); }} data-tip="What this cost. Click for the receipt" data-testid="cost-ticket">{shortCost(usd)}</button>{open ? <span className="cost-t-pop" role="dialog" aria-label={title} onClick={e => e.stopPropagation()}><b>{title.toUpperCase()}</b>{(rows || []).map(([k, v]) => <span key={k} className="cost-t-r"><small>{k}</small><em className="m-num">{v}</em></span>)}<span className="cost-t-r is-total"><small>TOTAL</small><em className="m-num">${(Number(usd) || 0).toFixed(5).replace(/0+$/, '').replace(/\.$/, '.00')}</em></span></span> : null}</span>;
 }
 // 📁 One proof folder's face, in every proof: the folder, and its own print hovering on its corner.
-export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null, cost = null }) {
-  return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
+export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null, cost = null, test = null }) {
+  return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={test ? `TEST on ${test.agent || "Sicario's"}, $0 · ${tip || ''}` : tip} data-testid={testid}>
+    {test ? <em className="trec-tag dsk-xt-test" data-testid={`${testid || 'tile'}-test`}>TEST</em> : null}
     <i className={kind === 'dir' ? 'dsk-ico-art' : 'dsk-file'} aria-hidden="true"><FolderArt ic={ic} file={kind !== 'dir'} lit={tone === 'live'} /></i>
     {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} kind={print[2]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}{cost != null ? <small className="dsk-xt-cost m-num">{shortCost(cost)}</small> : null}</button>;
 }
@@ -230,10 +232,11 @@ function SiteFile({ kind, cat, work, onBrowse }) {
 }
 // 🧰 READS FIRST is about THIS proof only (owner 2026-11-14: "it must make sense"): a PoB window never shows PoC's kits. A proof with no kits shows no row.
 export const KIT_KIND = { pow: 'pow', pop: 'pop', pob: 'pob', bids: 'pob', poc: 'poc', content: 'poc', pos: 'pos', postatic: 'pos', build: 'pos' };
+const RECORD_KIND = { bids: 'pob', postatic: 'pos', build: 'pos', content: 'poc' };   // 🧾 Slice 0: the window's kind → the record's kind
 export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse }) {
   const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address || cat?.agentWallet?.address);
   const costOf = rows => (rows || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0); const spent = costOf(folders); const known = (folders || []).some(f => f.cost != null || f.costUsd != null); const allKinds = [['PoW', d?.powFolders], ['PoP', d?.popFolders], ['PoB', d?.pobFolders], ['PoC', d?.pocFolders], ['PoStatic', d?.psFolders], ['Jobs', d?.jobs]]; const everything = allKinds.reduce((sum, [, r]) => sum + costOf(r), 0);
   return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={44} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small>{known ? <small className="phd-cost m-num" data-testid={`phd-cost-${kind}`}>{shortCost(spent)} on these. <CostTicket usd={everything} title="All its model calls" rows={allKinds.map(([k, r]) => [k, shortCost(costOf(r))])} /> on every proof and job</small> : null}</span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
     <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
-    {work && cat?.id && KIT_KIND[kind] ? <KitPick cat={cat} work={work} kind={KIT_KIND[kind]} /> : null}{open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}</section>;
+    {work && cat?.id && KIT_KIND[kind] ? <KitPick cat={cat} work={work} kind={KIT_KIND[kind]} /> : null}{open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}<TrueRecord kind={RECORD_KIND[kind] || kind} folders={folders} /></section>;
 }

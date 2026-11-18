@@ -1,0 +1,767 @@
+{
+ "pow": [
+  {
+   "id": "pow1795019777",
+   "n": 3,
+   "at": 1795019777,
+   "soldAt": 1795020352,
+   "test": {
+    "by": "Claude",
+    "at": 1795019777,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": null,
+    "bench": "e6bdae973ae4"
+   },
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "local/ossy + local/g4 ran, the pair set for it"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "4 sites, 0 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "100% new next to #1"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": true,
+     "why": "PoW reads its own coin tools"
+    }
+   ],
+   "ran": [
+    {
+     "asked": "local/ossy",
+     "answered": [
+      "qwen/qwen3.5-9b"
+     ],
+     "routes": [
+      "local"
+     ],
+     "calls": 5,
+     "ok": 4,
+     "usd": 0.0,
+     "secs": 167.0,
+     "standIn": false
+    },
+    {
+     "asked": "local/g4",
+     "answered": [
+      "qwen/qwen3.5-4b"
+     ],
+     "routes": [
+      "lan"
+     ],
+     "calls": 7,
+     "ok": 6,
+     "usd": 0.0,
+     "secs": 304.9,
+     "standIn": false
+    }
+   ],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "missing": [],
+    "extra": [],
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   "read": {
+    "sites": [
+     "bubblemaps.io",
+     "dev.jup.ag",
+     "docs.dexscreener.com",
+     "solscan.io"
+    ],
+    "pages": []
+   },
+   "foot": {
+    "pct": 100,
+    "nearest": 1,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "status": "closed"
+  }
+ ],
+ "pop": [
+  {
+   "id": "pop1795019664",
+   "n": 1,
+   "at": 1795019665,
+   "test": {
+    "by": "Claude",
+    "at": 1795019495,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "2c82860a9f",
+    "bench": "613958825dc5"
+   },
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "local/ossy + local/g4 ran, the pair set for it"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "7 sites, 0 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "100% new"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": true,
+     "why": "echarts, lwcharts, new-amm-strategy-backtester"
+    }
+   ],
+   "ran": [
+    {
+     "asked": "local/ossy",
+     "answered": [
+      "qwen/qwen3.5-9b"
+     ],
+     "routes": [
+      "local"
+     ],
+     "calls": 4,
+     "ok": 4,
+     "usd": 0.0,
+     "secs": 100.9,
+     "standIn": false
+    },
+    {
+     "asked": "local/g4",
+     "answered": [
+      "qwen/qwen3.5-4b"
+     ],
+     "routes": [
+      "lan"
+     ],
+     "calls": 2,
+     "ok": 2,
+     "usd": 0.0,
+     "secs": 88.2,
+     "standIn": false
+    }
+   ],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "missing": [],
+    "extra": [],
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   "read": {
+    "sites": [
+     "bitstamp.net",
+     "coinglass.com",
+     "coinpaprika.com",
+     "deribit.com",
+     "dydx.trade",
+     "hyperliquid.gitbook.io",
+     "tradingview.com"
+    ],
+    "pages": []
+   },
+   "foot": {
+    "pct": 100,
+    "nearest": null,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "status": "closed"
+  }
+ ],
+ "pob": [
+  {
+   "id": "pob1795019335",
+   "n": 2,
+   "at": 1795019335,
+   "closedAt": 1795019335,
+   "test": {
+    "by": "Claude",
+    "at": 1795019094,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "d4bceac546",
+    "bench": "3eb470dc196c"
+   },
+   "ran": [
+    {
+     "asked": "local/ossy",
+     "answered": [
+      "qwen/qwen3.5-9b"
+     ],
+     "routes": [
+      "local"
+     ],
+     "calls": 9,
+     "ok": 9,
+     "usd": 0.0,
+     "secs": 121.5,
+     "standIn": false
+    },
+    {
+     "asked": "local/g4",
+     "answered": [
+      "qwen/qwen3.5-4b"
+     ],
+     "routes": [
+      "lan"
+     ],
+     "calls": 8,
+     "ok": 8,
+     "usd": 0.0,
+     "secs": 149.9,
+     "standIn": false
+    }
+   ],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "missing": [],
+    "extra": [],
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   "read": {
+    "sites": [
+     "espn.com",
+     "foxsports.com",
+     "kalshi.com",
+     "nba.com",
+     "nytimes.com",
+     "polymarket.com",
+     "theathletic.com",
+     "vegasinsider.com"
+    ],
+    "pages": [
+     "https://polymarket.com/",
+     "https://www.nytimes.com/athletic/",
+     "https://www.espn.com/"
+    ]
+   },
+   "foot": {
+    "pct": 37,
+    "nearest": 1,
+    "shared": [
+     "espn.com",
+     "nba.com"
+    ],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "topic": "best nba picks tonight",
+   "status": "closed",
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "local/ossy + local/g4 ran, the pair set for it"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "8 sites, 3 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "37% new next to #1"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": false,
+     "why": "no kit was recorded"
+    }
+   ]
+  }
+ ],
+ "poc": [
+  {
+   "id": "poc1795018969",
+   "n": 5,
+   "at": 1795019068,
+   "test": {
+    "by": "Claude",
+    "at": 1795018963,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "a14eb22e1e",
+    "bench": "72f03c70b2e7"
+   },
+   "ran": [
+    {
+     "asked": "local/ossy",
+     "answered": [
+      "qwen/qwen3.5-9b"
+     ],
+     "routes": [
+      "local"
+     ],
+     "calls": 1,
+     "ok": 1,
+     "usd": 0.0,
+     "secs": 32.1,
+     "standIn": false
+    },
+    {
+     "asked": "local/g4",
+     "answered": [
+      "qwen/qwen3.5-4b"
+     ],
+     "routes": [
+      "lan"
+     ],
+     "calls": 1,
+     "ok": 1,
+     "usd": 0.0,
+     "secs": 88.1,
+     "standIn": false
+    }
+   ],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "missing": [],
+    "extra": [],
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   "read": {
+    "sites": [
+     "bbc.com",
+     "buffer.com",
+     "commons.wikimedia.org",
+     "en.wikipedia.org",
+     "news.ycombinator.com",
+     "trends.google.com"
+    ],
+    "pages": [
+     "https://www.bbc.com/news",
+     "https://news.ycombinator.com/",
+     "https://en.wikipedia.org/wiki/Main_Page"
+    ]
+   },
+   "foot": {
+    "pct": 90,
+    "nearest": 2,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "topic": "solana memecoin launch week",
+   "status": "closed",
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "local/ossy + local/g4 ran, the pair set for it"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "6 sites, 3 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "90% new next to #2"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": true,
+     "why": "d3, gsap, lucide"
+    }
+   ]
+  }
+ ],
+ "pos": [
+  {
+   "id": "pse8c49b5434",
+   "n": 5,
+   "at": 1795021003,
+   "closedAt": 1795021003,
+   "test": {
+    "by": "Claude",
+    "at": 1795020298,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "a7d63b6807",
+    "bench": "8b5aa0fa527a"
+   },
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "local/ossy + local/g4 ran, the pair set for it"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "4 sites, 0 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "100% new next to #1"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": false,
+     "why": "no kit was recorded"
+    }
+   ],
+   "ran": [
+    {
+     "asked": "local/ossy",
+     "answered": [
+      "qwen/qwen3.5-9b"
+     ],
+     "routes": [
+      "local"
+     ],
+     "calls": 6,
+     "ok": 5,
+     "usd": 0.0,
+     "secs": 605.0,
+     "standIn": false
+    },
+    {
+     "asked": "local/g4",
+     "answered": [
+      "qwen/qwen3.5-4b"
+     ],
+     "routes": [
+      "lan"
+     ],
+     "calls": 3,
+     "ok": 1,
+     "usd": 0.0,
+     "secs": 97.1,
+     "standIn": false
+    }
+   ],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "missing": [],
+    "extra": [],
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   "read": {
+    "sites": [
+     "codepen.io",
+     "developer.mozilla.org",
+     "motion.dev",
+     "ui.shadcn.com"
+    ],
+    "pages": []
+   },
+   "foot": {
+    "pct": 100,
+    "nearest": 1,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "topic": "TEST 11-18 1644",
+   "status": "closed"
+  }
+ ],
+ "poe": [
+  {
+   "id": "pec9b39f6c8e",
+   "n": 1,
+   "at": 1793917201,
+   "closedAt": 1793917201,
+   "topic": "Example books",
+   "status": "closed",
+   "graded": "right",
+   "kind": "PoEco",
+   "hash": "86eb4563d264adc17661489540f600c98430b69e47a565392d06090fbad16f58",
+   "net": 4430.0,
+   "income": 13650.0,
+   "costs": 9220.0
+  },
+  {
+   "id": "poe3f5e36800a",
+   "n": 2,
+   "at": 1795018949,
+   "test": {
+    "by": "Claude",
+    "at": 1795018949,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "8c9d75eba7",
+    "bench": "f47ac37ece93"
+   },
+   "ran": [],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [],
+    "missing": [],
+    "extra": [],
+    "why": "no model call: PoEco is pure math on live pools, and reality grades it a day later"
+   },
+   "read": {
+    "sites": [
+     "dexscreener.com"
+    ],
+    "pages": [
+     "https://dexscreener.com/solana/6Ecx5Lm5dinVma1xWMEumj6ABZL3g1Xx4t5rxQxELzdn",
+     "https://dexscreener.com/solana/5E3dXLXGwmTDCokA51WYYaKttjFZBwqCoyUHBUi5gt2m"
+    ]
+   },
+   "foot": {
+    "pct": 100,
+    "nearest": 1,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 0
+   },
+   "topic": "In 24h, Leonida/SOL posts more 24h volume than GATO/SOL.",
+   "status": "open",
+   "kind": "market",
+   "q": "In 24h, Leonida/SOL posts more 24h volume than GATO/SOL.",
+   "rule": "Turnover momentum: the pool working its liquidity harder (24h volume \u00f7 liquidity) keeps the 24h volume lead.",
+   "hash": "2d7e6fd9055561fa94cb8d45e324ec19",
+   "due": 1795105349,
+   "baseline": {
+    "pick": {
+     "pair": "Leonida/SOL",
+     "addr": "6Ecx5Lm5dinVma1xWMEumj6ABZL3g1Xx4t5rxQxELzdn",
+     "priceUsd": 0.001862,
+     "vol24h": 1513805.42,
+     "liqUsd": 101841.93,
+     "chg24h": 5228.0
+    },
+    "other": {
+     "pair": "GATO/SOL",
+     "addr": "5E3dXLXGwmTDCokA51WYYaKttjFZBwqCoyUHBUi5gt2m",
+     "priceUsd": 0.003538,
+     "vol24h": 1356823.42,
+     "liqUsd": 200459.22,
+     "chg24h": -36.57
+    }
+   },
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "no model call: PoEco is pure math on live pools, and reality grades it a day later"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "1 sites, 2 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "100% new next to #1"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": true,
+     "why": "PoEco uses no kit: pure math"
+    }
+   ]
+  },
+  {
+   "id": "poe6c7f253bf3",
+   "n": 3,
+   "at": 1795018956,
+   "test": {
+    "by": "Claude",
+    "at": 1795018956,
+    "agent": "Sicario's",
+    "free": true,
+    "pair": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "run": "d2a6a24125",
+    "bench": "025a4f8725f4"
+   },
+   "ran": [],
+   "mindsCheck": {
+    "ok": true,
+    "set": [
+     "local/ossy",
+     "local/g4"
+    ],
+    "ran": [],
+    "missing": [],
+    "extra": [],
+    "why": "no model call: PoEco is pure math on live pools, and reality grades it a day later"
+   },
+   "read": {
+    "sites": [
+     "dexscreener.com"
+    ],
+    "pages": [
+     "https://dexscreener.com/solana/2YP3Bw83YQHdnd9H2TqX77ZW6zVFqUjta9CHbBsvRJAJ",
+     "https://dexscreener.com/solana/GQHhvHAKQmRmZm8bHK9kscfn93Xa7CBMoWh4duPZs2a"
+    ]
+   },
+   "foot": {
+    "pct": 36,
+    "nearest": 2,
+    "shared": [],
+    "repeat": false,
+    "sentBack": 1,
+    "backOf": 2
+   },
+   "topic": "In 24h, GTAVI/SOL posts more 24h volume than GTA/SOL.",
+   "status": "open",
+   "kind": "market",
+   "q": "In 24h, GTAVI/SOL posts more 24h volume than GTA/SOL.",
+   "rule": "Turnover momentum: the pool working its liquidity harder (24h volume \u00f7 liquidity) keeps the 24h volume lead.",
+   "hash": "f0fed35f4410364eea77399a4ea07ace",
+   "due": 1795105356,
+   "baseline": {
+    "pick": {
+     "pair": "GTAVI/SOL",
+     "addr": "2YP3Bw83YQHdnd9H2TqX77ZW6zVFqUjta9CHbBsvRJAJ",
+     "priceUsd": 0.001466,
+     "vol24h": 2134403.08,
+     "liqUsd": 89412.94,
+     "chg24h": 3453.0
+    },
+    "other": {
+     "pair": "GTA/SOL",
+     "addr": "GQHhvHAKQmRmZm8bHK9kscfn93Xa7CBMoWh4duPZs2a",
+     "priceUsd": 0.001509,
+     "vol24h": 1897267.58,
+     "liqUsd": 90809.46,
+     "chg24h": 3930.0
+    }
+   },
+   "proofChecks": [
+    {
+     "key": "minds",
+     "label": "The minds that really ran, from the call log",
+     "ok": true,
+     "why": "no model call: PoEco is pure math on live pools, and reality grades it a day later"
+    },
+    {
+     "key": "sources",
+     "label": "Every source it read is listed",
+     "ok": true,
+     "why": "1 sites, 2 pages"
+    },
+    {
+     "key": "footprint",
+     "label": "A new footprint (a repeat is sent back first)",
+     "ok": true,
+     "why": "36% new next to #2, after one send-back"
+    },
+    {
+     "key": "kits",
+     "label": "Its kind's own kits, and which it used",
+     "ok": true,
+     "why": "PoEco uses no kit: pure math"
+    }
+   ]
+  }
+ ]
+}

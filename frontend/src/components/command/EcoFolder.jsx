@@ -44,7 +44,7 @@ function Rail({ rows, busy, onCall, onOpen, onCommand }) {
     <p className="eco-say">It reads the deepest live pools, states its rule, calls it blind and seals the numbers. Reality grades it in 24h. No model, no mark, no money.</p>
     <button type="button" className="m-btn m-go" disabled={busy} onClick={onCall} data-tip="One sealed call on live DexScreener pools" data-testid="eco-call-go">{busy ? 'Reading the pools…' : 'File a market call'}</button></section>
     <section className="eco-filed" aria-label="Filed PoEco proofs"><h4 className="m-label">FILED <b className="m-num">{rows.length}</b></h4>
-      {rows.length ? <div className="eco-tiles" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'live'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={f.kind === 'market' ? (f.graded ? f.graded.toUpperCase() : left(f.due)) : usd(f.net)} tip={f.q || f.topic} onOpen={() => onOpen(f)} testid={`eco-${f.id}`} />)}</div> : <p className="eco-say">No call filed yet. The first one shows here.</p>}</section>
+      {rows.length ? <div className="eco-tiles" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'live'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={f.kind === 'market' ? (f.graded ? f.graded.toUpperCase() : left(f.due)) : usd(f.net)} tip={f.q || f.topic} onOpen={() => onOpen(f)} testid={`eco-${f.id}`} test={f.test} />)}</div> : <p className="eco-say">No call filed yet. The first one shows here.</p>}</section>
     <ProofKit kind="poe" folders={rows} onCommand={onCommand} /></>;
 }
 

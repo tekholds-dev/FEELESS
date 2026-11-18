@@ -1052,7 +1052,7 @@ function PowExplorer({ cat, d, setD, focus = null }) {
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} print={[x.id, x.pnlPct != null ? Math.max(0, Math.min(100, 50 + Number(x.pnlPct))) : null, 'pow']} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
       label={`${x.kept ? '📌 ' : ''}${String(x.name).split(' · ')[0]}`} sub={x.live ? `● ${x.phase}` : x.pnlPct != null ? `${x.pnlPct >= 0 ? '+' : ''}${x.pnlPct}%` : (x.name.split(' · ').slice(1).join(' ') || x.status)}
-      onOpen={() => setPath([x.id])} tip={`${x.name} — ${x.why || x.phase}`} testid={`dsk-x-${x.id}`} />)}
+      onOpen={() => setPath([x.id])} tip={`${x.name} — ${x.why || x.phase}`} testid={`dsk-x-${x.id}`} test={x.test} />)}
       {rows?.length ? <Tile i={all.length} tone="none" ic="🗃" label="Older proofs" sub={`${rows.length}`} onOpen={() => setPath(['old'])} tip="The single-coin proofs filed before PoW folders" testid="dsk-x-old" /> : null}</div>
     {!all.length ? <p className="dsk-note">No PoW folders yet — type “file a PoW” in its chat.</p> : null}    <PowShare cat={cat} />
     <PoiPanel poi={d?.poi} catId={cat.id} onRestore={poi => setD?.(x => ({ ...x, poi }))} />
@@ -1207,7 +1207,7 @@ function PopExplorer({ cat, d, setD, send, busy, children, focus = null }) {
   const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] === 'src' ? [['Sources', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
   let body;
   if (!path[0] || !f) body = children(<><SiteDoor kind="pop" cat={cat} d={d} setD={setD} work={work} />{d?.popPoi ? <section ref={poiBox} className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
-    return <Tile key={x.id} print={[x.id, x.roePct != null && !x.noTrade ? Math.max(0, Math.min(100, 50 + Number(x.roePct))) : null]} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} />; })}</div>
+    return <Tile key={x.id} print={[x.id, x.roePct != null && !x.noTrade ? Math.max(0, Math.min(100, 50 + Number(x.roePct))) : null]} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} test={x.test} />; })}</div>
     : <p className="dsk-note">No proofs yet. Type “file a perp” or “propose a perp” in its chat, or tap a button.</p>}</>);
   else if (path[1] === 'report') body = <PopReport f={f} />;
   else if (path[1] === 'src') body = <><ProofSubmit cat={cat} work={work} f={f} kind="PoP" /><PopSources f={f} /></>;
@@ -1327,13 +1327,13 @@ function PobFile({ g, rid, leaf, catId, onMark, setPath }) {
     </header>
     {x ? <div key={`${x.id}/${leaf}`} className="pfl-body">{x.topic ? <PobReading x={x} leaf={leaf} catId={catId} onMark={onMark} onLeaf={l => setPath(['g', g.key, x.id, l])} /> : <PobFolder f={x} catId={catId} onMark={onMark} />}</div>
       : <div className="dsk-xgrid" data-testid="pob-readings">{g.runs.map((r, i) => { const mo = filingMoney(r);
-        return <Tile key={r.id} i={i} tone={moneyTone(mo.tone)} ic={mo.tone === 'good' ? '👍' : mo.tone === 'bad' ? '👎' : '📁'} label={`Reading ${g.runs.length - i}`} sub={`#${r.n || '…'} · ${runLabel(r)}`} onOpen={() => setPath(['g', g.key, r.id])} tip={`${runLabel(r)} · ${clock(r.at)}`} testid={`pob-readbtn-${r.id}`} />; })}</div>}
+        return <Tile key={r.id} i={i} tone={moneyTone(mo.tone)} ic={mo.tone === 'good' ? '👍' : mo.tone === 'bad' ? '👎' : '📁'} label={`Reading ${g.runs.length - i}`} sub={`#${r.n || '…'} · ${runLabel(r)}`} onOpen={() => setPath(['g', g.key, r.id])} tip={`${runLabel(r)} · ${clock(r.at)}`} testid={`pob-readbtn-${r.id}`} test={r.test} />; })}</div>}
   </article>;
 }
 // 🗃 a filing on the Bids home: a plain folder, like every other proof folder (owner 2026-11-16: logos on folders were not clean; they live on the game's own page)
 function PobGameTile({ g, i, onOpen }) {
   const x = g.head; const many = g.runs.length > 1; const mo = filingMoney(x);
-  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={x.status !== 'closed' ? 'live' : moneyTone(mo.tone)} ic="🎲" label={fileName(x)} sub={many ? `${g.runs.length} readings` : mo.text} onOpen={onOpen} tip={`${fileName(x)} · PoB #${x.n || '…'} · ${clock(x.at)} · ${mo.text}`} testid={`pob-${x.id}`} />;
+  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={x.status !== 'closed' ? 'live' : moneyTone(mo.tone)} ic="🎲" label={fileName(x)} sub={many ? `${g.runs.length} readings` : mo.text} onOpen={onOpen} tip={`${fileName(x)} · PoB #${x.n || '…'} · ${clock(x.at)} · ${mo.text}`} testid={`pob-${x.id}`} test={x.test || (many ? (g.runs.find(r => r.test) || {}).test : null)} />;
 }
 export function PobShelf({ d, open, setOpen, catId, onMark }) {   // eslint-disable-line react/prop-types
   const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows); const [sub, setSub] = useState([]);

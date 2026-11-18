@@ -210,8 +210,13 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     rs._WORK[cat_id]['task']['personal'] = rs._feat.personal_line(cat) + ('' if pow_ else rs._job_brain(cat, text))   # 🧠 what its owner told it, and what it knows by itself. A PoW's job stays as it was
     rs._WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     rs._OR_KNOBS.set(b.get('knobs') or None)   # 🎛 rides into the task (create_task copies this context)
-    rs._WORK[cat_id]['runner'] = rs.asyncio.create_task(rs._work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
-                                                            rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR)))
+    ctx_tok_ = rs._CALL_CTX.set({'kind': k_minds_, 'ref': f"read:{rs._WORK[cat_id]['task']['id']}", 'minds': models}) if k_minds_ else None   # 🧾 Slice 0: a proof's windows log their calls (read:<task>), so its record names who really read
+    try:
+        rs._WORK[cat_id]['runner'] = rs.asyncio.create_task(rs._work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
+                                                                rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR)))
+    finally:
+        if ctx_tok_ is not None:
+            rs._CALL_CTX.reset(ctx_tok_)
 
 
 async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, own_key=None):
@@ -265,7 +270,19 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 sent = len(rs.json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) / 3 + 256
                 return max(0, min(4096, int((spend_left(model) - sent * row['inUsd'] / 1e6) / row['outUsd'] * 1e6)))
 
-            async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
+            async def ask(model, messages):   # 🧾 Slice 0: inside a proof's read, every window call goes in the call log (who REALLY answered, $, time)
+                ctx_ = rs._CALL_CTX.get()
+                if not ctx_:
+                    return await ask_raw(model, messages)
+                ans_ = {}; tok_ = rs._ANSWER.set(ans_); t0_ = rs.time.perf_counter(); out_ = ('', 0.0)
+                try:
+                    out_ = await ask_raw(model, messages)
+                    return out_
+                finally:
+                    rs._ANSWER.reset(tok_)
+                    rs._mind_call(cat_now, model, ctx_, ans_, out_[0], out_[1], 'window', rs.time.perf_counter() - t0_)
+
+            async def ask_raw(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
                 rs._OR_LAST.pop('err', None); rs._OR_LAST.pop('backup', None)
                 if own_key:   # an explicitly supplied owner key takes priority
                     try:

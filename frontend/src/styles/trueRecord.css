@@ -1,0 +1,31 @@
+/* 🧾 The true record strip in every proof window's head (Slice 0). m-* tokens; one keyframe set (trec*). */
+.trec { --trec: var(--m-accent); position: relative; display: grid; gap: 8px; margin-top: 10px; padding: 10px 12px 10px 16px; border-radius: 12px; border: 1px solid var(--m-line); overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--trec) 10%, var(--m-surface)), var(--m-surface)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 8%, transparent); animation: trecIn .32s var(--m-ease, ease) both; }
+.trec.is-bad { --trec: var(--m-warn); }
+.trec::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--trec); box-shadow: 0 0 10px var(--trec); }
+.trec::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 40%, color-mix(in srgb, var(--trec) 12%, transparent) 50%, transparent 60%); transform: translateX(-100%); animation: trecSweep 6s linear infinite; }
+.trec-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.trec-v { display: grid; line-height: 1; } .trec-v b { font: 700 22px var(--f-mono); color: var(--trec); text-shadow: 0 0 12px color-mix(in srgb, var(--trec) 55%, transparent); }
+.trec-v small, .trec-t em:not(.trec-tag), .trec-m small, .trec-facts dt { font: 800 9px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); font-style: normal; }
+.trec-t { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.trec-tag { padding: 2px 8px; border-radius: 6px; font: 800 9.5px var(--f-mono); letter-spacing: .1em; font-style: normal; color: var(--m-accent-ink); background: var(--m-warn); box-shadow: 0 0 10px color-mix(in srgb, var(--m-warn) 60%, transparent); }
+.trec-lens button { min-height: 32px; }
+.trec-meters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.trec-m { display: grid; gap: 4px; min-width: 0; animation: trecIn .3s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 50ms); --mc: var(--m-accent); } .trec-m.is-bad { --mc: var(--m-danger); }
+.trec-m i { display: block; height: 6px; border-radius: 6px; background: color-mix(in srgb, var(--m-text) 10%, transparent); overflow: hidden; }
+.trec-m i b { display: block; height: 100%; border-radius: 6px; background: var(--mc); box-shadow: 0 0 8px var(--mc); transform-origin: left; animation: trecFill .6s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 80ms + 120ms); }
+.trec-m.is-bad i b { transform: scaleX(.18); animation: none; }
+.trec-m span { font: 700 10px var(--f-mono); color: var(--mc); }
+.trec-facts { display: grid; gap: 4px; margin: 0; }
+.trec-facts div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.trec-facts dd { margin: 0; min-width: 0; font: 500 12px var(--f-ui); color: var(--m-text); overflow-wrap: anywhere; } .trec-facts dd b { font-family: var(--f-mono); color: var(--m-text); }
+.trec-facts dd.is-ok { color: var(--m-text); } .trec-facts dd.is-bad { color: var(--m-danger); }
+.dsk-xt-test { position: absolute; top: 2px; left: 2px; z-index: 2; pointer-events: none; padding: 1px 5px; font-size: 8px; }
+@keyframes trecIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes trecFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes trecSweep { to { transform: translateX(100%); } }
+body.fx-lite .trec::after { display: none; } body.fx-lite .trec, body.fx-lite .trec-m, body.fx-lite .trec-m i b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .trec::after { display: none; } .trec, .trec-m, .trec-m i b { animation: none; } }
+body.theme-day .trec { --trec: color-mix(in srgb, var(--m-accent) 58%, var(--m-text)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-surface) 70%, transparent); } body.theme-day .trec.is-bad { --trec: color-mix(in srgb, var(--m-warn) 58%, var(--m-text)); }
+body.theme-day .trec-m { --mc: color-mix(in srgb, var(--m-accent) 58%, var(--m-text)); } body.theme-day .trec-m.is-bad { --mc: var(--m-danger); } body.theme-day .trec-v b { text-shadow: none; }
+@media (max-width: 640px) { .trec-meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .trec-facts div { grid-template-columns: 1fr; gap: 2px; } }
