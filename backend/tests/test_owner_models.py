@@ -82,13 +82,17 @@ def test_the_studio_works_on_the_open_proof_starts_blank_from_home_and_sends_a_m
     # the model, as set, goes to a build; the build's folder shows it and its agent is told
     r = post('play3d_model_to', tools={'to': trench, 'obj': {**STONE, 'height': 2.2}, 'ws': other}); assert r.status_code == 200, r.text
     assert 'TRENCH' in r.json()['say'] and r.json()['models3d'][0]['height'] == 2.2
-    doc = fs._ws_load('g', trench); assert doc['models3d'][0]['obj']['asset']['url'] == URL and 'Tombstone is in this build' in doc['messages'][-1]['text'] and doc['models3d'][0]['from'] == 'Shop'
+    doc = fs._ws_load('g', trench); assert doc['models3d'][0]['obj']['asset']['url'] == URL and 'Tombstone is in this build' in doc['messages'][-2]['text'] and doc['models3d'][0]['from'] == 'Shop'
+    # 🪦 Slice 2: the page the folder has NOW shows it at once, placed by code ($0), as a new page
+    assert r.json()['paged'] and len(doc['versions']) == 3 and doc['versions'][-1]['by'] == '3D studio' and 'by code' in doc['messages'][-1]['text'] and 'page 3 shows it now' in r.json()['say']
+    assert om.record(doc['models3d'], doc['versions'][-1]['html'])[0]['used'] and r.json()['doc']['versions'] == 3
     assert post('ws_open', text=trench).json()['doc']['models3d'][0]['name'] == 'Tombstone'
     assert post('play3d_model_to', tools={'to': trench, 'obj': {'shape': 'box'}}).status_code == 400 and post('play3d_model_to', tools={'to': 'nope', 'obj': STONE}).status_code == 404
     doc['busy'] = {'at': 1}; fs._ws_save('g', doc)
     assert post('play3d_model_to', tools={'to': trench, 'obj': STONE}).status_code == 409   # a running build would save over it
     doc['busy'] = None; fs._ws_save('g', doc)
     r = post('play3d_model_drop', tools={'to': trench, 'id': 'tombstone_01'}); assert r.status_code == 200 and r.json()['models3d'] == [] and fs._ws_load('g', trench)['models3d'] == []
+    out = fs._ws_load('g', trench)['versions'][-1]['html']; assert r.json()['paged'] and 'feeless-models' not in out and 'data-feeless-spot' not in out   # taken out: the page drops it too
 
 
 def test_a_page_build_mounts_the_model_and_a_3d_build_puts_it_on_the_set(monkeypatch, tmp_path):

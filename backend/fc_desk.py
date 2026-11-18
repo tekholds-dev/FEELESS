@@ -958,6 +958,7 @@ async def _build_game(cat, doc, text, brains, order, name, to):
         return cost, 'The game failed its playtest: ' + '; '.join(report['why'])[:200], own
     doc['game'] = {'design': design, 'engine': design['engine'], 'license': eng['license'], 'playtest': report['facts'], 'at': round(rs.time.time())}
     doc['kitsUsed'] = [{'id': design['engine'], 'name': eng['name'], 'used': True}]
+    html = rs._om.place(html, doc.get('models3d')) if doc.get('models3d') else html   # 🪦 Slice 2: a game folder's studio models are in its page too, after the playtest passed
     rs._feat.add_version(doc, html, by, rs.time.time()); rs._parts_used(cat_id, doc.get('id'), html)
     f_ = report['facts']
     rs._feat.add_msg(doc, 'Playtest', f"Passed: it draws, takes input ({f_.get('changed')} pixels moved), reached \"{(f_.get('after') or {}).get('state')}\", {f_.get('fps')} fps, no errors. Page {len(doc['versions'])} is ready. Open Static to play it.", rs.time.time())

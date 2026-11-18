@@ -4,9 +4,19 @@ repeat back once before it files. Claude starts a TEST proof of any kind on Sica
 minds only (`local/…`), nothing bought, nothing bid, nothing posted; it files into that kind's own folder marked TEST, plus a Test bench row.
 Same pattern as the other fc_ modules: every service name is looked up on feecat_service when it runs (as rs.<name>)."""
 import feecat_service as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)
+from typing import Optional
+
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: a real model from the 3D library, height (m), turn (degrees), spin}
+    kind: str
+    topic: str = ''
+    op: str = 'start'
+    model: Optional[dict] = None
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
 SICARIO = 'sicarios'
@@ -36,6 +46,18 @@ def _since(rows, f):
     """A page or post kept in one workspace files a proof per version: its calls start after the last filing from that workspace."""
     ws = f.get('ws')
     return max([float(x.get('at') or 0) for x in rows if ws and x.get('ws') == ws and x.get('id') != f.get('id')] or [0.0])
+
+
+async def _studio_piece(m):
+    """A real model from the 3D library, set the way the studio sets one (size in metres, turn in degrees → radians, spin). → the stage object"""
+    rs = _rs(); m = m if isinstance(m, dict) else {}
+    async with rs.httpx.AsyncClient(timeout=30) as h_:
+        await rs._assets.ensure(h_, rs.KITS_DIR)
+        a = await rs._assets.resolve(h_, rs.KITS_DIR, str(m.get('id') or ''), 'model')
+    if not a:
+        raise rs.HTTPException(400, 'That model is not in the 3D library.')
+    turn = float(m.get('turn') or 0) * rs.math.pi / 180
+    return {'id': 'test1', 'name': str(m.get('name') or a.get('name') or 'Model')[:40], 'asset': a, 'height': float(m.get('height') or 0), 'rot': [0, round(turn, 4), 0], 'scale': [1, 1, 1], 'spin': float(m.get('spin') or 0)}
 
 
 def _record_file(cat, kind, f, now=None):
@@ -91,7 +113,7 @@ def _test_view(cat):
         last = next((f for f in reversed(cat.get(key) or []) if isinstance(f, dict) and f.get('test')), None)
         live = _test_live(cat, kind)
         out[kind] = {'running': bool(live), 'since': (live or {}).get('at'),
-                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why')} | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
+                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio')} | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
     return out
 
 
@@ -107,7 +129,7 @@ async def test_proof_state(request: Request):
 
 
 @router.post('/api/cats/internal/test-proof')
-async def test_proof_start(p: _RSM.TestProofIn, request: Request):
+async def test_proof_start(p: TestIn, request: Request):
     """🧪 Internal key only (Claude's tests): one TEST proof of `kind` on Sicario's agent, through the SAME door the owner's chat takes.
     Free local minds only; a TEST PoW is a proposal (nothing bought, never sent to the card seat), a TEST PoB never bids, nothing posts.
     op 'stop' ends an open paper PoP so it files now."""
@@ -136,6 +158,8 @@ async def test_proof_start(p: _RSM.TestProofIn, request: Request):
         elif kind == 'pos':   # 💻 a new PoStatic folder, its plan approved by the test (no owner tap to wait for), built by its own pair
             row_ = rs._feat.new_folder(cat, 'build', f"TEST {rs.time.strftime('%m-%d %H%M', rs.time.gmtime(now))}", now)
             rs._ws_save(cid, {**rs._feat.new_doc(row_), 'cfg': {'suggest': False}, 'test': True}); rs.keep_owned(cat); rs._save(store)
+            if p.model:   # 🪦 Slice 2: a piece made in the 3D studio goes into the folder through the studio's own step, then the build runs
+                await rs._cat_work(cid, rs.WorkPayload(op='play3d_model_to', tools={'to': row_['id'], 'obj': await _studio_piece(p.model)}, session=rs._AUTO_TOKEN, auto=True))
             out = await rs._cat_work(cid, rs.WorkPayload(op='ws_build', job=row_['id'], text=str(p.topic or TEST_ASK['pos'])[:2000], session=rs._AUTO_TOKEN, auto=True))
             out = {'ws': row_['id']}
         else:

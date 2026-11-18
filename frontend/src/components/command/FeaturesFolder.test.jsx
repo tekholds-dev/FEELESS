@@ -338,8 +338,12 @@ test('🪦 opened on a proof, every studio step carries it; a model as set goes 
   expect(q('p3d-where').textContent).toBe('IN TRENCH'); expect(q('p3d-back').textContent).toContain('TRENCH'); expect(q('p3d-file').textContent).toBe('Save to this proof');
   await act(async () => { q('p3d-asset-Tomb_01').click(); await new Promise(r => setTimeout(r, 0)); });
   expect(q('p3d-to-pick').value).toBe('w1');   // this proof first
+  const setVal = (node, v) => { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(node, String(v)); node.dispatchEvent(new Event('input', { bubbles: true })); };
+  await act(async () => { setVal(q('p3d-height'), 2.2); }); await act(async () => { setVal(q('p3d-turn'), 35); }); await act(async () => { setVal(q('p3d-spin'), 6); });   // 🪦 Slice 2: size, turn and spin, as set
+  expect(q('p3d-turn').value).toBe('35');
   await act(async () => { q('p3d-to-send').click(); await new Promise(r => setTimeout(r, 0)); });
-  const sent = calls.find(c => c.op === 'play3d_model_to'); expect(sent.tools.to).toBe('w1'); expect(sent.tools.obj.asset.url).toBe(asset.url); expect(sent.tools.obj.height).toBe(1);
+  const sent = calls.find(c => c.op === 'play3d_model_to'); expect(sent.tools.to).toBe('w1'); expect(sent.tools.obj.asset.url).toBe(asset.url); expect(sent.tools.obj.height).toBe(2.2);
+  expect(sent.tools.obj.rot[1]).toBeCloseTo(35 * Math.PI / 180, 3); expect(sent.tools.obj.spin).toBe(6);
   expect(q('p3d-said').textContent).toContain('Tombstone is in TRENCH');
   expect(calls.filter(c => c.op.startsWith('play3d_')).every(c => c.tools?.ws === 'w1')).toBe(true);   // every step works on THIS proof
   await act(async () => { root.unmount(); }); el.remove();

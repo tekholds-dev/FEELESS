@@ -7,6 +7,8 @@ and adds a Test bench row. A TEST PoW is a proposal (nothing bought, never the c
   .venv/bin/python scripts/test-proof.py --kind poe --wait
   .venv/bin/python scripts/test-proof.py --kind pop --stop        # an open paper PoP files now
   .venv/bin/python scripts/test-proof.py --state                  # the last TEST of every kind
+  .venv/bin/python scripts/test-proof.py --kind pos --model ox-805187f02f8e424cb11b4f7c3a63a1c3 --size 1.6 --turn 35 --spin 6 --wait
+                                                                 # Slice 2: a PoStatic carrying a 3D studio piece (size m, turn °, spin)
 
 The internal key is read from backend/data/internal.key and sent as a header; it is never printed."""
 import argparse
@@ -39,7 +41,8 @@ def summary(last):
     ran = ', '.join(f"{r['asked']}→{'/'.join(r.get('answered') or [])} ({r['calls']})" for r in last.get('ran') or [] if r.get('ok')) or 'none'
     return (f"#{last.get('n')} {last.get('id')} · {ch}\n  minds that ran: {ran}\n  sources: {len((last.get('read') or {}).get('sites') or [])} sites"
             f" {((last.get('read') or {}).get('sites') or [])[:6]}\n  footprint: {(last.get('foot') or {})}\n  bench: {(last.get('test') or {}).get('bench')}"
-            + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else ''))
+            + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else '')
+            + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in last.get('studio') or []))
 
 
 def main():
@@ -50,6 +53,10 @@ def main():
     ap.add_argument('--mins', type=float, default=40)
     ap.add_argument('--stop', action='store_true', help='PoP only: stop the open paper trade so it files now')
     ap.add_argument('--state', action='store_true')
+    ap.add_argument('--model', default='', help='PoStatic only: a real model id from the 3D library, added through the studio step before the build')
+    ap.add_argument('--size', type=float, default=0, help='its size in metres, as the studio sets it')
+    ap.add_argument('--turn', type=float, default=0, help='its turn in degrees')
+    ap.add_argument('--spin', type=float, default=0)
     a = ap.parse_args()
     if a.state or not a.kind:
         code, j = call('GET')
@@ -57,7 +64,8 @@ def main():
             print(f"{k}: {'RUNNING · ' if v.get('running') else ''}{summary(v.get('last'))}")
         return 0 if code == 200 else 1
     code, j = call('GET'); before = (((j.get('tests') or {}).get(a.kind) or {}).get('last') or {}).get('id')
-    code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start'})
+    code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
+                            **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:
         return 0 if code == 200 else 1

@@ -155,6 +155,9 @@ def file_static(cat, doc, by, now):
     row = {'id': 'ps' + secrets.token_hex(5), 'n': max([int(r.get('n') or 0) for r in rows] + [len(rows)]) + 1, 'kind': 'PoStatic', 'at': round(now), 'closedAt': round(now), 'status': 'closed', 'topic': str(doc.get('name') or 'Page')[:60], 'ws': doc.get('id'), 'version': len(doc.get('versions') or []), 'by': str(by)[:12], 'plan': plan.get('summary'), 'refs': [{k: r.get(k) for k in ('title', 'url', 'source')} for r in plan.get('refs') or []], 'steps': plan.get('steps') or [],
            'sitesRead': [{'host': r.get('host'), 'name': r.get('name'), 'ok': bool(r.get('ok'))} for r in doc.get('sitesRead') or [] if isinstance(r, dict)][:12],   # 🧾 COL-8: what the build really read reaches the record (37 of 62 pages recorded none)
            'kits': [k.get('id') for k in doc.get('kitsUsed') or [] if isinstance(k, dict) and k.get('used')][:8], 'markNotes': list(doc.get('markNotes') or [])[-6:]}   # 🖍 COL-14
+    if doc.get('models3d'):   # 🪦 Slice 2: the studio pieces this build was given, and whether its page really carries each exact one
+        import owner_models as _om
+        row['studio'] = _om.record(doc.get('models3d'), ((doc.get('versions') or [{}])[-1] or {}).get('html'))
     rows.append(row); del rows[:-60]
     return row
 

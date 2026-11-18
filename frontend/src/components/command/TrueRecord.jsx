@@ -48,6 +48,7 @@ export function TrueRecord({ kind, folders }) {
       <div data-tip={m.why || ''}><dt>MINDS THAT RAN</dt><dd className={m.ok ? 'is-ok' : 'is-bad'} data-testid="trc-minds">{mindsLine}</dd></div>
       <div data-tip={sites.join(', ')}><dt>SOURCES READ</dt><dd data-testid="trc-sources"><b className="m-num">{sites.length}</b> site{sites.length === 1 ? '' : 's'} · <b className="m-num">{(rd.pages || []).length}</b> page{(rd.pages || []).length === 1 ? '' : 's'}{sites.length ? ` · ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? '…' : ''}` : ''}</dd></div>
       <div data-tip={ft.shared?.length ? `Shared with #${ft.nearest}: ${ft.shared.join(', ')}` : 'Nothing shared with a past proof of its kind'}><dt>FOOTPRINT</dt><dd className={ft.repeat ? 'is-bad' : 'is-ok'} data-testid="trc-foot"><b className="m-num">{ft.pct ?? '—'}%</b> new{ft.nearest ? ` next to #${ft.nearest}` : ''}{ft.sentBack ? ' · sent back once first' : ''}</dd></div>
+      {f.studio?.length ? <div data-tip="The pieces sent here from the 3D studio, read back from the page's own code: same file, same turn and spin"><dt>3D STUDIO PIECES</dt><dd className={f.studio.every(r => r.used) ? 'is-ok' : 'is-bad'} data-testid="trc-studio">{f.studio.map(r => `${r.name} · ${r.height ? `${r.height} m` : 'as made'} · ${Math.round((r.turn?.[1] || 0) * 180 / Math.PI)}° · spin ${r.spin || 0} · ${r.used ? 'in the page' : 'MISSING'}`).join('  ·  ')}</dd></div> : null}
     </dl>
   </section>;
 }

@@ -197,6 +197,11 @@ def checks(kind, f, pair):
         {'key': 'kits', 'label': "Its kind's own kits, and which it used", 'ok': bool(kits) or kind in ('poe', 'pow'),
          'why': ', '.join(map(str, kits[:6])) if kits else ('PoEco uses no kit: pure math' if kind == 'poe' else 'PoW reads its own coin tools' if kind == 'pow' else 'no kit was recorded')},
     ]
+    st = [r for r in _rows(f.get('studio')) if isinstance(r, dict)]
+    if kind == 'pos' and st:   # 🪦 Slice 2: a PoStatic given studio pieces proves its page carries each exact one (file, turn, spin)
+        miss = [r.get('name') for r in st if not r.get('used')]
+        rows.append({'key': 'studio', 'label': 'The 3D studio pieces it was given are in the page, exactly as set', 'ok': not miss,
+                     'why': ', '.join(f"{r.get('name')} ({r.get('height') or 'as made'} m, spin {r.get('spin') or 0})" for r in st[:4]) if not miss else f"missing from the page: {', '.join(map(str, miss[:4]))}"})
     return rows
 
 

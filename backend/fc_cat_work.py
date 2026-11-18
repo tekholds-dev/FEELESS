@@ -848,16 +848,25 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 raise rs.HTTPException(404, 'Pick one of your PoStatic folders.')
             if doc_.get('busy'):   # its running build saves the folder when it ends, and would drop this change
                 raise rs.HTTPException(409, f"{doc_.get('name')} is building right now. Add it when that build ends.")
+            def placed_(what_):   # 🪦 Slice 2 (owner 2026-11-18 "unable to have 3D pieces built to be used in the current static build"): the page it has NOW changes too, by code, $0
+                cur_ = ((doc_.get('versions') or [{}])[-1] or {}).get('html') or ''; new_ = rs._om.place(cur_, doc_.get('models3d')) if cur_ else ''
+                if not new_ or new_ == cur_:
+                    return False
+                rs._feat.add_version(doc_, new_, '3D studio', rs.time.time()); rs._feat.add_msg(doc_, 'FEELESS', f"Page {len(doc_['versions'])}: {what_} by code, no mind and no cost. Open Static to see it.", rs.time.time())
+                return True
             if p.op == 'play3d_model_drop':
-                doc_['models3d'] = rs._om.drop(doc_.get('models3d'), (p.tools or {}).get('id')); rs._ws_save(cat_id, doc_)
-                return {'models3d': rs._om.view(doc_['models3d'])}
+                gone_ = next((r_['name'] for r_ in rs._om.clean(doc_.get('models3d')) if r_['id'] == rs._om._id((p.tools or {}).get('id'))), 'The model')
+                doc_['models3d'] = rs._om.drop(doc_.get('models3d'), (p.tools or {}).get('id')); paged_ = placed_(f'{gone_} is out of the page'); rs._ws_save(cat_id, doc_)
+                return {'models3d': rs._om.view(doc_['models3d']), 'paged': paged_, 'doc': rs._ws_view(cat_id, to_)}
             try:
                 row_ = rs._om.take((p.tools or {}).get('obj'), rs.time.time(), (proof_ or {}).get('name') or '3D studio')
             except ValueError as e:
                 raise rs.HTTPException(400, str(e))
             doc_['models3d'] = rs._om.add(doc_.get('models3d'), row_)
-            rs._feat.add_msg(doc_, 'FEELESS', f"{row_['name']} is in this build, set as you left it in the 3D studio. Every build from here uses this exact model throughout the site.", rs.time.time()); rs._ws_save(cat_id, doc_)
-            return {'models3d': rs._om.view(doc_['models3d']), 'say': f"{row_['name']} is in {doc_.get('name')}. Its next build uses it throughout the site."}
+            rs._feat.add_msg(doc_, 'FEELESS', f"{row_['name']} is in this build, set as you left it in the 3D studio. Every build from here uses this exact model throughout the site.", rs.time.time())
+            paged_ = placed_(f"{row_['name']} is in the page, exactly as set in the 3D studio,"); rs._ws_save(cat_id, doc_)
+            return {'models3d': rs._om.view(doc_['models3d']), 'paged': paged_, 'doc': rs._ws_view(cat_id, to_),
+                    'say': f"{row_['name']} is in {doc_.get('name')}" + (f": page {len(doc_['versions'])} shows it now, and every next build keeps it." if paged_ else '. Its first build puts it throughout the site.')}
         raise rs.HTTPException(400, 'No such step.')
     if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here
         b_ = cat.setdefault('brainsCfg', {}); st_ = rs._debate.load(rs.DATA_DIR)

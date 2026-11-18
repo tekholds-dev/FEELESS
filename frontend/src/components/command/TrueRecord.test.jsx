@@ -30,3 +30,17 @@ test('🧾 every proof window shows the last proof\'s true record: checks as met
   expect(el.querySelector('[data-testid="t7-test"]')).toBe(null);   // a real proof never wears TEST
   act(() => root.unmount());
 });
+
+test('🪦 Slice 2: a PoStatic given 3D studio pieces shows each one and whether its page really carries it', async () => {
+  const pos = { id: 'ps1', n: 9, at: 300, proofChecks: [...checks(true), { key: 'studio', label: 'studio', ok: true, why: 'Tombstone' }], ran: [], read: { sites: [], pages: [] }, foot: { pct: 90 },
+    studio: [{ id: 'tomb', name: 'Tombstone', height: 1.6, turn: [0, 0.6109, 0], spin: 6, used: true }] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<TrueRecord kind="pos" folders={[pos]} />); });
+  expect(el.textContent).toContain('5/5'); expect(el.querySelector('[data-testid="trc-check-studio"]').textContent).toContain('PASS');
+  expect(el.querySelector('[data-testid="trc-studio"]').textContent).toBe('Tombstone · 1.6 m · 35° · spin 6 · in the page');
+  await act(async () => { root.render(<TrueRecord kind="pos" folders={[{ ...pos, studio: [{ ...pos.studio[0], used: false }] }]} />); });
+  expect(el.querySelector('[data-testid="trc-studio"]').className).toBe('is-bad'); expect(el.querySelector('[data-testid="trc-studio"]').textContent).toContain('MISSING');
+  await act(async () => { root.render(<TrueRecord kind="pos" folders={[{ ...pos, studio: undefined }]} />); });
+  expect(el.querySelector('[data-testid="trc-studio"]')).toBe(null);   // no piece, no line
+  act(() => root.unmount());
+});
