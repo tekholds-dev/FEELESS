@@ -32,7 +32,7 @@ import { ProofTools } from './ProofTools';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { CardSites, BidSites, BID_SITES } from './BidSites';
-import { CostTicket, FolderRidge, PrintLines, PrintSeed, ProofHead, ProofKit, ProofSubmit, ProofTile as Tile, SitesRead, shortCost } from './ProofKit';
+import { CostTicket, FolderRidge, PrintDigests, PrintLines, PrintSeed, ProofHead, ProofKit, ProofSubmit, ProofTile as Tile, SitesRead, shortCost } from './ProofKit';
 import { GitFolder } from './GitFolder';
 import { EcoFolder } from './EcoFolder';
 import { EngineFolder } from './EngineFolder';
@@ -350,6 +350,7 @@ export function sameGameSlips(d, f) {   // every other Kalshi slip its agent put
   const picks = x => (x.kalshiPicks || []).filter(k => k.orderId).map(k => ({ ...x, id: `${x.id}:${k.id}`, kalshi: k }));
   return [...on.filter(x => x.id !== f.id && x.kalshi), ...on.flatMap(picks)];
 }
+const NO_PRINTS = {};
 export function deskProofs(d) {
   const all = newestProofs(d, 999); const leadId = d?.deskProof?.id || liveBidOf(d)?.id; const at = leadId ? all.findIndex(x => x.id === leadId) : -1;
   const lead = at >= 0 ? all[at] : null; const rest = all.filter((_, i) => i !== at).slice(0, lead ? 3 : 4);
@@ -1547,7 +1548,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const glass = useMemo(() => glassOf(series), [series]);
   const foregroundOpen = Object.values(w).some(x => x?.open && !x.min);
   const printLines = useMemo(() => linesOf(printOf(proofRows(d))), [d]);
-  return createPortal(<IconLook.Provider value><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
+  return createPortal(<IconLook.Provider value><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><PrintDigests.Provider value={d?.prints || NO_PRINTS}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     <DeskCount d={pool} onOpen={() => openWin('boost')} />
@@ -1581,7 +1582,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     {inbox ? <ApproveInbox rows={apRows} onDecide={apDecide} err={apErr} onClose={() => setInbox(false)} /> : null}
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
-  </div></PrintLines.Provider></PrintSeed.Provider></IconLook.Provider>, document.body);
+  </div></PrintDigests.Provider></PrintLines.Provider></PrintSeed.Provider></IconLook.Provider>, document.body);
 }
 
 // 🗄 A TRADER'S FILE CABINET (owner 2026-10-31: "trader agents need sign-in etc in their drawer" — they research X / CoinGecko too): the same

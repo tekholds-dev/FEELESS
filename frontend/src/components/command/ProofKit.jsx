@@ -180,12 +180,20 @@ const FingerprintLazy = lazy(() => import('./Proofprint').then(m => ({ default: 
 // 🖊 One folder's own ridge, coloured by its real result: green strong, gold medium, red weak, grey for no result yet.
 export const PrintSeed = createContext('agent');
 export const PrintLines = createContext({});
+export const PrintDigests = createContext({});   // 🧬 folder id → its own evidence digest (proof_print.py): the ridge is drawn from what the proof did, not its id
 const FACE_RINGS = [3, 7, 11, 15];
 export function folderFace(seed, kind, fid) { const id = kindIdentity(seed, kind || kindOfFolder(fid), fid); return { id, rings: FACE_RINGS.map(j => ridge(id, j, 40)) }; }
 export function FolderRidge({ fid, score = null, size = 26, kind = null }) {
-  const seed = useContext(PrintSeed); const line = useContext(PrintLines)[fid]; const face = useMemo(() => folderFace(seed, kind, fid), [seed, kind, fid]); const { id } = face;
+  const seed = useContext(PrintSeed); const line = useContext(PrintLines)[fid]; const dg = useContext(PrintDigests)[fid]?.digest; const face = useMemo(() => folderFace(seed, kind || (dg ? kindOfFolder(fid) : null), dg || fid), [seed, kind, fid, dg]); const { id } = face;
   if (line) return <svg className="prg is-line" viewBox={fitBox(line.i * 2 + 4, id)} width={size} height={size} aria-hidden="true" data-ring={line.i}><path d={ridge(id, line.i * 2 + 2, 40)} fill="none" strokeWidth="5" stroke={`${id.ink}66`} /><path d={segment(id, line.i, line.a, line.b)} fill="none" strokeWidth="14" strokeLinecap="round" stroke={inkOf(line.score)} /></svg>;
   return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true" data-kind={id.kind}>{face.rings.map((d, i) => <path key={i} d={d} fill="none" strokeWidth={i === face.rings.length - 1 ? 12 : 7} stroke={i === face.rings.length - 1 ? (score == null ? id.ink : inkOf(score)) : `${id.ink}88`} />)}</svg>;
+}
+// 🧬 owner 2026-11-17 ("true fingerprinting … each proof type should have unique fingerprints"): its own print id, and how much of what it did
+// no proof of its kind did before it.
+export function PrintChip({ p }) {
+  if (!p?.id) return null;
+  const tip = `Its fingerprint, made from what it really did (${(p.traits || []).join(', ')}). ${p.uniquePct}% of its facts are new beside the proofs of its kind before it${p.nearest ? `; nearest is #${p.nearest}` : ''}${p.shared?.length ? `, sharing ${p.shared.join(', ')}` : ''}.`;
+  return <em className={`prt-chip${p.uniquePct < 40 ? ' is-same' : ''}`} data-tip={tip} aria-label={tip} data-testid="print-chip"><b className="m-num">{p.id}</b><small className="m-num">{p.uniquePct}% new</small></em>;
 }
 // 🧾 What something cost, faint until you want it. Click for the receipt. Only real recorded costs: no cost recorded shows nothing.
 export const shortCost = v => { const n = Number(v) || 0; if (!n) return '$0'; if (n >= 1) return `$${n.toFixed(2)}`; const t = n.toFixed(n < 0.001 ? 5 : n < 0.01 ? 4 : 3).replace(/0+$/, ''); return `$${t.slice(1)}`; };

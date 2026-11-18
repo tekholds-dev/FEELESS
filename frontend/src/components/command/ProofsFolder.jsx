@@ -6,7 +6,7 @@ import '../../styles/proofsFolder.css';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { ProofStamp } from './ProofStamp';
-import { FolderRidge } from './ProofKit';
+import { FolderRidge, PrintChip } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
@@ -79,7 +79,7 @@ export function visitorProofs(cat) {
   return proofRows(cat).slice(0, 20).map(r => ({ id: r.id, kind: KINDS[r.kind][1], label: r.sub || r.name, pct: r.kind === 'pob' ? null : r.value, stamp: r.stamp, games: r.games }));
 }
 export function proofRows(d) {
-  const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null, hidden: !!f.hidden });
+  const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, print: d?.prints?.[f.id] || null, games: f.games || null, hidden: !!f.hidden });
   return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f))), ...(d?.psFolders || []).map(f => add(f, posRow(f))), ...(d?.poeFolders || []).map(f => add(f, poeRow(f))),].sort((a, b) => b.at - a.at);
 }
 
@@ -133,7 +133,7 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder, onHide }) {
       <span className="pfx-e-print" data-tip={scoreOf(r) == null ? 'Awaiting a result; not yet on the living proofprint' : `This proof scores ${scoreOf(r)}/100 on the living proofprint`}><FolderRidge fid={r.id} score={scoreOf(r)} size={36} /></span><Ic3 e={KINDS[r.kind][0]} size="26px" /><span><b>{r.name}</b><small>{r.sub}</small></span>
       {r.loop?.n > 1 ? <em className="pfx-chip" data-tip={`Loop ${r.loop.n}: it studied ${r.loop.past?.length || 0} past proofs first`}>Loop {r.loop.n}</em> : null}
       {r.shots.length ? <em className="pfx-chip is-dim">{r.shots.length} snapshots</em> : null}
-      <time className="m-num">{clock(r.at)}</time><ProofStamp s={r.stamp} /><strong className={`m-num is-${r.state}`}>{r.shown}</strong></button>
+      <time className="m-num">{clock(r.at)}</time><PrintChip p={r.print} /><ProofStamp s={r.stamp} /><strong className={`m-num is-${r.state}`}>{r.shown}</strong></button>
     {!open && r.shots.length ? <div className="pfx-thumbs" aria-hidden="true">{r.shots.slice(0, 4).map(s => <img key={s.file} src={src(s)} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />)}</div> : null}
     {open ? <div className="pfx-open">
       <section><h4>THE DECISIONS, AT THE TIME</h4>{r.decisions.length ? <ol className="pfx-dec">{r.decisions.map(([who, t], n) => <li key={`${who}${n}`} style={{ '--i': n }}><b>{who}</b><span>{t}</span></li>)}</ol> : <p className="pfx-none">No reasons were filed with this one.</p>}

@@ -73,3 +73,7 @@ body.theme-day .hv-sw > button:not(.is-on) { color: var(--m-accent) !important; 
 body.fx-lite .clx-seat { animation: none; } @media (prefers-reduced-motion: reduce) { .clx-seat { animation: none; transition: none; } }
 body.theme-day .clx-seat { background: var(--m-surface); border-color: color-mix(in srgb, var(--m-text) 10%, transparent); } body.theme-day .clx-seat small { color: var(--m-mute); }
 @media (max-width: 640px) { .clx-sum { grid-template-columns: minmax(0, 1fr); } }
+/* 🧬 each proof's own fingerprint id + how new it is (owner 2026-11-17) */
+.prt-chip { display: inline-grid; gap: 0; padding: 2px 7px; border-radius: 8px; border: 1px solid var(--m-line); font-style: normal; line-height: 1.15; text-align: right; }
+.prt-chip b { font: 700 10px var(--f-mono); color: var(--m-text); letter-spacing: .02em; } .prt-chip small { font: 600 9.5px var(--f-mono); color: var(--m-accent); }
+.prt-chip.is-same small { color: var(--m-warn); }
