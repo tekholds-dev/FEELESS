@@ -1,0 +1,368 @@
+{
+ "doc": {
+  "id": "wd6494db42c",
+  "kind": "build",
+  "name": "TEST 11-18 1721",
+  "messages": [
+   {
+    "by": "FEELESS",
+    "text": "Tombstone Familie Laurenz is in this build, set as you left it in the 3D studio. Every build from here uses this exact model throughout the site.",
+    "at": 1795022489
+   },
+   {
+    "by": "you",
+    "text": "A memorial page for rugged coins: the trench graveyard, every dead token gets a stone, with a short story and a live list of the newest rugs.",
+    "at": 1795022489
+   },
+   {
+    "by": "Mind A",
+    "text": "The whole page did not fit in one reply, so it was built in 3 sections shared by Mind A and Mind B.",
+    "at": 1795023617
+   },
+   {
+    "by": "Mind A",
+    "text": "Page 1 is ready. Open Static to try it.",
+    "at": 1795023617
+   },
+   {
+    "by": "Mind B",
+    "text": "Its changes did not match the page. Mark the part to change with +, or say \"rebuild\" to have it write the whole page new. Nothing changed, and the last page is safe.",
+    "at": 1795023619
+   }
+  ],
+  "busy": null,
+  "stage": "filed",
+  "plan": {
+   "ask": "A memorial page for rugged coins: the trench graveyard, every dead token gets a stone, with a short story and a live list of the newest rugs.",
+   "to": "both",
+   "allRefs": [
+    {
+     "title": "Stealth Interview",
+     "url": "https://www.stealthinterview.ai",
+     "why": "",
+     "source": "Hacker News",
+     "score": 11,
+     "open": true
+    },
+    {
+     "title": "Monte Carlo Tree Search for Poetry Using GPT",
+     "url": "https://github.com/agentic-ai/enact/blob/main/examples/interactive_mcts.ipynb",
+     "why": "",
+     "source": "Hacker News",
+     "score": 1,
+     "open": false
+    }
+   ],
+   "plan": {
+    "summary": "{\"summary\": \"Build a 'Trench Graveyard' memorial page using the 'trench build' stash template, enhanced with Motion scroll-triggered animations and HeroUI cards to display a live feed of rug-pull tokens with lore cards and live counters, av",
+    "refs": [],
+    "borrow": "",
+    "steps": [],
+    "risks": ""
+   },
+   "by": "Mind A",
+   "at": 1795022577,
+   "approved": true
+  },
+  "complete": false,
+  "pending": false,
+  "cost": 0.0,
+  "lastCost": 0.0,
+  "versions": 1,
+  "code": "<!doctype html><html lang=\"en\" data-theme=\"night\"><head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob: https://huggingface.co https://*.hf.co https://*.huggingface.co; connect-src blob: data: https://huggingface.co https://*.hf.co https://*.huggingface.co; style-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/ https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js; font-src data:\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Rugged Stones</title><style>:root{--acc:#8B0000;--bg:#f6f7fb;--panel:#ffffff;--ink:#111827;--mute:#6b7280;--line:#e5e7eb;}:root[data-theme=night]{--bg:#07090d;--panel:#0f141c;--ink:#e8edf5;--mute:#8b95a7;--line:#1e2633;}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;transition:background .3s,color .3s}header.top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:16px;padding:12px 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}header.top b{font-size:17px}header.top small{color:var(--mute)}header.top nav{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}header.top nav a{color:var(--mute);text-decoration:none;font-size:13px}header.top nav a:hover{color:var(--acc)}main{max-width:1180px;margin:0 auto;padding:20px;display:grid;gap:22px}section{scroll-margin-top:70px;animation:in .5s ease both}@keyframes in{from{opacity:0;transform:translateY(8px)}}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 8px 24px #0000000d}.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.stat small{display:block;color:var(--mute);font-size:12px}.stat b{display:block;font-size:26px;font-variant-numeric:tabular-nums}.up{color:#16a34a}.down{color:#e11d48}.btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:600;cursor:pointer}.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}.btn:hover{filter:brightness(1.08)}.tag{display:inline-block;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.04em}.muted{color:var(--mute)}h1,h2,h3{margin:0 0 8px;line-height:1.15}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style><script src=\"https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css\">\n<script type=\"importmap\">{\"imports\":{\"three\":\"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js\",\"three/addons/\":\"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/\"}}</script>\n</head><body><header class=\"top\"><b>Rugged Stones</b><small>Memorial page for dead tokens with stories</small><nav><a href=\"#p1\">The Trench</a><a href=\"#p2\">Newest Rugs</a><a href=\"#p3\">Stone Stories</a></nav></header><div data-feeless-model=\"ox-805187f02f8e424cb11b4f7c3a63a1c3\" data-feeless-spot=\"code\" role=\"img\" aria-label=\"Tombstone Familie Laurenz\" style=\"height:min(56vh,480px)\"></div><main><section id=\"p1\" data-part=\"1\" data-brief=\"Dark background with a grid of stone markers for every dead token listed.\"><section data-part=\"1\">\n  <style>\n    [data-part=\"1\"] {\n      --bg: #0a0a0a;\n      --panel: #111111;\n      --line: #262626;\n      --ink: #e5e5e5;\n      --stone: #1c1c1c;\n      --stone-border: #333333;\n      --stone-text: #888888;\n      --stone-accent: #4a4a4a;\n      --stone-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);\n      --stone-glow: 0 0 10px rgba(255, 255, 255, 0.03);\n      [data-count] {\n        color: var(--ink);\n        font-weight: 600;\n      }\n      .stone {\n        background: var(--stone);\n        border: 1px solid var(--stone-border);\n        border-radius: 4px;\n        padding: 12px 16px;\n        margin: 12px;\n        display: inline-block;\n        width: 160px;\n        height: 100px;\n        position: relative;\n        box-shadow: var(--stone-shadow), var(--stone-glow);\n        transition: transform 0.2s ease, box-shadow 0.2s ease;\n        animation: stoneDrift 8s infinite ease-in-out alternate;\n      }\n      .stone::before {\n        content: '';\n        position: absolute;\n        top: 4px;\n        left: 50%;\n        transform: translateX(-50%);\n        width: 10px;\n        height: 10px;\n        background: var(--stone-accent);\n        border-radius: 50%;\n        opacity: 0.5;\n      }\n      .stone::after {\n        content: '';\n        position: absolute;\n        top: 8px;\n        left: 50%;\n        transform: translateX(-50%);\n        width: 3px;\n        height: 3px;\n        background: #000;\n        border-radius: 50%;\n        opacity: 0.8;\n      }\n      .stone .symbol {\n        font-size: 14px;\n        font-weight: 700;\n        color: var(--ink);\n        text-transform: uppercase;\n        letter-spacing: 1px;\n        margin-bottom: 4px;\n        text-align: center;\n      }\n      .stone .date {\n        font-size: 10px;\n        color: var(--stone-text);\n        text-align: center;\n        margin-top: 4px;\n      }\n      .stone .loss {\n        font-size: 9px;\n        color: #ff4444;\n        text-align: center;\n        margin-top: 2px;\n        font-weight: 600;\n      }\n      @keyframes stoneDrift {\n        0% { transform: translateY(0px) rotate(0deg); }\n        50% { transform: translateY(-2px) rotate(1deg); }\n        100% { transform: translateY(0px) rotate(0deg); }\n      }\n      .graveyard-grid {\n        display: grid;\n        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));\n        gap: 12px;\n        padding: 12px;\n      }\n    }\n  </style>\n  <div class=\"graveyard-grid\">\n    <!-- Stone: FROG -->\n    <div class=\"stone\">\n      <div class=\"symbol\">FROG</div>\n      <div class=\"date\">Oct 12, 2023</div>\n      <div class=\"loss\">-99%</div>\n    </div>\n    <!-- Stone: PEPE -->\n    <div class=\"stone\">\n      <div class=\"symbol\">PEPE</div>\n      <div class=\"date\">Sep 04, 2023</div>\n      <div class=\"loss\">-95%</div>\n    </div>\n    <!-- Stone: DODO -->\n    <div class=\"stone\">\n      <div class=\"symbol\">DODO</div>\n      <div class=\"date\">Aug 15, 2023</div>\n      <div class=\"loss\">-98%</div>\n    </div>\n    <!-- Stone: LUNA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">LUNA</div>\n      <div class=\"date\">Jun 01, 2022</div>\n      <div class=\"loss\">-99.9%</div>\n    </div>\n    <!-- Stone: SAFEMOON -->\n    <div class=\"stone\">\n      <div class=\"symbol\">SAFEMOON</div>\n      <div class=\"date\">Sep 10, 2021</div>\n      <div class=\"loss\">-99.9%</div>\n    </div>\n    <!-- Stone: APE -->\n    <div class=\"stone\">\n      <div class=\"symbol\">APE</div>\n      <div class=\"date\">May 20, 2023</div>\n      <div class=\"loss\">-92%</div>\n    </div>\n    <!-- Stone: BOBA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">BOBA</div>\n      <div class=\"date\">Nov 22, 2022</div>\n      <div class=\"loss\">-99%</div>\n    </div>\n    <!-- Stone: GALA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">GALA</div>\n      <div class=\"</section><section id=\"p2\" data-part=\"2\" data-brief=\"Live ticker showing the latest rug pulls with timestamps and loss amounts.\"><section data-part=\"2\">\n<style>\n[data-part=\"2\"] .ticker-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }\n[data-part=\"2\"] .ticker-loss { color: var(--mute); font-size: 0.85em; }\n[data-part=\"2\"] .ticker-time { font-family: monospace; font-size: 0.75em; color: var(--mute); }\n[data-part=\"2\"] .ticker-symbol { font-weight: 700; color: var(--ink); }\n[data-part=\"2\"] .ticker-value { font-weight: 700; color: var(--acc); }\n[data-part=\"2\"] .ticker-value.negative { color: var(--acc); }\n[data-part=\"2\"] .ticker-value.positive { color: var(--mute); }\n[data-part=\"2\"] .ticker-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mute); }\n[data-part=\"2\"] .ticker-label.urgent { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.normal { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.rising { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.falling { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.stable { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.dying { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.dead { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.reborn { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.halted { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.liquidated { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.staked { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.minted { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.burned { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.audit { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.scam { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.rug { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.hack { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.exit { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.faucet { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.governance { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.defi { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.nft { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.memecoin { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.game { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.io { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.web3 { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.app { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.social { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.community { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.team { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.advisors { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.vcs { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.angel { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.semi { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ipo { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.mkt { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.liquidity { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.pool { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.amm { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.automated { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.manual { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.bot { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.ai { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ml { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.deep { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.learn { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.read { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.write { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.code { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.build { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.design { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.prod { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.test { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.dev { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.cad { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ui { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ux { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ue { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ve { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.vr { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ar { color: var(--mute); }</section><section id=\"p3\" data-part=\"3\" data-brief=\"Expandable cards revealing the short tragic story behind each specific coin.\"><section data-part=\"3\">\n  <style>\n    [data-part=\"3\"] {\n      [data-part=\"3\"] {\n        display: grid;\n        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));\n        gap: 1rem;\n        padding: 1rem 0;\n      }\n      [data-part=\"3\"] .card {\n        background: var(--panel);\n        border: 1px solid var(--line);\n        border-radius: 8px;\n        padding: 1.25rem;\n        display: flex;\n        flex-direction: column;\n        gap: 0.75rem;\n        transition: all 0.2s ease;\n        opacity: 0.9;\n      }\n      [data-part=\"3\"] .card:hover {\n        border-color: var(--acc);\n        transform: translateY(-2px);\n        box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n      }\n      [data-part=\"3\"] .card.is-hidden {\n        max-height: 0;\n        opacity: 0;\n        overflow: hidden;\n        padding: 0 0.5rem;\n        border: none;\n      }\n      [data-part=\"3\"] .card.is-hidden .card-body,\n      [data-part=\"3\"] .card.is-hidden .card-footer {\n        display: none;\n      }\n      [data-part=\"3\"] .card-header {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n        margin-bottom: 0.5rem;\n      }\n      [data-part=\"3\"] .coin-title {\n        font-weight: 700;\n        font-size: 1.1rem;\n        color: var(--ink);\n        text-transform: uppercase;\n        letter-spacing: 0.5px;\n      }\n      [data-part=\"3\"] .coin-symbol {\n        font-size: 0.8rem;\n        color: var(--mute);\n        background: var(--panel);\n        padding: 2px 6px;\n        border-radius: 4px;\n        margin-left: 8px;\n      }\n      [data-part=\"3\"] .btn.ghost {\n        background: transparent;\n        border: 1px solid var(--line);\n        color: var(--ink);\n        font-size: 0.8rem;\n        padding: 4px 10px;\n        border-radius: 4px;\n        cursor: pointer;\n        transition: all 0.2s ease;\n      }\n      [data-part=\"3\"] .btn.ghost:hover {\n        background: var(--line);\n        color: var(--ink);\n      }\n      [data-part=\"3\"] .card-body {\n        font-size: 0.9rem;\n        line-height: 1.5;\n        color: var(--mute);\n        font-style: italic;\n        max-height: 0;\n        overflow: hidden;\n        transition: max-height 0.3s ease-in-out, opacity 0.3s ease;\n      }\n      [data-part=\"3\"] .card-body.is-visible {\n        max-height: 150px;\n        opacity: 1;\n        overflow: visible;\n      }\n      [data-part=\"3\"] .card-footer {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n        border-top: 1px solid var(--line);\n        padding-top: 0.75rem;\n        margin-top: auto;\n      }\n      [data-part=\"3\"] .rug-date {\n        font-size: 0.75rem;\n        color: var(--acc);\n        font-weight: 600;\n      }\n      [data-part=\"3\"] .rug-amount {\n        font-size: 0.85rem;\n        color: var(--ink);\n        font-weight: 700;\n      }\n      [data-part=\"3\"] .rug-amount.down {\n        color: var(--acc);\n      }\n    }\n  </style>\n\n  <div class=\"card\" data-coin-id=\"1240\" data-name=\"SafeMoon\" data-symbol=\"SAFEMOON\" data-rug-date=\"2021-04-12\" data-loss=\"$4.2B\">\n    <div class=\"card-header\">\n      <span class=\"coin-title\">SafeMoon</span>\n      <button class=\"btn ghost\" onclick=\"toggleStory('card-1240')\">Read Story</button>\n    </div>\n    <div class=\"card-body\">\n      <p>Launched as a 'reflection' mechanism, this coin promised infinite growth through holding. Instead, the developers slowly drained the liquidity pool over months, printing new tokens to inflate supply while the price remained static. When the rug finally hit, 99% of holders lost everything, leaving a community of thousands screaming into the void.</p>\n    </div>\n    <div class=\"card-footer\">\n      <span class=\"rug-date\">Rug Date: <span class=\"rug-date-val\">Apr 12, 2021</span></span>\n      <span class=\"rug-amount\">Loss: <span class=\"rug-amount-val\">$4.2B</span></span>\n    </div>\n  </div>\n\n  <div class=\"card\" data-coin-id=\"8821\" data-name=\"ElonMars\" data-symbol=\"ELON\" data-rug-date=\"2022-03-15\" data-loss=\"$120M\">\n    <div class=\"card-header\">\n      <span class=\"coin-title\">ElonMars</span>\n      <button class=\"btn ghost\" onclick=\"toggleStory('card-8821')\">Read Story</button>\n    </div>\n    <div class=\"card-body\">\n      <p>The ultimate bait-and-switch. The contract claimed to auto-stake tokens into a 'Mars Colony Fund'. In reality, the developer had hardcoded a function to transfer</section></main><script>const b=document.getElementById('dn');if(b){const set=n=>{document.documentElement.dataset.theme=n?'night':'day';b.textContent=n?'\u2600 Day':'\u263e Night'};set(true);b.onclick=()=>set(document.documentElement.dataset.theme!=='night')}document.querySelectorAll('[data-count]').forEach(el=>{const v=+el.dataset.count,t0=performance.now(),f=t=>{const k=Math.min(1,(t-t0)/1200);el.textContent=(el.dataset.pre||'')+Math.round(v*(1-Math.pow(1-k,3))).toLocaleString()+(el.dataset.suf||'');if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)});</script><p id=\"feeless-models-by\" style=\"font:12px system-ui;opacity:.6;text-align:center;margin:12px\">3D: Tombstone Familie Laurenz by 3dhdscan (CC BY)</p><script type=\"module\" id=\"feeless-models\">\nimport * as THREE from 'three';\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';\nconst M = {\"ox-805187f02f8e424cb11b4f7c3a63a1c3\": {\"name\": \"Tombstone Familie Laurenz\", \"url\": \"https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-145/805187f02f8e424cb11b4f7c3a63a1c3.glb\", \"files\": {}, \"rot\": [0.0, 0.6109, 0.0], \"spin\": 6.0, \"shape\": [1.0, 1.0, 1.0], \"height\": 1.6}}, first = Object.keys(M)[0], still = matchMedia('(prefers-reduced-motion: reduce)').matches;\n[...document.querySelectorAll('[data-feeless-model]')].slice(0, 8).forEach(el => {\n  const m = M[el.dataset.feelessModel] || M[first]; if (!m) return;\n  if (getComputedStyle(el).position === 'static') el.style.position = 'relative';\n  if (el.clientHeight < 40) el.style.minHeight = '240px';\n  let r; try { r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { el.dataset.feelessModelOff = 'no-webgl'; el.title = m.name; return; }   // a browser with no 3D keeps the page working and the rest of its spots\n  r.setPixelRatio(Math.min(devicePixelRatio, 2));\n  Object.assign(r.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' }); el.appendChild(r.domElement);\n  const s = new THREE.Scene(); s.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.6));\n  const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 5, 4); s.add(sun);\n  const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 200), turn = new THREE.Group(); s.add(turn);\n  const fit = () => { const w = el.clientWidth || 1, h = el.clientHeight || 1; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };\n  const lm = new THREE.LoadingManager(); lm.setURLModifier(u => (m.files || {})[decodeURI(u.split('/').pop().split('?')[0])] || u);\n  new GLTFLoader(lm).load(m.url, g => { const o = g.scene; o.scale.set(m.shape[0], m.shape[1], m.shape[2]);   // its proportions as set in the studio (a squash or stretch stays)\n    const box = new THREE.Box3().setFromObject(o), size = box.getSize(new THREE.Vector3()), big = Math.max(size.x, size.y, size.z) || 1;\n    o.position.sub(box.getCenter(new THREE.Vector3())); turn.add(o); turn.rotation.set(m.rot[0], m.rot[1], m.rot[2]); cam.position.set(0, big * 0.15, big * 2.2); cam.lookAt(0, 0, 0); fit(); el.dataset.feelessModelOn = m.name; });\n  new ResizeObserver(fit).observe(el); fit();\n  let seen = false; new IntersectionObserver(e => { seen = e[0].isIntersecting; }).observe(el);\n  const clock = new THREE.Clock();\n  r.setAnimationLoop(() => { const dt = clock.getDelta(); if (!seen || document.hidden) return; if (!still && m.spin) turn.rotation.y += dt * m.spin * Math.PI / 30; r.render(s, cam); });\n});\n</script></body></html>",
+  "previousCode": "",
+  "preview": "<!doctype html><html lang=\"en\" data-theme=\"night\"><head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob: https://huggingface.co https://*.hf.co https://*.huggingface.co; connect-src blob: data: https://huggingface.co https://*.hf.co https://*.huggingface.co; style-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/ https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js; font-src data:\"><script>addEventListener('error',function(e){try{parent.postMessage({t:'feeless-page-error',m:String(e.message||'').slice(0,200)},'*')}catch(_){}})</script><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Rugged Stones</title><style>:root{--acc:#8B0000;--bg:#f6f7fb;--panel:#ffffff;--ink:#111827;--mute:#6b7280;--line:#e5e7eb;}:root[data-theme=night]{--bg:#07090d;--panel:#0f141c;--ink:#e8edf5;--mute:#8b95a7;--line:#1e2633;}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;transition:background .3s,color .3s}header.top{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:16px;padding:12px 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}header.top b{font-size:17px}header.top small{color:var(--mute)}header.top nav{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}header.top nav a{color:var(--mute);text-decoration:none;font-size:13px}header.top nav a:hover{color:var(--acc)}main{max-width:1180px;margin:0 auto;padding:20px;display:grid;gap:22px}section{scroll-margin-top:70px;animation:in .5s ease both}@keyframes in{from{opacity:0;transform:translateY(8px)}}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 8px 24px #0000000d}.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.stat small{display:block;color:var(--mute);font-size:12px}.stat b{display:block;font-size:26px;font-variant-numeric:tabular-nums}.up{color:#16a34a}.down{color:#e11d48}.btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:600;cursor:pointer}.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}.btn:hover{filter:brightness(1.08)}.tag{display:inline-block;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.04em}.muted{color:var(--mute)}h1,h2,h3{margin:0 0 8px;line-height:1.15}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style><script src=\"https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js\"></script>\n<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css\">\n<script type=\"importmap\">{\"imports\":{\"three\":\"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js\",\"three/addons/\":\"https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/\"}}</script>\n</head><body><header class=\"top\"><b>Rugged Stones</b><small>Memorial page for dead tokens with stories</small><nav><a href=\"#p1\">The Trench</a><a href=\"#p2\">Newest Rugs</a><a href=\"#p3\">Stone Stories</a></nav></header><div data-feeless-model=\"ox-805187f02f8e424cb11b4f7c3a63a1c3\" data-feeless-spot=\"code\" role=\"img\" aria-label=\"Tombstone Familie Laurenz\" style=\"height:min(56vh,480px)\"></div><main><section id=\"p1\" data-part=\"1\" data-brief=\"Dark background with a grid of stone markers for every dead token listed.\"><section data-part=\"1\">\n  <style>\n    [data-part=\"1\"] {\n      --bg: #0a0a0a;\n      --panel: #111111;\n      --line: #262626;\n      --ink: #e5e5e5;\n      --stone: #1c1c1c;\n      --stone-border: #333333;\n      --stone-text: #888888;\n      --stone-accent: #4a4a4a;\n      --stone-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);\n      --stone-glow: 0 0 10px rgba(255, 255, 255, 0.03);\n      [data-count] {\n        color: var(--ink);\n        font-weight: 600;\n      }\n      .stone {\n        background: var(--stone);\n        border: 1px solid var(--stone-border);\n        border-radius: 4px;\n        padding: 12px 16px;\n        margin: 12px;\n        display: inline-block;\n        width: 160px;\n        height: 100px;\n        position: relative;\n        box-shadow: var(--stone-shadow), var(--stone-glow);\n        transition: transform 0.2s ease, box-shadow 0.2s ease;\n        animation: stoneDrift 8s infinite ease-in-out alternate;\n      }\n      .stone::before {\n        content: '';\n        position: absolute;\n        top: 4px;\n        left: 50%;\n        transform: translateX(-50%);\n        width: 10px;\n        height: 10px;\n        background: var(--stone-accent);\n        border-radius: 50%;\n        opacity: 0.5;\n      }\n      .stone::after {\n        content: '';\n        position: absolute;\n        top: 8px;\n        left: 50%;\n        transform: translateX(-50%);\n        width: 3px;\n        height: 3px;\n        background: #000;\n        border-radius: 50%;\n        opacity: 0.8;\n      }\n      .stone .symbol {\n        font-size: 14px;\n        font-weight: 700;\n        color: var(--ink);\n        text-transform: uppercase;\n        letter-spacing: 1px;\n        margin-bottom: 4px;\n        text-align: center;\n      }\n      .stone .date {\n        font-size: 10px;\n        color: var(--stone-text);\n        text-align: center;\n        margin-top: 4px;\n      }\n      .stone .loss {\n        font-size: 9px;\n        color: #ff4444;\n        text-align: center;\n        margin-top: 2px;\n        font-weight: 600;\n      }\n      @keyframes stoneDrift {\n        0% { transform: translateY(0px) rotate(0deg); }\n        50% { transform: translateY(-2px) rotate(1deg); }\n        100% { transform: translateY(0px) rotate(0deg); }\n      }\n      .graveyard-grid {\n        display: grid;\n        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));\n        gap: 12px;\n        padding: 12px;\n      }\n    }\n  </style>\n  <div class=\"graveyard-grid\">\n    <!-- Stone: FROG -->\n    <div class=\"stone\">\n      <div class=\"symbol\">FROG</div>\n      <div class=\"date\">Oct 12, 2023</div>\n      <div class=\"loss\">-99%</div>\n    </div>\n    <!-- Stone: PEPE -->\n    <div class=\"stone\">\n      <div class=\"symbol\">PEPE</div>\n      <div class=\"date\">Sep 04, 2023</div>\n      <div class=\"loss\">-95%</div>\n    </div>\n    <!-- Stone: DODO -->\n    <div class=\"stone\">\n      <div class=\"symbol\">DODO</div>\n      <div class=\"date\">Aug 15, 2023</div>\n      <div class=\"loss\">-98%</div>\n    </div>\n    <!-- Stone: LUNA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">LUNA</div>\n      <div class=\"date\">Jun 01, 2022</div>\n      <div class=\"loss\">-99.9%</div>\n    </div>\n    <!-- Stone: SAFEMOON -->\n    <div class=\"stone\">\n      <div class=\"symbol\">SAFEMOON</div>\n      <div class=\"date\">Sep 10, 2021</div>\n      <div class=\"loss\">-99.9%</div>\n    </div>\n    <!-- Stone: APE -->\n    <div class=\"stone\">\n      <div class=\"symbol\">APE</div>\n      <div class=\"date\">May 20, 2023</div>\n      <div class=\"loss\">-92%</div>\n    </div>\n    <!-- Stone: BOBA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">BOBA</div>\n      <div class=\"date\">Nov 22, 2022</div>\n      <div class=\"loss\">-99%</div>\n    </div>\n    <!-- Stone: GALA -->\n    <div class=\"stone\">\n      <div class=\"symbol\">GALA</div>\n      <div class=\"</section><section id=\"p2\" data-part=\"2\" data-brief=\"Live ticker showing the latest rug pulls with timestamps and loss amounts.\"><section data-part=\"2\">\n<style>\n[data-part=\"2\"] .ticker-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }\n[data-part=\"2\"] .ticker-loss { color: var(--mute); font-size: 0.85em; }\n[data-part=\"2\"] .ticker-time { font-family: monospace; font-size: 0.75em; color: var(--mute); }\n[data-part=\"2\"] .ticker-symbol { font-weight: 700; color: var(--ink); }\n[data-part=\"2\"] .ticker-value { font-weight: 700; color: var(--acc); }\n[data-part=\"2\"] .ticker-value.negative { color: var(--acc); }\n[data-part=\"2\"] .ticker-value.positive { color: var(--mute); }\n[data-part=\"2\"] .ticker-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--mute); }\n[data-part=\"2\"] .ticker-label.urgent { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.normal { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.rising { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.falling { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.stable { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.dying { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.dead { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.reborn { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.halted { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.liquidated { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.staked { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.minted { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.burned { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.audit { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.scam { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.rug { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.hack { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.exit { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.faucet { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.governance { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.defi { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.nft { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.memecoin { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.game { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.io { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.web3 { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.app { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.social { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.community { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.team { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.advisors { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.vcs { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.angel { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.semi { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ipo { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.mkt { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.liquidity { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.pool { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.amm { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.automated { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.manual { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.bot { color: var(--acc); }\n[data-part=\"2\"] .ticker-label.ai { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ml { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.deep { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.learn { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.read { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.write { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.code { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.build { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.design { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.prod { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.test { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.dev { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.cad { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ui { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ux { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ue { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ve { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.vr { color: var(--mute); }\n[data-part=\"2\"] .ticker-label.ar { color: var(--mute); }</section><section id=\"p3\" data-part=\"3\" data-brief=\"Expandable cards revealing the short tragic story behind each specific coin.\"><section data-part=\"3\">\n  <style>\n    [data-part=\"3\"] {\n      [data-part=\"3\"] {\n        display: grid;\n        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));\n        gap: 1rem;\n        padding: 1rem 0;\n      }\n      [data-part=\"3\"] .card {\n        background: var(--panel);\n        border: 1px solid var(--line);\n        border-radius: 8px;\n        padding: 1.25rem;\n        display: flex;\n        flex-direction: column;\n        gap: 0.75rem;\n        transition: all 0.2s ease;\n        opacity: 0.9;\n      }\n      [data-part=\"3\"] .card:hover {\n        border-color: var(--acc);\n        transform: translateY(-2px);\n        box-shadow: 0 4px 12px rgba(0,0,0,0.2);\n      }\n      [data-part=\"3\"] .card.is-hidden {\n        max-height: 0;\n        opacity: 0;\n        overflow: hidden;\n        padding: 0 0.5rem;\n        border: none;\n      }\n      [data-part=\"3\"] .card.is-hidden .card-body,\n      [data-part=\"3\"] .card.is-hidden .card-footer {\n        display: none;\n      }\n      [data-part=\"3\"] .card-header {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n        margin-bottom: 0.5rem;\n      }\n      [data-part=\"3\"] .coin-title {\n        font-weight: 700;\n        font-size: 1.1rem;\n        color: var(--ink);\n        text-transform: uppercase;\n        letter-spacing: 0.5px;\n      }\n      [data-part=\"3\"] .coin-symbol {\n        font-size: 0.8rem;\n        color: var(--mute);\n        background: var(--panel);\n        padding: 2px 6px;\n        border-radius: 4px;\n        margin-left: 8px;\n      }\n      [data-part=\"3\"] .btn.ghost {\n        background: transparent;\n        border: 1px solid var(--line);\n        color: var(--ink);\n        font-size: 0.8rem;\n        padding: 4px 10px;\n        border-radius: 4px;\n        cursor: pointer;\n        transition: all 0.2s ease;\n      }\n      [data-part=\"3\"] .btn.ghost:hover {\n        background: var(--line);\n        color: var(--ink);\n      }\n      [data-part=\"3\"] .card-body {\n        font-size: 0.9rem;\n        line-height: 1.5;\n        color: var(--mute);\n        font-style: italic;\n        max-height: 0;\n        overflow: hidden;\n        transition: max-height 0.3s ease-in-out, opacity 0.3s ease;\n      }\n      [data-part=\"3\"] .card-body.is-visible {\n        max-height: 150px;\n        opacity: 1;\n        overflow: visible;\n      }\n      [data-part=\"3\"] .card-footer {\n        display: flex;\n        justify-content: space-between;\n        align-items: center;\n        border-top: 1px solid var(--line);\n        padding-top: 0.75rem;\n        margin-top: auto;\n      }\n      [data-part=\"3\"] .rug-date {\n        font-size: 0.75rem;\n        color: var(--acc);\n        font-weight: 600;\n      }\n      [data-part=\"3\"] .rug-amount {\n        font-size: 0.85rem;\n        color: var(--ink);\n        font-weight: 700;\n      }\n      [data-part=\"3\"] .rug-amount.down {\n        color: var(--acc);\n      }\n    }\n  </style>\n\n  <div class=\"card\" data-coin-id=\"1240\" data-name=\"SafeMoon\" data-symbol=\"SAFEMOON\" data-rug-date=\"2021-04-12\" data-loss=\"$4.2B\">\n    <div class=\"card-header\">\n      <span class=\"coin-title\">SafeMoon</span>\n      <button class=\"btn ghost\" onclick=\"toggleStory('card-1240')\">Read Story</button>\n    </div>\n    <div class=\"card-body\">\n      <p>Launched as a 'reflection' mechanism, this coin promised infinite growth through holding. Instead, the developers slowly drained the liquidity pool over months, printing new tokens to inflate supply while the price remained static. When the rug finally hit, 99% of holders lost everything, leaving a community of thousands screaming into the void.</p>\n    </div>\n    <div class=\"card-footer\">\n      <span class=\"rug-date\">Rug Date: <span class=\"rug-date-val\">Apr 12, 2021</span></span>\n      <span class=\"rug-amount\">Loss: <span class=\"rug-amount-val\">$4.2B</span></span>\n    </div>\n  </div>\n\n  <div class=\"card\" data-coin-id=\"8821\" data-name=\"ElonMars\" data-symbol=\"ELON\" data-rug-date=\"2022-03-15\" data-loss=\"$120M\">\n    <div class=\"card-header\">\n      <span class=\"coin-title\">ElonMars</span>\n      <button class=\"btn ghost\" onclick=\"toggleStory('card-8821')\">Read Story</button>\n    </div>\n    <div class=\"card-body\">\n      <p>The ultimate bait-and-switch. The contract claimed to auto-stake tokens into a 'Mars Colony Fund'. In reality, the developer had hardcoded a function to transfer</section></main><script>const b=document.getElementById('dn');if(b){const set=n=>{document.documentElement.dataset.theme=n?'night':'day';b.textContent=n?'\u2600 Day':'\u263e Night'};set(true);b.onclick=()=>set(document.documentElement.dataset.theme!=='night')}document.querySelectorAll('[data-count]').forEach(el=>{const v=+el.dataset.count,t0=performance.now(),f=t=>{const k=Math.min(1,(t-t0)/1200);el.textContent=(el.dataset.pre||'')+Math.round(v*(1-Math.pow(1-k,3))).toLocaleString()+(el.dataset.suf||'');if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)});</script><p id=\"feeless-models-by\" style=\"font:12px system-ui;opacity:.6;text-align:center;margin:12px\">3D: Tombstone Familie Laurenz by 3dhdscan (CC BY)</p><script type=\"module\" id=\"feeless-models\">\nimport * as THREE from 'three';\nimport { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';\nconst M = {\"ox-805187f02f8e424cb11b4f7c3a63a1c3\": {\"name\": \"Tombstone Familie Laurenz\", \"url\": \"https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-145/805187f02f8e424cb11b4f7c3a63a1c3.glb\", \"files\": {}, \"rot\": [0.0, 0.6109, 0.0], \"spin\": 6.0, \"shape\": [1.0, 1.0, 1.0], \"height\": 1.6}}, first = Object.keys(M)[0], still = matchMedia('(prefers-reduced-motion: reduce)').matches;\n[...document.querySelectorAll('[data-feeless-model]')].slice(0, 8).forEach(el => {\n  const m = M[el.dataset.feelessModel] || M[first]; if (!m) return;\n  if (getComputedStyle(el).position === 'static') el.style.position = 'relative';\n  if (el.clientHeight < 40) el.style.minHeight = '240px';\n  let r; try { r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { el.dataset.feelessModelOff = 'no-webgl'; el.title = m.name; return; }   // a browser with no 3D keeps the page working and the rest of its spots\n  r.setPixelRatio(Math.min(devicePixelRatio, 2));\n  Object.assign(r.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' }); el.appendChild(r.domElement);\n  const s = new THREE.Scene(); s.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.6));\n  const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 5, 4); s.add(sun);\n  const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 200), turn = new THREE.Group(); s.add(turn);\n  const fit = () => { const w = el.clientWidth || 1, h = el.clientHeight || 1; r.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };\n  const lm = new THREE.LoadingManager(); lm.setURLModifier(u => (m.files || {})[decodeURI(u.split('/').pop().split('?')[0])] || u);\n  new GLTFLoader(lm).load(m.url, g => { const o = g.scene; o.scale.set(m.shape[0], m.shape[1], m.shape[2]);   // its proportions as set in the studio (a squash or stretch stays)\n    const box = new THREE.Box3().setFromObject(o), size = box.getSize(new THREE.Vector3()), big = Math.max(size.x, size.y, size.z) || 1;\n    o.position.sub(box.getCenter(new THREE.Vector3())); turn.add(o); turn.rotation.set(m.rot[0], m.rot[1], m.rot[2]); cam.position.set(0, big * 0.15, big * 2.2); cam.lookAt(0, 0, 0); fit(); el.dataset.feelessModelOn = m.name; });\n  new ResizeObserver(fit).observe(el); fit();\n  let seen = false; new IntersectionObserver(e => { seen = e[0].isIntersecting; }).observe(el);\n  const clock = new THREE.Clock();\n  r.setAnimationLoop(() => { const dt = clock.getDelta(); if (!seen || document.hidden) return; if (!still && m.spin) turn.rotation.y += dt * m.spin * Math.PI / 30; r.render(s, cam); });\n});\n</script><script>addEventListener('message',function(e){if(e.data&&e.data.t==='feeless-live')window.FEELESS_LIVE=e.data.live});(function(){function go(t){var pg=t.closest('[data-page]');if(pg&&pg.hidden){[].forEach.call(document.querySelectorAll('[data-page]'),function(m){m.hidden=m!==pg});}if(t.hidden)t.hidden=false;t.scrollIntoView({behavior:'smooth',block:'start'})}\nfunction find(k){if(!k)return null;try{return document.getElementById(k)||document.querySelector('[data-page=\"'+CSS.escape(k)+'\"],[data-route=\"'+CSS.escape(k)+'\"],[name=\"'+CSS.escape(k)+'\"],section#'+CSS.escape(k.toLowerCase()))}catch(_){return null}}\naddEventListener('click',function(e){if(e.defaultPrevented||e.button)return;var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href')||'';if(/^(javascript:|mailto:|tel:)/i.test(h))return;e.preventDefault();\nif(/^(https?:)?\\/\\//i.test(h)){try{parent.postMessage({t:'feeless-link',href:new URL(h,'https://x.invalid').href},'*')}catch(_){}return}\nvar k=decodeURIComponent(h.replace(/^#/,'').replace(/^\\.?\\//,'').replace(/[?#].*$/,'').replace(/\\.html?$/i,''));var t=h.charAt(0)==='#'?find(decodeURIComponent(h.slice(1))):find(k)||find(k.toLowerCase());if(t)go(t);else if(h==='#'||!k)scrollTo({top:0,behavior:'smooth'})})})();</script><script>(function(){function say(m){try{parent.postMessage(m,'*')}catch(_){}}\nfunction box(){var n=document.elementFromPoint(innerWidth/2,innerHeight/2);while(n&&n!==document.body){var o=getComputedStyle(n).overflowY;if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight)return n;n=n.parentElement}return null}\naddEventListener('scroll',function(e){var t=e.target;say({t:'feeless-scroll',y:scrollY||(t&&t.scrollTop)||0})},{passive:true,capture:true});\naddEventListener('message',function(e){var d=e.data||{};\nif(d.t==='feeless-scrollby'||d.t==='feeless-scrollto'){var b=box()||window,y=Number(d.y)||0;if(d.t==='feeless-scrollby')b.scrollBy(0,y);else b.scrollTo({top:y,behavior:'smooth'})}\nif(d.t==='feeless-pick'){var r=d.r,x=(r.x+r.w/2)*innerWidth,y=(r.y+r.h/2)*innerHeight,el=document.elementFromPoint(x,y);say({t:'feeless-picked',html:el?String(el.outerHTML).slice(0,600):''})}\nif(d.t==='feeless-find'){var out=[];(d.rows||[]).forEach(function(q){var want=String(q.text||'').replace(/\\s+/g,' ').trim().toLowerCase().slice(0,80);if(!want)return;var best=null;document.querySelectorAll('body *').forEach(function(n){if(n.tagName==='SCRIPT'||n.tagName==='STYLE')return;var t=(n.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();if(t.indexOf(want)>=0&&(!best||t.length<best.len))best={n:n,len:t.length}});if(best){var b=best.n.getBoundingClientRect();out.push({key:q.key,x:b.left/innerWidth,y:b.top/innerHeight,w:b.width/innerWidth,h:b.height/innerHeight,sy:scrollY})}});say({t:'feeless-found',rows:out})}\n})})()</script></body></html>",
+  "models3d": [
+   {
+    "id": "ox-805187f02f8e424cb11b4f7c3a63a1c3",
+    "name": "Tombstone Familie Laurenz",
+    "height": 1.6,
+    "turn": 35,
+    "spin": 6.0,
+    "from": "3D studio",
+    "at": 1795022489
+   }
+  ],
+  "by": "Mind A",
+  "cut": false,
+  "unfinished": null,
+  "cfg": {
+   "research": true,
+   "suggest": false,
+   "review": true,
+   "repair": false,
+   "compress": false,
+   "depth": "quick"
+  }
+ },
+ "filed": {
+  "id": "ps4ef3590b1f",
+  "n": 6,
+  "kind": "PoStatic",
+  "at": 1795023619,
+  "closedAt": 1795023619,
+  "status": "closed",
+  "topic": "TEST 11-18 1721",
+  "ws": "wd6494db42c",
+  "version": 1,
+  "by": "Mind A",
+  "plan": "{\"summary\": \"Build a 'Trench Graveyard' memorial page using the 'trench build' stash template, enhanced with Motion scroll-triggered animations and HeroUI cards to display a live feed of rug-pull tokens with lore cards and live counters, av",
+  "refs": [],
+  "steps": [],
+  "sitesRead": [
+   {
+    "host": "astrae.design",
+    "name": "astrae.design",
+    "ok": false
+   },
+   {
+    "host": "ui.shadcn.com/docs",
+    "name": "shadcn/ui",
+    "ok": true
+   },
+   {
+    "host": "motion.dev/docs/react",
+    "name": "Motion",
+    "ok": true
+   },
+   {
+    "host": "recharts.org",
+    "name": "Recharts",
+    "ok": false
+   },
+   {
+    "host": "codepen.io/trending",
+    "name": "CodePen",
+    "ok": false
+   },
+   {
+    "host": "developer.mozilla.org/en-US/docs/Web",
+    "name": "MDN",
+    "ok": true
+   }
+  ],
+  "kits": [
+   "heroui"
+  ],
+  "markNotes": [],
+  "studio": [
+   {
+    "id": "ox-805187f02f8e424cb11b4f7c3a63a1c3",
+    "name": "Tombstone Familie Laurenz",
+    "url": "https://huggingface.co/datasets/allenai/objaverse/resolve/main/glbs/000-145/805187f02f8e424cb11b4f7c3a63a1c3.glb",
+    "height": 1.6,
+    "turn": [
+     0.0,
+     0.6109,
+     0.0
+    ],
+    "spin": 6.0,
+    "used": true
+   }
+  ],
+  "cost": 0.0,
+  "ran": [
+   {
+    "asked": "local/ossy",
+    "answered": [
+     "qwen/qwen3.5-9b"
+    ],
+    "routes": [
+     "local"
+    ],
+    "calls": 5,
+    "ok": 4,
+    "usd": 0.0,
+    "secs": 1027.3,
+    "standIn": false
+   },
+   {
+    "asked": "local/g4",
+    "answered": [
+     "qwen/qwen3.5-4b"
+    ],
+    "routes": [
+     "lan"
+    ],
+    "calls": 3,
+    "ok": 1,
+    "usd": 0.0,
+    "secs": 98.6,
+    "standIn": false
+   }
+  ],
+  "minds": [
+   "local/ossy",
+   "local/g4"
+  ],
+  "mindsCheck": {
+   "ok": true,
+   "set": [
+    "local/ossy",
+    "local/g4"
+   ],
+   "ran": [
+    "local/ossy",
+    "local/g4"
+   ],
+   "missing": [],
+   "extra": [],
+   "why": "local/ossy + local/g4 ran, the pair set for it"
+  },
+  "read": {
+   "sites": [
+    "developer.mozilla.org",
+    "motion.dev",
+    "ui.shadcn.com"
+   ],
+   "pages": []
+  },
+  "foot": {
+   "pct": 40,
+   "nearest": 5,
+   "shared": [],
+   "repeat": false,
+   "sentBack": 0
+  },
+  "test": {
+   "by": "Claude",
+   "at": 1795022489,
+   "agent": "Sicario's",
+   "free": true,
+   "pair": [
+    "local/ossy",
+    "local/g4"
+   ],
+   "run": "9612430cbd",
+   "bench": "6c4adfd9d588"
+  },
+  "proofChecks": [
+   {
+    "key": "minds",
+    "label": "The minds that really ran, from the call log",
+    "ok": true,
+    "why": "local/ossy + local/g4 ran, the pair set for it"
+   },
+   {
+    "key": "sources",
+    "label": "Every source it read is listed",
+    "ok": true,
+    "why": "3 sites, 0 pages"
+   },
+   {
+    "key": "footprint",
+    "label": "A new footprint (a repeat is sent back first)",
+    "ok": true,
+    "why": "40% new next to #5"
+   },
+   {
+    "key": "kits",
+    "label": "Its kind's own kits, and which it used",
+    "ok": true,
+    "why": "heroui"
+   },
+   {
+    "key": "studio",
+    "label": "The 3D studio pieces it was given are in the page, exactly as set",
+    "ok": true,
+    "why": "Tombstone Familie Laurenz (1.6 m, spin 6.0)"
+   }
+  ],
+  "review": {
+   "v": 7,
+   "rubric": 7,
+   "by": {},
+   "score": null,
+   "agree": null,
+   "verdict": null,
+   "missing": [
+    "zed"
+   ],
+   "recused": [
+    "ossy",
+    "g4"
+   ],
+   "builders": [
+    "local/ossy",
+    "local/g4"
+   ],
+   "families": [],
+   "oneFamily": false,
+   "evidenceSha": "68c197a3f58ae5286e8027a93669b9771e1ecdc3199d9d5af8cfdcb490ce3503",
+   "independent": false,
+   "why": "Every judge built this proof, so none may judge it",
+   "at": 1795028598,
+   "hidden": {
+    "v": 2,
+    "passed": 9,
+    "total": 10,
+    "pct": 90,
+    "checks": [
+     {
+      "id": "no-fake-data",
+      "pass": true
+     },
+     {
+      "id": "finished",
+      "pass": true
+     },
+     {
+      "id": "has-title",
+      "pass": true
+     },
+     {
+      "id": "has-heading",
+      "pass": false
+     },
+     {
+      "id": "phone-ready",
+      "pass": true
+     },
+     {
+      "id": "images-load",
+      "pass": true
+     },
+     {
+      "id": "links-go-somewhere",
+      "pass": true
+     },
+     {
+      "id": "no-insecure-content",
+      "pass": true
+     },
+     {
+      "id": "has-words",
+      "pass": true
+     },
+     {
+      "id": "kits-current",
+      "pass": true
+     }
+    ],
+    "failed": [
+     "has-heading"
+    ],
+    "kits": [
+     {
+      "pkg": "motion",
+      "used": "12",
+      "pin": "12",
+      "ok": true
+     },
+     {
+      "pkg": "@heroui/styles",
+      "used": "3.2.7",
+      "pin": "3.2.7",
+      "ok": true
+     },
+     {
+      "pkg": "three",
+      "used": "0.187.0",
+      "pin": "0.187.0",
+      "ok": true
+     }
+    ]
+   }
+  }
+ }
+}

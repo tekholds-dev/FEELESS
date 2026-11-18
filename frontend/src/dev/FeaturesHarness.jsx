@@ -22,6 +22,7 @@ import ASSETS from './assetsFixture.json';
 import REAL from './realShelfFixture.json';   // real_world.resolve on the live CC0 library, 2026-11-15   // asset_packs.search('water') with each Sketchfab picture looked up, 2026-11-07   // reputation_service._grow_rows, the live board on 2026-11-07
 import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a real unsent proof (Happy Assistant), 2026-11-07
 import ECO from './ecoFixture.json';
+import STUDIO from './studioTestFixture.json';   // 🪦 Slice 2: Sicario's real TEST PoStatic #6 that carried a 3D studio piece (its folder view + filed record), 2026-11-18
 import TRC from './trueRecordFixture.json';   // 🧾 Sicario's real filed folders (record fields only), exported from feecats.json after the Slice 0 TEST runs, 2026-11-18
 import { TrueRecord } from '../components/command/TrueRecord';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
@@ -78,6 +79,11 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/[?&]studio\b/.test(window.location.search)) {   // ?studio — Slice 2: the real TEST folder on Sicario that carried a studio piece, in the PoStatic desk (open its tile: chips, Static, record)
+    const scat = { id: 'sic', name: "Sicario's", handle: 'sicarios' }; const row = { id: STUDIO.doc.id, kind: 'build', name: STUDIO.doc.name };
+    const swork = async (_c, b) => (b.op === 'features' ? { workspaces: [row], psFolders: [STUDIO.filed] } : b.op === 'state' ? { psFolders: [STUDIO.filed] } : b.op === 'ws_open' ? { doc: STUDIO.doc } : {});
+    return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><ProofDesk cat={scat} kind="build" work={swork} onCommand={() => {}} /></div>;
+  }
   if (/[?&]trc\b/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: 'var(--m-bg, #07040d)', padding: 16, boxSizing: 'border-box', display: 'grid', gap: 14, maxWidth: 880 }}>   {/* ?trc — the true record strip of every proof kind on Sicario's real folders, then the PoEco window with its TEST tiles */}
     {['pow', 'pop', 'pob', 'poc', 'pos', 'poe'].map(k => <div key={k} className="prf-head" data-testid={`trc-row-${k}`}>{(TRC[k] || []).length ? <TrueRecord kind={k} folders={TRC[k]} /> : <p className="m-mute">{k}: no folder filed yet</p>}</div>)}
     <EcoFolder cat={{ id: 'sic', name: "Sicario's", handle: 'sicarios' }} d={{ poeFolders: TRC.poe || [] }} setD={() => {}} work={async () => ({ poeFolders: TRC.poe || [] })} onCommand={() => {}} /></div>;
