@@ -195,7 +195,7 @@ def _review_apply(store):
         cid, kind, fid, rv = rs._REVIEW_DONE.pop(0)
         key = rs._mission.KINDS[kind][1]
         f = next((x for x in (store['cats'].get(cid) or {}).get(key) or [] if x.get('id') == fid), None)
-        if f is None or (((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0) and not rs._review.stand_in(f.get('review'))):   # an older version's review is replaced (and a Qwen-voiced ZED one)
+        if f is None or (((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0) and not rs._review.stand_in(f.get('review')) and not rs._review.stale_brief(kind, f.get('review'))):   # an older version's review is replaced (and a Qwen-voiced ZED one, and a PoB judged on the old brief)
             continue
         f['review'] = rv; n += 1
         rs._REVIEW_LESSONS[kind] = rs._review.lessons(store, kind)

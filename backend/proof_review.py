@@ -217,6 +217,19 @@ def stand_in(rv):
     return family(((((rv or {}).get('by') or {}).get('zed')) or {}).get('answeredBy')) in ('qwen',)
 
 
+POB_BRIEF_AT = 1794982777   # 2026-11-18: before this the judges never saw a PoB's bid, legs, reads or full games (a bare "0 - 0"); PoBs judged before it are judged again
+
+
+def stale_brief(kind, rv):
+    """A PoB review made on the old brief, or a review no judge answered, with no outside (owner/Claude) vote to lose: judged again once per run. Pure."""
+    return bool(rv) and not rv.get('outside') and ((kind == 'pob' and float(rv.get('at') or 0) < POB_BRIEF_AT) or unanswered(rv))
+
+
+def unanswered(rv):
+    """No judge answered (all down or timed out) though not every judge was recused: a blank review, judged again (once per run). Pure."""
+    return 'rubric' in rv and rv.get('score') is None and len(set(rv.get('recused') or [])) < len(REVIEWERS)   # 'rubric': a real combined review, not a stub
+
+
 def next_due(store, done=(), kinds=None, handles=None):
     """The newest closed proof nobody reviewed yet, of any agent and kind. → (cat_id, kind, folder) or None. Pure."""
     import mission
@@ -228,7 +241,7 @@ def next_due(store, done=(), kinds=None, handles=None):
             if kinds and k not in kinds:
                 continue
             for f in c.get(key) or []:
-                if f.get('status') != 'closed' or (((f.get('review') or {}).get('v') or 0) >= VERSION and not stand_in(f.get('review'))) or f.get('noTrade') or (cid, f.get('id')) in done:
+                if f.get('status') != 'closed' or (((f.get('review') or {}).get('v') or 0) >= VERSION and not stand_in(f.get('review')) and not stale_brief(k, f.get('review'))) or f.get('noTrade') or (cid, f.get('id')) in done:
                     continue
                 at = float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0)
                 if best is None or at > best[0]:

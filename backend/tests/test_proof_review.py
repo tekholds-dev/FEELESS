@@ -134,3 +134,24 @@ def test_a_pob_brief_names_its_game_bid_and_what_it_read():
     ev = b['evidence']
     assert ev['bid'] == {'title': 'Los Angeles C wins', 'side': 'yes', 'price': 0.68, 'count': 2, 'status': 'filled'} and 'secret-order' not in json.dumps(b)
     assert ev['sitesRead'] == ['espn.com', 'kalshi.com'] and 'predictor 62.2%' in ev['whatWasRead'][0]
+
+
+def test_a_pob_judged_on_the_old_brief_is_judged_again_once():
+    import proof_review as pr
+    old = {'v': pr.VERSION, 'at': pr.POB_BRIEF_AT - 60, 'score': 20, 'verdict': 'fail', 'by': {}}
+    new = {**old, 'at': pr.POB_BRIEF_AT + 60}
+    assert pr.stale_brief('pob', old) and not pr.stale_brief('pob', new)
+    assert not pr.stale_brief('pow', old) and not pr.stale_brief('pob', None)
+    assert not pr.stale_brief('pob', {**old, 'outside': ['owner']})   # the owner's own vote is never thrown away
+    store = {'cats': {'c': {'handle': 'x', 'pobFolders': [{'id': 'a', 'status': 'closed', 'at': 5, 'review': old}, {'id': 'b', 'status': 'closed', 'at': 9, 'review': new}],
+                            'powFolders': [{'id': 'w', 'status': 'closed', 'at': 7, 'review': old}]}}}
+    assert pr.next_due(store)[2]['id'] == 'a'
+    assert pr.next_due(store, done={('c', 'a')}) is None   # once per run, and nothing else comes due
+
+
+def test_a_review_no_judge_answered_is_judged_again_but_a_recused_one_is_not():
+    import proof_review as pr
+    blank = {'v': pr.VERSION, 'rubric': pr.VERSION, 'at': pr.POB_BRIEF_AT + 60, 'score': None, 'by': {k: None for k, _m, _n in pr.REVIEWERS}}
+    assert pr.stale_brief('poc', blank) and pr.stale_brief('pos', blank)
+    assert not pr.stale_brief('poc', {**blank, 'recused': [k for k, _m, _n in pr.REVIEWERS]})   # every judge built it: nobody may judge
+    assert not pr.stale_brief('poc', {**blank, 'score': 40})
