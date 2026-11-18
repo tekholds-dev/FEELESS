@@ -351,6 +351,15 @@ export function sameGameSlips(d, f) {   // every other Kalshi slip its agent put
   return [...on.filter(x => x.id !== f.id && x.kalshi), ...on.flatMap(picks)];
 }
 const NO_PRINTS = {};
+// 🤖 owner 2026-11-17 ("each proof type should have auto proof"): one chip per proof kind. Off → tap starts its 3-question setup in the chat
+// (how much per proof, how often, total + stop) and nothing runs before he says confirm. On → its plan in the tip, ✕ is its own kill-switch.
+export function AutoRow({ rows, busy, onAsk }) {
+  if (!rows?.length) return null;
+  return <nav className="cwb-auto" aria-label="Auto proofs" data-testid="cwb-auto"><em>🤖 AUTO</em>
+    {rows.map(r => <span key={r.kind} className={`cwb-auto-k${r.on ? ' is-on' : ''}${r.asking ? ' is-asking' : ''}`}>
+      <button type="button" className="m-chip" disabled={busy || r.on} onClick={() => onAsk(`auto ${r.kind}`)} data-tip={r.on ? `ON: ${r.say}` : r.asking ? 'Setting it up in the chat: answer the question there' : `Run ${r.code} on its own: 3 questions in the chat (how much each, how often, when to stop), then you confirm${r.stopped ? `. Last one stopped: ${r.stopped}` : ''}`} data-testid={`cwb-auto-${r.kind}`}><i aria-hidden="true" />{r.code}</button>
+      {r.on ? <button type="button" className="cwb-auto-x" disabled={busy} aria-label={`Stop auto ${r.code}`} onClick={() => onAsk(`stop auto ${r.kind}`)} data-tip={`Kill-switch: stops auto ${r.code} now`} data-testid={`cwb-auto-stop-${r.kind}`}>✕</button> : null}</span>)}</nav>;
+}
 export function deskProofs(d) {
   const all = newestProofs(d, 999); const leadId = d?.deskProof?.id || liveBidOf(d)?.id; const at = leadId ? all.findIndex(x => x.id === leadId) : -1;
   const lead = at >= 0 ? all[at] : null; const rest = all.filter((_, i) => i !== at).slice(0, lead ? 3 : 4);
@@ -1821,6 +1830,7 @@ function WorkbenchLive({ cat }) {
         {STOPPABLE[k] ? <button type="button" className="cwb-rpx" disabled={busy} aria-label={`Stop the ${PROOF_SHORT[k]}`} onClick={() => twoTap(STOPPABLE[k].sure) && act(...STOPPABLE[k].op)} data-tip={STOPPABLE[k].tip} data-testid={`cwb-proof-stop-${k}`}>✕</button>
           : <small className="cwb-rpx is-auto" data-tip={k === 'pob' ? 'A PoB ends when its games are final. Any real Kalshi order stays on Kalshi either way' : 'It finishes by itself'}>auto</small>}</span>)}
       {kinds.length >= (d?.proofMax || 3) ? <small className="cwb-running-full" data-tip="One agent runs at most 3 proofs at once: a new one starts when one of these finishes or is stopped">full</small> : null}</nav> : null}
+    <AutoRow rows={d?.autoRuns} busy={busy} onAsk={t => act('ask', { text: t, to: 'both' })} />
     <DeskFlip cat={cat} onProofs={() => setProofPick(true)} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={mindModel(cat, d, wins, 0)} i={0} kind="general" live={!!mindModel(cat, d, wins, 0)} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={mindModel(cat, d, wins, 1)} i={1} kind="general" live={!!mindModel(cat, d, wins, 1)} hot={wins[1]?.status === 'working'}

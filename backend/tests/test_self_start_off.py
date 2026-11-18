@@ -24,9 +24,8 @@ def test_no_self_started_usage(monkeypatch):
     assert fs._hive_works(hive_cat) is False and fs._self_start_ok() is False
     store = {'cats': {'h': hive_cat}}
     assert asyncio.run(fs._debate_pass(store)) == 0
-    monkeypatch.setattr(fs, '_load', lambda: store)
-    monkeypatch.setattr(fs, '_auto_cfg', lambda c, cid: {'on': True, 'kind': 'poc', 'line': 'go'})
-    assert asyncio.run(fs._auto_tick(1e9)) == []
+    monkeypatch.setattr(fs, '_load', lambda: store)   # 🤖 owner 2026-11-17: HIS confirmed auto runs fire again (AUTO_RUNS, test_agent_auto_service); nothing else self-starts
+    assert asyncio.run(fs._auto_tick(1e9)) == []   # this agent never set one up
     assert asyncio.run(fs._sicario_free(None, store)) is None
     assert not called
 

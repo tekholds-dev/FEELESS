@@ -811,3 +811,17 @@ button.cwb-rpx:hover { border-color: var(--ppl-dg1); color: var(--ppl-dg1); tran
 .dfw.is-tucked .dfw-wall, .dfw.is-tucked .phd-steps { display: none; }
 /* 🐞 owner 2026-11-15 PoB #17 'chat glitch': the live proof stage kept its 460px floor inside the fixed-height chat column, so the focus bar and the composer were pushed out of sight. In the column it shares the room like the chat does. */
 .cwb-deck .cwb-talk > .pl { flex: 1 1 auto; min-height: 180px; }
+/* 🤖 one auto run per proof kind (owner 2026-11-17) */
+.cwb-auto { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0 0 6px; min-width: 0; }
+.cwb-auto > em { font: 600 9.5px var(--f-mono); letter-spacing: .14em; color: var(--m-dim); font-style: normal; white-space: nowrap; }
+.cwb-auto-k { display: inline-flex; align-items: center; gap: 2px; }
+.cwb-auto-k .m-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; font: 600 10.5px var(--f-mono); }
+.cwb-auto-k .m-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-mute); }
+.cwb-auto-k.is-on .m-chip { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); color: var(--m-text); opacity: 1; }
+.cwb-auto-k.is-on .m-chip i { background: var(--m-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-accent) 25%, transparent); animation: cwb-auto-pulse 1.8s ease-in-out infinite; }
+.cwb-auto-k.is-asking .m-chip i { background: var(--m-warn); }
+.cwb-auto-x { border: 0; background: none; color: var(--m-dim); font: 700 11px var(--f-ui); cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.cwb-auto-x:hover, .cwb-auto-x:focus-visible { color: var(--m-danger); outline: none; }
+@keyframes cwb-auto-pulse { 50% { opacity: .45; } }
+body.fx-lite .cwb-auto-k.is-on .m-chip i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cwb-auto-k.is-on .m-chip i { animation: none; } }

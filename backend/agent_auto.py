@@ -131,7 +131,7 @@ def answer(pending, text, now):
             a = pending['answers']
             cfg = {'kind': kind, 'on': True, 'perUsd': a['perUsd'], 'everyS': a['everyS'], **a['stop'], 'since': now, 'nextAt': now,
                    'runs': 0, 'spentUsd': 0.0, 'stopped': None, 'line': LINES[kind]}
-            return None, cfg, f'✅ Auto {KINDS[kind]} is ON. ' + summary(cfg, now) + ' Say `stop auto` any time to kill it.'
+            return None, cfg, f'✅ Auto {KINDS[kind]} is ON. ' + summary(cfg, now) + f' Say `stop auto {kind}` any time to kill it (`stop auto` kills every auto run).'
         return pending, None, 'Say `confirm` to start it, or `cancel`.'
     key = QUESTIONS[step][0]
     val, why = PARSE[key](t)

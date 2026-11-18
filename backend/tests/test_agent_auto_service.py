@@ -27,7 +27,6 @@ def _say(cat, line):
 
 
 def test_setup_seals_then_fires_then_bounds_then_kill(monkeypatch, env):
-    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     store, cat, fired = env
     assert '1 of 3' in _say(cat, 'auto pob') and '2 of 3' in _say(cat, '$0.40') and '3 of 3' in _say(cat, 'every 1h')
     assert 'confirm' in _say(cat, '$1 total, 24h') and 'autoRun' not in cat          # nothing set before confirm
@@ -66,3 +65,24 @@ def test_only_the_in_process_token_skips_the_owner_gate(monkeypatch):
     with pytest.raises(fs.HTTPException):
         asyncio.run(fs._cat_work('a1', p))
     assert calls and p.auto is False                                                    # a forged flag is dropped and the gate still runs
+
+
+def test_each_proof_kind_has_its_own_auto_run(env):
+    """🤖 owner 2026-11-17: "each proof type should have auto proof". Two kinds on at once, each with its own caps; stopping one leaves the other."""
+    assert fs.AUTO_RUNS is True and fs.SELF_START is False   # his confirmed runs only; the hive and other self-started work stay off
+    store, cat, fired = env
+    for kind, per in (('pob', '$0.40'), ('poc', '$0.20')):
+        _say(cat, f'auto {kind}'); _say(cat, per); _say(cat, 'every 1h'); assert 'is ON' in _say(cat, '5 proofs') or 'is ON' in _say(cat, 'confirm')
+    rows = fs._auto_cfgs(cat, 'a1'); assert set(rows) == {'pob', 'poc'} and rows['pob']['perUsd'] == 0.4 and rows['poc']['perUsd'] == 0.2
+    assert 'already ON' in _say(cat, 'auto pob')   # one run per kind
+    now = max(r['since'] for r in rows.values())
+    assert asyncio.run(fs._auto_tick(now)) == ['a1', 'a1'] and sorted(f[2] for f in fired) == ['file a pob', 'file a poc']
+    view = {r['kind']: r for r in fs._auto_view(cat, 'a1', now)}; assert view['pob']['on'] and view['poc']['on'] and not view['pow']['on'] and 'every 1h' in view['poc']['say']
+    assert 'PoC is OFF' in _say(cat, 'stop auto poc') and fs._auto_cfg(cat, 'a1', 'pob')['on'] and not fs._auto_cfg(cat, 'a1', 'poc')['on']
+    assert 'OFF' in _say(cat, 'stop auto') and not fs._auto_cfg(cat, 'a1', 'pob')['on']
+
+
+def test_an_old_single_auto_config_still_reads_as_its_kind(env):
+    store, cat, fired = env
+    cat['autoRun'] = fs._ck.seal(fs.json.dumps({'kind': 'pow', 'on': True, 'perUsd': 1, 'everyS': 3600, 'since': 1, 'nextAt': 1, 'runs': 0, 'spentUsd': 0, 'line': 'file a pow', 'maxRuns': 2}), 'a1')
+    assert set(fs._auto_cfgs(cat, 'a1')) == {'pow'} and fs._auto_cfg(cat, 'a1')['kind'] == 'pow'

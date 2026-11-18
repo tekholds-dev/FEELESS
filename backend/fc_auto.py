@@ -162,23 +162,49 @@ async def _signin_close(cat_id):
         await rs._cb.close_session(http, rs.os.environ, {'provider': 'steel', 'id': si_['sid']})
 
 
-def _auto_cfg(cat, cat_id):
+def _auto_cfgs(cat, cat_id):
+    """🤖 owner 2026-11-17 ("each proof type should have auto proof"): every proof kind keeps its OWN auto run, each with its own caps and
+    kill-switch. → {kind: cfg}, sealed at rest as one blob (an old single config reads as its one kind)."""
     rs = _rs()
     raw = cat.get('autoRun')
     if not raw:
-        return None
+        return {}
     try:
-        return rs.json.loads(rs._ck.unseal(raw, cat_id, data_dir=rs.DATA_DIR))
+        got = rs.json.loads(rs._ck.unseal(raw, cat_id, data_dir=rs.DATA_DIR))
     except Exception:   # noqa: BLE001 — a config that will not open never runs
-        return None
+        return {}
+    if isinstance(got, dict) and isinstance(got.get('runs'), dict) and 'kind' not in got:
+        return {k: v for k, v in got['runs'].items() if isinstance(v, dict) and v.get('kind') == k}
+    return {got['kind']: got} if isinstance(got, dict) and got.get('kind') else {}
 
 
-def _auto_put(cat, cat_id, cfg):
+def _auto_cfg(cat, cat_id, kind=None):
+    """One kind's auto run, or (no kind) the first that is ON, else any."""
+    rows = _rs()._auto_cfgs(cat, cat_id)
+    if kind:
+        return rows.get(kind)
+    return next((c for c in rows.values() if c.get('on')), None) or next(iter(rows.values()), None)
+
+
+def _auto_put(cat, cat_id, cfg, kind=None):
+    """Save one kind's auto run (None with a kind drops that kind; None alone drops them all)."""
     rs = _rs()
+    rows = {} if cfg is None and not kind else rs._auto_cfgs(cat, cat_id)
     if cfg is None:
-        cat.pop('autoRun', None)
+        rows.pop(kind, None)
     else:
-        cat['autoRun'] = rs._ck.seal(rs.json.dumps(cfg), cat_id)
+        rows[cfg['kind']] = cfg
+    if rows:
+        cat['autoRun'] = rs._ck.seal(rs.json.dumps({'runs': rows}), cat_id)
+    else:
+        cat.pop('autoRun', None)
+
+
+def _auto_view(cat, cat_id, now=None):
+    """The desk's auto row: each kind, ON or not, and its plain summary. No secret is in it (the caps are his own numbers)."""
+    rs = _rs(); now = now or rs.time.time(); rows = rs._auto_cfgs(cat, cat_id)
+    return [{'kind': k, 'code': rs._aa.KINDS[k], 'on': bool((rows.get(k) or {}).get('on')), 'say': rs._aa.summary(rows[k], now) if rows.get(k) else None,
+             'stopped': (rows.get(k) or {}).get('stopped'), 'asking': (cat.get('autoAsk') or {}).get('kind') == k} for k in rs._aa.KINDS]
 
 
 def _auto_busy(cat, cat_id, kind):
@@ -194,21 +220,25 @@ def _auto_chat(cat, cat_id, text):
     rs = _rs()
     now = rs.time.time(); cmd = rs._aa.command(text); pend = cat.get('autoAsk')
     if cmd and cmd[0] == 'stop':
-        cfg = rs._auto_cfg(cat, cat_id); cat.pop('autoAsk', None)
-        if not cfg or not cfg.get('on'):
+        rows = rs._auto_cfgs(cat, cat_id); cat.pop('autoAsk', None)
+        one = next((k for k in rs._aa.KINDS if rs.re.search(rf'\b{k}\b', str(text).lower())), None) or ('pos' if 'postatic' in str(text).lower() else None)
+        on = [c for k, c in rows.items() if c.get('on') and (not one or k == one)]
+        if not on:
             return '🛑 No auto run is on for this agent. Nothing will run.'
-        rs._auto_put(cat, cat_id, rs._aa.kill(cfg, now)); return f"🛑 Kill-switch: auto {rs._aa.KINDS[cfg['kind']]} is OFF. Nothing else will run until you set it again."
+        for c in on:
+            rs._auto_put(cat, cat_id, rs._aa.kill(c, now))
+        return f"🛑 Kill-switch: auto {', '.join(rs._aa.KINDS[c['kind']] for c in on)} {'is' if len(on) == 1 else 'are'} OFF. Nothing else will run until you set it again."
     if cmd and cmd[0] == 'status':
-        cfg = rs._auto_cfg(cat, cat_id)
-        if not cfg:
+        rows = rs._auto_cfgs(cat, cat_id)
+        if not rows:
             return 'No auto run set. Type `auto pob` (or pow · pop · poc · pos · poeco) to set one up.'
-        return (('🟢 ON · ' if cfg.get('on') else f"⚪ OFF ({cfg.get('stopped') or 'stopped'}) · ") + rs._aa.summary(cfg, now))
+        return ' · '.join((('🟢 ON · ' if c.get('on') else f"⚪ OFF ({c.get('stopped') or 'stopped'}) · ") + rs._aa.summary(c, now)) for c in rows.values())
     if cmd and cmd[0] == 'auto':
         if not (cat.get('brainsCfg') or {}).get('brains'):
             return 'Give this agent its models first: an auto run uses them for every proof.'
-        cur = rs._auto_cfg(cat, cat_id)
+        cur = rs._auto_cfg(cat, cat_id, cmd[1])   # one run per kind: another kind's run keeps going
         if cur and cur.get('on'):
-            return f"An auto {rs._aa.KINDS[cur['kind']]} run is already ON ({rs._aa.summary(cur, now)}). Say `stop auto` first."
+            return f"Auto {rs._aa.KINDS[cur['kind']]} is already ON ({rs._aa.summary(cur, now)}). Say `stop auto {cmd[1]}` first."
         pend, say = rs._aa.start(cmd[1], now); cat['autoAsk'] = pend; return say
     if pend:
         pend2, cfg, say = rs._aa.answer(pend, text, now)
@@ -231,28 +261,30 @@ async def _auto_fire(cat_id, cfg):
 async def _auto_tick(now=None):
     """Every agent with an auto run ON: book the fire against its bounds FIRST (sealed), then fire it. → fired cat ids."""
     rs = _rs()
-    if not rs.SELF_START:   # 🛑 scheduled auto runs are self-started usage: discontinued (owner 2026-11-14)
+    if not rs.AUTO_RUNS:   # 🤖 owner 2026-11-17: the auto runs HE set up and confirmed run again (the hive and other self-started work stay off)
         return []
     now = now or rs.time.time(); out = []
     store = rs._load()
     for cid, c in list((store.get('cats') or {}).items()):
-        cfg = rs._auto_cfg(c, cid)
-        if not cfg or not cfg.get('on'):
-            continue
-        ok, why = rs._aa.due(cfg, now, busy=rs._auto_busy(c, cid, cfg['kind']))
-        if not ok:
-            if why not in ('waiting', 'the last one is still running'):
-                rs._auto_put(c, cid, rs._aa.kill(cfg, now, why)); rs._save(store)
-            continue
-        rs._auto_put(c, cid, rs._aa.fired(cfg, now)); rs._save(store)
-        try:
-            await rs._auto_fire(cid, cfg); out.append(cid)
-        except rs.HTTPException as e:   # it could not file (no credit, a model missing…): say so in its chat, the run stays booked
-            s2 = rs._load(); c2 = s2['cats'].get(cid)
-            if c2:
-                c2['chat'] = (list(c2.get('chat') or []) + [{'by': 'cats', 'text': f"🤖 Auto {rs._aa.KINDS[cfg['kind']]} could not file: {e.detail}", 'at': rs.time.time()}])[-200:]
-                rs.keep_owned(c2); rs._save(s2)
-        store = rs._load()
+        for kind in list(rs._auto_cfgs(c, cid)):
+            c = (store.get('cats') or {}).get(cid) or c
+            cfg = rs._auto_cfg(c, cid, kind)
+            if not cfg or not cfg.get('on'):
+                continue
+            ok, why = rs._aa.due(cfg, now, busy=rs._auto_busy(c, cid, kind))
+            if not ok:
+                if why not in ('waiting', 'the last one is still running'):
+                    rs._auto_put(c, cid, rs._aa.kill(cfg, now, why)); rs._save(store)
+                continue
+            rs._auto_put(c, cid, rs._aa.fired(cfg, now)); rs._save(store)
+            try:
+                await rs._auto_fire(cid, cfg); out.append(cid)
+            except rs.HTTPException as e:   # it could not file (no credit, a model missing…): say so in its chat, the run stays booked
+                s2 = rs._load(); c2 = s2['cats'].get(cid)
+                if c2:
+                    c2['chat'] = (list(c2.get('chat') or []) + [{'by': 'cats', 'text': f"🤖 Auto {rs._aa.KINDS[cfg['kind']]} could not file: {e.detail}", 'at': rs.time.time()}])[-200:]
+                    rs.keep_owned(c2); rs._save(s2)
+            store = rs._load()
     return out
 
 

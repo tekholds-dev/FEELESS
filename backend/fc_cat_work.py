@@ -2551,6 +2551,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and rs._pob.folder(cat['pobRun']), 'pobFolders': rs._pob_view(cat),
             'popFolder': cat.get('popRun') and rs._pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and rs._pop.folder(cat['popCard']),
             'popPoi': rs._poi_owner_view(rs._pop_dna_id(cat['id'])) if not (p.ver and p.ver == rs._pow_ver(cat)) else None,
+            'autoRuns': rs._auto_view(cat, cat['id']),   # 🤖 each proof kind's own auto run, for the desk's Auto row
             'prints': rs._pprint.all_of(cat),   # 🧬 owner 2026-11-17 "true fingerprinting": each proof's own print, from what it did
             'stamps': {f_.get('id'): rs._stamp.of(k_, f_, rs.time.time()) for k_, key_ in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')) for f_ in (cat.get(key_) or [])[-30:] if f_.get('id')},
             'recoveryView': rs._rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': rs._poc_view(cat), 'psFolders': (cat.get('psFolders') or [])[::-1], 'proofCfg': cat.get('proofCfg') or {},

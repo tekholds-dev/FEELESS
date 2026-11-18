@@ -11,6 +11,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
 ## 2026-11-17
+- **Auto proof for every proof type** (owner: "each proof type should have auto proof"): each kind (PoW · PoP · PoB · PoC · PoStatic · PoEco) keeps its OWN auto run, set up by the 3 questions + confirm, sealed, with its own caps and kill-switch (`stop auto pob`; `stop auto` kills all). They fire again (`AUTO_RUNS = True`); a PoB auto run still only bids when Kalshi AUTO is on, a PoW buy still waits for the wallet.
 - **3D studio follows the open proof** (owner: "objects or code tabs it should be as reference to the proof im using unless im in postatics home page … should start as blank canvas"): opened from a PoStatic folder, Objects and Code show and save THAT folder's scene and code and file into it; opened from the PoStatic home they start blank and file a new PoStatic.
 - **A studio model goes into a build** (owner: "choose a asset/model … have them tweak it … add to the trench build filing … uniquely use the new 3d tombstone throughout the site"): a model as set in the studio (size, turn, spin) can be added to any PoStatic folder; every build of that folder uses that exact model throughout the site.
 
@@ -33,7 +34,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **One agent runs at most 3 proofs at once** (owner: "one agent should only have 3 active proofs max running and must be organized multitasking"). A PoC beside a waiting PoB is fine; a 4th start is refused with the 3 named. The desk picker under the 2 monitors switches between them (`_proof_room` in feecat_service.py).
 - **Rules cleaned** (owner: "clean md and handoff to not be restricting and or conflicting"): the owner's ask needs no card or claim; HANDOFF = open work only; the "show live before the next card" and "tool shortlist before building" steps are gone (they clashed with "keep going"); §1 Hard limits untouched.
 - **Fee has no engine** (owner: "remove her engine as fee will act as a trader agent and the 2 brains i pick will get it together"). `run_engine` never trades for her (`_engine_cats`); she trades like any trader agent through the two brains HE picks, and her stash seat holds that record.
-- **Agents' self-started usage is discontinued** ("like hive"): the hive, scheduled auto runs (AGENT-AUTO), Sicario's own loop and the debate grader never start model work by themselves (`SELF_START = False`). Usage runs only on the owner's ask or his Approve tap (AGX-10 inbox).
+- **Agents' self-started usage is discontinued** ("like hive"): the hive, Sicario's own loop and the debate grader never start model work by themselves (`SELF_START = False`). Usage runs only on the owner's ask, his Approve tap (AGX-10 inbox), or an auto run he set up and confirmed (2026-11-17).
 - terminal.css budget = 497 KB + its STYLE-1 colour palette (516) — owner "yes" to raising it for the tokens. Every other budget still only goes down.
 
 ## 2026-11-13 · Never stop (owner, said twice today)

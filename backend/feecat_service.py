@@ -422,6 +422,7 @@ HIVE_PATH = DATA_DIR / 'hive.json'
 # ↪ moved to fc_hive.py: _hive_cells, _hive_save, _hive_on
 
 
+AUTO_RUNS = True   # 🤖 owner 2026-11-17 ("each proof type should have auto proof"): the auto runs he sets up and confirms (one per proof kind, sealed caps + kill-switch) fire again
 SELF_START = False   # 🛑 owner 2026-11-14: "agents self started usage like hive is discontinued" — the hive, scheduled auto runs, Sicario's own loop and
 #   the debate grader never start model work by themselves. An agent spends usage only when its owner asks (or taps Approve, AGX-10).
 
@@ -2017,6 +2018,8 @@ _warm_close = _fc_auto._warm_close
 _warm_expire = _fc_auto._warm_expire
 _signin_close = _fc_auto._signin_close
 _auto_cfg = _fc_auto._auto_cfg
+_auto_cfgs = _fc_auto._auto_cfgs
+_auto_view = _fc_auto._auto_view
 _auto_put = _fc_auto._auto_put
 _auto_busy = _fc_auto._auto_busy
 _auto_chat = _fc_auto._auto_chat

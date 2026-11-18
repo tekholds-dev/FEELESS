@@ -14,3 +14,14 @@ test('🧬 a proof shows its own print id and how new it is, and its ridge is dr
   await act(async () => { root.render(<PrintChip p={null} />); }); expect(el.innerHTML).toBe('');
   act(() => root.unmount());
 });
+
+test('🤖 each proof kind has its own auto chip: off starts its setup, on shows its plan and its own kill-switch', async () => {
+  const { AutoRow } = require('./CatWorkbench'); const asked = [];
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const rows = [{ kind: 'pob', code: 'PoB', on: true, say: 'PoB every 1h, at most $0.4 each' }, { kind: 'poc', code: 'PoC', on: false }, { kind: 'pow', code: 'PoW', on: false, asking: true }];
+  await act(async () => { root.render(<AutoRow rows={rows} busy={false} onAsk={t => asked.push(t)} />); });
+  expect(el.querySelector('[data-testid=cwb-auto-pob]').disabled).toBe(true); expect(el.querySelector('[data-testid=cwb-auto-pob]').getAttribute('data-tip')).toContain('every 1h');
+  await act(async () => { el.querySelector('[data-testid=cwb-auto-poc]').click(); el.querySelector('[data-testid=cwb-auto-stop-pob]').click(); });
+  expect(asked).toEqual(['auto poc', 'stop auto pob']); expect(el.querySelector('[data-testid=cwb-auto-stop-poc]')).toBeNull();
+  act(() => root.unmount());
+});
