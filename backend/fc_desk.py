@@ -165,6 +165,55 @@ def _media_house_add(usd):
     book[d] = round(float(book.get(d, 0)) + usd, 4); rs.MEDIA_HOUSE_PATH.write_text(rs.json.dumps(book))
 
 
+def _spend_owner(cat, store=None):
+    """💵 → (the owner's key, his agents' ids, {id: name}): one day cap across every agent of the same owner wallet."""
+    rs = _rs()
+    w = rs.owner_wallet(cat or {})
+    if not w:
+        return str((cat or {}).get('id') or ''), [(cat or {}).get('id')], {(cat or {}).get('id'): (cat or {}).get('name') or 'agent'}
+    cats = [c for c in ((store or rs._load()).get('cats') or {}).values() if rs.owner_wallet(c) == w]
+    return w, [c.get('id') for c in cats], {c.get('id'): c.get('name') or 'agent' for c in cats}
+
+
+def _spend_cap(owner):
+    rs = _rs()
+    try:
+        return rs._sg.clean_cap(rs._sg.caps_read(rs.SPEND_CAPS_PATH).get(owner, rs._sg.DAILY_CAP_USD))
+    except ValueError:
+        return rs._sg.DAILY_CAP_USD
+
+
+def _spend_now(cat, store=None):
+    """→ (owner, ids, names, cap, $ done today, $ still making)"""
+    rs = _rs()
+    owner, ids, names = rs._spend_owner(cat, store)
+    rows = rs._sg.read_rows(rs.DATA_DIR / 'model_receipts.jsonl', rs._sg.day_start())
+    making = sum(u for o, u in rs._SPEND_HOLD.values() if o == owner)
+    return owner, ids, names, rs._spend_cap(owner), rs._sg.spent(rows, ids, rs._sg.day_start()), making, rows
+
+
+def _spend_check(cat, est_usd, store=None):
+    """💵 Raises spend_guard.OverCap before a paid call on the owner's own key would pass his day cap."""
+    rs = _rs()
+    _o, _i, _n, cap, done, making, _r = _spend_now(cat, store)
+    rs._sg.check(done, making, est_usd, cap)
+
+
+def _spend_hold(cat, mid, usd, store=None):
+    rs = _rs()
+    rs._SPEND_HOLD[str(mid)] = (rs._spend_owner(cat, store)[0], float(usd or 0))
+
+
+def _spend_release(mid):
+    _rs()._SPEND_HOLD.pop(str(mid), None)
+
+
+def _spend_view(cat, store=None):
+    rs = _rs()
+    owner, ids, names, cap, _done, making, rows = _spend_now(cat, store)
+    return rs._sg.view(rows, ids, names, cap, making)
+
+
 def _media_refs(cat_id, md):
     """The make's reference pictures as data URLs, read fresh from disk (never stored in the sealed doc)."""
     rs = _rs()
@@ -200,7 +249,7 @@ async def _media_run(cat_id, ws_id, mid):
                 im_ = (((j_.get('choices') or [{}])[0].get('message') or {}).get('images') or [{}])[0].get('image_url', {}).get('url', '')
                 mt_ = rs.re.match(r'data:image/(png|jpe?g|webp);base64,(.+)', im_, rs.re.S)
                 if not mt_:
-                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=f"{r.status_code}: {str((j_.get('error') or {}).get('message') if isinstance(j_.get('error'), dict) else 'no picture came back')[:160]}"); return
+                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=rs._mg.plain_why(r.status_code, str((j_.get('error') or {}).get('message') if isinstance(j_.get('error'), dict) else 'no picture came back')[:160])); return
                 raw_ = rs.base64.b64decode(mt_.group(2)); ext_ = 'jpg' if mt_.group(1).startswith('jp') else mt_.group(1)
                 rs._media_dir().joinpath(cat_id).mkdir(parents=True, exist_ok=True); (rs._media_dir() / cat_id / f'{mid}.{ext_}').write_bytes(raw_)
                 rs._feed_push(cat_id, {'tone': 'done', 'kind': 'PoC', 'text': f"Your image is ready ({md.get('label') or md['model']})", 'ref': ws_id})
@@ -569,13 +618,17 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=Non
     cap_ = float((cat or {}).get('swapCapUsd') or rs._mg.SWAP_CAP_USD)   # 💵 the owner's own cap per swap
     if usd_ > cap_ + 1e-9:
         raise rs.HTTPException(400, f'This swap is about ${usd_:.2f}, over your ${cap_:.2f} cap per swap. Raise the cap under the swap button, or pick a cheaper model or a shorter clip.')
+    try:
+        rs._spend_check(cat or {}, usd_)   # 💵 and the owner's day cap across all his agents
+    except rs._sg.OverCap as e:
+        raise rs.HTTPException(429, str(e))
     note_ = rs.re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + rs.uuid.uuid4().hex[:12]; now_ = round(rs.time.time())
     words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{doc_.get('title') or doc_.get('name') or 'Your character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))
     doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': words_, 'at': now_,
         'media': {'id': jid, 'kind': 'video', 'provider': prov_, 'model': ep_, 'modelId': mid_, 'label': label_, 'usd': usd_, 'prompt': words_, 'note': note_,
                   'status': 'queued', 'at': now_, 'swap': True, **({} if edit_ else {'fromImg': {'mid': img_, 'url': smd_['url']}}), 'fromClip': {'mid': cmd_['id'], 'url': cmd_['url']}, **shape_}}]
-    rs._ws_save(cat_id, doc_)
+    rs._ws_save(cat_id, doc_); rs._spend_hold(cat or {}, jid, usd_)
     if cat is not None and store is not None and not edit_:   # 📊 "most used" + the chat's next auto pick
         used_ = dict(cat.get('swapUsed') or {}); used_[mid_] = int(used_.get(mid_) or 0) + 1
         cat['swapUsed'] = used_; cat['swapLast'] = mid_; rs.keep_owned(cat); rs._save(store)
@@ -705,6 +758,8 @@ def _play_save(cat_id, name, data):
 async def _ws_ask(cat, model, sys_, user_, tokens):
     rs = _rs()
     own_ = rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR)
+    if own_ and not str(model).startswith('local/') and not str(model).endswith(':free'):
+        rs._spend_check(cat, 0)   # 💵 the owner's day cap: refused before the call, never after
     text_, usd_, _via = await rs._think(cat, model, [{'role': 'system', 'content': rs._general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
     rs._WS_VIA.set(str(_via or ''))   # 🧾 who REALLY answered (a free stand-in when its paid route is off), read by callers that show the model
     return str(text_ or ''), float(usd_ or 0), bool(own_)
@@ -911,7 +966,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         print_['mood'] = 'space'
     mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', prompt, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = rs._kits.stash_line(rs.KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
     was_ = doc.get(slot) if wrong_ else None
-    kit_read_ = rs._play.rejected_line(was_) + rs._kits.line(rs.KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._convo(cat) + ('\n' + rs._play.print_line(print_) if print_ else '') + rs._om.scene_line(doc.get('models3d'))
+    kit_read_ = rs._play.rejected_line(was_) + rs._kits.line(rs.KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._convo(cat, page=True) + ('\n' + rs._play.print_line(print_) if print_ else '') + rs._om.scene_line(doc.get('models3d'))
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
@@ -1100,6 +1155,9 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd; paid_own = own; rs._feat.add_msg(doc, name(i), raw or 'No answer came back.', rs.time.time())
             if kind == 'content' and rs._assets.wants_3d(text):
                 rs._feat.add_msg(doc, 'FEELESS', 'This is the idea in words. To build it for real, send the same prompt to a PoStatic folder: it builds in the 3D studio with real models, light and surfaces. For a video, use Video and image editor, then 3D.', rs.time.time())
+    except rs._sg.OverCap as e:   # 💵 his day cap: it stops before the next paid call, and says so
+        rs._feat.add_msg(doc, 'FEELESS', str(e), rs.time.time())
+        stop_why = str(e)
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         rs._feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', rs.time.time())
         stop_why = 'A model did not answer.'

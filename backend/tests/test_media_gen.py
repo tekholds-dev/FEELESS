@@ -123,3 +123,13 @@ def test_guards_and_plain_failures(monkeypatch, tmp_path):
     asyncio.run(real('g', ws, md['id']))
     m = [x for x in fs._ws_load('g', ws)['messages'] if x.get('media')][-1]['media']
     assert m['status'] == 'failed' and '422' in m['why'] and 'Invalid input' in m['why']
+
+
+def test_every_provider_refusal_says_what_happened_and_what_to_do():
+    # owner 2026-11-17: "all these errors … i just cant breathe to explain all the issues"
+    w = mg.plain_why(400, 'The request failed because the output video may be related to copyright restrictions. Request id: 0217')
+    assert w.startswith('The provider refused it as possibly copyrighted') and 'Nothing was charged' in w and 'copyright restrictions' in w
+    assert 'out of credit' in mg.plain_why(402, 'Insufficient credits')
+    assert 'key was refused' in mg.plain_why(401, '') and 'key was refused' in mg.plain_why(None, 'Invalid API key provided')
+    assert 'busy' in mg.plain_why(429, 'slow down') and 'ours to fix' in mg.plain_why(400, 'Unrecognized key: "references"')
+    assert "safety check" in mg.plain_why(None, 'Content flagged by moderation')

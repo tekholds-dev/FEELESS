@@ -563,3 +563,5 @@ body.theme-day .poc-compose { background: var(--pfea-tx10); } body.theme-day .po
 body.fx-lite .poc-tile::after { display: none; } @media (prefers-reduced-motion: reduce) { .poc-tile, .poc-tile::after { transition: none; } }
 .poc-tile.mst-open { display: grid; align-items: end; gap: 3px; }
 .fea-doors small { display: none; } .fea-doors b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fea-costrow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; } .fea-costrow > .fea-cost { flex: 1 1 240px; min-width: 0; } .fea-costrow > .spc { flex: 0 0 auto; margin-left: auto; }   /* 💵 the folder's cost beside the day's spend on his keys */
+.poc-compose header { grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; } .poc-compose header > :not(.spc) { grid-column: 1; } .poc-compose header > .spc { grid-column: 2; grid-row: 1 / span 2; align-self: center; }

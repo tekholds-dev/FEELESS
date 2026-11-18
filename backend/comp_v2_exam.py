@@ -43,6 +43,51 @@ def owner_openrouter(store_path=None):
     return cat_keys.owner_key(store_path or (data / 'feecats.json'), 'openrouter', data_dir=data)[0] or ''
 
 
+def owner_spend(store_path=None, data=None):
+    """💵 → (the donor agent's id, a fn that raises spend_guard.OverCap when his day cap is reached). The exam spends HIS money, so it is
+    counted with his agents' other calls (owner 2026-11-17: "assure real money readyness")."""
+    import cat_keys
+    import spend_guard as sg
+    data = Path(data or Path(__file__).resolve().parent / 'data')
+    try:
+        cats = list((json.loads(Path(store_path or (data / 'feecats.json')).read_text()).get('cats') or {}).values())
+    except (OSError, ValueError):
+        cats = []
+    got = cat_keys.newest_owner_row(cats, 'openrouter'); donor = got[1] if got else None
+    me = next((c for c in cats if c.get('id') == donor), {})
+    w = str(me.get('ownerWallet') or (me.get('agentWallet') or {}).get('owner') or '')
+    ids = [c.get('id') for c in cats if w and str(c.get('ownerWallet') or (c.get('agentWallet') or {}).get('owner') or '') == w] or [donor]
+    try:
+        cap = sg.clean_cap(sg.caps_read(data / 'spend_caps.json').get(w or str(donor), sg.DAILY_CAP_USD))
+    except ValueError:
+        cap = sg.DAILY_CAP_USD
+
+    def check():
+        since = sg.day_start()
+        sg.check(sg.spent(sg.read_rows(data / 'model_receipts.jsonl', since), ids, since), 0, 0, cap)
+    return donor, check
+
+
+def openrouter_answers(rows, key, model, cat_id, check, ledger=None, timeout=90):
+    """🔑 A flagship on the owner's OpenRouter key: one call per question, plain OpenRouter fields only (no LM Studio switches), every
+    billed call written to the receipt ledger, and his day cap checked before each one. → answers"""
+    import httpx
+    ledger = Path(ledger or Path(__file__).resolve().parent / 'data' / 'model_receipts.jsonl'); out = []
+    with httpx.Client(timeout=timeout, headers={'Authorization': f'Bearer {key}'}) as h:
+        for r in rows:
+            check()
+            res = h.post('https://openrouter.ai/api/v1/chat/completions', json={'model': model, 'max_tokens': 300, 'messages': [
+                {'role': 'system', 'content': cv.SYSTEM}, {'role': 'user', 'content': cv.prompt_of(r)}]})
+            res.raise_for_status(); d = res.json(); usd = float((d.get('usage') or {}).get('cost') or 0)
+            if usd > 0:
+                with ledger.open('a') as f_:
+                    f_.write(json.dumps({'id': str(d.get('id') or '')[:40], 'cat': cat_id, 'at': time.time(), 'provider': 'OpenRouter', 'model': d.get('model') or model,
+                                         'usd': usd, 'tokens': (d.get('usage') or {}).get('total_tokens'), 'status': 'provider reported', 'funding': 'owner key',
+                                         'for': 'COMP exam'}, separators=(',', ':')) + '\n')
+            out.append(cv.answer_of(((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''))
+    return out
+
+
 def own_minds(keys):
     """🖥 AGX-6: the owner's two judges sit the same exam, each on ITS OWN LM Studio only (never a fallback model, never a paid API):
     OSSY = LM Studio on this Mac, G4 = LM Studio on the desktop Mac (LAN). → [(id, name, base, model, key, why_blocked)]"""
@@ -208,15 +253,17 @@ def main(folder):
             ('grok', keys['XAI_MODEL'] or 'grok-3-mini', 'XAI_API_KEY',
              lambda k: openai_style(qs, k, 'https://api.x.ai/v1', keys['XAI_MODEL'] or 'grok-3-mini')))
     or_key = owner_openrouter()   # 🔑 owner 2026-11-17: "my openrouter key to be useable with comp": a flagship with no key of its own sits the exam on it
+    or_cat, or_check = owner_spend() if or_key else (None, None)
     for eid, name, var, run in flag:
         if not qs:
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'off in your guardrails'}); continue
         if not keys[var] and or_key:
             name_ = f'{name} · your OpenRouter'
             try:
-                put({'id': eid, 'name': name_, 'kind': 'flagship', 'via': 'openrouter', 'score': cv.score(qs, openai_style(qs, or_key, 'https://openrouter.ai/api/v1', OR_FLAGSHIP[eid]))})
+                put({'id': eid, 'name': name_, 'kind': 'flagship', 'via': 'openrouter', 'score': cv.score(qs, openrouter_answers(qs, or_key, OR_FLAGSHIP[eid], or_cat, or_check))})
             except Exception as e:   # noqa: BLE001 — one provider failing never stops the exam
-                put({'id': eid, 'name': name_, 'kind': 'flagship', 'blocked': f'call failed: {type(e).__name__}'})
+                import spend_guard as _sg
+                put({'id': eid, 'name': name_, 'kind': 'flagship', 'blocked': str(e) if isinstance(e, _sg.OverCap) else f'call failed: {type(e).__name__}'})
             continue
         if not keys[var]:
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'no key: add it in HQ › Agents, or save an OpenRouter key on one of your agents'}); continue

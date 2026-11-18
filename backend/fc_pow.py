@@ -1764,9 +1764,9 @@ async def _kit_minds_pass():
     return ' · '.join(said)
 
 
-def _convo(cat):
+def _convo(cat, page=False):
     rs = _rs()
-    return rs._foot.convo_line(rs._play_load((cat or {}).get('id'), 'convo'))
+    return rs._foot.convo_line(rs._play_load((cat or {}).get('id'), 'convo'), page=page)
 
 
 def _proof_brain(cat, kind):
@@ -1841,7 +1841,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = rs.RECALL_KIND.get(category, ''); mode_, mine_ = rs._kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = rs._kits.auto_picks(rs.KITS_DIR, kind_, text, record=rs._kit_record()) if auto_ else mine_; rs._KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return rs._mkits.active_line(kind_, rs._MKIT_STATE, rs._mkit_extra()) + rs._db_shared_line(cat, kind_) + rs._review.lessons_line(rs._REVIEW_LESSONS.get(kind_) or []) + rs._stash_best(cat, category, text) + rs._convo(cat) + rs._proof_brain(cat, kind_) + (rs._cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + rs._kits.line(rs.KITS_DIR, kind_, picks_, open_kits=auto_) + rs._kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in rs._kits.catalog_view(rs.KITS_DIR)}) + rs._feat._sources.recall_line(rs._stash.related(rs.STASH_DIR, rs.re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), rs._stash.agent_tag(cat.get('id')))
+        return rs._mkits.active_line(kind_, rs._MKIT_STATE, rs._mkit_extra()) + rs._db_shared_line(cat, kind_) + rs._review.lessons_line(rs._REVIEW_LESSONS.get(kind_) or []) + rs._stash_best(cat, category, text) + rs._convo(cat, page=kind_ == 'pos') + rs._proof_brain(cat, kind_) + (rs._cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + rs._kits.line(rs.KITS_DIR, kind_, picks_, open_kits=auto_) + rs._kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in rs._kits.catalog_view(rs.KITS_DIR)}) + rs._feat._sources.recall_line(rs._stash.related(rs.STASH_DIR, rs.re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), rs._stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''

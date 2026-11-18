@@ -8,7 +8,7 @@ SRC = __import__('_svc_src').service_src(svc='feecat_service')
 def test_every_proof_type_reads_its_last_footprints_and_the_conversation():
     for kind in ('pow', 'pop', 'pob', 'poc', 'pos'):
         assert f"_foot.note('{kind}'" in SRC, kind
-    assert SRC.count('_convo(cat)') >= 5   # the recall, PoP, PoB, PoW and the 3D build
+    assert SRC.count('_convo(cat') >= 5   # the recall, PoP, PoB, PoW and the 3D build
     assert "_foot.plan('pob'" in SRC and "'prints'" in SRC and "'usedAssets'" in SRC
 
 
@@ -33,3 +33,14 @@ def test_the_desk_shows_every_agent_of_this_owner_and_nobody_elses(monkeypatch):
     assert 'Theirs' not in names and 'Bids' in names and rows[-1]['name'] == 'Idle' and not rows[-1]['doing']
     by = {r['name']: r for r in rows}
     assert by['Bids']['doing'] == [{'kind': 'PoB', 'say': 'nba tonight'}] and by['Pages']['doing'] == [{'kind': 'PoStatic', 'say': 'GLINT'}] and by['Bids']['me']
+
+
+def test_a_page_build_never_carries_another_folders_look():
+    # owner 2026-11-17: his GLINT asks ("3d chrome Collective sign", "chrome silver font") rode into every new PoStatic build
+    rows = fp.convo_add([], 'PoStatic', 'a 3d chrome collective sign, chrome silver sans font', 1)
+    rows = fp.convo_add(rows, 'PoC', 'family guy cartoon design', 2)
+    rows = fp.convo_add(rows, 'PoB', 'nba picks for tonight', 3)
+    page = fp.convo_line(rows, page=True)
+    assert 'chrome' not in page.split('THIS FOLDER')[0] and 'family guy' not in page and 'nba picks' in page and 'ITS OWN FILING' in page
+    assert 'chrome silver' in fp.convo_line(rows) and 'ITS OWN FILING' not in fp.convo_line(rows)
+    assert 'ITS OWN FILING' in fp.convo_line([], page=True) and fp.convo_line([]) == ''

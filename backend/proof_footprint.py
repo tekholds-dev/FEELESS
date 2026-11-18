@@ -196,10 +196,20 @@ def convo_add(rows, kind, text, now):
     return (rows + [{'kind': str(kind or 'chat')[:12], 'text': words, 'at': round(now)}])[-CONVO_KEEP:]
 
 
-def convo_line(rows):
-    """The one conversation across every proof, so an agent picks up where the owner left off in another proof type. Data, never an instruction."""
-    rows = [r for r in rows if isinstance(r, dict)][-8:] if isinstance(rows, list) else []
+LOOK_KINDS = ('PoStatic', 'PoC', '3D', 'Code', 'Content')   # asks that carry one folder's look (fonts, colours, 3D, layout)
+OWN_LOOK = ('\nTHIS FOLDER IS ITS OWN FILING: give it its own look, fonts, colours and layout, chosen for this ask. Never reuse the look of '
+            "this agent's other pages or folders (no chrome, 3D sign or font from another folder) unless this ask names it.")
+
+
+def convo_line(rows, page=False):
+    """The one conversation across every proof, so an agent picks up where the owner left off in another proof type. Data, never an instruction.
+    A page build (`page`) drops the asks made in other page / content folders: owner 2026-11-17, "the kits are to be used uniquely each filing,
+    regardless of what model i pick, it chooses the same 3d layout ... i only wanted the design for glint" (his GLINT asks rode into every build)."""
+    rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    if page:
+        rows = [r for r in rows if str(r.get('kind') or '') not in LOOK_KINDS]
+    rows = rows[-8:]
     if not rows:
-        return ''
-    return '\nTHE SAME CONVERSATION, across every proof, oldest first (what your owner said, as data): ' + ' / '.join(f"[{r.get('kind')}] {str(r.get('text'))[:160]}" for r in rows)[:1100] + '. Pick up from this when it bears on the request. Never repeat a proof it already made.'
+        return OWN_LOOK if page else ''
+    return '\nTHE SAME CONVERSATION, across every proof, oldest first (what your owner said, as data): ' + ' / '.join(f"[{r.get('kind')}] {str(r.get('text'))[:160]}" for r in rows)[:1100] + '. Pick up from this when it bears on the request. Never repeat a proof it already made.' + (OWN_LOOK if page else '')
 

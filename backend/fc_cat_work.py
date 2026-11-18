@@ -1251,7 +1251,21 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if 'openrouter' in linked and not rs._public_site():
             rs._pubt.warm(rs._media_dir())   # 🔗 the swap's private link opens now, so "Swap in the character" does not wait for it
         return {**rs._mg.catalog(linked, rs._media_house(cat)), 'swapCapUsd': float(cat.get('swapCapUsd') or rs._mg.SWAP_CAP_USD), 'swapUsed': dict(cat.get('swapUsed') or {}),
-                'swapLast': cat.get('swapLast'), 'publicRefs': bool(rs._public_site()), 'houseLeftUsd': round(max(0.0, rs._mg.HOUSE_DAILY_USD - rs._media_house_spent()), 2) if rs._media_house(cat) else None}
+                'swapLast': cat.get('swapLast'), 'publicRefs': bool(rs._public_site()), 'spend': rs._spend_view(cat, store), 'houseLeftUsd': round(max(0.0, rs._mg.HOUSE_DAILY_USD - rs._media_house_spent()), 2) if rs._media_house(cat) else None}
+    if p.op == 'spend':   # 💵 today's receipt: what his agents spent on his own keys, the day cap, what is left, every row
+        return {'spend': rs._spend_view(cat, store)}
+    if p.op == 'money_ready':   # ✅ owner 2026-11-17 "assure real money readyness": free, read-only checks before he pays (never makes anything)
+        import money_ready as _mr
+        import comp_v2_exam as _cx
+        async with rs.httpx.AsyncClient() as h_:
+            return await _mr.run(h_, rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR), _cx.OR_FLAGSHIP, rs._public_site(), rs._spend_view(cat, store))
+    if p.op == 'spend_cap':   # 💵 the owner names his own day cap (1 to 500 dollars), one for all his agents
+        try:
+            v_ = rs._sg.clean_cap(p.text)
+        except ValueError as e:
+            raise rs.HTTPException(400, str(e))
+        owner_ = rs._spend_owner(cat, store)[0]; caps_ = rs._sg.caps_read(rs.SPEND_CAPS_PATH); caps_[owner_] = v_; rs._sg.caps_write(rs.SPEND_CAPS_PATH, caps_)
+        return {'spend': rs._spend_view(cat, store)}
     if p.op == 'media_cap':   # 💵 the owner's own cap per swap (he names the value; 0.5 to 50 dollars)
         try:
             v_ = float(p.text)
@@ -1308,6 +1322,11 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
                 raise rs.HTTPException(400, 'Only the OpenRouter picture models keep a reference. Pick Nano Banana, Gemini Flash Image or GPT-5 Image.')
         if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
             raise rs.HTTPException(429, 'Three are already making. Wait for one to finish.')
+        if not on_house:
+            try:
+                rs._spend_check(cat, float(rs._mg.MODELS[mid_][5] or 0.5), store)   # 💵 the owner's day cap across all his agents
+            except rs._sg.OverCap as e:
+                raise rs.HTTPException(429, str(e))
         jid = 'm' + rs.uuid.uuid4().hex[:12]; row_ = rs._mg.MODELS[mid_]
         doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': prompt_, 'at': round(rs.time.time()),
             'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(rs.time.time()),
@@ -1315,6 +1334,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if on_house:
             rs._media_house_add(float(row_[5] or 0.5))   # booked up front at the list price, so two clicks can't both slip under the cap
         rs._ws_save(cat_id, doc_)
+        if not on_house:
+            rs._spend_hold(cat, jid, float(row_[5] or 0.5), store)
         rs.asyncio.create_task(rs._media_run(cat_id, p.job, jid))
         return {'doc': rs._ws_view(cat_id, p.job)}
     if p.op == 'media_clip':   # 🎭 V2V: a clip lands in the PoC folder, ready to swap a character into — an upload, a Bluesky post or a direct video link,

@@ -455,6 +455,8 @@ def _media_set(cat_id, ws_id, mid, keep=None, **fields):
     m_['media'] = {**(m_.get('media') or {}), **fields}
     rs._ws_save(cat_id, d_)
     md_ = m_['media']
+    if fields.get('status') in ('done', 'failed'):
+        rs._spend_release(mid)   # 💵 a finished make's receipt replaces its hold; a refused one never cost anything
     if fields.get('status') == 'done' and fields.get('url'):   # 🎬 a filed PoC of this folder gets the new file too (made after filing, it still shows)
         try:
             st_ = rs._load(); c_ = st_['cats'].get(cat_id)

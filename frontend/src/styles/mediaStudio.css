@@ -107,3 +107,26 @@ body.theme-day .mst-card { background: var(--ms-tx9); border-color: var(--ms-ac1
 @media (prefers-reduced-motion: reduce) { .mst-picklist li { animation: none; } }
 .mst-sheet-body > * { flex-shrink: 0; }
 .mst-more { align-self: start; }
+/* 💵 the day's spend on his own keys (owner 2026-11-17 "assure real money readyness"): a chip, its receipts and his day cap */
+.spc { position: relative; display: inline-grid; }
+.spc-btn { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 2px 6px; padding: 5px 10px 6px; border-radius: 10px; border: 1px solid var(--ms-ln2); background: var(--ms-sf1); color: var(--ms-tx2); cursor: pointer; text-align: left; transition: border-color .15s; }
+.spc-btn:hover { border-color: var(--ms-ac6); } .spc-btn:focus-visible { outline: 2px solid var(--ms-ac2); outline-offset: 2px; }
+.spc-btn b { font: 800 12.5px var(--f-mono); } .spc-btn small { font: 600 10px var(--f-mono); color: var(--ms-ac5); }
+.spc-btn i { grid-column: 1 / -1; display: block; height: 3px; border-radius: 3px; background: var(--ms-tx7); overflow: hidden; } .spc-btn u { display: block; height: 100%; background: var(--ms-ac8); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform .3s ease; }
+.spc.is-over .spc-btn { border-color: var(--ms-dg1); } .spc.is-over .spc-btn u { background: var(--ms-dg1); }
+.spc-scrim { position: fixed; inset: 0; z-index: 1299; border: 0; padding: 0; background: transparent; cursor: default; }
+.spc-pop { position: fixed; z-index: 1300; top: 72px; right: 16px; width: min(340px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid var(--ms-ac9); background: var(--ms-sf2); box-shadow: 0 10px 34px var(--ms-bg5); }
+.spc-pop header { display: grid; gap: 2px; } .spc-pop header b { font: 800 13px var(--f-ui); color: var(--ms-tx2); } .spc-pop header small { font: 600 10.5px var(--f-mono); color: var(--ms-ac5); }
+.spc-by { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font: 600 11px var(--f-ui); color: var(--ms-ac5); } .spc-by b { font: 800 11px var(--f-mono); color: var(--ms-tx2); }
+.spc-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.spc-rows li { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 8px; background: var(--ms-tx4); }
+.spc-rows time { font: 600 10px var(--f-mono); color: var(--ms-ac5); } .spc-rows span { display: grid; min-width: 0; } .spc-rows span b { font: 700 11.5px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .spc-rows span small { font: 500 10px var(--f-ui); color: var(--ms-ac5); } .spc-rows em { font: 800 11px var(--f-mono); font-style: normal; color: var(--ms-ac8); }
+.spc-none { margin: 0; font: 500 11.5px var(--f-ui); color: var(--ms-ac5); }
+.spc-cap { display: grid; gap: 4px; } .spc-cap label { font: 700 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ms-ac5); } .spc-cap span { display: flex; gap: 6px; } .spc-cap .m-input { flex: 1; min-width: 0; }
+.spc.is-compact .spc-btn { padding: 4px 8px 5px; }
+body.theme-day .spc-btn { background: var(--ms-tx9); border-color: var(--ms-ac15); color: var(--ms-sf4); } body.theme-day .spc-pop { background: var(--ms-tx8); border-color: var(--ms-ac15); } body.theme-day :is(.spc-pop header b, .spc-by b) { color: var(--ms-sf4); } body.theme-day .spc-rows li { background: var(--ms-tx9); } body.theme-day .spc-rows em { color: var(--ms-ac16); } body.theme-day .spc-btn u { background: var(--ms-ac16); }
+@media (max-width: 640px) { .spc-pop { top: auto; bottom: 12px; left: 16px; right: 16px; width: auto; max-height: 75vh; } }
+@media (prefers-reduced-motion: reduce) { .spc-btn u { transition: none; } }
+.spc-ready { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--ms-tx7); } .spc-ready ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 200px; overflow: auto; }
+.spc-ready li { display: grid; gap: 1px; padding: 5px 8px; border-radius: 8px; background: var(--ms-tx4); border-left: 2px solid var(--ms-ac8); } .spc-ready li.is-no { border-left-color: var(--ms-dg1); } .spc-ready li b { font: 700 11.5px var(--f-ui); } .spc-ready li small { font: 500 10.5px/1.4 var(--f-ui); color: var(--ms-ac5); }
+body.theme-day .spc-ready li { background: var(--ms-tx9); } body.theme-day .spc-ready li:not(.is-no) { border-left-color: var(--ms-ac16); }

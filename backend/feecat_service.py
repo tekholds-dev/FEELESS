@@ -121,6 +121,7 @@ import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into th
 import owner_models as _om   # 🪦 the owner's own 3D models a build carries   # noqa: F401  (read by fc_cat_work, fc_desk as rs._om)
 import pub_tunnel as _pubt   # 🔗 https links for a swap's references (OpenRouter takes no data URL)   # noqa: F401  (read by fc_desk as rs._pubt)
 import clip_source as _cs   # 🎞 where a swap clip may come from, and how ffmpeg cuts it (owner 2026-11-17)   # noqa: F401  (read by fc_desk, fc_cat_work as rs._cs)
+import spend_guard as _sg   # 💵 the owner's day cap over every paid call on his keys   # noqa: F401
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key   # noqa: F401  (read by fc_desk, fc_studio as rs._mg)
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered   # noqa: F401  (read by fc_cloud, fc_desk as rs._parts)
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)   # noqa: F401  (read by fc_desk as rs._forge)
@@ -1407,6 +1408,8 @@ _SCORES_HTTP: list = []
 
 
 MEDIA_HOUSE_PATH = DATA_DIR / 'media_house.json'   # {'YYYY-MM-DD': usd booked on FEELESS's OpenRouter key}
+SPEND_CAPS_PATH = DATA_DIR / 'spend_caps.json'   # 💵 {owner wallet or agent id: his day cap in dollars}
+_SPEND_HOLD = {}   # 💵 {media id: (owner key, list-price $)} while it makes: counted against the day cap before its receipt lands
 
 
 # ↪ moved to fc_desk.py: _media_house, _media_house_spent, _media_house_add, _media_refs, _media_run, _clip_len, _media_swap, cat_media_file
@@ -1907,6 +1910,12 @@ cat_feed = _fc_desk.cat_feed
 _media_house = _fc_desk._media_house
 _media_house_spent = _fc_desk._media_house_spent
 _media_house_add = _fc_desk._media_house_add
+_spend_owner = _fc_desk._spend_owner
+_spend_cap = _fc_desk._spend_cap
+_spend_check = _fc_desk._spend_check
+_spend_hold = _fc_desk._spend_hold
+_spend_release = _fc_desk._spend_release
+_spend_view = _fc_desk._spend_view
 _media_refs = _fc_desk._media_refs
 _media_run = _fc_desk._media_run
 _clip_len = _fc_desk._clip_len

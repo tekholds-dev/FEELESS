@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { agentAuth } from '../../lib/chatSession';
 import '../../styles/mediaStudio.css';
+import SpendChip from './SpendChip';
 
 const PocPlay = lazy(() => import('./PocPlay'));   // 🎨 its own chunk: Konva loads only when a playground opens
 const PocWire = lazy(() => import('./PocWire'));   // 🧩 its own chunk: loads only when the content board opens
@@ -34,7 +35,10 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       ? <video src={apiUrl(md.url)} controls playsInline preload="metadata" data-testid="media-video" />
       : <img src={apiUrl(md.url)} alt={md.prompt} loading="lazy" data-testid="media-image" />) : null}
     {live ? <div className="mst-wait" role="status"><span>{STEP_WORD[md.step] || STEP_WORD[md.status] || md.step || 'working'} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</span><i aria-hidden="true"><u /></i></div> : null}
-    {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'} Nothing more is charged.</p> : null}
+    {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'}{/charged/i.test(md.why || '') ? '' : ' Nothing more is charged.'}</p> : null}
+    {md.status === 'failed' && !md.swap && md.modelId && md.prompt && cat && doc && work && setDoc ? <span className="mst-acts" data-testid="media-retry-make">
+      <button type="button" className="m-btn" disabled={busy} data-tip="The same words on the same model again. Nothing was charged for the one that failed" data-testid="media-retry-make-btn"
+        onClick={() => run({ op: 'media_make', job: doc.id, text: md.prompt, tools: { model: md.modelId, kind: md.kind, ...(md.fromImg?.mid ? { img: md.fromImg.mid } : { noChar: true }), ...(md.refs?.length ? { refs: md.refs.map(r => r.mid) } : {}) } })}>{busy ? 'Starting…' : 'Try again'}</button></span> : null}
     {md.status === 'failed' && md.swap && md.fromClip?.mid && cat && doc && work && setDoc ? <span className="mst-acts" data-testid="media-retry">
       {/real person/i.test(md.why || '') && md.modelId !== 'or-aleph-swap' ? <button type="button" className="m-btn m-go" disabled={busy} data-testid="media-retry-aleph"
         data-tip="ByteDance's Seedance refuses clips with real people. Runway Aleph 2 is made for real footage: same clip, same character, about $0.28 a second on your OpenRouter"
@@ -199,7 +203,7 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '', start = 'm
     <button type="button" className={`${tile ? 'poc-tile' : 'm-btn'} mst-open${open ? ' is-on' : ''}`} aria-expanded={open} onClick={doOpen} data-testid={testid} data-tip={start === 'swap' ? 'Put your character into a real clip: your clip, his face, the same scene and sound' : 'Turn this folder into a viral-format image or video, right here in the chat'}>{label || '🎬 Image / video'}{making && start !== 'swap' ? <em>{making} making</em> : null}</button>
     {open ? createPortal(<div className="mst-sheet-wrap" data-testid="media-sheet"><button type="button" className="mst-scrim" aria-label="Close the maker" onClick={close} tabIndex={-1} />
       <section className="mst-pop mst-sheet m-pop" role="dialog" aria-modal="true" aria-label="Image and video maker" data-testid="media-pop">
-        <header className="mst-sheet-h"><span><b>Media studio</b><small>{d?.linked?.length && d.providers ? `on your ${d.linked.map(k => d.providers[k].name).join(' + ')}` : d?.house ? `FEELESS key · $${d.houseLeftUsd ?? 0} left today` : 'link your own account first'}{making ? ` · ${making} making` : ''}</small></span><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="media-close">✕</button></header>
+        <header className="mst-sheet-h"><span><b>Media studio</b><small>{d?.linked?.length && d.providers ? `on your ${d.linked.map(k => d.providers[k].name).join(' + ')}` : d?.house ? `FEELESS key · $${d.houseLeftUsd ?? 0} left today` : 'link your own account first'}{making ? ` · ${making} making` : ''}</small></span>{d?.spend ? <SpendChip compact cat={cat} work={work} seed={d.spend} /> : null}<button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="media-close">✕</button></header>
         {!d?.providers ? <p className="mst-lead">{err ? `⚠ ${err}` : 'Reading your providers…'}</p> : !(d.linked || []).length && !d.house ? <LinkSteps cat={cat} d={d} onLinked={load} /> : <>
           <div className="m-seg mst-tabs" role="tablist" aria-label="What to do">{tabs.map(([k, l, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={t} data-testid={`media-tab-${k}`}>{l}</button>)}</div>
           <div className="mst-sheet-body" role="tabpanel">

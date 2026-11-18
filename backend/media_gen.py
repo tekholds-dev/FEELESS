@@ -211,12 +211,36 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
     return 'POST', f'https://queue.fal.run/{ep}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, body
 
 
+# 🗣 owner 2026-11-17 ("all these errors … i just cant breathe to explain all the issues"): every refusal says what happened, whether it
+# cost anything, and the one thing to do next. The provider's own words stay after it, in brackets, for the record.
+PLAIN = (
+    (r'real person', "ByteDance's Seedance refuses a clip with a real person in it (its own rule; nothing was charged). Pick Runway Aleph 2 for real footage."),
+    (r'copyright|trademark|dmca|celebrit|public figure|likeness',
+     'The provider refused it as possibly copyrighted (a brand, a famous person or a cartoon by name). Nothing was charged. Say what you want without the name: describe the look instead.'),
+    (r'moderat|safety|content polic|nsfw|flagged|inappropriate|violat',
+     "The provider's safety check refused it. Nothing was charged. Change the words or the picture and try again."),
+    (r'insufficient|credit|balance|payment required|top.?up|quota',
+     'Your provider account is out of credit. Nothing was charged. Top it up on the provider, then try again.'),
+    (r'invalid.{0,12}(api )?key|unauthori[sz]ed|no auth|authenticat|forbidden',
+     'Your key was refused by the provider. Nothing was charged. Paste a fresh key under Keys, then try again.'),
+    (r'rate.?limit|too many requests|overloaded|capacity|try again later',
+     'The provider is busy right now. Nothing was charged. Try again in a minute.'),
+    (r'unrecognized key|unknown (field|parameter)|invalid (request|input|parameter)|unprocessable|validation',
+     "The provider did not accept how this was asked. Nothing was charged. This one is ours to fix: send us the words in brackets."),
+    (r'timed? ?out|timeout', 'The provider took too long and stopped. Nothing more is charged. Try again.'),
+)
+PLAIN_CODE = {401: PLAIN[4][1], 403: PLAIN[4][1], 402: PLAIN[3][1], 429: PLAIN[5][1], 422: PLAIN[6][1]}
+
+
 def plain_why(code, text):
-    """A provider's refusal in words the owner can act on (the raw text stays after it)."""
+    """A provider's refusal in words the owner can act on (the raw text stays after it, in brackets)."""
     t = ' '.join(str(text or '').split())[:300]
-    if 'real person' in t.lower():
-        return (f'ByteDance\'s Seedance refuses a clip with a real person in it (its own rule; nothing was charged). '
-                f'Pick Runway Aleph 2 for real footage. ({t})')
+    raw = f'{code}: {t}' if code else t
+    for pat, words in PLAIN:
+        if re.search(pat, t, re.I):
+            return f'{words} ({raw})'
+    if code in PLAIN_CODE:
+        return f'{PLAIN_CODE[code]} ({code}: {t})' if t else PLAIN_CODE[code]
     return f'{code}: {t}' if code else t
 
 
