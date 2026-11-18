@@ -300,3 +300,51 @@ def test_the_filer_never_numbers_a_started_game(monkeypatch):
     assert len(cat['pobFolders']) == 1 and 'Pick a game that has not started' in cat['chat'][-1]['text'] and 'ask' not in cat['chat'][-1]
     t0 = kb._start('2026-11-18T03:00Z')
     assert [g['id'] for g in kb.upcoming([*OPEN[::-1], GONE], t0)] == ['g2', 'g3'] and kb.upcoming(OPEN, kb._start('2026-11-18T05:00Z')) == []
+
+
+def test_a_cut_off_parlay_reply_keeps_its_finished_legs_and_one_market_is_one_agreement():
+    """🧩 owner 2026-11-17, Jazz vs Clippers: the parlay's replies were cut off ('no usable answer' x2); the team-to-win said '0 agreed' while both backed LAC YES."""
+    import pob
+    cut = ('{"picks": [{"pick": "Clippers to win", "confidence": 66, "why": "Kalshi 0.68", "kalshi": {"ticker": "KXNBAGAME-26NOV17UTALAC-LAC", "side": "yes"}}, '
+           '{"pick": "Harden over 20.5", "confidence": 58, "why": "he aver')
+    got = pob.parse_picks(cut)
+    assert [p['pick'] for p in got['picks']] == ['Clippers to win'] and got['picks'][0]['kalshi']['side'] == 'yes'
+    assert pob.parse_picks('nothing here')['pass'] == 'no usable answer'
+    lac = {'ticker': 'KXNBAGAME-26NOV17UTALAC-LAC', 'side': 'yes'}
+    calls = [{'picks': [{'pick': 'Clippers to win', 'kalshi': lac}]}, {'picks': [{'pick': 'Clippers to beat Jazz', 'kalshi': lac}]}]
+    assert pob.agreed(calls) == ['Clippers to win']
+    assert pob.agreed([{'picks': [{'pick': 'Clippers to win', 'kalshi': lac}]}, {'picks': [{'pick': 'Jazz to win', 'kalshi': {**lac, 'side': 'no'}}]}]) == []
+    assert pob.agreed([{'picks': [{'pick': 'Lakers win'}]}, {'picks': [{'pick': 'win Lakers'}]}]) == ['Lakers win']
+
+
+def test_two_legs_answers_both_questions(monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 5}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
+    monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x'); monkeypatch.setattr(fs._POW_WAKE, 'set', lambda: None)
+    c = TestClient(fs.app); cat = store['cats']['g']
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob jazz vs clippers'})
+    c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': '2 legs'})
+    assert cat['pobAsk'] == 'jazz vs clippers parlay slip 2 legs' and not cat.get('pobLegsAsk')   # no second "how many legs?"
+    fs._POB_WANT.pop('g', None)
+
+
+def test_the_game_room_shows_a_parlay_slip_beside_the_team_bid(monkeypatch):
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    g = [{'id': '401910006', 'sport': 'nba', 'side': 'Utah Jazz'}]
+    store = {'cats': {'g': {'id': 'g', 'name': 'Happy', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 5},
+             'pobFolders': [{'id': 'f1', 'n': 21, 'games': g, 'kalshi': {'ticker': 'KXNBAGAME-26NOV17UTALAC-LAC', 'side': 'yes', 'title': 'Los Angeles C wins', 'status': 'filled', 'orderId': 'o', 'count': 2, 'filled': 2, 'price': 0.68}},
+                            {'id': 'f2', 'n': 22, 'games': g, 'kalshi': {'kind': 'parlay', 'ticker': None, 'side': 'yes', 'title': 'Parlay: LAC + Harden', 'status': 'waiting', 'legs': [{'title': 'Los Angeles C wins'}, {'title': 'Harden 20+'}]}}]}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True)
+    j = TestClient(fs.app).post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'game_calls', 'job': '401910006'}).json()
+    assert [b['kind'] for b in j['bids']] == ['single', 'parlay'] and j['bids'][1]['legs'][1]['title'] == 'Harden 20+'
+
+
+def test_research_starts_on_this_games_own_espn_page():
+    """🌐 owner 2026-11-17: the Jazz vs Clippers research read Kalshi's and Polymarket's home pages."""
+    g = kb.game_named('Jazz vs Clippers parlay slip 2 legs', [GONE, *OPEN])
+    assert g['id'] == 'g2' and kb.game_named('Lakers vs Suns', OPEN) is None
+    assert 'https://www.espn.com/nba/game/_/gameId/401910006' in kb.game_page({'id': '401910006', 'sport': 'nba'})
+    assert kb.game_page({'id': '1', 'sport': 'cricket'}) == '' and kb.game_page(None) == ''

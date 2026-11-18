@@ -334,10 +334,18 @@ function useHereWhileWaiting(on, catId, i) {
 // 🖥 THE NEWEST PROOFS ON THE MONITORS (owner 2026-11-11: "any proof being worked on shows on the desk … monitors gone"): an idle monitor
 // shows one of its agent's newest filed proofs — type, what it was on, its grade, when — and opens the Desktop where the folder lives. Pure.
 const PROOF_KIND = { pob: ['🎲', 'PoB'], pow: ['⛏', 'PoW'], poc: ['📣', 'PoC'], ps: ['💻', 'PoStatic'], pop: ['📉', 'PoP'], poe: ['📊', 'PoEco'] };
-export function newestProofs(d) {
+// 🎯 owner 2026-11-17: the proof opened on the main desk leads the monitors even when it is not one of the 4 newest; a PoB brings every slip
+// its agent put on the same game. Pure.
+export function deskProofs(d) {
+  const all = newestProofs(d, 999); const at = d?.deskProof?.id ? all.findIndex(x => x.id === d.deskProof.id) : -1;
+  const lead = at >= 0 ? all[at] : null; const rest = all.filter((_, i) => i !== at).slice(0, lead ? 3 : 4);
+  const withSlips = p => (p?.k !== 'pob' || !p.f?.games?.length ? p : { ...p, also: (d?.pobFolders || []).filter(x => x.id !== p.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(p.f.games[0].id))) });
+  return (lead ? [lead, ...rest] : rest).map(withSlips);
+}
+export function newestProofs(d, n = 4) {
   const row = (k, f) => f && { k, id: f.id, at: Number(f.closedAt || f.at || 0), title: String(f.topic || (f.sym ? '$' + f.sym : '') || f.name || f.title || PROOF_KIND[k][1]).slice(0, 80), grade: f.graded || f.grade || null, live: !!f.live || f.status === 'open', f };
   return [...(d?.pobFolders || []).map(f => row('pob', f)), ...(d?.powFolders || []).map(f => row('pow', f)), ...(d?.pocFolders || []).map(f => row('poc', f)),
-    ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.poeFolders || []).map(f => row('poe', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, 4);   // a Showcase ad build is not one of its proofs
+    ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.poeFolders || []).map(f => row('poe', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, n);   // a Showcase ad build is not one of its proofs
 }
 // 🖥 owner 2026-11-12: "one monitor shows the code an the other the static" + 2026-11-13: "unless they are doing separate jobs → code on one monitor
 // and static on the other". While every monitor is idle, the newest PoStatic among its newest proofs takes the first two: its code on one, its
@@ -1765,7 +1773,7 @@ function WorkbenchLive({ cat }) {
   const [proofPick, setProofPick] = useState(false);
   useEffect(() => { if (desk) return undefined; const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setProofPick(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [desk]);   // ⌘K on the main desk (the Desktop keeps its own)
   const pickProof = async ({ win, id }) => { setProofPick(false); if (win === 'poe') { setDesk({ win, id }); return; } await act('desk_focus', { job: win, text: id }); };
-  const proofs = useMemo(() => { const all = newestProofs(d); const at = d?.deskProof?.id ? all.findIndex(x => x.id === d.deskProof.id) : -1; return at > 0 ? [all[at], ...all.filter((_, i) => i !== at)] : all; }, [d]);   // 🎯 the proof on the desk leads the monitors
+  const proofs = useMemo(() => deskProofs(d), [d]);   // 🎯 the proof on the desk leads the monitors, wherever it is in its files
   const kinds = proofsOf(d, live); const [stagePick, setStagePick] = useState(null);   // 🗂 up to 3 proofs at once: the desk's picker switches the stage between them
   const liveKind = kinds.includes(stagePick) ? stagePick : live ? proofOf(d, live) : null; const [peek, setPeek] = useState(false);   // 🎆 a running proof turns the chat into its live stage
   useEffect(() => { if (stagePick && !kinds.includes(stagePick)) setStagePick(null); }, [kinds.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1817,7 +1825,7 @@ function WorkbenchLive({ cat }) {
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     {liveKind && !peek ? <ProofLive d={d} wins={wins} spent={spent} name={cat.name} kind={liveKind} onShowChat={() => setPeek(true)} />
     : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
-    {wKind === 'bids' && watched?.games?.length ? <LiveBidCard f={watched} onClose={() => pin('')} /> : wKind !== 'bids' && watched ? <LiveProofCard kind={wKind} f={watched} onClose={() => pin('')} /> : null}
+    {wKind === 'bids' && watched?.games?.length ? <LiveBidCard f={watched} also={(d?.pobFolders || []).filter(x => x.id !== watched.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(watched.games[0].id)))} onClose={() => pin('')} /> : wKind !== 'bids' && watched ? <LiveProofCard kind={wKind} f={watched} onClose={() => pin('')} /> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} onWatch={k => { const live = k === 'pow' ? d?.powFolder : k === 'pop' ? d?.popFolder : null; const c = live?.id ? { id: live.id } : chatProof(d, k, m.at); if (c?.id) pin(k === 'bids' ? c.id : `${k}:${c.id}`); }} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} duel={d?.duels?.[m.tid]} onDuel={i => act('duel', { text: m.tid, job: String(i) })} onChip={c => act('ask', { text: c, to })} />)}

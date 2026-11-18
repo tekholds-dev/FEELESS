@@ -36,11 +36,41 @@ function PowMon({ f }) {
     <small>{f?.minds || 1} mind{(f?.minds || 1) > 1 ? 's' : ''} · {String(f?.phase || 'filed')}{Number.isFinite(Number(f?.pnlSol)) ? ` · ${Number(f.pnlSol) >= 0 ? '+' : ''}${Number(f.pnlSol).toFixed(4)} SOL` : ''}</small>
     {coins.length > 1 ? <ul className="pmn-coins">{coins.map(c => <li key={c.mint || c.sym} className={Number(c.ch) >= 0 ? 'is-up' : 'is-dn'}>${String(c.sym || '').slice(0, 10)}<em>{Number.isFinite(Number(c.ch)) ? `${Number(c.ch) >= 0 ? '+' : ''}${Number(c.ch).toFixed(0)}%` : ''}</em></li>)}</ul> : null}</div>;
 }
-function PobMon({ f }) {
-  const sites = (f?.sites || []).slice(0, 6); const calls = f?.calls || [];
-  return <div className="pmn-pob"><b className="pmn-topic">{String(f?.topic || 'Bids').slice(0, 60)}</b>
-    <ul className="pmn-sites">{sites.map((s, i) => <li key={s} style={{ '--i': i }} className={f?.browsed?.[s] ? 'is-read' : ''}>{s}</li>)}</ul>
-    <small className={calls.length ? 'is-up' : 'is-dn'}>{calls.length ? `${calls.length} call${calls.length > 1 ? 's' : ''} made` : f?.noTrade ? 'No call: nothing was read, so nothing staked' : 'Reading the games'}</small></div>;
+// 🎲 owner 2026-11-17 ("hoping main desk monitors dynamically show something when I open this proof file there"): a PoB's monitor is its game,
+// live: the score (ESPN, through our own /api/cats/tools/game, one shared read per game per 30 s while it plays), each slip it put on Kalshi (in,
+// worth now, P&L: fees never in it, CLAUDE.md §1), each mind's pick, and the sites it really read. Watching only: nothing here sends an order.
+const GAMES = new Map();   // game id → { at, d, p }
+export function readGame(g) {
+  const hit = GAMES.get(g.id); if (hit && (hit.p || Date.now() - hit.at < 30000)) return hit.p || Promise.resolve(hit.d);
+  const p = fetch(apiUrl(`/api/cats/tools/game/${g.sport}/${g.id}`)).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    .then(d => { GAMES.set(g.id, { at: Date.now(), d }); return d; });
+  GAMES.set(g.id, { at: Date.now(), d: hit?.d || null, p }); return p;
+}
+export function pobSlip(k) {   // the ticket → what the monitor says about it. Pure.
+  if (!k) return null;
+  const filled = Number(k.filled ?? (k.status === 'filled' ? k.count : 0)) || 0; const placed = !!k.orderId && filled > 0;
+  const cost = k.usd != null ? Number(k.usd) : filled * Number(k.price || 0);
+  const now = k.outcome === 'won' ? filled : k.outcome === 'lost' ? 0 : k.livePx != null && placed ? filled * Number(k.livePx) : null;
+  return { title: k.kind === 'parlay' ? `🧩 ${(k.legs || []).length}-leg parlay` : `${String(k.side || '').toUpperCase()} ${k.title || k.ticker || ''}`.trim(), placed, cost, now,
+    pnl: now == null ? null : Math.round((now - cost) * 100) / 100, say: placed ? null : k.status === 'waiting' ? 'waiting for your tap' : k.offer ? 'its pick, your tap' : String(k.status || 'no bid') };
+}
+const money = v => `${v < 0 ? '−' : ''}$${Math.abs(Number(v) || 0).toFixed(2)}`;
+function PobMon({ f, also = [] }) {
+  const g = (f?.games || [])[0]; const [d, setD] = useState(null);
+  useEffect(() => {
+    if (!g?.id || !g?.sport) return undefined; let on = true; const go = () => { if (!document.hidden) readGame(g).then(x => on && x && setD(x)); };
+    go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); };
+  }, [g?.id, g?.sport]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const read = [...new Set(Object.values(f?.browsed || {}).flatMap(b => (b && b.sites) || []))]; const sites = [...new Set([...read, ...(f?.sites || [])])].slice(0, 6);
+  const calls = f?.calls || []; const slips = [f, ...also].map(x => pobSlip(x?.kalshi)).filter(Boolean); const [ta, tb] = d?.teams || [];
+  const live = d?.state === 'in';
+  return <div className="pmn-pob" data-testid="pmn-pob"><b className="pmn-topic">{String(f?.topic || 'Bids').slice(0, 60)}</b>
+    {d && ta && tb ? <span className={`pmn-score${live ? ' is-live' : ''}`} data-testid="pmn-score"><b className="m-num">{ta.abbr} {ta.score ?? 0} – {tb.score ?? 0} {tb.abbr}</b><small>{live ? '● ' : ''}{d.status || ''}</small></span> : g ? <small>{g.status || g.label || ''}</small> : null}
+    {slips.length ? <ul className="pmn-slips" data-testid="pmn-slips">{slips.map((s, i) => <li key={i} className={s.pnl > 0 ? 'is-up' : s.pnl < 0 ? 'is-dn' : ''}><span>{s.title}</span>{s.placed
+      ? <em className="m-num">{money(s.cost)} in{s.now != null ? ` · ${money(s.now)} now · ${s.pnl >= 0 ? '+' : ''}${money(s.pnl)}` : ''}</em> : <em>{s.say}</em>}</li>)}</ul> : null}
+    {calls.length ? <ul className="pmn-minds">{calls.map(c => { const top = (c.picks || [])[0]; return <li key={c.mind}><b>{c.name || `Mind ${'AB'[c.mind] || ''}`}</b>{top ? <span>{top.pick} <em className="m-num">{top.confidence}%</em></span> : <span>passed</span>}</li>; })}</ul> : null}
+    <ul className="pmn-sites">{sites.map((s, i) => <li key={s} style={{ '--i': i }} className={read.includes(s) ? 'is-read' : ''}>{s}</li>)}</ul>
+    {!calls.length ? <small className="is-dn">{f?.noTrade ? 'No call: nothing was read, so nothing staked' : 'Reading the games'}</small> : null}</div>;
 }
 function PocMon({ f, catId }) {
   // 🎬 its OWN made media first (owner 2026-11-12: Bishop's image never reached a monitor), then its snapshot, then the idea itself — never a bare "nothing"
@@ -62,5 +92,5 @@ function PoeMon({ f }) {
 }
 const BODY = { ps: PsMon, pow: PowMon, pob: PobMon, poc: PocMon, poe: PoeMon };
 export function ProofMonitorBody({ p, catId, work }) {
-  const B = BODY[p?.k]; return B && p?.f ? <B f={p.f} catId={catId} work={work} view={p.view} /> : null;
+  const B = BODY[p?.k]; return B && p?.f ? <B f={p.f} also={p.also} catId={catId} work={work} view={p.view} /> : null;
 }

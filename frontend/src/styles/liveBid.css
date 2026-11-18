@@ -37,3 +37,8 @@ body.fx-lite :is(.lbc, .lbc-pane, .lbc-feed li, .lbc-dot) { animation: none; }
 /* 📺 PoW / PoP live cards (owner 2026-11-15 'epic live cards for the other proof types') */
 .lpc-score > span { display: grid; gap: 2px; } .lpc-score b { font: 800 26px var(--f-display); line-height: 1.1; } .lpc-score b.is-good { color: var(--m-accent); } .lpc-score b.is-bad { color: var(--m-danger); } .lpc-score b.is-none { color: var(--m-dim); }
 .lpc-score small { font-size: 11px; color: var(--m-dim); } .lbc-pane .pop-nums { margin-top: 6px; }
+/* 🧩 every slip on this game, one card (owner 2026-11-17) */
+.lbc-h:has(.lbc-n) { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+@media (max-width: 640px) { .lbc-h:has(.lbc-n) { grid-template-columns: minmax(0, 1fr) auto auto; } }
+.lbc-n { padding: 2px 9px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); background: color-mix(in srgb, var(--m-accent) 12%, transparent); color: var(--m-text); font: 700 10.5px var(--f-mono); cursor: pointer; }
+.lbc-bids { display: grid; gap: 8px; }

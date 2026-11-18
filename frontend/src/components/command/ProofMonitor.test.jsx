@@ -55,3 +55,29 @@ test('🖥 a PoC shows its own made media first (owner 2026-11-12, Bishop), then
   expect(el.querySelector('[data-testid="pmn-poc-idea"]').textContent).toContain('named Bishop');
   act(() => root.unmount());
 });
+
+test('🎲 a PoB monitor is its game live: the score, every slip on that game (fees never in P&L), each mind, the sites it really read', async () => {
+  const f0 = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => ({ state: 'in', status: '3:10 - 2nd', teams: [{ abbr: 'UTAH', score: 48 }, { abbr: 'LAC', score: 55 }] }) }));
+  const g = [{ id: '401910006', sport: 'nba', label: 'Jazz at Clippers' }];
+  const f = { id: 'p21', topic: 'Jazz vs Clippers team to win', games: g, browsed: { 0: { sites: ['kalshi.com', 'espn.com'] }, 1: { sites: ['polymarket.com'] } }, sites: ['kalshi.com', 'covers.com'],
+    calls: [{ mind: 0, name: 'gpt-6.1-sol', picks: [{ pick: 'Clippers to win', confidence: 68 }] }, { mind: 1, name: 'glm-5.3', picks: [] }],
+    kalshi: { title: 'Los Angeles C wins', side: 'yes', orderId: 'o', status: 'filled', count: 2, filled: 2, price: 0.68, usd: 1.36, livePx: 0.8 } };
+  const slip = { id: 'p22', games: g, kalshi: { kind: 'parlay', status: 'waiting', legs: [{ title: 'LAC' }, { title: 'Harden 20+' }] } };
+  const { el, root } = await mount(<ProofMonitorBody p={{ k: 'pob', f, also: [slip] }} />); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(global.fetch.mock.calls[0][0]).toContain('/api/cats/tools/game/nba/401910006');
+  expect(el.querySelector('[data-testid="pmn-score"]').textContent).toContain('UTAH 48 – 55 LAC');
+  const rows = el.querySelectorAll('[data-testid="pmn-slips"] li');
+  expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('$1.36 in · $1.60 now · +$0.24'); expect(rows[1].textContent).toContain('2-leg parlay'); expect(rows[1].textContent).toContain('waiting for your tap');
+  expect(el.textContent).toContain('Clippers to win'); expect(el.textContent).toContain('passed');
+  expect([...el.querySelectorAll('.pmn-sites li.is-read')].map(x => x.textContent)).toEqual(['kalshi.com', 'espn.com', 'polymarket.com']);
+  act(() => root.unmount()); global.fetch = f0;
+});
+
+test('🎯 the proof opened on the desk leads the monitors even when it is older than the 4 newest, with its game\'s other slips', () => {
+  const { deskProofs } = require('./CatWorkbench');
+  const g = [{ id: 'G1', sport: 'nba' }];
+  const pobFolders = [{ id: 'old', at: 1, topic: 'Jazz vs Clippers', games: g, kalshi: { ticker: 'T' } }, ...[2, 3, 4, 5, 6].map(n => ({ id: `p${n}`, at: n, topic: `t${n}` })), { id: 'slip', at: 7, games: g, kalshi: { kind: 'parlay' } }];
+  const out = deskProofs({ pobFolders, deskProof: { id: 'old' } });
+  expect(out[0].id).toBe('old'); expect(out[0].also.map(x => x.id)).toEqual(['slip']); expect(out).toHaveLength(4);
+  expect(deskProofs({ pobFolders }).map(x => x.id)).toEqual(['slip', 'p6', 'p5', 'p4']);
+});

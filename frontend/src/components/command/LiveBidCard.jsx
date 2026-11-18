@@ -31,12 +31,13 @@ export function ourChance(d, f) {
   return { team: ts[i], rows: (d.wp || []).map((v, n) => ({ n, v: home ? v : 1 - v })) };
 }
 
-export function LiveBidCard({ f, onClose }) {
+// 🧩 owner 2026-11-17 ("a parlay slip for the same game, so I can see in chat the 2 slips"): every PoB slip on this game rides one card.
+export function LiveBidCard({ f, also = [], onClose }) {
   const g = f?.games?.[0]; const [d, setD] = useState(null); const [err, setErr] = useState(false); const [view, setView] = useState('live');
   const load = useCallback(() => (g ? fetch(apiUrl(`/api/cats/tools/game/${g.sport}/${g.id}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { setD(j); setErr(false); }).catch(() => setErr(true)) : null), [g]);
   const live = (d?.state || g?.state) === 'in';
   useEffect(() => { load(); if (!g || (d && d.state === 'post')) return undefined; const t = setInterval(() => { if (!document.hidden) load(); }, POLL_MS); return () => clearInterval(t); }, [load, g, d?.state]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const b = useMemo(() => bidRow(f), [f]); const ch = useMemo(() => ourChance(d, f), [d, f]);
+  const b = useMemo(() => bidRow(f), [f]); const ch = useMemo(() => ourChance(d, f), [d, f]); const bids = useMemo(() => [f, ...also].map(bidRow).filter(Boolean), [f, also]);
   const plays = (d?.plays || []).filter(p => p.text != null).slice(-6).reverse(); const ta = d?.teams?.[0]; const tb = d?.teams?.[1];
   const minds = (f?.calls || []).map(c => ({ name: c.name || `Mind ${'AB'[c.mind] || ''}`, top: (c.picks || [])[0] }));
   const now = ch.rows.length ? ch.rows[ch.rows.length - 1].v : null;
@@ -45,6 +46,7 @@ export function LiveBidCard({ f, onClose }) {
     <header className="lbc-h">
       <span className="lbc-t">{ta ? <TeamMark t={ta} size={26} /> : null}<b className="m-num" data-testid="live-bid-score">{d ? `${ta?.abbr || ''} ${ta?.score ?? 0} – ${tb?.score ?? 0} ${tb?.abbr || ''}` : gameName(f)}</b>{tb ? <TeamMark t={tb} size={26} /> : null}</span>
       <small className={live ? 'is-live' : ''}>{live ? '● LIVE · ' : ''}{d?.status || g.status || ''}</small>
+      {bids.length > 1 ? <button type="button" className="lbc-n" onClick={() => setView('pnl')} data-tip="Every slip its PoBs put on this game" data-testid="live-bid-count">{bids.length} slips</button> : null}
       <button type="button" className="lbc-x" onClick={onClose} aria-label="Stop watching" data-tip="Stop watching (the PoB stays in its file)" data-testid="live-bid-close">✕</button>
     </header>
     <div className="m-seg lbc-views" role="group" aria-label="What to watch">{VIEWS.map(([k, l]) => <button key={k} type="button" className={view === k ? 'active' : ''} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`live-bid-${k}`}>{l}{k === 'live' && live ? <i className="lbc-dot" aria-hidden="true" /> : k === 'clips' && d?.reels?.length ? <em className="m-num">{d.reels.length}</em> : null}</button>)}</div>
@@ -56,7 +58,7 @@ export function LiveBidCard({ f, onClose }) {
           <dl className="lbc-kv"><div><dt>{ch.team?.abbr || 'Its side'} win chance</dt><dd className="m-num">{pct(now)}</dd></div><div><dt>Kalshi now</dt><dd className="m-num">{b?.livePx != null ? pct(b.livePx) : b?.price != null ? pct(b.price) : '—'}</dd></div><div><dt>It paid</dt><dd className="m-num">{b?.placed ? pct(b.price) : '—'}</dd></div></dl>
           {ch.rows.length > 1 ? <div className="lbc-chart" aria-label={`${ch.team?.abbr || 'Its side'} win chance, from ${pct(ch.rows[0].v)} to ${pct(now)}`}><ResponsiveContainer width="100%" height={70}><LineChart data={ch.rows} margin={{ top: 4, right: 4, bottom: 2, left: 4 }}><YAxis hide domain={[0, 1]} /><ReferenceLine y={0.5} strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.3} />{b?.placed ? <ReferenceLine y={Number(b.price)} stroke="currentColor" strokeOpacity={0.55} /> : null}<Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div> : <p className="lbc-none">The win-chance line starts at tip-off.</p>}
           <ul className="lbc-minds">{minds.map(m => <li key={m.name}><b>{m.name}</b>{m.top ? <><span>{m.top.pick}</span><em className="m-num">{m.top.confidence}%</em></> : <span>passed</span>}</li>)}</ul></div>
-        : b ? <RoomBid b={b} agent="" /> : <p className="lbc-none">No Kalshi bid on this PoB, so there is no P&amp;L. The game still plays out here.</p>}
+        : bids.length ? <div className="lbc-bids" data-testid="live-bid-bids">{bids.map(x => <RoomBid key={x.id || x.n} b={x} agent="" />)}</div> : <p className="lbc-none">No Kalshi bid on this PoB, so there is no P&amp;L. The game still plays out here.</p>}
     </div>
   </section>;
 }

@@ -42,7 +42,7 @@ def test_a_proof_read_is_capped_silent_and_owes_no_flat_fee(fs, monkeypatch):
         await asyncio.sleep(0)
         t = fs._WORK['c1']['task']
         assert t['proofRead'] and t['research'] and t['mode'] == 'jobs' and t['jobs'] == ['read sites', 'read sites']
-        assert ran[0][3] == 'read sites' and ran[0][4] <= fs._pow.ROUND_USD * 2   # its own small ceiling, per mind
+        assert ran[0][3] == 'read sites' and t['cap'] == fs.TASK_CAP_DEFAULT   # 🌐 his task cap (the default when he set none), not PoW's $0.03 a coin
         assert 'workNow' not in cat   # a restart never re-runs it as a chat ask
         fs._WORK['c1']['done'] = True; t['status'] = 'done'; t['cost'] = 0.01
         store = {'cats': {'c1': cat}}; fs._work_settle(store)
@@ -177,3 +177,17 @@ def test_a_new_build_folder_survives_the_save(fs):
     cat = fs._load()['cats']['ws1']; store = fs._load(); cat = store['cats']['ws1']
     row = fs._feat.new_folder(cat, 'build', 'x', 1); fs.keep_owned(cat); fs._save(store)
     assert cat['workspaces'][-1]['id'] == row['id'] and fs._load()['cats']['ws1']['workspaces'][-1]['id'] == row['id']
+
+
+def test_a_proof_read_runs_on_his_own_limits_not_pows_coin_ceiling(fs, monkeypatch):
+    """🌐 owner 2026-11-17 ("said a .03 limit … limits should be set already by me"): Jazz vs Clippers read stopped after one home page each at $0.03."""
+    async def run_():
+        async def fake_run(*a, **k):
+            return None
+        monkeypatch.setattr(fs, '_work_run', fake_run)
+        cat = {**_cat(), 'taskCap': 0.25, 'limits': {'mindUsd': [0.2, 0.2], 'steps': 30, 'dayUsd': 1.0}}
+        fs._read_start(cat, 'read sites', ''); await asyncio.sleep(0)
+        t = fs._WORK['c1']['task']
+        assert t['cap'] == 0.25 and t['mindCaps'] == [0.2, 0.2] and t['stepsMax'] == 30
+    asyncio.run(run_())
+    assert fs._read_caps({'mindUsd': [0.5, 0.2]}, 0.25, 2) == [0.25, 0.2] and fs._read_caps({}, 0.2, 2) == [0.1, 0.1] and fs._read_caps({'mindUsd': [0.2]}, 0.3, 2) == [0.15, 0.15]

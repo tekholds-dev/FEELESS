@@ -103,12 +103,28 @@ def topic_goal(topic, sites, angle=None):
     return proof_plan.goal_for_bid(topic, sites, angle)
 
 
+_PICK_OBJ = re.compile(r'\{[^{}]*"pick"[^{}]*(?:\{[^{}]*\}[^{}]*)?\}', re.S)
+
+
+def _salvage(raw):
+    """🧩 owner 2026-11-17 (Jazz vs Clippers parlay: both minds 'no usable answer'): a reply cut off mid-way keeps every pick it finished. Pure."""
+    rows = []
+    for m in _PICK_OBJ.finditer(str(raw or '')):
+        try:
+            rows.append(json.loads(m.group(0)))
+        except ValueError:
+            continue
+    return {'picks': rows} if rows else None
+
+
 def parse_picks(raw):
     """A mind's reply → {'picks': [...], 'pass': str}. No picks with no reason given is still an honest answer, not a crash."""
     try:
         d = json.loads(re.search(r'\{.*\}', str(raw or ''), re.S).group(0))
     except (AttributeError, ValueError):
-        return {'picks': [], 'pass': 'no usable answer'}
+        d = _salvage(raw)
+        if d is None:
+            return {'picks': [], 'pass': 'no usable answer'}
     rows = []
     for x in (d.get('picks') or [])[:MAX_LEGS] if isinstance(d.get('picks'), list) else []:
         if isinstance(x, dict) and str(x.get('pick') or '').strip():
@@ -122,12 +138,19 @@ def _key(pick):
     return ' '.join(sorted(w for w in re.findall(r'[a-z0-9]+', str(pick).lower()) if w not in ('the', 'to', 'win', 'over', 'vs', 'at', 'a')))
 
 
+def _market(pick):
+    k = pick.get('kalshi') if isinstance(pick.get('kalshi'), dict) else {}
+    return f"{k.get('ticker')}|{k.get('side')}" if k.get('ticker') and k.get('side') else None
+
+
 def agreed(calls):
-    """Picks both minds named independently. Same words in any order, nothing looser."""
+    """Picks both minds named independently: the same Kalshi market and side (owner 2026-11-17: 'Clippers to win' and 'Clippers to beat Jazz'
+    both backed LAC YES and it said 0 agreed), else the same words in any order. Nothing looser."""
     if len(calls) < 2:
         return []
-    other = {_key(p['pick']) for p in calls[1].get('picks') or []}
-    return [p['pick'] for p in calls[0].get('picks') or [] if _key(p['pick']) in other]
+    theirs = calls[1].get('picks') or []
+    words, markets = {_key(p['pick']) for p in theirs}, {_market(p) for p in theirs} - {None}
+    return [p['pick'] for p in calls[0].get('picks') or [] if (_market(p) in markets if _market(p) else False) or _key(p['pick']) in words]
 
 
 def command(text):

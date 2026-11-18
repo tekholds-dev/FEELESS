@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ProofTools } from '../components/command/ProofTools';
 import { PobShelf } from '../components/command/CatWorkbench';
 import { LiveBidCard } from '../components/command/LiveBidCard';
+import { ProofMonitorBody } from '../components/command/ProofMonitor';
 import '../styles/meta.css';
 import '../styles/terminal.css';
 
@@ -24,6 +25,15 @@ function FileShelf() {
 }
 export default function BidsHarness() {
   const [said, setSaid] = useState([]);
+  if (window.location.search.includes('slips')) {   // 🧩 `?slips=<espn id>`: the team bid + a parlay slip on one real game, in the chat card and on a desk monitor
+    const gid = new URLSearchParams(window.location.search).get('slips') || '401910006'; const g = [{ id: gid, sport: 'nba', side: 'Los Angeles Clippers', label: 'Jazz at Clippers', state: 'pre' }];
+    const team = { id: 'h21', n: 21, topic: 'Jazz vs Clippers team to win', games: g, sites: ['kalshi.com', 'espn.com', 'covers.com'], browsed: { 0: { sites: ['kalshi.com', 'espn.com'] }, 1: { sites: ['polymarket.com'] } },
+      calls: [{ mind: 0, name: 'gpt-6.1-sol', picks: [{ pick: 'Clippers to win', confidence: 68 }] }, { mind: 1, name: 'glm-5.3', picks: [{ pick: 'Clippers to beat Jazz', confidence: 68 }] }],
+      kalshi: { id: 'k1', title: 'Los Angeles C wins', side: 'yes', orderId: 'o', status: 'filled', count: 2, filled: 2, price: 0.68, usd: 1.36, livePx: 0.74, pxHist: [[1, 0.68], [2, 0.74]] } };
+    const slip = { id: 'h22', n: 22, topic: 'Jazz vs Clippers parlay slip 2 legs', games: g, kalshi: { id: 'k2', kind: 'parlay', status: 'waiting', title: 'Parlay', legs: [{ title: 'Los Angeles C wins', price: 0.68 }, { title: 'Harden 20+ points', price: 0.52 }], price: 0.35 } };
+    return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)', display: 'grid', gap: 16, alignContent: 'start' }}><section className="cwb" style={{ maxWidth: 720 }}><LiveBidCard f={team} also={[slip]} onClose={() => {}} /></section>
+      <div style={{ position: 'relative', width: 640, height: 360, '--box-w': '640px' }} data-testid="h-monitor"><div className="cwb-proof is-rich is-pob"><span className="cwb-proof-body"><ProofMonitorBody p={{ k: 'pob', f: team, also: [slip] }} /></span></div></div></main>;
+  }
   if (window.location.search.includes('watch')) return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}><section className="cwb" style={{ maxWidth: 720 }}><LiveBidCard f={{ ...FILE[3], games: [{ id: new URLSearchParams(window.location.search).get('watch') || '401909993', sport: 'nba', side: 'Oklahoma City Thunder', state: 'pre' }] }} onClose={() => {}} /></section></main>;   // `?watch=<espn id>`: the 📺 card on a real game
   if (window.location.search.includes('file')) return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}><FileShelf /></main>;
   return <main className="terminal-app" style={{ minHeight: '100vh', padding: 16, background: 'var(--m-bg)', color: 'var(--m-text)' }}>

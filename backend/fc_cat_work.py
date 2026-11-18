@@ -1099,7 +1099,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         gid_ = str(p.job or '')
         on_ = [f for f in (cat.get('pobFolders') or [])[-40:] if any(str(g.get('id')) == gid_ for g in f.get('games') or [])]
         rows_ = [{'folder': f.get('id'), 'n': f.get('n'), 'pick': g.get('side') or g.get('short'), 'won': g.get('won'), 'score': g.get('score')} for f in on_ for g in (f.get('games') or []) if str(g.get('id')) == gid_]
-        bids_ = [{'n': f.get('n'), **rs._kb.room_view(f['kalshi'])} for f in on_ if (f.get('kalshi') or {}).get('ticker')]   # 🎯 its real Kalshi bid on this game, live in the room
+        bids_ = [{'n': f.get('n'), **rs._kb.room_view(f['kalshi'])} for f in on_ if (f.get('kalshi') or {}).get('ticker') or (f.get('kalshi') or {}).get('kind') == 'parlay']   # 🎯 every Kalshi slip on this game, live in the room (a parlay has no one ticker: it was hidden, 2026-11-17)
         return {'calls': rows_, 'bids': bids_, 'final': [x for f in on_ for x in f.get('final') or []][-2:], 'agent': cat.get('name')}
     if p.op == 'desk_seats':   # 🎩 the card's seats as they stand, for its owner's desk
         if cat.get('handle') != 'sicarios':
@@ -2401,7 +2401,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if not pob_topic_ and ask_m_.get('topic') and rs.time.time() - float(ask_m_.get('at') or 0) < 900:   # 🎯 his answer to "team to win, or a parlay slip?"
             mode_ = rs._kb.mode_of(p.text)
             if mode_:
-                pob_topic_ = f"{ask_m_['topic']} {'parlay slip' if mode_ == 'parlay' else 'team to win'}"; cat.pop('pobModeAsk', None)
+                n_m_ = rs._kb.legs_answer(p.text) if mode_ == 'parlay' else None   # 🧩 "2 legs" answers both questions at once (it asked twice, 2026-11-17)
+                pob_topic_ = f"{ask_m_['topic']} {'parlay slip' if mode_ == 'parlay' else 'team to win'}" + (f' {n_m_} legs' if n_m_ else ''); cat.pop('pobModeAsk', None)
         if pob_topic_ and not p.auto and rs._kb.teams_in(pob_topic_) and rs._ck.key_for(cat, 'kalshi', data_dir=rs.DATA_DIR):   # 🏁 a started game is said before any question
             gone_, nxt_ = await rs._pob_gone(pob_topic_)
             if gone_:

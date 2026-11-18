@@ -496,6 +496,28 @@ async def board_for(http, topic):
     return [g for b in boards if isinstance(b, dict) for g in b.get('games') or []]
 
 
+ESPN_PAGE = {'nba': 'nba', 'wnba': 'wnba', 'nfl': 'nfl', 'nhl': 'nhl', 'mlb': 'mlb', 'cbb': 'mens-college-basketball', 'cfb': 'college-football'}
+
+
+def game_named(topic, games):
+    """The ESPN board row whose two teams the topic names, any state. Pure."""
+    words = set(re.findall(r'[a-z0-9]+', str(topic or '').lower()))
+    for g in games or []:
+        ts = g.get('teams') or []
+        if len(ts) == 2 and all(isinstance(t, dict) and words & set(re.findall(r'[a-z0-9]+', f"{t.get('short') or ''} {t.get('abbr') or ''}".lower())) for t in ts):
+            return g
+    return None
+
+
+def game_page(g):
+    """🌐 owner 2026-11-17 (the research 'didnt look so good': Kalshi's and Polymarket's home pages): this game's own ESPN page, to read first. Pure."""
+    path = ESPN_PAGE.get(str((g or {}).get('sport') or ''))
+    if not path or not (g or {}).get('id'):
+        return ''
+    return (f"Start with this exact game's own ESPN page (odds, injuries, matchup, last games): https://www.espn.com/{path}/game/_/gameId/{g['id']} . "
+            'Then the sites below, on THIS game only. ')
+
+
 def game_label(g):
     return ' vs '.join(str((t or {}).get('short') or '') for t in (g or {}).get('teams') or [])
 

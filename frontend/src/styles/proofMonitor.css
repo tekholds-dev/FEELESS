@@ -57,3 +57,12 @@ body.theme-day .pmn-code, body.theme-day .pmn-page { background: var(--m-surface
 .pmn-ps.is-code, .pmn-ps.is-page { grid-template-columns: minmax(0, 1fr); } .pmn-ps.is-code > .pmn-page, .pmn-ps.is-page > .pmn-code { display: none; }
 .pmn-ps.is-code .pmn-code ol { font-size: 11px; } .pmn-ps.is-page .pmn-page iframe { width: 160%; height: 160%; transform: scale(.625); }
 @media (max-width: 640px) { .pmn-ps.is-code > .pmn-code { display: grid; } }
+/* 🎲 a PoB monitor, live: its game, its slips, its minds (owner 2026-11-17) */
+.pmn-score { display: grid; justify-items: center; gap: 2px; } .pmn-score b { font: 800 clamp(14px, calc(var(--box-w, 640px) * .03), 22px) var(--f-mono); color: var(--m-text); }
+.pmn-pob .pmn-score.is-live small { color: var(--m-accent); }
+.pmn-slips, .pmn-minds { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; width: min(92%, 420px); }
+.pmn-slips li, .pmn-minds li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; background: color-mix(in srgb, var(--m-surface-2) 70%, transparent); font: 600 10.5px var(--f-ui); color: var(--m-text); text-align: left; }
+.pmn-slips li span, .pmn-minds li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pmn-slips em, .pmn-minds em { font: 700 10px var(--f-mono); font-style: normal; color: var(--m-dim); flex: none; }
+.pmn-slips li.is-up em { color: var(--m-accent); } .pmn-slips li.is-dn em { color: var(--m-danger); }
+.pmn-minds b { font: 700 10px var(--f-mono); color: var(--m-dim); flex: none; }

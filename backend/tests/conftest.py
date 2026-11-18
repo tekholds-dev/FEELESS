@@ -159,7 +159,9 @@ def _no_espn_start_reads(monkeypatch):
     if fs is not None and hasattr(fs, '_pob_gone'):
         async def _unsure(*_a, **_k):
             return None, []
-        monkeypatch.setattr(fs, '_pob_gone', _unsure)
+        async def _no_board(*_a, **_k):
+            return []
+        monkeypatch.setattr(fs, '_pob_gone', _unsure); monkeypatch.setattr(fs, '_pob_games', _no_board)
     yield
 
 

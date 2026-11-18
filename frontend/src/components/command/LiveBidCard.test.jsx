@@ -34,3 +34,16 @@ test('📺 the card shows the game, its plays, and each category on a tap; ✕ s
   await act(async () => { q('live-bid-close').click(); }); expect(closed).toHaveBeenCalled();
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
 });
+
+test('🧩 the team bid and the parlay slip on the same game ride one card: "2 slips" opens both', async () => {
+  const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => GAME }));
+  const slip = { id: 'b2', n: 22, topic: 'Thunder vs Kings parlay slip 2 legs', games: F.games, kalshi: { id: 'kb2', kind: 'parlay', status: 'waiting', title: 'Parlay: OKC wins + SGA 30+', legs: [{ title: 'Oklahoma City wins', price: 0.81 }, { title: 'SGA 30+', price: 0.45 }], price: 0.36 } };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<LiveBidCard f={F} also={[slip]} onClose={() => {}} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = t => el.querySelector(`[data-testid="${t}"]`);
+  expect(q('live-bid-count').textContent).toBe('2 slips');
+  await act(async () => q('live-bid-count').click());
+  const cards = q('live-bid-bids').querySelectorAll('[data-testid="grm-bid"]');
+  expect(cards).toHaveLength(2); expect(cards[1].textContent).toContain('2-leg parlay'); expect(cards[1].textContent).toContain('SGA 30+');
+  act(() => root.unmount()); global.fetch = f;
+});

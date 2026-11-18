@@ -154,6 +154,12 @@ def day_left(cat):
     return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(rs.time.strftime('%Y-%m-%d', rs.time.gmtime()), 0)))
 
 
+def _read_caps(lim, cap, n):
+    """🌐 Each mind's ceiling on a proof read: his own per-mind caps when set (never past the task cap), else an even split. Pure."""
+    own = [float(x) for x in (lim or {}).get('mindUsd') or [] if isinstance(x, (int, float)) and x > 0]
+    return [min(float(cap), x) for x in own[:n]] if len(own) >= n else [float(cap) / n] * n
+
+
 def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, read_=False, kind=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
@@ -163,8 +169,10 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
         cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': rs.time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
     cap = min(float(cat.get('taskCap') or rs.TASK_CAP_DEFAULT), rs._task_cap_max(), max(0.005, float(b.get('credit') or 0) - rs._lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = rs.day_left(cat)
-    if pow_ or read_:   # ⛏ a PoW folder (or a PoP / PoB's site read) runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
-        cap = min(rs._pow.ROUND_USD * (len(pows) if pows else max(1, len(b.get('brains') or [])) if read_ else 1), max(0.005, float(b.get('credit') or 0) - rs._lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
+    if pow_:   # ⛏ a PoW folder runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
+        cap = min(rs._pow.ROUND_USD * (len(pows) if pows else 1), max(0.005, float(b.get('credit') or 0) - rs._lc.CREDIT_RESERVE))   # 💲 each coin's research round has its own small ceiling
+    elif read_:   # 🌐 owner 2026-11-17 ("said a .03 limit … limits should be set already by me"): a PoB / PoP read runs on HIS limits (task cap, each mind's cap,
+        cap = min(float(cat.get('taskCap') or rs.TASK_CAP_DEFAULT), rs._task_cap_max(), max(0.005, float(b.get('credit') or 0) - rs._lc.CREDIT_RESERVE))   # moves), not PoW's $0.03 a coin
     elif left_ is not None:
         if left_ <= 0:
             raise rs.HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
@@ -184,8 +192,8 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     if pow_:   # ⛏ one mind, its own job, the PoW's step budget (its random 3–8 moves a site, pow.py) — the rest is the same guarded work path
         steps = rs._pow.budget(pow_)
     elif read_:
-        steps = rs.READ_STEPS
-    rs._WORK[cat_id] = {'task': rs._ca.new_task(rs.uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ or read_ else cat.get('workMode') or 'plan', [cap / len(models)] * len(models) if read_ and len(models) > 1 else lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': rs.time.time()}
+        steps = int(lim_.get('steps') or 0) or rs.READ_STEPS   # 🌐 his moves a window, else the read's own
+    rs._WORK[cat_id] = {'task': rs._ca.new_task(rs.uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ or read_ else cat.get('workMode') or 'plan', rs._read_caps(lim_, cap, len(models)) if read_ and len(models) > 1 else lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': rs.time.time()}
     rs._WORK[cat_id]['task']['alts'] = ['https://' + h for h in rs._src.best(rs._src_book(), n=6)]   # 🔀 where a repeating mind is moved
     rs._WORK[cat_id]['task']['knowhow'] = rs._pow.README + '\n' + rs._colony.KNOWHOW + (' ' + rs._colony.COLONIZED if rs._hive_on(cat) else '') + '\n' + rs._src.brief(rs._src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if pow_:
