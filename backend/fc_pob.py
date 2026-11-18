@@ -19,22 +19,26 @@ def _kb_claim(tid, cat=None):
             rs._KB_SENT.pop(k_, None)
 
 
-async def _kalshi_confirm(h_, kid_, pem_, row):
-    """✅ Ask Kalshi what it holds for this order now. Never retries or re-sends anything: a read only."""
+async def _kalshi_confirm(h_, kid_, pem_, row, tries=None):
+    """✅ Ask Kalshi what it holds for this order now. A read only: never re-sends anything (a fresh 404 is read again a few times)."""
     rs = _rs()
     try:
-        o_ = await rs._kb.order_status(h_, kid_, pem_, row['orderId'])
+        o_ = await rs._kb.order_status(h_, kid_, pem_, row['orderId'], **({'tries': tries} if tries else {}))
         row.update(**rs._kb.settle(o_, row.get('count'), row.get('price')), confirmedAt=round(rs.time.time()))
         row.pop('confirmErr', None)
     except Exception as e:   # noqa: BLE001 — shown on the ticket; the order itself stands as Kalshi has it
-        row['confirmErr'] = str(e)[:160]
+        row['readTries'] = int(row.get('readTries') or 0) + 1
+        if row.get('sentFilled') and 'not_found' in str(e):
+            row.pop('confirmErr', None)   # Kalshi's own create answer said every contract filled; its read just hasn't caught up yet
+        else:
+            row['confirmErr'] = str(e)[:160]
     return row
 
 
 def _kalshi_say(cat, row):
     """One chat line from the agent with what Kalshi confirmed (or that it could not confirm yet)."""
     rs = _rs()
-    if row.get('confirmedAt'):
+    if row.get('confirmedAt') or row.get('sentFilled'):
         t_ = f"✅ Kalshi confirmed my bid: {str(row.get('side') or '').upper()} · {row.get('title') or row.get('ticker')} · {row.get('filled', 0)} of {row.get('count')} filled at {float(row.get('price') or 0):.2f} ({row.get('status')})."
     else:
         t_ = f"⚠ I sent the bid on {row.get('title') or row.get('ticker')} but could not read it back from Kalshi yet ({row.get('confirmErr') or 'no answer'}). Check it on Kalshi; tap Check on Kalshi to retry the read."
@@ -44,15 +48,18 @@ def _kalshi_say(cat, row):
 async def _kalshi_refresh(cat, kid_, pem_, limit=6):
     """✅ Re-read the open orders (sent / resting, last 7 days) so the ledger and the tickets match Kalshi. Read only."""
     rs = _rs()
-    now_ = rs.time.time(); rows_ = [b for b in (cat.get('kalshiBids') or []) if b.get('orderId') and b.get('status') in ('sent', 'resting') and now_ - float(b.get('at') or 0) < 7 * 86400][-limit:]
+    now_ = rs.time.time(); rows_ = [b for b in (cat.get('kalshiBids') or []) if b.get('orderId') and (b.get('status') in ('sent', 'resting') or (b.get('confirmErr') and not b.get('confirmedAt') and int(b.get('readTries') or 0) < 6))
+                                    and now_ - float(b.get('at') or 0) < 7 * 86400][-limit:]   # ✅ also a filled bid whose read-back failed: read it once more
     if not rows_:
         return 0
     async with rs.httpx.AsyncClient(timeout=10) as h_:
         for b_ in rows_:
-            await rs._kalshi_confirm(h_, kid_, pem_, b_)
+            await rs._kalshi_confirm(h_, kid_, pem_, b_, tries=1)   # the 5-min pass is the retry: one read per row, no waits
             for tk_ in (t_ for f_ in cat.get('pobFolders') or [] for t_ in rs._kb.tickets_of(f_)):   # the ticket on the proof (or one of its picks) says the same as the ledger
                 if tk_.get('orderId') == b_['orderId']:
                     tk_.update({k: b_.get(k) for k in ('status', 'filled', 'usd', 'kalshiStatus', 'confirmedAt', 'confirmErr')})
+                    if not b_.get('confirmErr'):
+                        tk_.pop('confirmErr', None)
     return len(rows_)
 
 

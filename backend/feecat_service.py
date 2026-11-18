@@ -713,7 +713,8 @@ async def _kalshi_send_raw(cat, tk):
                 else:
                     tk.setdefault('minds', tk.get('why') if isinstance(tk.get('why'), list) else [])   # 🎓 the minds' reasons stay for COMP's lesson
                     o_ = await _kb.place(h_, kid_, pem_, _kb.order(tk, n_, px_))
-                    tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_))
+                    tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_),
+                              **({'sentFilled': True} if _kb.filled_on_send(o_, n_) else {}))   # ✅ Kalshi's own answer: every contract filled
                     await _kalshi_confirm(h_, kid_, pem_, tk)   # ✅ read it back from Kalshi itself
         except Exception as e:   # noqa: BLE001 — a refused or failed call is shown, never retried by itself
             tk.update(status='failed', why=str(e)[:200])
@@ -826,7 +827,7 @@ _kalshi_send = _kb_once(_kalshi_send_raw)
 _kalshi_slip_send = _kb_once(_kalshi_slip_send_raw)
 
 
-_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf')
+_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf', 'sentFilled', 'readTries')
 
 
 # ↪ moved to fc_pob.py: _kalshi_confirm, _kalshi_say, _kalshi_refresh, _kalshi_settle_pass, _pob_final, _kalshi_rivals, _kalshi_view, _pob_file

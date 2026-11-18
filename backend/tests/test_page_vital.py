@@ -44,3 +44,10 @@ def test_both_minds_start_from_espns_own_facts_for_free():
     assert t.startswith('GAME FACTS') and 'do not spend steps on espn.com' in t and 'Grayson Allen (Out)' in t and '12-2 overall, 5-1 home' in t
     assert 'Line LAL -6.5, total 221.5.' in t and 'LAL 78%, CHA 22%' in t
     assert 'espn.com/nba/game/_/gameId/9' in kb.game_facts({}, {'id': '9', 'sport': 'nba'}) and kb.game_facts(None) == ''
+
+
+def test_promo_ads_and_bare_names_are_not_vital():
+    """Real Fox Sports odds page, 2026-11-17: promo ads and lone team names took slots from the real lines."""
+    page = "Jazz\nClippers\nClippers questionable\nJazz UTA +6.5 +226 O 236.5\nLA Clippers LAC -6.5 -289 U 236.5\nPolymarket promo code FOX: Deposit $10, Get a $25 bonus\nUnderdog Promo: Play $10 Get $50"
+    rows = pv.vital(page, 'Jazz vs Clippers parlay')
+    assert rows == ['Clippers questionable', 'Jazz UTA +6.5 +226 O 236.5', 'LA Clippers LAC -6.5 -289 U 236.5']   # a short injury line stays

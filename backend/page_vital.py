@@ -22,6 +22,7 @@ FACT = re.compile(r"\b(injur|out\b|questionable|doubtful|probable|day-to-day|odd
                   r"predict|chance|record|streak|home|away|last \d|vs\.?|against|preview|matchup|lineup|starting|price|volume|liquidity|holders|"
                   r"market cap|mcap|fdv|yes\b|no\b)", re.I)
 NAV = re.compile(r"^\[(link|button)\]\s*\S{1,18}$|^(sign in|log in|sign up|menu|more|search|home|watch|fantasy|tickets|skip to main content)$", re.I)
+PROMO = re.compile(r"promo\s*code|\bbonus\b|sign[- ]?up offer|deposit \$|\b(get|trade|play|bet|spend) \$\d+.{0,40}\b(get|bonus|in)\b|odds boost|free bet|terms apply|21\+|gambling problem|1-800-gambler", re.I)
 STOP = {'vs', 'v', 'at', 'the', 'a', 'an', 'and', 'of', 'on', 'for', 'to', 'win', 'wins', 'parlay', 'slip', 'legs', 'leg', 'team', 'best', 'pick',
         'picks', 'tonight', 'today', 'game', 'bid', 'bids', 'pob', 'make', 'start', 'this', 'with', 'from', 'read', 'your', 'site', 'sites'}
 
@@ -58,6 +59,8 @@ def vital(text, goal, n=VITAL_MAX):
     rows = []
     for i, t in enumerate(_lines(text)):
         low = t.lower()
+        if PROMO.search(t) or (len(t.split()) <= 2 and not NUM.search(t) and not FACT.search(t)):   # an ad, or a bare name with nothing about it ("Markkanen Out" stays)
+            continue
         hit = sum(1 for w in ws if w in low)
         score = hit * 2 + (2 if NUM.search(t) else 0) + (1 if FACT.search(t) else 0)
         if score >= 2 and (hit or NUM.search(t)):

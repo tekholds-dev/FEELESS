@@ -643,10 +643,13 @@ async def place(http, key_id, pem, body):
 def settle(o, count, price):
     """Kalshi's order record → what the ticket shows. A canceled order with no fill frees its money from today's cap."""
     o = o or {}; count = int(count or 0); st = str(o.get('status') or '').lower()
-    if o.get('fill_count') is not None:
-        filled = int(float(o.get('fill_count') or 0))
-    elif o.get('remaining_count') is not None:
-        filled = max(0, int(o.get('initial_count') or count) - int(float(o.get('remaining_count') or 0)))
+    fc = o.get('fill_count_fp') if o.get('fill_count_fp') is not None else o.get('fill_count')        # 🔢 Kalshi now writes counts as fixed-point
+    rc = o.get('remaining_count_fp') if o.get('remaining_count_fp') is not None else o.get('remaining_count')   # strings ("2.00") under *_fp
+    ic = o.get('initial_count_fp') if o.get('initial_count_fp') is not None else o.get('initial_count')
+    if fc is not None:
+        filled = int(float(fc or 0))
+    elif rc is not None:
+        filled = max(0, int(float(ic or count) - float(rc or 0)))
     else:
         filled = count if st == 'executed' else 0
     filled = min(filled, count) if count else filled
@@ -657,9 +660,26 @@ def settle(o, count, price):
     return {'status': status, 'filled': filled, 'usd': usd, 'kalshiStatus': st or None}
 
 
-async def order_status(http, key_id, pem, order_id):
+def filled_on_send(o, count):
+    """✅ Kalshi's own create-order answer already says every contract filled (its matching engine's word): no read-back needed. Pure."""
+    try:
+        return int(count or 0) > 0 and int(float((o or {}).get('fill_count_fp') or (o or {}).get('fill_count') or 0)) >= int(count)
+    except (TypeError, ValueError):
+        return False
+
+
+READ_TRIES, READ_GAP_S = 3, 1.5   # Kalshi's reads catch up a moment after an order is made: a fresh order can answer 404 not_found at first
+
+
+async def order_status(http, key_id, pem, order_id, tries=READ_TRIES, gap=READ_GAP_S, sleep=None):
+    """Read one order back (read only). A 404 not_found is retried a few times: Kalshi's docs say a just-made order can briefly answer that."""
+    import asyncio
     path = f'/portfolio/orders/{order_id}'
-    r = await http.get(f'{BASE}{path}', headers=headers(key_id, pem, 'GET', path))
+    for i in range(max(1, tries)):
+        r = await http.get(f'{BASE}{path}', headers=headers(key_id, pem, 'GET', path))
+        if r.status_code != 404 or i == tries - 1:
+            break
+        await (sleep or asyncio.sleep)(gap)
     if r.status_code != 200:
         raise RuntimeError(f'Kalshi said {r.status_code} reading the order: {r.text[:160]}')
     return (r.json() or {}).get('order') or {}
