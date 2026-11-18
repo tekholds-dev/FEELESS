@@ -33,7 +33,8 @@ test('🔁 any failed make can run again on the same model and words, and the re
   const m = { media: { id: 'm1', kind: 'image', status: 'failed', provider: 'openrouter', modelId: 'or-nano-banana', label: 'Nano Banana', prompt: 'a chrome rat', refs: [{ mid: 'mref' }],
     why: 'The provider is busy right now. Nothing was charged. Try again in a minute. (429: slow down)' } };
   const { root } = await mount(<MediaCard m={m} cat={{ id: 'c1' }} doc={{ id: 'w1', messages: [] }} work={work} setDoc={() => {}} />);
-  expect(document.querySelector('.kd-err').textContent).not.toContain('Nothing more is charged');
+  const fail = q('media-fail'); expect(fail.textContent).not.toContain('Nothing more is charged');
+  expect(fail.querySelector('p').textContent).not.toContain('429'); expect(fail.querySelector('code').textContent).toBe('429: slow down');   // one calm line; the raw words fold away
   await act(async () => q('media-retry-make-btn').click());
   expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'a chrome rat', tools: { model: 'or-nano-banana', kind: 'image', noChar: true, refs: ['mref'] } });
   act(() => root.unmount());

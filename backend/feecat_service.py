@@ -1927,6 +1927,7 @@ _media_refs = _fc_desk._media_refs
 _media_run = _fc_desk._media_run
 _clip_len = _fc_desk._clip_len
 _media_swap = _fc_desk._media_swap
+_or_left = _fc_desk._or_left   # 💵 the free OpenRouter balance read (Aleph hold check)
 _clip_add = _fc_desk._clip_add
 _ffmpeg = _fc_desk._ffmpeg
 _clip_size = _fc_desk._clip_size

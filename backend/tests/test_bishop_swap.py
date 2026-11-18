@@ -362,10 +362,28 @@ def test_real_footage_goes_to_runway_aleph_with_the_character_and_only_its_liste
     async def no_run(*a):
         return None
     monkeypatch.setattr(fs, '_media_run', no_run)
+    left = [20.0]; read = []
+    async def balance(key):
+        read.append(key); return left[0]
+    monkeypatch.setattr(fs, '_or_left', balance)   # the free /credits read, faked
     ck.put(store['cats']['g'], 'openrouter', OR_KEY, data_dir=tmp_path)
     post(op='media_clip', job=ws, text=du('mp4', MP4), tools={'rights': True})
     md = post(op='media_make', job=ws, text='replace the guy with bishop', tools={'swap': 'auto', 'clip': 'last'}).json()['doc']['messages'][-1]['media']
     assert md['modelId'] == 'or-aleph-swap' and md['usd'] == 2.8 and md['secs'] == 10 and md['keepSound']   # the chat's default for real clips
+    assert read == [OR_KEY]
+    # 💵 owner 2026-11-17: $7.93 left got a 402 "out of credit". OpenRouter wants Aleph's 30 s longest ($8.40) on the account first: said before a job is made
+    left[0] = 7.93; holds = dict(fs._SPEND_HOLD)
+    r = post(op='media_make', job=ws, text='replace the guy with bishop', tools={'swap': 'auto', 'clip': 'last'})
+    assert r.status_code == 402 and '$8.40' in r.json()['detail'] and '$7.93' in r.json()['detail'] and 'about $2.80' in r.json()['detail'] and 'nothing charged' in r.json()['detail']
+    assert fs._SPEND_HOLD == holds   # no job, no hold
+
+
+def test_aleph_hold_words_and_its_402():
+    assert mg.swap_hold('or-aleph-swap') == 8.4 and mg.swap_hold('or-seedance-swap') is None
+    assert mg.hold_words('or-aleph-swap', 8.4, 2.8) == '' and mg.hold_words('or-aleph-swap', None, 2.8) == '' and mg.hold_words('or-seedance-swap', 1, 2) == ''
+    w = mg.plain_why(402, 'Insufficient credits', 'or-aleph-swap')
+    assert '$8.40' in w and 'Nothing was charged' in w and '(402: Insufficient credits)' in w
+    assert mg.plain_why(402, 'Insufficient credits').startswith('Your provider account is out of credit')
 
 
 def test_a_real_person_refusal_says_what_to_do():

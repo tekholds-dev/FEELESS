@@ -1,0 +1,53 @@
+/* 🖼 PoC media board (PocMediaBoard.jsx): what is making now, every finished picture and video as big tiles, failures folded. m-* tokens only. */
+:root { /* page tokens (STYLE-1) */ --pmb-shade: #000000c4; --pmb-scrim: #05030fd9; --pmb-glow: #ffffff1f; --pmb-ink: #f6f3ff; --pmb-ink-dim: #f6f3ffbf; }
+.pmb { display: grid; gap: 10px; padding: 12px; border-radius: var(--m-r); border: 1px solid var(--m-line); background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); color: var(--m-text); min-width: 0; }
+.pmb-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pmb-h b { font: 700 13px var(--f-ui); } .pmb-h small { font: 600 10.5px var(--f-mono); color: var(--m-dim); letter-spacing: .03em; text-align: right; }
+.pmb-none { margin: 0; padding: 14px 12px; border-radius: var(--m-r-sm); border: 1px dashed var(--m-line); font: 500 12px/1.5 var(--f-ui); color: var(--m-dim); text-align: center; }
+
+/* now making: one row per job, its real step and how long */
+.pmb-live { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pmb-live li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; padding: 9px 10px; border-radius: var(--m-r-sm); border: 1px solid color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
+.pmb-live-ic { font-size: 18px; grid-row: span 2; }
+.pmb-live-t { display: grid; min-width: 0; } .pmb-live-t b { font: 700 12.5px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pmb-live-t small { font: 600 10.5px var(--f-mono); color: var(--m-dim); }
+.pmb-bar { display: block; height: 3px; border-radius: 99px; overflow: hidden; background: color-mix(in srgb, var(--m-accent) 18%, transparent); }
+.pmb-bar u { display: block; width: 36%; height: 100%; border-radius: inherit; background: var(--m-accent); animation: pmb-slide 1.6s var(--m-ease) infinite; }
+@keyframes pmb-slide { from { transform: translateX(-100%); } to { transform: translateX(280%); } }
+
+/* finished: big 9:16 tiles, newest first */
+.pmb-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.pmb-grid li { animation: pmb-in .32s var(--m-ease) both; animation-delay: calc(min(var(--i, 0), 8) * 40ms); }
+.pmb-grid button { position: relative; display: block; width: 100%; aspect-ratio: 9 / 16; padding: 0; border-radius: var(--m-r-sm); overflow: hidden; border: 1px solid var(--m-line); background: var(--m-bg); cursor: pointer; transition: transform .18s var(--m-ease), border-color .18s; }
+.pmb-grid button:hover, .pmb-grid button:focus-visible { transform: translateY(-2px); border-color: var(--m-line-hi); outline: none; }
+.pmb-grid button:focus-visible { box-shadow: 0 0 0 2px var(--m-accent); }
+.pmb-grid :is(img, video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pmb .pmb-tag { position: absolute; top: 6px; left: 6px; padding: 2px 7px; border-radius: 99px; font: 700 10px var(--f-mono); color: var(--pmb-ink); background: var(--pmb-shade); }
+.pmb-cap { position: absolute; inset: auto 0 0; display: grid; gap: 1px; padding: 22px 8px 7px; text-align: left; background: linear-gradient(transparent, var(--pmb-shade) 55%, var(--pmb-shade)); }
+.pmb .pmb-cap b { font: 700 11px var(--f-ui); color: var(--pmb-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pmb .pmb-cap i { font: 600 10px var(--f-mono); font-style: normal; color: var(--pmb-ink-dim); }
+@keyframes pmb-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* clips: a small row */
+.pmb-clips { margin: 0; display: flex; gap: 6px; align-items: center; overflow-x: auto; }
+.pmb-clips small { font: 700 10px var(--f-mono); color: var(--m-mute); text-transform: uppercase; letter-spacing: .06em; flex: none; }
+.pmb-clips button { flex: none; width: 40px; aspect-ratio: 9 / 16; padding: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--m-line); background: var(--m-bg); cursor: pointer; }
+.pmb-clips video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* failed: one quiet line, opens to the reasons */
+.pmb-fail-btn { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: none; color: var(--m-dim); font: 600 11px var(--f-ui); cursor: pointer; text-align: left; }
+.pmb-fail-btn em { font-style: normal; color: var(--m-text); }
+.pmb-fail ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.pmb-fail li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-danger) 6%, transparent); }
+.pmb-fail li span { display: grid; min-width: 0; } .pmb-fail li b { font: 700 11px var(--f-ui); } .pmb-fail li small { font: 500 10.5px/1.4 var(--f-ui); color: var(--m-dim); }
+
+/* full view: the chat's own card, big, with all its buttons */
+.pmb-view { position: fixed; inset: 0; z-index: 1250; display: grid; place-items: center; padding: 16px; }
+.pmb-scrim { position: absolute; inset: 0; border: 0; padding: 0; background: var(--pmb-scrim); cursor: zoom-out; animation: pmb-fade .2s ease both; }
+.pmb-view-in { position: relative; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow: auto; padding: 14px; border-radius: var(--m-r); border: 1px solid var(--m-line-hi); background: var(--m-surface); box-shadow: 0 20px 60px -20px var(--pmb-shade), inset 0 1px 0 var(--pmb-glow); animation: pmb-in .24s var(--m-ease) both; }
+.pmb-x { position: sticky; top: 0; float: right; z-index: 1; margin: -4px -4px 6px 8px; }
+.pmb-view-in :is(img, video) { max-height: 70dvh; }
+@keyframes pmb-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 640px) { .pmb-view { padding: 0; place-items: end stretch; } .pmb-view-in { width: 100%; max-height: 92dvh; border-radius: var(--m-r) var(--m-r) 0 0; } }
+body.fx-lite :is(.pmb-grid li, .pmb-scrim, .pmb-view-in) { animation: none; } body.fx-lite .pmb-bar u { animation: none; width: 100%; opacity: .5; }
+@media (prefers-reduced-motion: reduce) { :is(.pmb-grid li, .pmb-scrim, .pmb-view-in) { animation: none; } .pmb-bar u { animation: none; width: 100%; opacity: .5; } .pmb-grid button { transition: none; } }

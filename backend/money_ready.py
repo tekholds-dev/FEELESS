@@ -29,9 +29,10 @@ def judge_key(status, key_j, credits_j):
         cap_left = d.get('limit_remaining')
         if cap_left is not None:
             left = min(left, round(float(cap_left), 2))
-        swap = mg.v2v_cost('or-aleph-swap', mg.swap_max('or-aleph-swap'))
-        out.append(row('or-credit', left >= swap, 'OpenRouter credit', f'${left:.2f} left on the account.'
-                       + ('' if left >= swap else f' One 10 s Aleph swap is about ${swap:.2f}: top up on openrouter.ai first.')))
+        swap = mg.v2v_cost('or-aleph-swap', mg.swap_max('or-aleph-swap')); hold = mg.swap_hold('or-aleph-swap')
+        out.append(row('or-credit', left >= hold, 'OpenRouter credit', f'${left:.2f} left on the account.'
+                       + (f' Enough for an Aleph swap (OpenRouter wants ${hold:.2f} on the account first; a 10 s swap costs about ${swap:.2f}).' if left >= hold
+                          else f' OpenRouter wants ${hold:.2f} on the account before an Aleph swap starts (a 10 s swap itself is about ${swap:.2f}): top up on openrouter.ai first.')))
     return out
 
 

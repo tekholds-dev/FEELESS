@@ -19,7 +19,7 @@ class R:
 
 
 class H:
-    def __init__(self, key_code=200, credit=(20, 12.07), videos=VIDEOS):
+    def __init__(self, key_code=200, credit=(20, 10.5), videos=VIDEOS):
         self.urls, self.key_code, self.credit, self.videos = [], key_code, credit, videos
 
     async def get(self, url, headers=None, timeout=None):
@@ -39,7 +39,9 @@ def test_a_ready_setup_passes_with_reads_only(monkeypatch):
     assert out['ok'], [r for r in out['rows'] if not r['ok']]
     assert all('/videos' not in u or u.endswith('/videos/models') for u in h.urls)   # never POSTs, never makes a video
     credit = next(r for r in out['rows'] if r['id'] == 'or-credit')
-    assert '$7.93 left' in credit['say']
+    assert '$9.50 left' in credit['say'] and '$8.40' in credit['say']
+    short = next(r for r in asyncio.run(mr.run(H(credit=(20, 12.07)), 'k', FLAG))['rows'] if r['id'] == 'or-credit')   # 💵 the owner's real $7.93: under Aleph's hold
+    assert not short['ok'] and '$8.40' in short['say'] and 'about $2.80' in short['say']
     assert 'sk-or-x' not in str(out)
 
 

@@ -290,7 +290,7 @@ async def _media_run(cat_id, ws_id, mid):
                 try:
                     hd = rs._mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
                 except ValueError as e:
-                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=rs._mg.plain_why(r.status_code, e)); return
+                    rs._media_set(cat_id, ws_id, mid, keep, status='failed', why=rs._mg.plain_why(r.status_code, e, md.get('modelId'))); return
                 rs._media_set(cat_id, ws_id, mid, keep, status='running', handle=hd, step='queued')
             started = float(md.get('at') or rs.time.time())
             while True:
@@ -584,6 +584,24 @@ async def _clip_len(path):
         return None, None
 
 
+async def _or_left(key):
+    """💵 → dollars left on an OpenRouter account (credits minus usage, or the key's own limit if lower), from two free reads; None if unknown."""
+    rs = _rs()
+    try:
+        async with rs.httpx.AsyncClient(timeout=8) as h_:
+            auth = {'Authorization': f'Bearer {key}'}
+            c_ = await h_.get('https://openrouter.ai/api/v1/credits', headers=auth)
+            k_ = await h_.get('https://openrouter.ai/api/v1/key', headers=auth)
+        d_ = c_.json().get('data') or {} if c_.status_code == 200 else {}
+        if d_.get('total_credits') is None:
+            return None
+        left = float(d_.get('total_credits') or 0) - float(d_.get('total_usage') or 0)
+        lim = (k_.json().get('data') or {}).get('limit_remaining') if k_.status_code == 200 else None
+        return round(min(left, float(lim)) if lim is not None else left, 2)
+    except Exception:   # noqa: BLE001 — unknown balance: the provider still refuses for free if it is short
+        return None
+
+
 async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=None):
     """🎭 V2V: a clip already in this folder + a finished picture (the folder's character unless one is picked) → one fal.ai job. Nothing runs
     without fal.ai linked; the list-price estimate rides on the card before it starts."""
@@ -630,6 +648,11 @@ async def _media_swap(cat_id, ws_id, doc_, t_, linked, text, cat=None, store=Non
         rs._spend_check(cat or {}, usd_)   # 💵 and the owner's day cap across all his agents
     except rs._sg.OverCap as e:
         raise rs.HTTPException(429, str(e))
+    if rs._mg.swap_hold(mid_) is not None:   # 💵 Aleph: OpenRouter wants its 30 s longest on the account first; say so before a job is made (a free read)
+        okey_ = rs._ck.key_for(cat or {}, 'openrouter', data_dir=rs.DATA_DIR)
+        words_hold = rs._mg.hold_words(mid_, await rs._or_left(okey_) if okey_ else None, usd_)
+        if words_hold:
+            raise rs.HTTPException(402, words_hold)
     note_ = rs.re.sub(r'\s+', ' ', str(text or '')).strip()[:500]
     jid = 'm' + rs.uuid.uuid4().hex[:12]; now_ = round(rs.time.time())
     words_ = (f"{cmd_.get('label') or 'Your clip'}, edited: {note_}" if edit_ else f"{doc_.get('title') or doc_.get('name') or 'Your character'} swapped into {cmd_.get('label') or 'your clip'}" + (f' · {note_}' if note_ else ''))

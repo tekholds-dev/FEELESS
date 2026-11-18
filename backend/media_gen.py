@@ -132,6 +132,22 @@ SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the 
              'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
 ALEPH_PROMPT_MAX = 1000   # Runway's promptText limit
 ALEPH_MIN_USD = 0.56      # OpenRouter's /videos/models for Aleph 2: minimum_cents_per_generation 56 (read 2026-11-17)
+ALEPH_HOLD_S = 30         # 💵 owner 2026-11-17 (a 402 "out of credit" with $7.93 left, nothing charged): OpenRouter checks the balance against Aleph's
+                          # longest clip (30 s) before it starts, not against the 10 s we send. Only the real clip is billed after.
+
+
+def swap_hold(model_id):
+    """→ the balance OpenRouter wants on the account before it takes this swap (Aleph: its 30 s longest; others: the price). Pure."""
+    return round(ALEPH_HOLD_S * ALEPH[model_id][3], 2) if model_id in ALEPH else None
+
+
+def hold_words(model_id, left_usd, price_usd):
+    """→ plain words when the account is under the hold, else ''. Pure."""
+    hold = swap_hold(model_id)
+    if hold is None or left_usd is None or float(left_usd) >= hold - 1e-9:
+        return ''
+    return (f'Not sent, nothing charged: OpenRouter wants ${hold:.2f} on your account before it starts an Aleph swap (its longest clip, {ALEPH_HOLD_S} s), '
+            f'and you have ${float(left_usd):.2f}. This swap itself is about ${float(price_usd):.2f}: that is all it charges. Top up on openrouter.ai, then try again.')
 ALEPH_RULE = ('Replace the main person in this video with the person in the keyframe picture: their face, hair, skin, build and outfit, '
               'in every frame, moving exactly as the original person moves. Keep everything else of the video the same: the scene, '
               'background, other people, camera moves, framing, timing, actions and lighting.')
@@ -233,10 +249,13 @@ PLAIN = (
 PLAIN_CODE = {401: PLAIN[4][1], 403: PLAIN[4][1], 402: PLAIN[3][1], 429: PLAIN[5][1], 422: PLAIN[6][1]}
 
 
-def plain_why(code, text):
+def plain_why(code, text, model_id=None):
     """A provider's refusal in words the owner can act on (the raw text stays after it, in brackets)."""
     t = ' '.join(str(text or '').split())[:300]
     raw = f'{code}: {t}' if code else t
+    if code == 402 and model_id in ALEPH:
+        return (f'OpenRouter wants ${swap_hold(model_id):.2f} on your account before it starts an Aleph swap (its longest clip, {ALEPH_HOLD_S} s), '
+                f'even though only your clip is billed. Nothing was charged. Top up on openrouter.ai, then try again. ({raw})')
     for pat, words in PLAIN:
         if re.search(pat, t, re.I):
             return f'{words} ({raw})'

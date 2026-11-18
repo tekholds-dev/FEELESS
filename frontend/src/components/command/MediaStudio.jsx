@@ -12,7 +12,9 @@ const PocWire = lazy(() => import('./PocWire'));   // 🧩 its own chunk: loads 
 // OpenRouter key, $2 a day). It opens IN the conversation, not over it: first the formats going viral right now, each with a real clip we
 // made on that model, its price and how long it took; one tap makes that format from the folder's own words. Below: any model, your prompt.
 // Every job's real state comes from the server (queued → in progress → done / failed), never a timer.
-const STEP_WORD = { queued: 'waiting for its turn', in_queue: 'in line at the provider', in_progress: 'making it', starting: 'starting up', processing: 'making it' };
+// 🗣 a refusal is one calm sentence; the provider's raw words fold away (media_gen.plain_why writes "Plain words. (code: raw)")
+export const splitWhy = why => { const t = String(why || '').trim(); const i = t.indexOf('. ('); if (i < 0 || !t.endsWith(')')) return [t || 'It did not finish.', '']; return [t.slice(0, i + 1), t.slice(i + 3, -1)]; };
+export const STEP_WORD = { queued: 'waiting for its turn', in_queue: 'in line at the provider', in_progress: 'making it', starting: 'starting up', processing: 'making it' };
 const PROV = { fal: 'fal.ai', replicate: 'Replicate', openrouter: 'OpenRouter', upload: 'your clip' };
 const usd = v => (v == null ? null : `$${Number(v).toFixed(v < 0.1 ? 3 : 2)}`);
 
@@ -35,7 +37,9 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       ? <video src={apiUrl(md.url)} controls playsInline preload="metadata" data-testid="media-video" />
       : <img src={apiUrl(md.url)} alt={md.prompt} loading="lazy" data-testid="media-image" />) : null}
     {live ? <div className="mst-wait" role="status"><span>{STEP_WORD[md.step] || STEP_WORD[md.status] || md.step || 'working'} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</span><i aria-hidden="true"><u /></i></div> : null}
-    {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'}{/charged/i.test(md.why || '') ? '' : ' Nothing more is charged.'}</p> : null}
+    {md.status === 'failed' ? (() => { const [plain, raw] = splitWhy(md.why); return <div className="mst-fail" role="status" data-testid="media-fail">
+      <p><b>Didn't finish.</b> {plain}{/charged/i.test(plain) ? '' : ' Nothing more is charged.'}</p>
+      {raw ? <details><summary>What the provider said</summary><code>{raw}</code></details> : null}</div>; })() : null}
     {md.status === 'failed' && !md.swap && md.modelId && md.prompt && cat && doc && work && setDoc ? <span className="mst-acts" data-testid="media-retry-make">
       <button type="button" className="m-btn" disabled={busy} data-tip="The same words on the same model again. Nothing was charged for the one that failed" data-testid="media-retry-make-btn"
         onClick={() => run({ op: 'media_make', job: doc.id, text: md.prompt, tools: { model: md.modelId, kind: md.kind, ...(md.fromImg?.mid ? { img: md.fromImg.mid } : { noChar: true }), ...(md.refs?.length ? { refs: md.refs.map(r => r.mid) } : {}) } })}>{busy ? 'Starting…' : 'Try again'}</button></span> : null}
