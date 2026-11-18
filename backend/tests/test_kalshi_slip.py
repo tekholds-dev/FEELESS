@@ -266,3 +266,37 @@ def test_try_smaller_tap_sends_once_through_the_slip_door(monkeypatch):
     f = store['cats']['g']['pobFolders'][0]
     assert sent == [0.5] and f['kalshi']['retryOf'] == tk['id'] and f['kalshiTries'][0]['id'] == tk['id']
     assert c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'kalshi_smaller', 'job': f['kalshi']['id']}).status_code == 409 and sent == [0.5]   # once only
+
+
+GONE = {'id': 'g1', 'at': '2026-11-18T01:00Z', 'state': 'in', 'status': '11:29 - 1st', 'teams': [{'short': 'Pistons', 'abbr': 'DET'}, {'short': 'Spurs', 'abbr': 'SA'}]}
+OPEN = [{'id': 'g2', 'at': '2026-11-18T03:30Z', 'state': 'pre', 'teams': [{'short': 'Jazz', 'abbr': 'UTAH'}, {'short': 'Clippers', 'abbr': 'LAC'}]},
+        {'id': 'g3', 'at': '2026-11-18T04:00Z', 'state': 'pre', 'teams': [{'short': 'Hornets', 'abbr': 'CHA'}, {'short': 'Lakers', 'abbr': 'LAL'}]}]
+
+
+def test_a_started_game_is_said_before_any_question_and_never_filed(monkeypatch):
+    """🏁 owner 2026-11-17 ("FILED A POB, LET ME GUESS, ANOTHER FUCKING BUG"): Pistons vs Spurs, 12 min after tip-off. It asked team-or-parlay, then
+    filed the refusal as PoB #20, scored it 26 and put it in the pot. Now: one line, the games still open as chips, no folder."""
+    from fastapi.testclient import TestClient
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 5}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
+    monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **k: 'x'); monkeypatch.setattr(fs._POW_WAKE, 'set', lambda: None)
+    asked = []
+    async def gone(topic, now=None):
+        asked.append(topic); return GONE, OPEN
+    monkeypatch.setattr(fs, '_pob_gone', gone)
+    c = TestClient(fs.app); cat = store['cats']['g']
+    assert c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'file a pob Pistons vs Spurs'}).status_code == 200
+    last = cat['chat'][-1]
+    assert asked == ['Pistons vs Spurs'] and not cat.get('pobModeAsk') and not cat.get('pobAsk') and not cat.get('pobFolders')
+    assert last['text'].startswith('🎲 Not filed, nothing spent: Pistons vs Spurs reached its start time') and '11:29 - 1st' in last['text']
+    assert 'Jazz vs Clippers' in last['text'] and last['ask']['chips'] == ['file a pob Jazz vs Clippers', 'file a pob Hornets vs Lakers']
+    assert cat['chat'][-2] == {'by': 'you', 'text': 'file a pob Pistons vs Spurs', 'at': cat['chat'][-2]['at']}
+
+
+def test_the_filer_never_numbers_a_started_game(monkeypatch):
+    cat = {'id': 'g', 'pobFolders': [{'id': 'p1', 'n': 19}], 'chat': []}
+    fs._pob_gone_say(cat, 'Pistons vs Spurs team to win', GONE, [])
+    assert len(cat['pobFolders']) == 1 and 'Pick a game that has not started' in cat['chat'][-1]['text'] and 'ask' not in cat['chat'][-1]
+    t0 = kb._start('2026-11-18T03:00Z')
+    assert [g['id'] for g in kb.upcoming([*OPEN[::-1], GONE], t0)] == ['g2', 'g3'] and kb.upcoming(OPEN, kb._start('2026-11-18T05:00Z')) == []

@@ -496,10 +496,28 @@ async def board_for(http, topic):
     return [g for b in boards if isinstance(b, dict) for g in b.get('games') or []]
 
 
-def started_say(g):
-    """One plain sentence for a game whose bids are closed. Pure."""
-    names = ' vs '.join(str((t or {}).get('short') or '') for t in g.get('teams') or [])
-    return f"{names} reached its start time ({str(g.get('at') or '')[11:16]} UTC, ESPN), and Kalshi bids stop at tip-off, so no real bid. Pick a game that has not started."
+def game_label(g):
+    return ' vs '.join(str((t or {}).get('short') or '') for t in (g or {}).get('teams') or [])
+
+
+def clock(g):
+    """ESPN's start time on this machine's clock (the owner's), e.g. '7:00 PM'. Pure but for the local zone."""
+    s = _start((g or {}).get('at'))
+    return time.strftime('%I:%M %p', time.localtime(s)).lstrip('0') if s else '?'
+
+
+def upcoming(games, now=None, n=3):
+    """The board's games that have not started, soonest first. Pure."""
+    now = now or time.time()
+    rows = [g for g in games or [] if g.get('state') == 'pre' and _start(g.get('at')) > now and len(g.get('teams') or []) == 2]
+    return sorted(rows, key=lambda g: _start(g.get('at')))[:n]
+
+
+def started_say(g, nxt=()):
+    """One plain sentence for a game whose bids are closed, and the games still open. Pure."""
+    live = f", ESPN shows {g['status']}" if g.get('status') and g.get('state') == 'in' else ''
+    open_ = f" Not started yet: {', '.join(f'{game_label(x)} ({clock(x)})' for x in nxt)}." if nxt else ' Pick a game that has not started.'
+    return f"{game_label(g)} reached its start time ({clock(g)}{live}), and Kalshi bids stop at tip-off, so no real bid.{open_}"
 
 
 async def markets_for(http, topic, games=None):

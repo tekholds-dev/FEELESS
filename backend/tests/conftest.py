@@ -152,6 +152,18 @@ def _one_read_soft_exits(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_espn_start_reads(monkeypatch):
+    """🏁 Tests never read ESPN: a PoB's "has this game started?" check sees 'unsure' unless a test fakes the board."""
+    import sys
+    fs = sys.modules.get('feecat_service')
+    if fs is not None and hasattr(fs, '_pob_gone'):
+        async def _unsure(*_a, **_k):
+            return None, []
+        monkeypatch.setattr(fs, '_pob_gone', _unsure)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _fresh_rate_limits():
     """🔒 The per-IP limiters are module-level and keyed by the test client's address + agent id, so 90+ owner calls a minute summed
     over DIFFERENT tests 429'd whichever test came next (the full suite failed 6–13 tests that pass alone, 2026-11-13). Each test

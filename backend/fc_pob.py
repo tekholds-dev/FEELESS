@@ -137,6 +137,26 @@ def _kalshi_view(cat):
             'hard': {'bidUsd': rs._kb.HARD_BID, 'dayUsd': rs._kb.HARD_DAY}, 'minds': rs._kb.mind_record(cat.get('pobFolders'))}   # 🏅 each mind's real Kalshi record
 
 
+async def _pob_gone(topic, now=None):
+    """🏁 → (the ESPN game this topic names if it has started, the league's games not started yet). One free ESPN read; (None, []) if unsure."""
+    rs = _rs(); now = now or rs.time.time()
+    try:
+        async with rs.httpx.AsyncClient(timeout=10, headers={'User-Agent': 'Mozilla/5.0'}) as h_:
+            games = await rs._kb.board_for(h_, topic)
+    except Exception as e:   # noqa: BLE001 — unsure: the filer and the send guard still check
+        print(f'[pob] started check: {str(e)[:100]}'); return None, []
+    return rs._kb.started_game(topic, games, now), rs._kb.upcoming(games, now)
+
+
+def _pob_gone_say(cat, topic, gone, nxt, you=None):
+    """🏁 owner 2026-11-17 ("FILED A POB, LET ME GUESS, ANOTHER FUCKING BUG"): a game past tip-off is said in one line. No PoB number, no score,
+    nothing in the pot, nothing spent. The games still open ride as chips that file them."""
+    rs = _rs(); now = rs.time.time()
+    rows = ([{'by': 'you', 'text': str(you)[:400], 'at': now}] if you else []) + [{'by': 'cats', 'text': '🎲 Not filed, nothing spent: ' + rs._kb.started_say(gone, nxt), 'at': now,
+            **({'ask': {'chips': [f'file a pob {rs._kb.game_label(x)}' for x in nxt]}} if nxt else {})}]
+    cat['chat'] = (list(cat.get('chat') or []) + rows)[-200:]
+
+
 def _pob_file(cat, rec, line):
     rs = _rs()
     cat['pobFolders'] = rs._pob.trim(list(cat.get('pobFolders') or []) + [{**rec, 'n': rs._pob.number(cat), 'kits': rs._KIT_LAST.get((cat.get('id'), 'pob')) or [], 'stampRules': rs._stamp.CURRENT_RULES}])   # 📜 settles by the rules it was filed under
@@ -370,13 +390,9 @@ async def _pob_tick(http, cat, now):
             except Exception as e:   # noqa: BLE001 — research goes on; the final call reads Kalshi again
                 print(f'[pob] kalshi first: {str(e)[:100]}')
         if kb_key_ and not kb_first_:   # 🏁 owner 2026-11-15 PoB #19: a game past its start time is refused here, before any paid model call
-            try:
-                gone_ = rs._kb.started_game(topic, await rs._kb.board_for(http, topic), now)
-            except Exception as e:   # noqa: BLE001 — unsure: research goes on, the send guard still checks
-                gone_ = None; print(f'[pob] started check: {str(e)[:100]}')
-            if gone_:
-                cat.pop('pobBy', None)
-                rs._pob_file(cat, {'id': f'pob{int(now)}', 'at': round(now), 'kind': 'PoB', 'status': 'closed', 'noTrade': True, 'topic': topic, 'why': 'game started', 'calls': []}, f'🎲 PoB on {topic} not filed: ' + rs._kb.started_say(gone_))
+            gone_, nxt_ = await rs._pob_gone(topic, now)
+            if gone_:   # 🏁 owner 2026-11-17: said, never filed (it was PoB #20, scored 26 and put in the pot)
+                cat.pop('pobBy', None); rs._pob_gone_say(cat, topic, gone_, nxt_)
                 return
         legs_first_ = []
         if kb_first_ and rs._kb.mode_of(topic) == 'parlay':   # 🧩 a parlay: the legs Kalshi will price go in the research goal too

@@ -2402,6 +2402,12 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             mode_ = rs._kb.mode_of(p.text)
             if mode_:
                 pob_topic_ = f"{ask_m_['topic']} {'parlay slip' if mode_ == 'parlay' else 'team to win'}"; cat.pop('pobModeAsk', None)
+        if pob_topic_ and not p.auto and rs._kb.teams_in(pob_topic_) and rs._ck.key_for(cat, 'kalshi', data_dir=rs.DATA_DIR):   # 🏁 a started game is said before any question
+            gone_, nxt_ = await rs._pob_gone(pob_topic_)
+            if gone_:
+                cat.pop('pobModeAsk', None); cat.pop('pobLegsAsk', None); rs._pob_gone_say(cat, pob_topic_, gone_, nxt_, you=p.text)
+                rs.keep_owned(cat); rs._save(store)
+                return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         if pob_topic_ and not p.auto and not rs._kb.mode_of(pob_topic_) and rs._kb.teams_in(pob_topic_) and rs._ck.key_for(cat, 'kalshi', data_dir=rs.DATA_DIR):
             cat['pobModeAsk'] = {'topic': pob_topic_, 'at': rs.time.time()}   # 🎯 ask first (owner 2026-11-15 'they should ask what kind of PoB like a team or leg parlay')
             bid_ = rs._pob_team_bid(cat, pob_topic_)   # 🧩 its team to win is already bid on this game: the one option left is a parlay slip
