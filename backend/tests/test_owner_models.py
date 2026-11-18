@@ -24,7 +24,7 @@ def test_a_model_keeps_its_tweaks_never_its_place_and_only_real_models_pass():
     for i in range(om.MAX + 3):
         many = om.add(many, om.take({**STONE, 'asset': {**STONE['asset'], 'id': f'm{i}'}}, i))
     assert len(many) == om.MAX and om.drop(many, 'm8')[-1]['id'] == 'm7' and om.clean([{'id': 'x', 'obj': {**STONE, 'asset': {'url': 'javascript:x'}}}]) == []
-    assert om.view(kept) == [{'id': 'tombstone_01', 'name': 'Tombstone', 'height': 2, 'spin': 6, 'from': '', 'at': 200}]
+    assert om.view(kept) == [{'id': 'tombstone_01', 'name': 'Tombstone', 'height': 2, 'turn': round(kept[0]['obj']['rot'][1] * 57.29578), 'spin': 6, 'from': '', 'at': 200}]
 
 
 def test_a_page_build_carries_the_exact_model_once_and_marks_a_spot_when_the_page_did_not():
