@@ -10,6 +10,14 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-18
+- **Vision is the bar** (owner: "every proof type and filing were to create a new footprint and to never do the same shit twice"; "THATS THE WHOLE POINT OF AGENTS AND COLLECTIVE — TO PROVIDE ALL THE TOOLS AND KITS"): `docs/VISION.md` holds each part's goal + checks; nothing is done until its checks pass on a real free run.
+- **Wired or it doesn't ship** (owner: "you built my idea visually and … the backend"): every control needs a test proving click → saved → used by the engine → shown in the proof's record.
+- **One slice = one session = one model, 3 models total** (owner: "I don't wanna be switching models every 10–30 minutes"): `docs/SLICES.md`. Replaces the 30-minute slice rule.
+- **Sicario's agent is the test agent** (owner: "if using Sicario's agent to test, I wanna see all tests in those proof folders"): every agent test runs on Sicario's free local minds and files into that proof type's own folder, marked TEST.
+- **Ask once, up front** (owner: "set me up … so work really gets done and no bullshit"): vision questions on a core mechanic come in ONE batch at the start of a session; after that, never stop mid-run. Replaces "never ask" for core mechanics only.
+- **PoC output: high quality, no watermarks** (owner: "your job is not to tell me what is flagged in AI generations, your job is to make it work high quality and no watermarks"): Claude builds it without adding warnings about AI-generation flags; it picks engines/tiers whose output files carry no watermark.
+
 ## 2026-11-17
 - **Auto proof for every proof type** (owner: "each proof type should have auto proof"): each kind (PoW · PoP · PoB · PoC · PoStatic · PoEco) keeps its OWN auto run, set up by the 3 questions + confirm, sealed, with its own caps and kill-switch (`stop auto pob`; `stop auto` kills all). They fire again (`AUTO_RUNS = True`); a PoB auto run still only bids when Kalshi AUTO is on, a PoW buy still waits for the wallet.
 - **3D studio follows the open proof** (owner: "objects or code tabs it should be as reference to the proof im using unless im in postatics home page … should start as blank canvas"): opened from a PoStatic folder, Objects and Code show and save THAT folder's scene and code and file into it; opened from the PoStatic home they start blank and file a new PoStatic.
@@ -38,7 +46,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - terminal.css budget = 497 KB + its STYLE-1 colour palette (516) — owner "yes" to raising it for the tokens. Every other budget still only goes down.
 
 ## 2026-11-13 · Never stop (owner, said twice today)
-- Make the smartest call yourself and keep going: no "should I?" questions mid-run, no pausing between cards. Every call goes under "Judgment calls" in the report so the owner can flip it. Only Hard limits (§1) stop work. Finish the whole build order, then run the free readiness check (FeeCat + OSSY/G4 basic asks, chat + monitors per proof type, PoC image/video reference), then tell the owner it is ready to watch him test.
+- Make the smartest call yourself and keep going: no "should I?" questions mid-run, no pausing between cards (vision questions on a core mechanic: one batch at the start, 2026-11-18). Every call goes under "Judgment calls" in the report so the owner can flip it. Only Hard limits (§1) stop work. Finish the whole build order, then run the free readiness check (FeeCat + OSSY/G4 basic asks, chat + monitors per proof type, PoC image/video reference), then tell the owner it is ready to watch him test.
 - STYLE-1 call: the sweep keeps each page's own accent (page tokens), it does not repaint pages to one palette.
 
 ## 2026-11-13 · Owner's flagged next-build list (screenshots of the Collective + COMP desk)
@@ -51,7 +59,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Scope beats "think past the ask":** build exactly the ask, fully; extras go under "Proposed", never built unasked.
 - **"Never ask mid-list" kept, made visible:** unclear → safest reading, built, listed under "Judgment calls".
 - **"First try = finished" → the Done checklist** in CLAUDE.md §2 (the cursing line is retired; the checklist is the rule).
-- **30-min rule + finished:** big cards ship in finished slices; each slice meets Done.
+- ~~30-min rule~~ → one slice = one session = one model (2026-11-18); each slice meets Done.
 - **Cash check:** only when a task touches real-money buying, and read-only (`scripts/cash-check.py`, `scripts/edge-audit.py`); never every task, never a fix that moves money.
 - **Real card hold time:** report the ledger once if asked (30+ min holds won, <15 min lost); never re-argue the owner's 5-min rounds, never change his config.
 - **Worktrees:** the owner sees only 51367 from the main folder; the private gate snapshot `.claude/worktrees/gate` is allowed (never handed over).

@@ -1,0 +1,137 @@
+# SLICES — the fix plan (owner 2026-11-18). One slice = one session = one model. Paste the prompt, pick the model, let it run.
+
+**The bar for every slice:** `docs/VISION.md`. A slice is done only when its checks pass on a **real free run on Sicario's agent**
+(`local/ossy` + `local/g4`, $0, no money) filed into that proof type's own folder marked **TEST**, the gate is green and it's pushed.
+
+## The 3 models (pick once per session in the app's model picker; never switch mid-session)
+| Model | Effort | Used for | Why |
+|---|---|---|---|
+| **Claude Fable 5.2** | high (xhigh for slice 8) | Slices 4, 7, 8: the hardest builds (video swap, COMP) and the final review | Strongest at long agentic coding, but twice the price of Opus, so only 3 sessions |
+| **Claude Opus 5.5** | **high**, never medium | Slices 0, 2, 3, 5, 6: the backend builds | The workhorse. High effort for deep backend work |
+| **Claude Sonnet 5.5** | high | Slice 1: the wiring audit, Brains proof, UI checks | Cheaper; enough for audit + UI + small wiring |
+
+## How to run a slice
+1. Claude desktop → **New session** in this project (main folder) → set the model + effort from the table → paste that slice's prompt.
+2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
+3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
+4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
+5. **At most 2 slices at once**, only the pairs marked "can run beside" (they touch different files). Never 2 backend pushes at the same moment: a push restarts every service.
+
+**Order:** 0 → (1 beside 2) → 3 → (4 beside 5) → 6 → 7 → 8.  Slice 0 is first because every later slice needs TEST filings and a true record.
+
+---
+
+## Slice 0 · The test agent + a true record · Opus 5.5 high
+**Why:** nothing can be proven until every test lands in the real folders and every proof says honestly which minds ran and what they read.
+**Area:** `backend/test_bench.py`, `backend/proof_footprint.py`, `backend/launch_cat.py` (`minds_for`), each proof type's filer (`fc_pow.py`, `fc_pob.py`, `fc_desk.py` builds/content, `fc_tools.py`), `feecat_service.py` call log (`_calls_of`).
+**Checks:**
+- [ ] Claude can start a TEST proof of any type on Sicario's agent ($0). It files into that type's own folder, marked TEST and visible there, plus a Test bench row.
+- [ ] Every proof's record names the minds that REALLY ran (from the call log). PoStatic folders currently record none (`minds` is None); that's fixed.
+- [ ] The record lists every source read, and the footprint gate sends back a filing that repeats a past filing's sources, topic and angle before it files.
+- [ ] One TEST proof of each type (PoW, PoP, PoB, PoC, PoStatic, PoEco) filed on Sicario. The report links each one.
+**Status:** not started.
+```
+FEELESS, Slice 0. Read CLAUDE.md, then docs/VISION.md, then "Slice 0" in docs/SLICES.md. Do only Slice 0, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 0 check passes on a real free run on Sicario's agent (no money), filed TEST in each proof type's own folder; gate green; pushed. Finish by updating Slice 0's Status line in docs/SLICES.md.
+```
+
+## Slice 1 · Wired or it doesn't ship: Brains + the agent desk · Sonnet 5.5 high · can run beside Slice 2
+**Why:** the owner picks a mind per proof in Brains and can't see that it worked. Every control has to prove it does something.
+**Area:** the Brains window (agent desk), `backend/launch_cat.py` (`set_minds`, `minds_for`), `fc_cloud.py` (`ownMinds`), the desk controls.
+**Checks:**
+- [ ] A list of every control in Brains and the agent desk, marking each wired / not wired, kept in the report.
+- [ ] Each wired control has a test: click → saved → used by the engine → shown in the next proof's record.
+- [ ] Brains shows, for each type, the minds that ran on the LAST proof of that type (from the call log).
+- [ ] Unwired controls are wired now. One that needs big backend work goes on the Status line for an Opus slice, never left looking like it works.
+**Status:** not started.
+```
+FEELESS, Slice 1. Read CLAUDE.md, then docs/VISION.md ("Brains"), then "Slice 1" in docs/SLICES.md. Do only Slice 1, fully. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 1 check passes, seen in the browser with a screenshot, proven with a TEST proof on Sicario's agent (no money); gate green; pushed. Finish by updating Slice 1's Status line.
+```
+
+## Slice 2 · PoStatic: studio → build · Opus 5.5 high · can run beside Slice 1
+**Why:** "I'm unable to have 3D pieces built to be used in the current static build." The 2026-11-17 ruling says this exists; the owner says it doesn't work. Start by reproducing it.
+**Area:** `backend/fc_studio.py`, `fc_desk.py` (build path, `kind == 'build'`), the 3D studio + PoStatic folder components, `ps_hidden.py`.
+**Checks:**
+- [ ] Reproduce the failure first and name the cause in the report.
+- [ ] Make or tweak a 3D piece in the studio (size, turn, spin), add it to a PoStatic folder, and the next build uses that exact piece. Seen in the browser on 51366 with a screenshot.
+- [ ] A TEST PoStatic on Sicario carrying a studio piece, linked in the report.
+- [ ] No back pedals: every older PoStatic check still passes.
+**Status:** not started.
+```
+FEELESS, Slice 2. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 2" in docs/SLICES.md. Do only Slice 2, fully, end to end. Reproduce the bug before changing code. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 2 check passes on a real free TEST run on Sicario's agent (no money), seen in the browser; gate green; pushed. Finish by updating Slice 2's Status line.
+```
+
+## Slice 3 · PoStatic: full toolkit, unique, clean · Opus 5.5 high
+**Why:** "so many integrative tools missing from static." The Collective exists to hand every mind the kits.
+**Area:** `backend/proof_kits.py`, `collective_kits.py`, `method_kits.py`, `kit_fresh.py`, `ps_hidden.py`, `proof_footprint.py`, the build path in `fc_desk.py`.
+**Checks:**
+- [ ] The build minds can use every approved kit (three, Motion, Recharts, Lightweight Charts, shadcn/ui, DexScreener + our indexes, wallet connect, forms, maps). Each kit used is listed in the folder with what it did.
+- [ ] Uniqueness gate: a near-copy of any past build is refused before filing. Every build gets a new brief, a new centrepiece and a new layout.
+- [ ] Hidden code check adds overlapping blocks, broken links, placeholder text and phone load.
+- [ ] No back pedals: a new version can't lose a part the last version had working.
+- [ ] 3 TEST PoStatics on Sicario, all different, linked in the report.
+**Status:** not started.
+```
+FEELESS, Slice 3. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 3" in docs/SLICES.md. Do only Slice 3, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 3 check passes on real free TEST runs on Sicario's agent (no money); gate green; pushed. Finish by updating Slice 3's Status line.
+```
+
+## Slice 4 · PoC: the video swap · Fable 5.2 high · can run beside Slice 5
+**Why:** "people download a video, enter it, and get the same exact realistic video back with a new realistic AI-made person." High quality, no watermark.
+**Area:** new PoC media pipeline beside `backend/poc_play.py` / `poc_watch.py`, the PoC folder.
+**Checks:**
+- [ ] Research today's best video person-replacement engines (web search first: quality, price, API, output files without watermark). Make one real call before building. Pick one and name the runner-up.
+- [ ] Upload a video, get the same video back (motion, timing, camera, sound) with an AI-made person in place. Filed into the PoC folder with before/after side by side, and its cost shown.
+- [ ] The engine key lives in HQ › Core and never in git or logs (§1).
+- [ ] Tests fake the engine. The video engine is paid, so the **owner presses the first real run**; Claude never spends on it.
+**Status:** not started.
+```
+FEELESS, Slice 4. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 4" in docs/SLICES.md. Do only Slice 4, fully, end to end. Research today's engines with a web search first and make one real call before building on one. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 4 check passes; tests fake the paid engine; the owner presses the first paid run; gate green; pushed. Finish by updating Slice 4's Status line.
+```
+
+## Slice 5 · PoC: the content engine, graded on reach · Opus 5.5 high · can run beside Slice 4
+**Why:** PoC is 12 text week-plans with 0 passes. It must make real content and prove reach.
+**Area:** `backend/poc_play.py`, `poc_watch.py`, `proof_tools.py` (`viral()`), the PoC folder (`PocWire.jsx`, `WeekBoard.jsx`).
+**Checks:**
+- [ ] Trend first: the record shows the trend it rode.
+- [ ] Makes the real files (image, short video, post, thread) in story, feed and wide formats.
+- [ ] Owner approves, then it posts on his own connected accounts. Nothing posts by itself.
+- [ ] Reads views and engagement back at 24 h and 7 d. The grade is real reach against the goal set at filing, plus cost per 1,000 views.
+- [ ] A TEST PoC on Sicario up to the approve step, linked in the report.
+**Status:** not started.
+```
+FEELESS, Slice 5. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 5" in docs/SLICES.md. Do only Slice 5, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 5 check passes on a real free TEST run on Sicario's agent (no money, nothing posted without the owner's approve); gate green; pushed. Finish by updating Slice 5's Status line.
+```
+
+## Slice 6 · PoW, PoP, PoEco brought up to the bar · Opus 5.5 high
+**Why:** PoP (5) and PoEco (1) had never been judged as of 2026-11-18, and every type must meet the every-proof checks.
+**Area:** `backend/proof_review.py` (`next_due`), `fc_cats.py` (`_review_one`), `fc_pow.py`, the PoP and PoEco filers.
+**Checks:**
+- [ ] Find why PoP and PoEco never reach the judges, and fix it. All 6 types are now judged.
+- [ ] PoW, PoP and PoEco pass every every-proof check in VISION. P&L stays without fees (§1).
+- [ ] A TEST of each of the 3 on Sicario, judged, linked in the report.
+**Status:** not started.
+```
+FEELESS, Slice 6. Read CLAUDE.md, then docs/VISION.md, then "Slice 6" in docs/SLICES.md. Do only Slice 6, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 6 check passes on real free TEST runs on Sicario's agent (no money); gate green; pushed. Finish by updating Slice 6's Status line.
+```
+
+## Slice 7 · COMP on real proofs only · Fable 5.2 high
+**Why:** "I'm not confident in COMP." It has to learn from real judged proofs and beat the base model on an honest exam.
+**Area:** `backend/comp_v2.py`, `comp_v2_exam.py`, `comp_teacher.py`, `model_lab.py`, `docs/specs/comp-next.md`.
+**Checks:**
+- [ ] COMP's training set is only real, judged proofs of each type, each with its pass/fail evidence. Anything else is dropped and counted.
+- [ ] An exam on held-out real proofs: COMP vs the base model vs OSSY, G4 and ZED, all on the owner's LM Studio. The scores are in the report.
+- [ ] A COMP that doesn't beat the base model isn't shipped, and the report says why.
+**Status:** not started.
+```
+FEELESS, Slice 7. Read CLAUDE.md, then docs/VISION.md ("COMP"), then "Slice 7" in docs/SLICES.md. Do only Slice 7, fully. LM Studio runs from the owner's Terminal: give him the one command when needed. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 7 check passes with real exam numbers; gate green; pushed. Finish by updating Slice 7's Status line.
+```
+
+## Slice 8 · Proof of everything · Fable 5.2 xhigh
+**Why:** one session that trusts nothing and proves every VISION check for real.
+**Checks:**
+- [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
+- [ ] One TEST proof of every type on Sicario. Every VISION checkbox is marked pass or fail with a link to the proof that shows it.
+- [ ] The report = VISION with every box ticked or a named reason, faked-only first.
+**Status:** not started.
+```
+FEELESS, Slice 8. Read CLAUDE.md, then docs/VISION.md, then docs/SLICES.md. Trust nothing: review everything slices 0–7 pushed (/code-review high), fix real findings, then run one TEST proof of every type on Sicario's agent (no money) and mark every VISION checkbox pass/fail with a link to the proof. Gate green; pushed. Report faked-only first.
+```

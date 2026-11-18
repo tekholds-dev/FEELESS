@@ -17,14 +17,17 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 - **The owner's ask is the task.** No card, claim or plan step is needed first. `docs/HANDOFF.md` only carries open work between sessions.
 - **Answer first**, short and plain, then do it.
 - **Scope:** build exactly what was asked, fully. Ideas past the ask go in the report under **"Proposed"**: every report has one, each line says what, why, and why it is vital. A bug or security hole found on the way is fixed and named.
-- **Keep going:** work every item in order without stopping to ask. If something is unclear, take the safest reading, build it, and list it under **"Judgment calls"** so the owner can flip it. Only §1 stops work.
-- **Big work ships in slices** (never stuck on one thing for more than ~30 min); each slice is finished and says what is left.
+- **Vision first:** before touching a proof type, agent, Brains or COMP, read `docs/VISION.md`. Its checks are the bar. Build the owner's goal, not a look-alike of it.
+- **Ask once, up front:** if the vision is unclear on a core mechanic, ask every question in ONE batch at the start of the session, before inventing anything. After that, keep going: work every item in order; on small unclear points take the safest reading and list it under **"Judgment calls"**. Only §1 stops work.
+- **One slice = one session = one model** (`docs/SLICES.md`): one mechanic built deep and end to end, never switched model mid-session. No wide, shallow passes across many features.
+- **Wired or it doesn't ship:** no button, switch or picker ships unless a test proves click → saved → used by the engine → shown in the proof's record. A screen with no working backend behind it is a bug, not progress.
+- **No back pedals:** a change may never lose something that already worked; the old behaviour stays covered by a test.
 - **Done means:**
   - UI: `docs/specs/style.md` tokens, real data, every tab of the surface checked in the browser, a screenshot shown to the owner.
-  - Backend: a test for the new mechanic (network faked), pyflakes clean, the live service checked after reload.
+  - Backend: a test for the new mechanic (network faked) AND one **real free run on Sicario's agent** (`local/ossy` + `local/g4`, $0, no money) filed into that proof type's own folder marked TEST, its record checked against `docs/VISION.md`; pyflakes clean; the live service checked after reload. Faked tests alone = "faked-only", not done.
   - Money code: a second review pass (`/code-review` or `/security-review`) before push; the owner tests it with real money.
   - Then: gate green on real exit codes → pushed to `main` → a history line if a HANDOFF card closed → the report says what is live, faked-only and untested.
-- **Reports:** sections only when they have content: Done · Not verified · Judgment calls · Proposed · % left.
+- **Reports:** start with **Faked-only / not wired** whenever anything is, then sections only when they have content: Done · Not verified · Judgment calls · Proposed · % left. Say which VISION checks now pass for real.
 - **A new rule from the owner** → one dated line in `docs/RULINGS.md`, and remove whatever it contradicts the same turn. No rule lives in two places.
 
 ## 3 · Machine facts (learned the hard way — apply on every account)
@@ -34,7 +37,7 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 - The owner only looks at `localhost:51367` from the main folder: never hand over work from another port/worktree. (The private gate snapshot below is fine — it is not handed over.) Since 2026-11-15, 51367 serves the **production build** (`feeless-frontend` = `scripts/serve-fast.sh`, rebuilt by itself ~3 min after each frontend commit); live-reload dev for Claude's own checks is `feeless-dev` on 51366.
 - Push gate flakes under load: commit in the main tree, then gate + push from `.claude/worktrees/gate` (`git checkout --detach <sha>`; `git push origin HEAD:main`); run nothing beside it. Never gate on `| tail`/`| grep`.
 - Make one real call to an outside service before building on it. Research free/open libraries first (shadcn/ui, Motion, Recharts, Lightweight Charts) — never hand-draw a chart.
-- Every desk test → `test_bench.file_run` (Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
+- Every agent test runs on **Sicario's agent** and files into that proof type's own folder, marked TEST (and its `test_bench.file_run` row, Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
 - Never commit `.emergent/recordings/` or `scripts/trim-mongo-caches.py`. Commits end with `Co-Authored-By: <your model> <noreply@anthropic.com>`.
 - Phone / LAN wallet tests need https (wallets ignore plain-http LAN pages): owner runs `cloudflared tunnel --config /dev/null --url http://127.0.0.1:51367 --http-host-header localhost:51367` (his old `~/.cloudflared/config.yml` 404s a bare quick tunnel; `localhost` dials ::1 and fails). keep-alive restarts only the backend: if 51367 is down, start `feeless-frontend` (launch.json).
 - Ship steps for every account: the `feeless-ship` skill (`.claude/skills/feeless-ship/SKILL.md`).
@@ -42,6 +45,8 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 ## 4 · Where everything lives (read ONLY what your task needs)
 | File | When |
 |---|---|
+| `docs/VISION.md` | **Before any proof type, agent, Brains or COMP work.** The goal and checks for each. |
+| `docs/SLICES.md` | The fix plan: one slice per session, the model for each, paste-ready prompts. |
 | `docs/HANDOFF.md` | Open work carried between sessions (no claiming). A finished card becomes one line in `docs/history/<month>.md`. |
 | `docs/RULINGS.md` | Live owner decisions (dated, newest wins) + Open questions. Old decisions below it are history. |
 | `docs/specs/style.md` | **Before ANY UI work.** |

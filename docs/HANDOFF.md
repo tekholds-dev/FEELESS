@@ -1,6 +1,7 @@
 # HANDOFF — open work only (cleaned 2026-11-14). The owner's chat ask always comes first; this page never blocks it.
 
 > No claiming. A finished card becomes one line in `docs/history/<month>.md` and leaves this page. Rules: `CLAUDE.md` → `docs/RULINGS.md`. Old detail for any ID: grep `docs/archive/`.
+> **NOW (2026-11-18): the fix plan is `docs/SLICES.md`** — one slice per session, one model each, paste-ready prompts. The bar is `docs/VISION.md`. Start with Slice 0. Each slice updates its own Status line there; nothing else here is ahead of it.
 > **State 2026-11-14:** the build order is done (LOOK-1, COMP-1, AGENT-AUTO, SEC-1, MODEL-CFG, STYLE-1, JUDGE, POC-PLAY, free readiness run = READY) and the COMP redo is live. What is left for Claude is SITE-8's scale work; the rest is the owner's.
 
 ## WHERE WE LEFT OFF (2026-11-14 ~12:15 CT, opus-5.5 session — all of it is on GitHub main)
