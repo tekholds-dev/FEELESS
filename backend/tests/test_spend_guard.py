@@ -38,6 +38,7 @@ def test_he_names_the_cap_and_it_stays_in_range():
 
 def test_a_make_and_a_swap_are_refused_at_the_cap_before_anything_is_sent(monkeypatch, tmp_path):
     fs, c, store, ws, post = _setup(monkeypatch, tmp_path, secs=9.5); _fake_ffmpeg(monkeypatch, fs, [])
+    monkeypatch.setattr(fs, '_SPEND_HOLD', {})   # other tests queue swaps with the run faked: their holds stay in the shared table
     ran = []
     async def no_run(*a):
         ran.append(a)
@@ -61,6 +62,7 @@ def test_a_make_and_a_swap_are_refused_at_the_cap_before_anything_is_sent(monkey
 def test_a_page_build_stops_at_the_cap_before_the_next_paid_call(monkeypatch, tmp_path):
     fs, c, store, ws, post = _setup(monkeypatch, tmp_path)
     cat = store['cats']['g']; ck.put(cat, 'openrouter', OR_KEY, data_dir=tmp_path); fs._save(store)
+    monkeypatch.setattr(fs, '_SPEND_HOLD', {})
     asked = []
     async def think(*a, **k):
         asked.append(a[1]); return 'ok', 0.01, 'openrouter'
