@@ -336,10 +336,20 @@ function useHereWhileWaiting(on, catId, i) {
 const PROOF_KIND = { pob: ['🎲', 'PoB'], pow: ['⛏', 'PoW'], poc: ['📣', 'PoC'], ps: ['💻', 'PoStatic'], pop: ['📉', 'PoP'], poe: ['📊', 'PoEco'] };
 // 🎯 owner 2026-11-17: the proof opened on the main desk leads the monitors even when it is not one of the 4 newest; a PoB brings every slip
 // its agent put on the same game. Pure.
+// 📺 owner 2026-11-17 ("my bid is goin live, i wona see in main desk"): the newest PoB with a real Kalshi order that filled, whose game is
+// being played right now, shows on the main desk by itself (no pin needed) and leads the monitors. Watching only. Pure.
+export function liveBidOf(d) {
+  const all = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])];
+  return all.filter(f => f?.kalshi?.orderId && Number(f.kalshi.filled) > 0 && !f.kalshi.outcome && (f.games || []).some(g => g && g.state === 'in' && !g.final))
+    .sort((a, b) => Number(b.at || 0) - Number(a.at || 0))[0] || null;
+}
+export function sameGameSlips(d, f) {   // every other PoB its agent put a Kalshi slip on for this folder's game. Pure.
+  const gid = f?.games?.[0]?.id; return gid == null ? [] : (d?.pobFolders || []).filter(x => x.id !== f.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(gid)));
+}
 export function deskProofs(d) {
-  const all = newestProofs(d, 999); const at = d?.deskProof?.id ? all.findIndex(x => x.id === d.deskProof.id) : -1;
+  const all = newestProofs(d, 999); const leadId = d?.deskProof?.id || liveBidOf(d)?.id; const at = leadId ? all.findIndex(x => x.id === leadId) : -1;
   const lead = at >= 0 ? all[at] : null; const rest = all.filter((_, i) => i !== at).slice(0, lead ? 3 : 4);
-  const withSlips = p => (p?.k !== 'pob' || !p.f?.games?.length ? p : { ...p, also: (d?.pobFolders || []).filter(x => x.id !== p.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(p.f.games[0].id))) });
+  const withSlips = p => (p?.k !== 'pob' || !p.f?.games?.length ? p : { ...p, also: sameGameSlips(d, p.f) });
   return (lead ? [lead, ...rest] : rest).map(withSlips);
 }
 export function newestProofs(d, n = 4) {
@@ -1782,6 +1792,7 @@ function WorkbenchLive({ cat }) {
   const watchKey = `fl.watch.${cat?.id}`; const [watch, setWatch] = useState(() => { try { return localStorage.getItem(watchKey) || ''; } catch { return ''; } });   // 📺 the PoB pinned live in chat
   const pin = id => { setWatch(id || ''); try { if (id) localStorage.setItem(watchKey, id); else localStorage.removeItem(watchKey); } catch { /* private window */ } };
   const [wKind, wId] = /^(pow|pop):/.test(watch) ? watch.split(/:(.*)/s) : ['bids', watch];   // 📺 'pow:<id>' / 'pop:<id>' / a PoB id
+  const [hidBid, setHidBid] = useState(''); const autoBid = liveBidOf(d);   // 📺 a live bid shows by itself; ✕ hides it until the next one
   const watched = !wId ? null : wKind === 'pow' ? [...(d?.powFolder ? [d.powFolder] : []), ...(d?.powFolders || [])].find(f => f.id === wId) : wKind === 'pop' ? [...(d?.popFolder ? [d.popFolder] : []), ...(d?.popFolders || [])].find(f => f.id === wId) : [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])].find(f => f.id === wId);
   const seen = useOnScreen(dash); seenRef.current = seen; const wasSeen = useRef(true); useEffect(() => { if (seen && !wasSeen.current) load(); wasSeen.current = seen; }, [seen, load]);   // back on screen: fresh at once
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
@@ -1825,7 +1836,8 @@ function WorkbenchLive({ cat }) {
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     {liveKind && !peek ? <ProofLive d={d} wins={wins} spent={spent} name={cat.name} kind={liveKind} onShowChat={() => setPeek(true)} />
     : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
-    {wKind === 'bids' && watched?.games?.length ? <LiveBidCard f={watched} also={(d?.pobFolders || []).filter(x => x.id !== watched.id && x.kalshi && (x.games || []).some(gm => String(gm.id) === String(watched.games[0].id)))} onClose={() => pin('')} /> : wKind !== 'bids' && watched ? <LiveProofCard kind={wKind} f={watched} onClose={() => pin('')} /> : null}
+    {wKind === 'bids' && watched?.games?.length ? <LiveBidCard f={watched} also={sameGameSlips(d, watched)} onClose={() => pin('')} /> : wKind !== 'bids' && watched ? <LiveProofCard kind={wKind} f={watched} onClose={() => pin('')} />
+      : autoBid && autoBid.id !== hidBid ? <LiveBidCard f={autoBid} also={sameGameSlips(d, autoBid)} onClose={() => setHidBid(autoBid.id)} /> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} onWatch={k => { const live = k === 'pow' ? d?.powFolder : k === 'pop' ? d?.popFolder : null; const c = live?.id ? { id: live.id } : chatProof(d, k, m.at); if (c?.id) pin(k === 'bids' ? c.id : `${k}:${c.id}`); }} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} duel={d?.duels?.[m.tid]} onDuel={i => act('duel', { text: m.tid, job: String(i) })} onChip={c => act('ask', { text: c, to })} />)}

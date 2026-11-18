@@ -81,3 +81,14 @@ test('🎯 the proof opened on the desk leads the monitors even when it is older
   expect(out[0].id).toBe('old'); expect(out[0].also.map(x => x.id)).toEqual(['slip']); expect(out).toHaveLength(4);
   expect(deskProofs({ pobFolders }).map(x => x.id)).toEqual(['slip', 'p6', 'p5', 'p4']);
 });
+
+test('📺 a filled Kalshi bid on a game being played shows on the main desk by itself and leads the monitors', () => {
+  const { deskProofs, liveBidOf } = require('./CatWorkbench');
+  const live = [{ id: 'G1', sport: 'nba', state: 'in', final: false }]; const pre = [{ id: 'G2', sport: 'nba', state: 'pre' }];
+  const pobFolders = [{ id: 'lac', at: 1, games: live, kalshi: { orderId: 'o1', filled: 2 } }, ...[2, 3, 4, 5].map(n => ({ id: `p${n}`, at: n, topic: `t${n}` })),
+    { id: 'slip', at: 6, games: live, kalshi: { kind: 'parlay', status: 'failed' } }, { id: 'later', at: 7, games: pre, kalshi: { orderId: 'o2', filled: 1 } }];
+  expect(liveBidOf({ pobFolders }).id).toBe('lac');   // the pre-game order and the failed parlay are not live bids
+  const out = deskProofs({ pobFolders }); expect(out[0].id).toBe('lac'); expect(out[0].also.map(x => x.id)).toEqual(['slip']);
+  expect(liveBidOf({ pobFolders: [{ ...pobFolders[0], kalshi: { orderId: 'o1', filled: 2, outcome: 'won' } }] })).toBeNull();
+  expect(liveBidOf({ pobFolders: [{ ...pobFolders[0], kalshi: { orderId: 'o1', filled: 0 } }] })).toBeNull();
+});
