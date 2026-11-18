@@ -408,7 +408,7 @@ async def cat_action(cat_id: str, payload: _RSM.ActionPayload, request: Request)
             raise rs.HTTPException(400, str(e))
     elif payload.action == 'venues':   # 📈 where a trading cat trades — FEELESS rails only
         try:
-            cat['venues'] = rs._ck.venues(payload.venues)
+            cat['venues'] = rs._ck.venues(payload.venues, live_only=True)   # Slice 1: only a rail the engine really trades on can be picked
         except ValueError as e:
             raise rs.HTTPException(400, str(e))
     elif payload.action == 'chime':   # 🚀 the owner's advice — the brain reads it, it never trades on it

@@ -76,7 +76,7 @@ export const WORK_WAYS = [
 // 🧭 how a General cat's two minds work (cat_agent.py — change both): shown as step 2 instead of the trading modes
 // 📈 a trading cat trades on FEELESS rails ONLY (owner 2026-10-29) — mirrors cat_keys.VENUES / VENUES_LIVE (change both)
 export const VENUES = [['trench', '🫧 Trench', 'Solana coins on the FEELESS swap — its wallet sends, inside your caps', true],
-  ['perps', '📉 Perps', 'the FEELESS perps desk — it proposes, the agent sender for perps is the next build', false]];
+  ['perps', '📉 Perps', 'the FEELESS perps desk — not built for agents yet: only the trench trades today, so this cannot be picked', false]];
 // 🔐 the API drawer (cat_keys.PROVIDERS mirror): your own keys for the agent's tools, sealed on the server, only the last 4 ever come back
 export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', true, 'sk-or-v1-…'],
   ['fal', 'fal.ai', 'AI images and video in PoC run on YOUR fal.ai account (Wan, FLUX, Kling)', true, 'key-id:secret'], ['replicate', 'Replicate', 'AI images and video in PoC run on YOUR Replicate account (Wan, FLUX, Seedance)', true, 'r8_…'],
@@ -113,8 +113,8 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, o
 export function VenuePick({ value, onChange }) {
   return <div className="akv" role="group" aria-label="Where it trades" data-testid="venue-pick"><span className="akv-h"><b>WHERE IT TRADES</b><small>FEELESS rails only</small></span>
     {VENUES.map(([k, l, why, live]) => { const on = value.includes(k);
-      return <button key={k} type="button" className={`${on ? 'is-on' : ''}${live ? '' : ' is-next'}`} aria-pressed={on} data-tip={why} data-testid={`venue-${k}`}
-        onClick={() => onChange(on ? (value.length > 1 ? value.filter(x => x !== k) : value) : [...value, k])}><b>{l}</b><small>{live ? 'LIVE' : 'PROPOSES'}</small></button>; })}</div>;
+      return <button key={k} type="button" className={`${on && live ? 'is-on' : ''}${live ? '' : ' is-next'}`} aria-pressed={on && live} disabled={!live} data-tip={why} data-testid={`venue-${k}`}
+        onClick={() => onChange(on ? (value.length > 1 ? value.filter(x => x !== k) : value) : [...value, k])}><b>{l}</b><small>{live ? 'LIVE' : 'NOT BUILT YET'}</small></button>; })}</div>;   // Slice 1: a rail the engine does not trade on is not a choice (the server refuses it too)
 }
 const PAGE = 60;
 const CHIP = { degen: 'lct-c-degen', trading: 'lct-c-trading', thinking: 'lct-c-thinking', reasoning: 'lct-c-reasoning', meta: 'lct-c-meta', free: 'lct-c-free', agent: 'lct-c-agent', content: 'lct-c-content', code: 'lct-c-code' };

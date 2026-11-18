@@ -284,6 +284,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         b_ = cat.get('brainsCfg') or {}; t_ = p.tools if isinstance(p.tools, dict) else {}; k_ = str(p.text or '')
         if k_ not in rs._lc.PROOF_KINDS or not b_:
             raise rs.HTTPException(400, 'Pick a kind of proof.')
+        if k_ in ('pow', 'poe'):   # Slice 1: a control that saves and then changes nothing is a bug. PoW picks can buy real coins; PoEco makes no model call
+            raise rs.HTTPException(400, 'PoW takes no owner prompt: its picks can buy real coins, so no text moves a trading call.' if k_ == 'pow' else 'PoEco makes no model call, so a prompt would change nothing.')
         prompt_ = ' '.join(str(t_.get('prompt') or '').split())[:1500]
         pb_ = dict(b_.get('promptBy') or {}); vb_ = dict(b_.get('personaBy') or {})
         if prompt_:

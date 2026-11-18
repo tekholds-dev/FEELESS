@@ -209,6 +209,19 @@ body.theme-day .kd-mv-earn li small, body.theme-day .kd-mv-dis { color: var(--ca
 .kd-path-steps b { font: 800 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--catdes-ac39); } .kd-path-steps span { font: 600 12.5px/1.4 var(--f-ui); } .kd-path-steps small { font: 500 10.5px var(--f-ui); color: var(--catdes-ac39); }
 body.fx-lite .kd-path-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-path-steps li { animation: none; } }
 body.theme-day .kd-path-steps li { background: var(--catdes-tx19); border-color: var(--catdes-bg4); } body.theme-day :is(.kd-path-steps b, .kd-path-steps small) { color: var(--catdes-lh1); }
+/* 🧠 Slice 1 last proof of each kind (LastRan): who really answered, from the call log, next to a verdict; 🎛 tune block (ModelTune) */
+.kd-last { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.kd-last li { display: grid; grid-template-columns: 62px minmax(0, 1.6fr) minmax(0, 2fr) auto; gap: 4px 10px; align-items: center; padding: 7px 10px; border-radius: 12px; border: 1px solid var(--catdes-tx4); border-left: 3px solid var(--catdes-tx3); background: var(--catdes-tx1); animation: kdMvIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+.kd-last li.is-ok { border-left-color: var(--catdes-ac9); } .kd-last li.is-warn { border-left-color: var(--gold); } .kd-last li.is-bad { border-left-color: var(--catdes-dg5); }
+.kd-last b { font: 800 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+.kd-last-m { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; } .kd-last-m em { display: inline-grid; grid-template-columns: auto; gap: 1px; font: 700 12px var(--f-ui); font-style: normal; min-width: 0; }
+.kd-last-m em i { display: block; height: 3px; border-radius: 99px; background: var(--catdes-tx3); overflow: hidden; } .kd-last-m em u { display: block; height: 100%; background: var(--catdes-ac9); transform-origin: left; transition: transform .3s ease-out; }
+.kd-last-m em.is-bad { color: var(--catdes-dg5); } .kd-last-m em.is-none { color: var(--catdes-ac39); } .kd-last-m small, .kd-last-v, .kd-last-w { font: 600 10px var(--f-mono); color: var(--catdes-ac39); }
+.kd-last-v { font-family: var(--f-ui); font-weight: 500; font-size: 11px; text-align: left; } .kd-last-w { text-align: right; white-space: nowrap; }
+.kd-tune { display: grid; gap: 8px; margin-top: 8px; }
+body.fx-lite .kd-last li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-last li { animation: none; } .kd-last-m em u { transition: none; } }
+body.theme-day .kd-last li { background: var(--catdes-tx19); border-color: var(--catdes-bg4); } body.theme-day :is(.kd-last-m small, .kd-last-v, .kd-last-w, .kd-last-m em.is-none) { color: var(--catdes-lh1); }
+@media (max-width: 640px) { .kd-last li { grid-template-columns: 56px minmax(0, 1fr); } .kd-last-v, .kd-last-w { grid-column: 1 / -1; text-align: left; } }
 /* 👀 AGT-10 visitor vitals (PublicVitals): one row over the monitors — the proved rate, a ring per kind, wins settled from outside */
 .kd-pv { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--kd-acc, var(--catdes-ac9)) 35%, transparent); background: linear-gradient(110deg, var(--catdes-sf7), var(--catdes-bg6)); box-shadow: inset 0 1px 0 var(--catdes-tx4); }
 .kd-pv-hero { display: grid; } .kd-pv-hero b { font-size: 22px; color: var(--kd-acc, var(--catdes-ac9)); text-shadow: 0 0 14px color-mix(in srgb, var(--kd-acc, var(--catdes-ac9)) 45%, transparent); } .kd-pv-hero small, .kd-pv-out small { font: 700 9px var(--f-mono); letter-spacing: .1em; color: var(--catdes-ac39); }

@@ -494,6 +494,12 @@ test('🎭 each kind of proof can have its own prompt and personality; All stays
   await act(async () => q('persona-analyst').click());
   expect(calls.at(-1)).toMatchObject({ op: 'kind_voice', text: 'pob', tools: { persona: { style: 'analyst' } } });
   expect(q('voice-kind-pob').textContent).toContain('●');
+  // Slice 1: PoW and PoEco take no owner voice (the engine never applies one), so the controls that would save nothing are not there
+  const before = calls.length;
+  await act(async () => q('voice-kind-pow').click());
+  expect(q('voice-locked').textContent).toContain('no owner prompt'); expect(q('voice-prompt')).toBeNull(); expect(q('voice-save')).toBeNull(); expect(q('persona-analyst')).toBeNull(); expect(q('persona-heat')).toBeNull();
+  await act(async () => q('voice-kind-poe').click());
+  expect(q('voice-locked').textContent).toContain('no model call'); expect(calls.length).toBe(before);
   act(() => root.unmount());
 });
 

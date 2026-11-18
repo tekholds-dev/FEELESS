@@ -791,7 +791,7 @@ async def _ws_ask(cat, model, sys_, user_, tokens):
     own_ = rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR)
     if own_ and not str(model).startswith('local/') and not str(model).endswith(':free'):
         rs._spend_check(cat, 0)   # 💵 the owner's day cap: refused before the call, never after
-    text_, usd_, _via = await rs._think(cat, model, [{'role': 'system', 'content': rs._general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
+    text_, usd_, _via = await rs._think(cat, model, [{'role': 'system', 'content': rs._general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, ((cat.get('brainsCfg') or {}).get('efforts') or {}).get(model), tokens)   # Slice 1: Brains' effort for this mind
     rs._WS_VIA.set(str(_via or ''))   # 🧾 who REALLY answered (a free stand-in when its paid route is off), read by callers that show the model
     return str(text_ or ''), float(usd_ or 0), bool(own_)
 

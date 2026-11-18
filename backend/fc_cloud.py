@@ -497,7 +497,7 @@ async def cat_paths(cat_id: str, ownerId: str = '', session: str = ''):
     if not cat:
         raise rs.HTTPException(404, 'Cat not found.')
     rs._owner_gate(store, cat, session, ownerId)
-    b_ = cat.get('brainsCfg') or {}; route_ = rs._route_words(cat); out = []
+    b_ = cat.get('brainsCfg') or {}; route_ = rs._route_words(cat); out = []; calls_ = await rs.asyncio.to_thread(_calls_of, cat_id)   # 🧠 Slice 1: the last proof of each kind, from the call log
     checks = {'pow': ['compare before settling: recorded, never blocks a real buy', 'the 24-hour stamp', 'real trades read back from the chain'],
               'pop': ['compare before settling: a thin call is not traded', 'the 24-hour stamp, priced at true prices'],
               'pob': ['compare before settling: a thin pick is not bid', 'the final score or the market settles it'],
@@ -511,7 +511,9 @@ async def cat_paths(cat_id: str, ownerId: str = '', session: str = ''):
         out.append({'kind': k, 'reads': [{'host': r.get('host'), 'name': r.get('name') or r.get('host'), 'why': r.get('why') or r.get('use') or ''} for r in order_[:6]],
                     'freshMin': round(rs.READ_FRESH_S.get(k, 600) / 60), 'minds': rs._lc.minds_for(b_, k), 'ownMinds': bool((b_.get('byKind') or {}).get(k)), 'route': route_,
                     'checks': checks.get(k, []), 'kits': [kid for kid, kt in rs._mkits.all_kits(rs._mkit_extra()).items() if k in kt['kinds'] and (rs._MKIT_STATE.get(kid) or {}).get('state') != 'quarantined'],
-                    'prompt': bool((b_.get('promptBy') or {}).get(k)), 'persona': ((b_.get('personaBy') or {}).get(k) or {}).get('style')})
+                    'prompt': bool((b_.get('promptBy') or {}).get(k)), 'persona': ((b_.get('personaBy') or {}).get(k) or {}).get('style'), 'voiceOn': rs._kind_voice_on(b_, k),
+                    'efforts': {m: (b_.get('efforts') or {}).get(m) for m in rs._lc.minds_for(b_, k) if (b_.get('efforts') or {}).get(m)},
+                    'last': rs._prec.last_ran(k, [f for f in cat.get(rs._prec.KEYS.get(k)) or [] if isinstance(f, dict)], calls_, rs._lc.minds_for(b_, k))})
     return {'paths': out}
 
 

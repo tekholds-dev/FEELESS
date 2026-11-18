@@ -57,6 +57,9 @@ def ran(rows, kind, refs, since=0.0, until=None):
         m = str(r.get('asked') or '?')
         o = out.setdefault(m, {'asked': m, 'answered': [], 'routes': [], 'calls': 0, 'ok': 0, 'usd': 0.0, 'secs': 0.0, 'standIn': False})
         o['calls'] += 1; o['usd'] = round(o['usd'] + _f(r.get('usd')), 6); o['secs'] = round(o['secs'] + _f(r.get('ms')) / 1000, 1)
+        for key in ('effort', 'knobs', 'voice'):   # Slice 1: the Brains settings each call was asked with (effort, knobs, the kind's own voice)
+            if r.get(key):
+                o[key] = r[key]
         if r.get('ok'):
             o['ok'] += 1
             for key, v in (('answered', r.get('model')), ('routes', r.get('route'))):
@@ -67,6 +70,23 @@ def ran(rows, kind, refs, since=0.0, until=None):
             if 'stood in' in str(r.get('route') or '') or 'stood in' in str(r.get('via') or ''):
                 o['standIn'] = True
     return list(out.values())
+
+
+def last_ran(kind, folders, calls, pair):
+    """🧠 Slice 1: for Brains, what the LAST proof of this kind really ran on, read from the call log (the stored record when the log no longer holds it),
+    next to the pair set for it now. → {id, n, test, at, ran, check, pairNow, changed} or None when none was filed."""
+    fs = [f for f in folders or [] if isinstance(f, dict) and f.get('id')]
+    if not fs:
+        return None
+    f = max(fs, key=lambda x: (_f(x.get('closedAt') or x.get('at')), _f(x.get('n'))))
+    live = ran(calls, kind, refs_of(f), 0.0, _f(f.get('closedAt') or f.get('at')) or None)
+    seen = live or _rows(f.get('ran'))
+    then = [str(m) for m in (f.get('mindsCheck') or {}).get('set') or [] if m]   # the pair it was filed under (the record), else what ran
+    chk = match(seen, then or pair, kind)
+    did = [r['asked'] for r in seen if r.get('ok')]
+    pair = [str(m) for m in pair or [] if m]
+    return {'id': f['id'], 'n': f.get('n'), 'test': bool(f.get('test')), 'at': _f(f.get('closedAt') or f.get('at')), 'ran': seen, 'check': chk,
+            'pairNow': pair, 'changed': bool(did) and kind not in NO_MINDS and sorted(then or did) != sorted(pair), 'fromLog': bool(live)}
 
 
 def match(ran_, pair, kind=None):

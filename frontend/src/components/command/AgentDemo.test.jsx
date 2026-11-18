@@ -42,7 +42,7 @@ test('🧭 the demo sits in How they work (step 2), not on the model list', asyn
 test('📈 venues keep at least one FEELESS rail; 🔐 the drawer shows last 4 only', async () => {
   const onChange = jest.fn(); const v = await mount(<VenuePick value={['trench']} onChange={onChange} />);
   click(v, '[data-testid="venue-trench"]'); expect(onChange).toHaveBeenLastCalledWith(['trench']);
-  click(v, '[data-testid="venue-perps"]'); expect(onChange).toHaveBeenLastCalledWith(['trench', 'perps']);
+  expect(v.querySelector('[data-testid="venue-perps"]').disabled).toBe(true);   // Slice 1: perps is not built for agents, so it is not a choice
   const onDrop = jest.fn(); const d = await mount(<ApiDrawer rows={[{ provider: 'openrouter', saved: true, last4: 'abcd' }]} draft={{}} onDrop={onDrop} onSave={jest.fn()} />);
   expect(d.textContent).toContain('••••abcd'); click(d, '[data-testid="akd-drop-openrouter"]'); expect(onDrop).toHaveBeenCalledWith('openrouter');
   expect(d.querySelector('[data-testid="akd-birdeye"]').type).toBe('password');

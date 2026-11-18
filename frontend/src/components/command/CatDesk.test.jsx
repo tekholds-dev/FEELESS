@@ -138,13 +138,48 @@ test('🧠🧠 by proof: a kind picks its own two minds from the agent\'s own, s
 
 test('🧭 how its proofs run: plain steps per kind from the live settings (AGT-14)', async () => {
   const { ProofPaths } = require('./CatDesk');
-  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ paths: [{ kind: 'pow', reads: [{ name: 'DexScreener' }, { name: 'RugCheck' }], freshMin: 5, minds: ['tencent/hy4', 'z-ai/glm-5.3-flash'], ownMinds: false, route: ['your own OpenRouter key', 'SingIt'], checks: ['compare before settling'], kits: ['plan-first'], prompt: true, persona: 'analyst' }] }) }));
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ paths: [{ kind: 'pow', reads: [{ name: 'DexScreener' }, { name: 'RugCheck' }], freshMin: 5, minds: ['tencent/hy4', 'z-ai/glm-5.3-flash'], ownMinds: false, route: ['your own OpenRouter key', 'SingIt'], checks: ['compare before settling'], kits: ['plan-first'], prompt: true, persona: 'analyst', voiceOn: true, efforts: { 'tencent/hy4': 'high' } },
+    { kind: 'pob', reads: [], freshMin: 5, minds: ['z-ai/glm-5.3', 'tencent/hy4'], ownMinds: true, route: [], checks: [], kits: [], last: { id: 'pob1', n: 12, test: true, at: Date.now() / 1000 - 600, fromLog: true, ran: [{ asked: 'tencent/hy4', ok: 3, calls: 3, effort: 'high', voice: true }, { asked: 'z-ai/glm-5.3', ok: 2, calls: 3 }], check: { ok: true }, pairNow: ['z-ai/glm-5.3', 'tencent/hy4'], changed: false } },
+    { kind: 'pop', reads: [], freshMin: 5, minds: ['a/one', 'b/two'], ownMinds: false, route: [], checks: [], kits: [], last: { id: 'pop1', n: 4, test: false, at: Date.now() / 1000 - 7200, fromLog: true, ran: [{ asked: 'old/pair', ok: 1, calls: 1 }], check: { ok: true }, pairNow: ['a/one', 'b/two'], changed: true } }] }) }));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<ProofPaths cat={{ id: 'c1' }} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const t = el.textContent;
   expect(t).toContain('DexScreener → RugCheck'); expect(t).toContain('hy4 + glm-5.3-flash'); expect(t).toContain('your own OpenRouter key → SingIt');
-  expect(t).toContain('its own prompt · analyst voice'); expect(t).toContain('method kits: plan-first');
+  expect(t).toContain('its own prompt · analyst voice'); expect(t).toContain('method kits: plan-first'); expect(t).toContain('hy4 effort high');
+  // 🧠 Slice 1: the last proof of each kind, from the call log: who ran, how often, effort, own voice, TEST, and whether the setting moved since
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('kd-last-pob').textContent).toContain('hy4'); expect(q('kd-last-pob').textContent).toContain('3/3 · high · own voice'); expect(q('kd-last-pob').textContent).toContain('glm-5.3'); expect(q('kd-last-pob').textContent).toContain('2/3');
+  expect(q('kd-last-pob').textContent).toContain('#12 · TEST'); expect(q('kd-last-pob').className).toContain('is-ok');
+  expect(q('kd-last-pop').className).toContain('is-warn'); expect(q('kd-last-pop').textContent).toContain('the pair changed since: next one uses one + two');
+  expect(q('kd-last-poc').className).toContain('is-none'); expect(q('kd-last-poc').textContent).toContain('no proof of this kind yet');
   act(() => root.unmount());
+});
+
+test('🧠 Slice 1: the verdict on a last proof is honest (no answer, a stand-in, a moved setting, PoEco has no mind)', () => {
+  const { lastVerdict } = require('./CatDesk');
+  expect(lastVerdict(null)[0]).toBe('none'); expect(lastVerdict({ kind: 'pob', last: { ran: [], check: { ok: false } } })).toEqual(['bad', 'no mind answered it']);
+  expect(lastVerdict({ kind: 'pob', last: { ran: [{ ok: 1 }], check: { ok: false, why: 'x stood in' } } })).toEqual(['bad', 'x stood in']);
+  expect(lastVerdict({ kind: 'pob', last: { ran: [{ ok: 1 }], check: { ok: true }, changed: false } })[0]).toBe('ok');
+  expect(lastVerdict({ kind: 'poe', last: { ran: [] } })[0]).toBe('ok');
+});
+
+test('🎛 Slice 1: Brains tunes its minds: effort + knobs save through model_cfg, only what each model supports is offered', async () => {
+  const { ModelTune } = require('./CatDesk');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onAct = jest.fn();
+  const d = { models: [{ id: 'a/one', name: 'one', efforts: ['low', 'high'], knobs: [{ key: 'temperature', label: 'Temperature', kind: 'slider', min: 0, max: 2, step: 0.1, default: 1 }] }, { id: 'b/two', name: 'two', efforts: [], knobs: [] }] };
+  const cat = { brainsCfg: { brains: ['a/one', 'b/two'], efforts: { 'a/one': 'low' }, knobs: {} } };
+  await act(async () => root.render(<ModelTune cat={cat} d={d} busy={false} onAct={onAct} />));
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('kd-tune-b/two').textContent).toContain('no extra knobs');   // a model with nothing extra says so
+  expect(q('kd-tune-save').disabled).toBe(true);                         // nothing changed yet
+  await act(async () => q('kd-tune-a/one').querySelector('button').click());
+  const sel = q('kd-tune-a/one').querySelector('select'); expect(sel.value).toBe('low');
+  const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+  await act(async () => { set.call(sel, 'high'); sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(q('kd-tune-save').disabled).toBe(false);
+  await act(async () => q('kd-tune-save').click());
+  expect(onAct).toHaveBeenLastCalledWith('model_cfg', { efforts: { 'a/one': 'high' }, knobs: {} });
+  act(() => root.unmount()); el.remove();
 });
 
 test('👀 a visitor sees public vitals only: the proved rate, a ring per kind, outside-settled wins (AGT-10)', async () => {

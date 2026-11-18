@@ -111,12 +111,16 @@ def reseal_cat(cat, env=None, data_dir=None):
     return n
 
 
-def venues(raw):
-    """The rails a trading cat may use — FEELESS only; unknown names are refused, empty = the trench."""
+def venues(raw, live_only=False):
+    """The rails a trading cat may use — FEELESS only; unknown names are refused, empty = the trench. `live_only` (the desk's picker, Slice 1): a rail
+    whose agent sender is not built yet (perps) is refused too, so the picker can never store a choice the engine would not honour."""
     v = [str(x).lower() for x in (raw or ['trench'])]
     bad = [x for x in v if x not in VENUES]
     if bad:
         raise ValueError(f"An agent trades on FEELESS rails only — {', '.join(bad)} isn't one.")
+    soon = [x for x in v if live_only and x not in VENUES_LIVE]
+    if soon:
+        raise ValueError(f"{', '.join(soon)} is not built for agents yet — only the trench trades today, so nothing was changed.")
     return sorted(set(v)) or ['trench']
 
 

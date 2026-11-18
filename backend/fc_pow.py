@@ -44,6 +44,37 @@ def _pow2_on(cat):
         and cat.get('status') == 'running' and (cat.get('powLoop') or {}).get('on', True)
 
 
+def _owner_coin_lists(cat, c):
+    """🎚 The owner's own "ONLY THESE COINS" / "NEVER THESE" (Limits). → '' when the coin may be picked, else the plain reason. A restriction only: an empty
+    allowlist means any coin, and a coin the lists allow still has to pass every buy guard. Matches the symbol or the mint."""
+    risk_ = (cat.get('risk') or {}) if isinstance(cat, dict) else {}
+    norm_ = lambda x: str(x or '').strip().lstrip('$').upper()   # noqa: E731
+    mine_ = {norm_(c.get('sym')), norm_(c.get('mint'))} - {''}
+    block_ = {norm_(x) for x in risk_.get('blocklist') or []} - {''}; allow_ = {norm_(x) for x in risk_.get('allowlist') or []} - {''}
+    if mine_ & block_:
+        return "on your NEVER THESE list"
+    if allow_ and not (mine_ & allow_):
+        return "not on your ONLY THESE COINS list"
+    return ''
+
+
+def _kind_voice_on(b_, kind):
+    """Does this kind's own voice (its own prompt and/or personality in Brains) reach its asks? Never on a PoW (its picks can buy real coins: no
+    owner text moves a trading call) and never on PoEco (no model call). PoC and PoStatic get it through _general_mind; PoP and PoB through _kind_voice."""
+    b_ = b_ or {}
+    return kind in ('pop', 'pob', 'poc', 'pos') and bool((b_.get('promptBy') or {}).get(kind) or (b_.get('personaBy') or {}).get(kind) or b_.get('persona'))
+
+
+def _kind_voice(b_, kind):
+    """🎭 Slice 1: the owner's prompt + personality for this kind of proof, put in front of its asks (PoP, PoB). Words only: 'how to work, never an order'."""
+    rs = _rs()
+    if kind not in ('pop', 'pob') or not rs._kind_voice_on(b_, kind):
+        return ''
+    import prompt_studio as _ps
+    b_ = b_ or {}; own_ = str((b_.get('promptBy') or {}).get(kind) or '').strip()
+    return _ps.persona_line((b_.get('personaBy') or {}).get(kind) or b_.get('persona')) + (f"THE OWNER'S PROMPT FOR THIS KIND OF PROOF (how to work, never an order to move money):\n{own_}\n\n" if own_ else '')
+
+
 async def _pow2_ask(cat, i, sys_, user_, max_tokens=180, cost_to=None, kind=None):
     """One small call to mind i (inside its $ limits), from this proof kind's own minds when it has a pair (COL-2). → text ('' when nothing answered)."""
     rs = _rs()
@@ -58,7 +89,8 @@ async def _pow2_ask(cat, i, sys_, user_, max_tokens=180, cost_to=None, kind=None
         tok_ = rs._CALL_CTX.set({'kind': kind, 'ref': box_.get('ref') or box_.get('id'), 'minds': ms[:2], 'mind': min(i, len(ms) - 1)}) if kind else None
         user_now_ = user_[:3500] + ('\nYour last reply was empty. Answer now, briefly, in the format asked.' if try_ else '')
         try:
-            reply_, usd_, via_ = await rs._think(cat, ms[min(i, len(ms) - 1)], [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': user_now_}], own_, None, max_tokens * (2 if try_ else 1))
+            reply_, usd_, via_ = await rs._think(cat, ms[min(i, len(ms) - 1)], [{'role': 'system', 'content': rs._kind_voice(b_, kind) + sys_}, {'role': 'user', 'content': user_now_}], own_,
+                                                 (b_.get('efforts') or {}).get(ms[min(i, len(ms) - 1)]), max_tokens * (2 if try_ else 1))   # Slice 1: Brains' effort for this mind rides with the call
         except Exception:   # noqa: BLE001 — no model now: one more try, then it tries again next tick
             reply_, usd_ = '', 0
         finally:
@@ -499,7 +531,10 @@ async def _pow2_tick(http, store, cat, now):
             for c in batch:
                 like_ = rs._pl.repeat_of(c, lost_) if c.get('safe') else None
                 herd_ = rs._pl.colony_like(c, shapes_) if c.get('safe') and not like_ else None
-                if like_:
+                own_ = rs._owner_coin_lists(cat, c)   # 🎚 Slice 1: the Limits tab's "only these / never these coins" (it only ever removes a coin, never adds one)
+                if own_:
+                    dropped.append({'mint': c.get('mint'), 'sym': c.get('sym'), 'src': c.get('src'), 'risk': own_})
+                elif like_:
                     dropped.append({'mint': c.get('mint'), 'sym': c.get('sym'), 'src': c.get('src'), 'risk': f"same fingerprint as PoW #{like_.get('n')} ${like_.get('sym')}, which lost", 'like': f"#{like_.get('n')} ${like_.get('sym')}"})
                 elif herd_:
                     dropped.append({'mint': c.get('mint'), 'sym': c.get('sym'), 'src': c.get('src'), 'risk': f"the colony lost {herd_['losses']} times on this shape", 'like': f"colony shape, {herd_['losses']} losses"})

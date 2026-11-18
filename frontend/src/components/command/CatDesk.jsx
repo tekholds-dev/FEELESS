@@ -4,6 +4,7 @@ import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord, ModelPop } from './LaunchCat';
+import { ModelKnobs } from './ModelKnobs';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession, agentAuthQuery } from '../../lib/chatSession';
@@ -163,16 +164,42 @@ export function PublicVitals({ cat }) {
   </div>;
 }
 
+// 🧠 Slice 1 (owner 2026-11-18: "I'm choosing a mind per proof and the backend doesn't even work??"): for each kind, the minds that REALLY ran on its
+// LAST proof, read from the call log (never from the setting), next to the pair set for it now. A TEST proof counts and says so.
+export function lastVerdict(p) {
+  const l = p?.last; if (!l) return ['none', 'no proof of this kind yet'];
+  if (p.kind === 'poe') return ['ok', 'no model call: pure math on live pools'];
+  if (!(l.ran || []).some(r => r.ok)) return ['bad', 'no mind answered it'];
+  if (l.check && !l.check.ok) return ['bad', l.check.why];
+  if (l.changed) return ['warn', `ran as set then · the pair changed since: next one uses ${(l.pairNow || []).map(shortId).join(' + ') || 'none'}`];
+  return ['ok', 'the pair set for it is the pair that ran'];
+}
+const agoOf = (at, now = Date.now() / 1000) => { const s = Math.max(0, now - Number(at || 0)); return s < 5400 ? `${Math.max(1, Math.round(s / 60))} min ago` : s < 172800 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+export function LastRan({ paths }) {
+  const by = Object.fromEntries((paths || []).map(x => [x.kind, x]));
+  return <ul className="kd-last" data-testid="kd-last-ran" aria-label="The minds that ran on the last proof of each kind">
+    {PROOF_KINDS.map(([v, lab], i) => { const p = by[v]; const l = p?.last; const [tone, say] = lastVerdict(p || { kind: v });
+      return <li key={v} className={`is-${tone}`} style={{ '--i': i }} data-testid={`kd-last-${v}`}>
+        <b>{lab}</b>
+        <span className="kd-last-m">{l && (l.ran || []).length ? l.ran.map(r => <em key={r.asked} className={r.ok ? '' : 'is-bad'}
+          data-tip={`${r.asked} was asked ${r.calls} time${r.calls === 1 ? '' : 's'}, answered ${r.ok}${r.answered?.length ? ` · answered as ${r.answered.join(', ')}` : ''}${r.routes?.length ? ` · route ${r.routes.join(', ')}` : ''}${r.standIn ? ' · a stand-in answered' : ''}`}>
+          {shortId(r.asked)}<i aria-hidden="true"><u style={{ transform: `scaleX(${r.calls ? r.ok / r.calls : 0})` }} /></i><small>{r.ok}/{r.calls}{r.effort ? ` · ${r.effort}` : ''}{r.voice ? ' · own voice' : ''}</small></em>) : <em className="is-none">—</em>}</span>
+        <small className="kd-last-v">{say}</small>
+        <small className="kd-last-w m-num">{l ? `#${l.n || '?'}${l.test ? ' · TEST' : ''} · ${agoOf(l.at)}${l.fromLog ? '' : ' · from its record'}` : ''}</small></li>; })}
+  </ul>;
+}
+
 // 🧭 AGT-14: how each kind of proof runs for this agent, in plain steps, read from the live config (owner 2026-11-06: "explain proof paths simply")
 export function ProofPaths({ cat }) {
   const [d, setD] = useState(null); const [k, setK] = useState('pow'); const [err, setErr] = useState('');
   useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/paths?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id]);
   const p = (d?.paths || []).find(x => x.kind === k);
   return <section className="kd-card kd-paths" data-testid="kd-paths"><header><b>🧭 HOW ITS PROOFS RUN</b><small>{err ? `⚠ ${err}` : 'read from its live settings, step by step'}</small></header>
+    {d ? <><span className="m-label">LAST PROOF OF EACH KIND<em>who really answered, from the call log</em></span><LastRan paths={d.paths} /></> : null}
     <div className="m-seg kd-mem" role="radiogroup" aria-label="Which proof">{PROOF_KINDS.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={k === v} className={k === v ? 'is-on' : ''} onClick={() => setK(v)} data-testid={`kd-path-${v}`}>{l}</button>)}</div>
     {p ? <ol className="kd-path-steps">
       <li style={{ '--i': 0 }}><b>Reads first</b><span>{p.reads.length ? p.reads.map(r => r.name).join(' → ') : 'its own record only'}</span><small>a read is shared with every agent's next {PROOF_KINDS.find(x => x[0] === k)[1]} for {p.freshMin} min</small></li>
-      <li style={{ '--i': 1 }}><b>Two minds</b><span>{p.minds.map(shortId).join(' + ') || 'none set'}</span><small>{p.ownMinds ? 'its own pair for this kind' : 'the agent\'s pair (set one in By proof)'}{p.prompt ? ' · its own prompt' : ''}{p.persona ? ` · ${p.persona} voice` : ''}</small></li>
+      <li style={{ '--i': 1 }}><b>Two minds</b><span>{p.minds.map(shortId).join(' + ') || 'none set'}</span><small>{p.ownMinds ? 'its own pair for this kind' : 'the agent\'s pair (set one in By proof)'}{p.voiceOn && p.prompt ? ' · its own prompt' : ''}{p.voiceOn && p.persona ? ` · ${p.persona} voice` : ''}{Object.entries(p.efforts || {}).map(([m, e]) => ` · ${shortId(m)} effort ${e}`).join('')}</small></li>
       <li style={{ '--i': 2 }}><b>Each call goes</b><span>{p.route.join(' → ')}</span><small>the log shows which model really answered</small></li>
       <li style={{ '--i': 3 }}><b>Before it settles</b><span>{p.checks.join(' · ')}</span><small>method kits: {p.kits.join(', ') || 'none'}</small></li>
     </ol> : <p className="m-note">{err ? 'Could not read its paths.' : 'Reading…'}</p>}
@@ -185,7 +212,7 @@ export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0
 function ModelSwitch({ cat, busy, onAct }) {
   const left = lockLeft(cat.createdAt); const [d, setD] = useState(null); const [memory, setMemory] = useState('keep'); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]); const [open, setOpen] = useState(-1);
   const kind = cat.brainsCfg.kind === 'general' ? 'general' : 'trading'; const mind = kind === 'general' ? 'MIND' : 'BRAIN';
-  useEffect(() => { if (left > 0 || d) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD({ models: [] })); }, [left, d]);
+  useEffect(() => { if (d) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD({ models: [] })); }, [left, d]);
   const row = id => (d?.models || []).find(m => m.id === id);
   return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief stays; you choose what happens to its memory'}</small></header>
     {left > 0 ? <i className="kd-lock" aria-hidden="true"><u style={{ transform: `scaleX(${1 - left / (MODEL_LOCK_H * 3600)})` }} /></i>
@@ -197,8 +224,25 @@ function ModelSwitch({ cat, busy, onAct }) {
         <div className="m-seg kd-mem" role="radiogroup" aria-label="Its memory with the new models">{[['keep', '☁ keep its memory'], ['sort', '🧠 new model sorts it'], ['fresh', '🧹 start fresh']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`kd-mem-${k}`}>{l}</button>)}</div>
         <button type="button" className="m-btn m-go" disabled={busy || !pick[0] || pick.filter(Boolean).join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick.filter(Boolean), memory })} data-testid="kd-model-save">Switch</button>
         <KindMinds cat={cat} d={d} kind={kind} mind={mind} busy={busy} onAct={onAct} row={row} /></>}
+    <ModelTune cat={cat} d={d} busy={busy} onAct={onAct} />
     {open >= 0 ? <ModelPop d={d} kind={kind} title={`🔁 ${mind} ${'AB'[open]} · ${cat.name}`} picked={pick.filter(Boolean).map(id => ({ id }))} onPick={id => setPick(p => { const n = [p[0] || '', p[1] || '']; n[open] = id; if (n[1 - open] === id) n[1 - open] = ''; return n[0] ? n : [id]; })} onClose={() => setOpen(-1)} /> : null}
   </section>;
+}
+// 🎛 Slice 1: reasoning effort + the knobs each current mind really supports (backend `model_cfg`: a tune, never locked). Every proof call asks with them
+// and the proof's record shows them ("effort high"). Only what OpenRouter lists for that model is offered.
+const cleanTune = t => ({ efforts: Object.fromEntries(Object.entries(t.efforts || {}).filter(([, v]) => v)), knobs: Object.fromEntries(Object.entries(t.knobs || {}).filter(([, v]) => v && Object.keys(v).length)) });
+export const tuneOf = cfg => cleanTune({ efforts: cfg?.efforts, knobs: cfg?.knobs });
+export function ModelTune({ cat, d, busy, onAct }) {
+  const cfg = cat.brainsCfg || {}; const saved = JSON.stringify(tuneOf(cfg)); const [t, setT] = useState(() => tuneOf(cfg));
+  useEffect(() => { setT(JSON.parse(saved)); }, [saved]);
+  const ids = (cfg.brains || []).slice(0, 2); const rows = ids.map(id => (d?.models || []).find(m => m.id === id) || { id });
+  const dirty = JSON.stringify(cleanTune(t)) !== saved;
+  if (!d || !ids.length) return null;
+  return <div className="kd-tune" data-testid="kd-tune"><span className="m-label">TUNE ITS MINDS<em>effort and settings each model really supports · every proof call asks with them</em></span>
+    {rows.map(m => <ModelKnobs key={m.id} model={m} testid={`kd-tune-${m.id}`} effort={t.efforts?.[m.id] || ''} onEffort={v => setT(x => ({ ...x, efforts: { ...x.efforts, [m.id]: v } }))}
+      value={t.knobs?.[m.id]} onChange={v => setT(x => ({ ...x, knobs: { ...x.knobs, [m.id]: v } }))} />)}
+    <button type="button" className="m-btn m-go" disabled={busy || !dirty} data-testid="kd-tune-save" data-tip="Saved on its brains; the next proof's record shows the effort it was asked with"
+      onClick={() => onAct('model_cfg', cleanTune(t))}>Save tuning</button></div>;
 }
 
 // 🛸 its live view (owner 2026-10-30): the demo's layout on its real data — a trading cat: two live bubbles + two real coin charts + its decisions;
@@ -311,7 +355,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <section className="kd-card kd-limits"><header><b><Ic3 e="🎚" /> {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
           <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
             {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <LimitRow key={k} k={k} label={l} lo={lo} hi={hi} st={st} unit="SOL" value={lim[k]} set={x => setLim(o => ({ ...o, [k]: x }))}
-              note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance`} />)}
+              note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance${k === 'maxDailyLossSol' ? ' · stops its paper rule engine; a PoW buy is capped by MAX A TRADE' : ''}`} />)}   {/* Slice 1: honest about where the cap reaches */}
             <label className="kd-list"><em>ONLY THESE COINS</em><input className="m-input" value={lim.allowlist} onChange={e => setLim(x => ({ ...x, allowlist: e.target.value }))} placeholder="any coin when empty" /></label>
             <label className="kd-list"><em>NEVER THESE</em><input className="m-input" value={lim.blocklist} onChange={e => setLim(x => ({ ...x, blocklist: e.target.value }))} placeholder="none blocked" /></label>
             <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-save">Save limits</button></form></section>

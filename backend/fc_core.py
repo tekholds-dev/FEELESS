@@ -1126,6 +1126,14 @@ def _mind_call(cat, model, ctx, ans, text, usd, via, secs):
     rs = _rs()
     minds = list(ctx.get('minds') or []); mind = ctx.get('mind') if ctx.get('mind') is not None else (minds.index(model) if model in minds else None)
     row = rs._mission.call_row(cat.get('id'), ctx.get('kind'), ctx.get('ref'), mind, model, ans, via, usd, secs * 1000, bool(str(text or '').strip()), rs.time.time())
+    b_ = (cat.get('brainsCfg') or {}) if isinstance(cat, dict) else {}   # Slice 1: what Brains asked this call to use, so the record can show it
+    eff_, kn_ = (b_.get('efforts') or {}).get(model), (b_.get('knobs') or {}).get(model)
+    if eff_:
+        row['effort'] = str(eff_)[:20]
+    if kn_:
+        row['knobs'] = dict(kn_)
+    if rs._kind_voice_on(b_, ctx.get('kind')):
+        row['voice'] = True
     try:
         with (rs.DATA_DIR / 'mind_calls.jsonl').open('a') as f_:
             f_.write(rs.json.dumps(row, separators=(',', ':')) + '\n')
