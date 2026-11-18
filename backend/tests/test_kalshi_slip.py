@@ -364,7 +364,8 @@ def test_a_leg_another_leg_guarantees_never_goes_in_the_slip():
     assert kb.implied(SPR['ticker'], LAC['ticker']) and kb.implied(LAC['ticker'], SPR['ticker']) and kb.implied(AST8['ticker'], AST10['ticker'])
     assert not kb.implied(SPR['ticker'], UTA['ticker']) and not kb.implied(LAC['ticker'], PTS['ticker']) and not kb.implied(AST8['ticker'], PTS['ticker'])
     legs = kb._legs(_call('A', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68), (AST8['ticker'], 'yes', 60), (AST10['ticker'], 'yes', 58), (PTS['ticker'], 'yes', 55)]), {m['ticker']: m for m in JMENU})
-    assert list(legs) == [SPR['ticker'], AST8['ticker'], PTS['ticker']]   # the first of each repeated pair stays
+    assert list(legs) == [LAC['ticker'], AST8['ticker'], PTS['ticker']]   # the stronger of each repeated pair stays (LAC 68 over the spread 62)
+    assert kb.implied('KXNBATOTAL-26NOV17UTALAC-215', 'KXNBATOTAL-26NOV17UTALAC-221') and not kb.implied('KXNBATOTAL-26NOV17UTALAC-215', LAC['ticker'])
     # the exact Jazz vs Clippers slip: spread + moneyline → one real leg left, so no slip is built (it goes to his best picks instead)
     assert kb.slip_of([_call('A', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68)]), _call('B', [(SPR['ticker'], 'yes', 62), (LAC['ticker'], 'yes', 68)], 1)], JMENU, 50) is None
 

@@ -91,4 +91,5 @@ test('📺 a filled Kalshi bid on a game being played shows on the main desk by 
   const out = deskProofs({ pobFolders }); expect(out[0].id).toBe('lac'); expect(out[0].also.map(x => x.id)).toEqual(['slip']);
   expect(liveBidOf({ pobFolders: [{ ...pobFolders[0], kalshi: { orderId: 'o1', filled: 2, outcome: 'won' } }] })).toBeNull();
   expect(liveBidOf({ pobFolders: [{ ...pobFolders[0], kalshi: { orderId: 'o1', filled: 0 } }] })).toBeNull();
+  expect(liveBidOf({ pobFolders: [{ id: 'par', games: live, kalshi: { kind: 'parlay', status: 'failed' }, kalshiPicks: [{ id: 'k', orderId: 'o3', filled: 1 }] }] }).id).toBe('par');   // a placed best pick is a live bid too
 });

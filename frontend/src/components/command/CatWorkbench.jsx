@@ -340,7 +340,8 @@ const PROOF_KIND = { pob: ['🎲', 'PoB'], pow: ['⛏', 'PoW'], poc: ['📣', 'P
 // being played right now, shows on the main desk by itself (no pin needed) and leads the monitors. Watching only. Pure.
 export function liveBidOf(d) {
   const all = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])];
-  return all.filter(f => f?.kalshi?.orderId && Number(f.kalshi.filled) > 0 && !f.kalshi.outcome && (f.games || []).some(g => g && g.state === 'in' && !g.final))
+  const live = k => k?.orderId && Number(k.filled) > 0 && !k.outcome;   // its own ticket, or a best pick he placed
+  return all.filter(f => (live(f?.kalshi) || (f?.kalshiPicks || []).some(live)) && (f.games || []).some(g => g && g.state === 'in' && !g.final))
     .sort((a, b) => Number(b.at || 0) - Number(a.at || 0))[0] || null;
 }
 export function sameGameSlips(d, f) {   // every other Kalshi slip its agent put on this folder's game, and each best pick he placed. Pure.

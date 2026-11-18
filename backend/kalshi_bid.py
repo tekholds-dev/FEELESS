@@ -800,7 +800,7 @@ def slip_brief(menu, n):
 def _subject(t):
     """'KXNBASPREAD-26NOV17UTALAC-LAC5' → ('KXNBASPREAD', '26NOV17UTALAC', 'LAC'): the series, the game, and who it is about (the line stripped). Pure."""
     p = str(t or '').split('-')
-    return (p[0], p[1] if len(p) > 1 else '', re.sub(r'\d+$', '', p[2]) if len(p) > 2 else '')
+    return (p[0], p[1] if len(p) > 1 else '', (re.sub(r'\d+$', '', p[2]) or '#') if len(p) > 2 else '')   # '#': a line with no team (a total)
 
 
 def implied(a, b):
@@ -819,7 +819,7 @@ def implied(a, b):
 def _legs(c, by, slip=True):
     """One mind's legs: {ticker: (side, conf, why)}, one side per market, one winner per game, no leg another leg already guarantees. Pure."""
     out, games = {}, set()
-    for p in c.get('picks') or []:
+    for p in sorted(c.get('picks') or [], key=lambda x: -_conf(x.get('confidence'))):   # strongest first, so a repeated pair keeps its stronger leg
         k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
         t, s = str((k or {}).get('ticker') or '').strip(), str((k or {}).get('side') or '').lower()
         if t not in by or s not in ('yes', 'no') or t in out:
