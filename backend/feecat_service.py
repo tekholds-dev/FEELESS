@@ -2147,6 +2147,7 @@ _kalshi_rivals = _fc_pob._kalshi_rivals
 _kalshi_view = _fc_pob._kalshi_view
 _pob_file = _fc_pob._pob_file
 _pob_games = _fc_pob._pob_games   # 🏟 one free ESPN board read
+_pob_facts = _fc_pob._pob_facts   # 🏟 ESPN's facts on one game, for both minds
 _pob_gone = _fc_pob._pob_gone   # 🏁 has the game started, and what is still open
 _pob_gone_say = _fc_pob._pob_gone_say
 _pob_view = _fc_pob._pob_view

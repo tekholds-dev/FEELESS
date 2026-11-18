@@ -145,6 +145,18 @@ async def _pob_games(topic):
         print(f'[pob] espn board: {str(e)[:100]}'); return []
 
 
+async def _pob_facts(g):
+    """🏟 ESPN's facts on this one game (records, injuries, line, win chance): one free read → the block both minds start from ('' if none)."""
+    rs = _rs()
+    if not g or not g.get('id'):
+        return ''
+    try:
+        async with rs.httpx.AsyncClient(timeout=8, follow_redirects=True) as h_:
+            return rs._kb.game_facts(await rs._tools.game_detail(h_, g.get('sport'), str(g['id']), ('', '')), g)
+    except Exception as e:   # noqa: BLE001 — the minds still read the sites
+        print(f'[pob] game facts: {str(e)[:100]}'); return rs._kb.game_page(g)
+
+
 async def _pob_gone(topic, now=None):
     """🏁 → (the ESPN game this topic names if it has started, the league's games not started yet). (None, []) if unsure."""
     rs = _rs(); now = now or rs.time.time()
@@ -406,7 +418,7 @@ async def _pob_tick(http, cat, now):
                 legs_first_ = await rs._kb.legs_menu(http, kb_first_)
             except Exception as e:   # noqa: BLE001 — research goes on; the final call reads the legs again
                 print(f'[pob] kalshi legs first: {str(e)[:100]}')
-        page_ = rs._kb.game_page(rs._kb.game_named(topic, await rs._pob_games(topic)))   # 🌐 this game's own ESPN page first, never a home page
+        page_ = await rs._pob_facts(rs._kb.game_named(topic, await rs._pob_games(topic)))   # 🏟 ESPN's facts on this game, free, for both minds: neither spends steps on ESPN
         why = rs._read_start(cat, page_ + rs._kb.first_note(kb_first_, legs_first_) + rs._pob.topic_goal(topic, sites), who, 'pob')
         by_ = cat.pop('pobBy', None) or 'you'   # 🎯 who asked travels with this run, never left on the agent for the next one
         if why:

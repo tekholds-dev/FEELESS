@@ -20,6 +20,7 @@ from agent_mail import SOURCES
 from cat_policy import RESEARCH_ACTIONS, RULES, check_url, refusal, research_ok, thinking_leak
 from cat_policy import is_post as _is_post
 import pow as _pow
+import page_vital as _pv
 
 STEP_MAX = 8
 SEARCH_URL = 'https://html.duckduckgo.com/html/?q='
@@ -498,6 +499,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
                 seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now. A login, sign-up or paywall box over the page, or a page about another game: leave that site now and open another source.)\n' + str(seen)[:READ_MAX // 2]
                 continue
+            why_twice = taken_why(task, w, a.get('url')) if task.get('keepShots') and act == 'open' else None
+            if why_twice:   # 🔎 owner 2026-11-17 "brains shouldnt be cycling through the same sites and dead searching"
+                _step(w, f'refused: {why_twice}', 'refused', act)
+                seen = f'(REFUSED — {why_twice}. The engine opened a site nobody has read yet.)\n' + await _divert(task, w, page, wait_human)
+                continue
             why_pw = _pow.step(pw, a.get('url') if act == 'open' else page.url) if pw and act in ('open', 'click', 'scroll') else None
             if why_pw:   # ⛏ the PoW's per-site / site budget — refused before it is paid for; the engine moves it on
                 _step(w, f'refused: {why_pw}', 'refused', act)
@@ -563,8 +569,15 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if act in ('open', 'search', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
                 h_read = _pow.host_of(page.url)   # 📖 what it really read, per site: survives a window that runs out of budget before it writes its answer
-                if h_read:
-                    w.setdefault('_read', {})[h_read] = str(seen)[:700]
+                goal_ = task.get('topic') or w.get('goal') or task.get('text') or ''
+                if task.get('keepShots') and h_read and _pv.dead(seen):   # 🧱 a bot wall: remembered, never noted as a read
+                    _pv.mark_dead(h_read); task.setdefault('deadHosts', []).append(h_read)
+                elif h_read:
+                    w.setdefault('_read', {})[h_read] = _pv.note(seen, goal_) if task.get('keepShots') else str(seen)[:700]
+                    if task.get('keepShots'):
+                        task.setdefault('readBy', {}).setdefault(h_read, w['i'])
+                if task.get('keepShots') and act in ('open', 'site_search', 'click') and not h_read.endswith('duckduckgo.com'):
+                    seen = str(seen) + _pv.brief(seen, goal_, h_read)   # 🔎 the scrape of the whole page, cut to what matters for its task
             from cat_browser import needs_human
             why = needs_human(page.url, seen)
             if why:
@@ -597,6 +610,26 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     return w['answer']
 
 
+def taken_hosts(task, w):
+    """Hosts this mind should not open in a proof read: walled (this run or the last 6 h) or already read by the OTHER mind. Pure but for the dead list."""
+    if not task.get('keepShots'):
+        return set()
+    other = {h for h, i in (task.get('readBy') or {}).items() if i != w.get('i')}
+    return set(task.get('deadHosts') or []) | _pv.dead_hosts() | other
+
+
+def taken_why(task, w, url):
+    h = _pow.host_of(str(url or ''))
+    if not h or h.endswith('duckduckgo.com'):
+        return None
+    if h in set(task.get('deadHosts') or []) or _pv.is_dead(h):
+        return f'{h} walled a read (a bot check) in the last few hours'
+    i = (task.get('readBy') or {}).get(h)
+    if i is not None and i != w.get('i'):
+        return f"the other mind already read {h} (its notes reach the final answer)"
+    return None
+
+
 DIVERT = ('https://dexscreener.com/solana', 'https://rugcheck.xyz', 'https://solscan.io', 'https://www.coingecko.com', 'https://defillama.com')
 
 
@@ -608,7 +641,7 @@ async def _divert(task, w, page, wait_human=None):
     if pw:   # a PoW moves to the coin's next page
         w['powNext'] = True
         return await _pow_advance(w, pw, page, wait_human)
-    been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
+    been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)} | taken_hosts(task, w)
     own = [f'https://{h}' for h in task.get('alsoHosts') or [] if '.' in str(h)]   # the job's own sources first: a game pick goes to another sports site, never a coin checker
     # the general source book (alts) carries coin sites too (Birdeye moved a Knicks pick, 2026-11-07): a game / idea job uses its own list only
     pool = [u for u in (own if task.get('notCoins') else list(task.get('alts') or []) + own + list(DIVERT)) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]

@@ -161,7 +161,9 @@ def _no_espn_start_reads(monkeypatch):
             return None, []
         async def _no_board(*_a, **_k):
             return []
-        monkeypatch.setattr(fs, '_pob_gone', _unsure); monkeypatch.setattr(fs, '_pob_games', _no_board)
+        async def _no_facts(*_a, **_k):
+            return ''
+        monkeypatch.setattr(fs, '_pob_gone', _unsure); monkeypatch.setattr(fs, '_pob_games', _no_board); monkeypatch.setattr(fs, '_pob_facts', _no_facts)
     yield
 
 

@@ -518,6 +518,27 @@ def game_page(g):
             'Then the sites below, on THIS game only. ')
 
 
+def game_facts(d, g=None):
+    """🏟 owner 2026-11-17 ("brains shouldnt be cycling through the same sites"): ESPN's own facts on this game, read free by the server and handed
+    to BOTH minds, so neither spends steps on ESPN and each reads other sites. '' when there is nothing. Pure."""
+    ts = (d or {}).get('teams') or []
+    if len(ts) != 2:
+        return game_page(g) if g else ''
+    def side(t):
+        inj = ', '.join(f"{x.get('name')} ({x.get('status')})" for x in (t.get('injuries') or [])[:4]) or 'none listed'
+        lead = '; '.join(f"{x.get('name')} {x.get('value') or x.get('stat') or ''}".strip() for x in (t.get('leaders') or [])[:2] if isinstance(x, dict))
+        return (f"{t.get('name')} ({t.get('side')}): {t.get('record') or '?'} overall, {t.get('sideRecord') or '?'} {t.get('side') or ''}"
+                f"{', form ' + ''.join(t.get('form') or []) if t.get('form') else ''}. Out/injured: {inj}." + (f" Leaders: {lead}." if lead else ''))
+    wp = (d.get('wp') or [None])[-1]
+    rows = [side(ts[0]), side(ts[1])]
+    if d.get('line') or d.get('total'):
+        rows.append(f"Line {d.get('line') or '?'}, total {d.get('total') or '?'}.")
+    if isinstance(wp, (int, float)):
+        rows.append(f"ESPN win chance: {ts[1].get('abbr')} {round(wp * 100)}%, {ts[0].get('abbr')} {round(100 - wp * 100)}%.")
+    return ('GAME FACTS (ESPN\'s own data, read free for you: do not spend steps on espn.com, read the other sites below for what these miss):\n'
+            + '\n'.join(rows) + '\n')
+
+
 def game_label(g):
     return ' vs '.join(str((t or {}).get('short') or '') for t in (g or {}).get('teams') or [])
 
