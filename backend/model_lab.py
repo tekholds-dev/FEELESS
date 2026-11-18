@@ -63,7 +63,58 @@ def text_of(item, raw):
     title = scrub(item.get('title'))[:160]
     if not body and not title:
         return None
-    return f"### {kind} · {item.get('outcome') or 'open'} · {title}\n" + '\n'.join(body) + '\n'
+    ev = evidence(d) if isinstance(d, dict) else []
+    return f"### {kind} · {item.get('outcome') or 'open'} · {title}\n" + '\n'.join(body + ev) + '\n'
+
+
+def _s(v, n):
+    return scrub(' '.join(str(v if v is not None else '').split()))[:n]
+
+
+def evidence(d, cap=1800):
+    """🧾 What a proof DID, not just what it was called (owner audit 2026-11-18: COMP and its teacher were reading a title and a topic only).
+    Each mind's call and reason, the bid and its legs, the game and its score, the judges' review, a trade's numbers, a build's notes.
+    Page dumps (browsed) stay out: long, noisy, and third-party. Scrubbed and capped like the rest. Pure."""
+    out = []
+    for c in (d.get('calls') or [])[:4]:
+        if not isinstance(c, dict):
+            continue
+        who = _s(c.get('name') or f"mind {c.get('mind', '?')}", 40)
+        picks = [p for p in (c.get('picks') or []) if isinstance(p, dict)][:3]
+        if picks:
+            out += [f"call {who}: {_s(p.get('pick'), 80)} · {p.get('confidence', '?')}% · {_s(p.get('why'), 220)}" for p in picks]
+        elif c.get('pass'):
+            out.append(f"call {who}: PASS · {_s(c.get('pass'), 260)}")
+        elif c.get('side') or c.get('why'):
+            lev = f" {c['lev']}x" if c.get('lev') else ''
+            out.append(f"call {who}: {_s(c.get('side'), 12)} {_s(c.get('market'), 20)}{lev} · {_s(c.get('why'), 220)}".replace('  ', ' '))
+    k = d.get('kalshi') if isinstance(d.get('kalshi'), dict) else None
+    if k:
+        out.append(f"bid: {_s(k.get('title'), 90)} · {_s(k.get('side'), 4)} @ {k.get('price', '?')} × {k.get('count', '?')} · {_s(k.get('status') or 'not sent', 20)}")
+        out += [f"leg: {_s(g.get('title'), 80)} · {_s(g.get('side'), 4)} @ {g.get('price', '?')}" for g in (k.get('legs') or [])[:4] if isinstance(g, dict)]
+    for g in (d.get('games') or [])[:3]:
+        if isinstance(g, dict):
+            won = {True: 'side won', False: 'side lost'}.get(g.get('won'), 'not settled')
+            out.append(f"game: {_s(g.get('label'), 60)} · {_s(g.get('status'), 40)} · score {_s(g.get('score'), 16)} · {won}")
+    if d.get('entry') is not None or d.get('pnlPct') is not None:   # a buy that never filled has no numbers: its why says so below
+        out.append(f"trade: ${_s(d.get('sym'), 16)} · entry {d.get('entry', '?')} · exit {d.get('exit', '?')} · {d.get('pnlPct', '?')}%")
+    for w in (d.get('whys') or [])[:2] if isinstance(d.get('whys'), list) else []:
+        out.append(f"why: {_s(w, 220)}")
+    if d.get('noTrade') or (d.get('why') and d.get('status') == 'closed' and not d.get('pnlPct')):
+        out.append(f"no trade: {_s(d.get('why'), 160)}")
+    for n_ in (d.get('markNotes') or [])[:3] if isinstance(d.get('markNotes'), list) else []:
+        out.append(f"owner mark: {_s(n_.get('text') if isinstance(n_, dict) else n_, 200)}")
+    rv = (d.get('review') or {}).get('by') if isinstance(d.get('review'), dict) else None
+    for judge, r in (rv or {}).items():
+        if isinstance(r, dict):
+            checks = '; '.join(_s(x, 110) for x in (r.get('checks') or [])[:3])
+            out.append(f"review {_s(judge, 16)}: {r.get('score', '?')} · {_s(r.get('verdict'), 12)} · {checks}")
+    txt, total = [], 0
+    for ln in out:
+        if total + len(ln) > cap:
+            break
+        txt.append(ln); total += len(ln) + 1
+    return txt
 
 
 def graded_row(item, grade):

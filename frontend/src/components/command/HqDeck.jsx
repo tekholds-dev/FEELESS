@@ -18,6 +18,7 @@ import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, RoundsPricing, CrewsPricing, HousePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
 import { FuseWallet, CircleProfiles, RpcKey } from './FuseWallet';
 import { HqJump } from './HqJump';
+import { HqBridge, HqStyleSwitch, plain, readHqStyle } from './HqBridge';
 import { FuseFees } from './FuseFees';
 import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground, SimBrain, EngineFunnel } from './FuseOpsPanels';
 import { PrimeControls } from '../ArenaPrime';
@@ -112,12 +113,13 @@ export class TabGuard extends React.Component {
 
 export function HqDeck({ address, signMessage, onClose, startTab }) {
   const [session, setSession] = useState(() => readSession(address));
-  const [tab, setTab] = useRemembered('feeless.hq.tab', startTab || 'numbers');   // 🔁 a refresh comes back to the same HQ tab
+  const [tab, setTab] = useRemembered('feeless.hq.tab', startTab || 'bridge');   // 🔁 a refresh comes back to the same HQ tab
   // the creator's pop-out (HqPop) jumps between sections from its own header: feeless:hq-go {tab, view, panel}
   useEffect(() => { const on = e => { const j = e.detail || {}; if (j.view) { setMoneyView(j.view); setTab('money'); } else if (j.tab) setTab(j.tab);
     if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
     window.addEventListener('feeless:hq-go', on); return () => window.removeEventListener('feeless:hq-go', on); }, []);
-  const [navOpen, setNavOpen] = useState(false);   // 📱 the sidebar drawer on a phone
+  const [navOpen, setNavOpen] = useState(false);
+  const [hqStyle, setHqStyle] = useState(readHqStyle);   // 🎛 Ops / Ledger / Boardroom, saved per browser   // 📱 the sidebar drawer on a phone
   const [moneyView, setMoneyView] = useState('treasury');
   // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
   const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve', 'cards'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
@@ -191,22 +193,24 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
-  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['war', '⚔️ War Room', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['legal', '⚖ Legal & regions', ShieldCheck], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled drops', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['bridge', '🛰 Bridge', Activity], ['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['war', '⚔️ War Room', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['legal', '⚖ Legal & regions', ShieldCheck], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled drops', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   // one distinct mark per tool (the shared lucide icons repeated ⚡ on five tools — noise, not wayfinding)
-  const TAB_ICON = { legal: '⚖️', looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
+  const TAB_ICON = { bridge: '🛰', legal: '⚖️', looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
     numbers: '📊', traffic: '🚦', pulse: '💓', marketing: '📣', kols: '🎤', ads: '🪧', ideas: '💡', holders: '👥', studio: '🪂', airdrops: '🗓', snapshots: '📸', invites: '✉️',
     broadcast: '📡', badges: '🏅', nfts: '🖼', seasons: '🏆', investigate: '🕵️', shield: '🛡', overview: '🔐', war: '⚔️', mod: '🧹', access: '🔑', bugs: '🐞' };
   const groups = TAB_GROUPS.filter(g => g[1].some(allowed));
   const label = id => (TABS.find(t => t[0] === id) || [])[1] || id;
   const curGroup = (TAB_GROUPS.find(g => g[1].includes(tab)) || [])[0] || '';
+  const siblings = ((TAB_GROUPS.find(g => g[1].includes(tab)) || [])[1] || []).filter(allowed);   // the other tools in this tab's group, one tap away
   const go = fn => { fn(); setNavOpen(false); };
   // 🧭 one sidebar, every tool visible under its group (Stripe / Vercel dashboard pattern; owner 2026-11-10: "cluttered per tab and nav"):
   // was a group bar + a sideways-scrolling tool row + a hero box (three rows of chrome above every tab). Phone: the sidebar is a drawer.
-  return <div className={`cc-shell cc-v2${navOpen ? ' is-nav' : ''}`} data-testid="hq-shell"><HqBusyBar />
+  return <div className={`cc-shell cc-v2 hq-${hqStyle}${navOpen ? ' is-nav' : ''}`} data-testid="hq-shell"><HqBusyBar />
     <aside className="hqs" data-testid="cc-nav" aria-label="HQ navigation">
       <div className="hqs-top"><b className="trenches-font">HQ</b><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)}</small></div>
       <HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={j => go(() => jump(j))} />
       <nav className="hqs-nav">
+        {!role || role === 'owner' ? <section data-testid="cc-group-bridge"><button type="button" className={tab === 'bridge' ? 'active' : ''} aria-current={tab === 'bridge' ? 'page' : undefined} onClick={() => go(() => setTab('bridge'))} data-tip="Every group's vital signs on one screen">🛰 Bridge</button></section> : null}
         {groups.map(([group, ids, ico, blurb]) => <section key={group} data-testid={`cc-group-${group.toLowerCase()}`}><h6 data-tip={blurb}>{ico} {group}</h6>
           {ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, lbl]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => go(() => setTab(id))} data-tip={TAB_INFO[id]?.[1] || lbl} data-testid={`cc-tab-${id}`}><i aria-hidden="true"><Ic3 e={TAB_ICON[id] || '•'} size="1.05em" /></i><span>{String(lbl).replace(/ \(\d+\)$/, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim()}</span>{id === 'bugs' && sec?.stats?.openBugs ? <em className="m-num">{sec.stats.openBugs}</em> : null}</button>)}</section>)}
       </nav>
@@ -216,11 +220,14 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
       <header className="hqm-head" key={`head-${tab}`}>
         <button type="button" className="hqm-menu" onClick={() => setNavOpen(true)} aria-label="Open the HQ menu" data-testid="hq-menu" data-tip="Every HQ tool"><span aria-hidden="true">☰</span></button>
         <div className="hqm-title" data-testid="cc-tab-hero"><small>{curGroup.toUpperCase() || 'HQ'}</small><h3>{TAB_INFO[tab]?.[0] || label(tab)}</h3>{TAB_INFO[tab]?.[1] ? <p>{TAB_INFO[tab][1]}</p> : null}</div>
+        <HqStyleSwitch value={hqStyle} onChange={setHqStyle} />
         <TreasuryPulse call={call} onOpen={openTab} />
         <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button>
       </header>
 
+    {siblings.length > 1 ? <nav className="hqb-sub" aria-label={`${curGroup} tools`} data-testid="hq-sub">{siblings.map(id => <button key={id} type="button" className={`hqb-chip${tab === id ? ' active' : ''}`} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><span aria-hidden="true">{TAB_ICON[id] || '•'}</span>{plain(label(id))}</button>)}</nav> : null}
     <TabGuard key={tab} tab={TAB_INFO[tab]?.[0] || tab}>
+    {tab === 'bridge' && allowed('bridge') && <HqBridge call={call} groups={groups.map(([g, ids, ico, b]) => [g, ids.filter(allowed), ico, b])} label={label} icon={TAB_ICON} onGo={openTab} />}
     {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
     {tab === 'collective' && <CollectiveOwner call={call} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}

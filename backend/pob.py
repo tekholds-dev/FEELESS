@@ -290,7 +290,13 @@ def same_game(a, b):
     ia, ib = _ids(a), _ids(b)
     if ia and ib:
         return bool(ia & ib) and (ka == kb or ia == ib)
-    return ka == kb and _day(a) == _day(b)
+    if ka != kb:
+        return False
+    ta, tb = a.get('at'), b.get('at')
+    try:   # within 6 h, not "same calendar day": a bid at 23:55 and a re-file at 00:05 are one game; next night's rematch is not (owner audit 2026-11-18)
+        return abs(float(ta) - float(tb)) < 6 * 3600 if ta and tb else _day(a) == _day(b)
+    except (TypeError, ValueError):
+        return False
 
 
 def run_of(folders, new):

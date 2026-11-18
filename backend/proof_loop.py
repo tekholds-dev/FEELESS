@@ -9,7 +9,8 @@ from fnum import plain as _f
 
 KEEP = 5
 _GENERIC = {'best', 'top', 'good', 'great', 'pick', 'picks', 'bid', 'bids', 'bidding', 'bet', 'bets', 'betting', 'parlay', 'parlays', 'choice', 'choices', 'odds', 'game', 'games', 'tonight', 'today',
-            'tomorrow', 'this', 'next', 'week', 'for', 'the', 'and', 'on', 'of', 'in', 'to', 'a', 'an', 'my', 'me', 'what', 'who', 'which', 'will', 'win', 'wins', 'keep', 'more', 'file', 'pob', 'proof'}
+            'tomorrow', 'this', 'next', 'week', 'for', 'the', 'and', 'on', 'of', 'in', 'to', 'a', 'an', 'my', 'me', 'what', 'who', 'which', 'will', 'win', 'wins', 'keep', 'more', 'file', 'pob', 'proof',
+            'vs', 'versus', 'just', 'go', 'slip', 'slips', 'leg', 'legs', 'team', 'teams', 'beat', 'beats', 'at', 'with', 'over', 'under', 'only', 'now', 'get'}
 
 
 
@@ -62,7 +63,7 @@ def pow_note(folders):
 
 
 def _key_words(text):
-    return {w for w in re.findall(r'[a-z0-9]+', str(text or '').lower()) if w not in _GENERIC and len(w) > 1}
+    return {w for w in re.findall(r'[a-z0-9]+', str(text or '').lower()) if w not in _GENERIC and len(w) > 1 and not w.isdigit()}
 
 
 def same_topic(a, b):

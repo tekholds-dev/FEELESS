@@ -4,10 +4,10 @@ import asyncio
 import proof_tools as t
 
 
-def _post(handle, n, likes=10, video=True, text='words'):
+def _post(handle, n, likes=10, video=True, text='words', langs=None):
     e = {'$type': 'app.bsky.embed.video#view', 'thumbnail': f'https://v/{n}.jpg', 'playlist': f'https://v/{n}.m3u8'} if video else {'$type': 'app.bsky.embed.images#view'}
     return {'post': {'uri': f'at://did:x/app.bsky.feed.post/rk{n}', 'author': {'handle': handle}, 'likeCount': likes, 'repostCount': 2,
-                     'embed': e, 'record': {'text': text}}}
+                     'embed': e, 'record': {'text': text, **({'langs': langs} if langs else {})}}}
 
 
 def _fake_feed(monkeypatch, feed):
@@ -24,6 +24,11 @@ def test_viral_keeps_only_videos_one_per_author_capped_at_five(monkeypatch):
     assert len(rows) == 5 and [r['by'] for r in rows] == ['a.bsky', 'c0.bsky', 'c1.bsky', 'c2.bsky', 'c3.bsky']
     assert rows[0] == {'src': 'bluesky', 'text': 'words', 'by': 'a.bsky', 'likes': 10, 'reposts': 2, 'thumb': 'https://v/1.jpg',
                        'video': 'https://v/1.m3u8', 'url': 'https://bsky.app/profile/a.bsky/post/rk1'}
+
+
+def test_viral_keeps_english_or_untagged_posts_only(monkeypatch):
+    _fake_feed(monkeypatch, [_post('es.bsky', 1, langs=['es']), _post('pt.bsky', 2, langs=['pt']), _post('en.bsky', 3, langs=['en-US']), _post('mix.bsky', 4, langs=['pt', 'en']), _post('none.bsky', 5)])
+    assert [r['by'] for r in asyncio.run(t.viral(None))] == ['en.bsky', 'mix.bsky', 'none.bsky']
 
 
 def test_viral_source_down_gives_an_empty_list(monkeypatch):

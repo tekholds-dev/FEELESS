@@ -6,7 +6,7 @@ import { agentAuthQuery } from '../../lib/chatSession';
 // proofs reused it). The next build is offered the ones that fit; a part nobody reuses in 30 days goes stale and stops being offered.
 export function PartsShelf({ cat }) {
   const [d, setD] = useState(null); const [open, setOpen] = useState(false); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/parts?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id]);
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/parts?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'sign in to see its parts' : 'could not load the parts — try again in a minute')))).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id]);
   const parts = d?.parts || []; const live = parts.filter(p => !p.stale); const reused = parts.filter(p => p.uses > 0).length; const top = Math.max(1, ...parts.map(p => p.uses));
   if (!d && !err) return null;
   return <details className="pts" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="parts-shelf">

@@ -121,6 +121,7 @@ frontend/public/dev-agent.json
 frontend/public/dev-collective.json
 frontend/public/dev-git.json
 frontend/public/dev-lab.json
+frontend/public/dev-bridge.json
 
 frontend/public/dev-grow*.json
 .claude-wip/

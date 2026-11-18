@@ -26,10 +26,17 @@ def _cat(fs, folders):
 
 def test_after_a_team_to_win_bid_the_refile_offers_only_a_parlay_slip(monkeypatch):
     import feecat_service as fs
-    now = time.time()
+    now = time.mktime(time.localtime()[:3] + (12, 0, 0, 0, 0, -1))   # midday: a run just after midnight put the 10-min-old bid on yesterday
     bid = {'id': 'f1', 'at': now - 600, 'topic': 'Thunder vs Kings team to win', 'kalshi': {'id': 'kb1', 'title': 'Oklahoma City wins', 'status': 'filled', 'orderId': 'o1'}}
     failed = {'id': 'f0', 'at': now - 900, 'topic': 'Thunder vs Kings team to win', 'kalshi': {'id': 'kb0', 'title': 'Oklahoma City wins', 'status': 'failed', 'orderId': None}}
     assert fs._pob_team_bid(_cat(fs, [bid]), 'Thunder vs Kings', now) == 'Oklahoma City wins'
     assert fs._pob_team_bid(_cat(fs, [failed]), 'Thunder vs Kings', now) == ''          # a refused send never counts as a bid
     assert fs._pob_team_bid(_cat(fs, [bid]), 'Lakers vs Suns', now) == ''               # another game
     assert fs._pob_team_bid(_cat(fs, [{**bid, 'at': now - 3 * 86400}]), 'Thunder vs Kings', now) == ''   # another day
+
+
+def test_one_game_across_midnight_is_still_one_game():
+    import pob
+    t0 = time.mktime(time.localtime()[:3] + (23, 55, 0, 0, 0, -1))
+    a, b = {'topic': 'Thunder vs Kings', 'at': t0}, {'topic': 'Thunder vs Kings parlay', 'at': t0 + 600}
+    assert pob.same_game(a, b) and not pob.same_game(a, {**b, 'at': t0 + 9 * 3600}) and not pob.same_game(a, {**b, 'topic': 'Jazz vs Kings'})

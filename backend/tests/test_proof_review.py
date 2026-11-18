@@ -120,3 +120,17 @@ def test_an_outside_judge_reviews_a_proof_every_model_judge_built():
     for bad in (('ossy', 'pass', 90), ('owner', 'maybe', 90), ('owner', 'pass', 30), ('owner', 'fail', 80)):
         with pytest.raises(ValueError):
             pr.outside(rv, *bad)
+
+
+def test_a_pob_brief_names_its_game_bid_and_what_it_read():
+    """OSSY and G4 failed real PoBs for 'the games array is empty' and 'nothing was read' (owner audit 2026-11-18): the brief now carries them."""
+    f = {'status': 'closed', 'topic': 'Jazz vs Clippers', 'at': 1794336000,
+         'games': [{'id': '1', 'label': 'Jazz at Clippers', 'status': 'Final', 'state': 'post', 'final': False, 'score': '101 - 112', 'won': True, 'side': 'LA Clippers'}],
+         'kalshi': {'title': 'Los Angeles C wins', 'side': 'yes', 'price': 0.68, 'count': 2, 'status': 'filled', 'orderId': 'secret-order'},
+         'browsed': {'0': {'sites': ['espn.com', 'kalshi.com'], 'note': 'espn: LAC -5.5, predictor 62.2%'}}}
+    b = json.loads(pr.brief('pob', f, now=1794400000).split('\n', 1)[1])
+    g = b['games'][0]
+    assert g['label'] == 'Jazz at Clippers' and g['score'] == '101 - 112' and g['final'] is False and g['won'] is True
+    ev = b['evidence']
+    assert ev['bid'] == {'title': 'Los Angeles C wins', 'side': 'yes', 'price': 0.68, 'count': 2, 'status': 'filled'} and 'secret-order' not in json.dumps(b)
+    assert ev['sitesRead'] == ['espn.com', 'kalshi.com'] and 'predictor 62.2%' in ev['whatWasRead'][0]

@@ -10,6 +10,7 @@ export function HqEmpty({ ic, title, line }) {
 
 // One clear line per HQ tab: what it is, what you do there. Rendered as the tab's header.
 export const TAB_INFO = {
+  bridge: ['The Bridge', 'Every group at a glance: money, visitors, safety, speed. Tap a number or a tool to jump in.', []],
   launch: ['Launch & setup', 'Hook up keys, then sign the one-time launch config. Everything launchable is mapped here.', ['Launch map', 'Presets', 'Readiness check']],
   fees: ['Trading & fees', 'The FEELESS fee on every trade: rate, engine, fee accounts and live earnings.', ['Fee %', 'Engine', 'Fee accounts']],
   latency: ['Lag catcher', 'What real visitors feel: slow routes, janky pages, and the fix for each.', ['Speed score', 'Lite effects', 'Fix list']],

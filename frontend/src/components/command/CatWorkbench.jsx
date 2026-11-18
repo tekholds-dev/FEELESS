@@ -922,7 +922,7 @@ function JobsFolder({ d }) {   // 🗂 the same explorer as PoW (owner 2026-11-0
   if (!j) body = <><div className="hv-pow-stats">{[['REQUESTS', jobs.length], ['FROM PROOFS', jobs.filter(x => x.proof).length], ['👍', Object.values(d?.jobRates || {}).filter(x => x === 'up').length], ['👎', Object.values(d?.jobRates || {}).filter(x => x === 'down').length], ['COST', `$${jobs.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([kk, v]) =>
     <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{jobs.map((x, i) => { const rr = d?.jobRates?.[x.id]; return <Tile key={x.id} i={i} tone={rr === 'up' ? 'good' : rr === 'down' ? 'bad' : 'none'} ic={rr === 'up' ? '👍' : rr === 'down' ? '👎' : '🗂'}
-      label={String(x.request).slice(0, 22)} sub={`${x.proof ? `${JOB_PROOF[x.proof] || x.proof.toUpperCase()} research · ` : ''}${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
+      label={String(x.request)} sub={`${x.proof ? `${JOB_PROOF[x.proof] || x.proof.toUpperCase()} research · ` : ''}${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
   else body = <WorkTree job={j} rate={r} />;
   return <div className="dsk-pow" data-testid="dsk-jobs">
     <p className="dsk-path dsk-xpath">{path.length ? <button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}
@@ -1333,7 +1333,7 @@ function PobFile({ g, rid, leaf, catId, onMark, setPath }) {
 // 🗃 a filing on the Bids home: a plain folder, like every other proof folder (owner 2026-11-16: logos on folders were not clean; they live on the game's own page)
 function PobGameTile({ g, i, onOpen }) {
   const x = g.head; const many = g.runs.length > 1; const mo = filingMoney(x);
-  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={x.status !== 'closed' ? 'live' : moneyTone(mo.tone)} ic="🎲" label={fileName(x).slice(0, 22)} sub={many ? `${g.runs.length} readings` : mo.text} onOpen={onOpen} tip={`${fileName(x)} · PoB #${x.n || '…'} · ${clock(x.at)} · ${mo.text}`} testid={`pob-${x.id}`} />;
+  return <Tile print={[x.id, x.graded === 'right' ? 85 : x.graded === 'wrong' ? 25 : null]} i={i} tone={x.status !== 'closed' ? 'live' : moneyTone(mo.tone)} ic="🎲" label={fileName(x)} sub={many ? `${g.runs.length} readings` : mo.text} onOpen={onOpen} tip={`${fileName(x)} · PoB #${x.n || '…'} · ${clock(x.at)} · ${mo.text}`} testid={`pob-${x.id}`} />;
 }
 export function PobShelf({ d, open, setOpen, catId, onMark }) {   // eslint-disable-line react/prop-types
   const rows = newestFirst([...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]); const groups = pobGroups(rows); const [sub, setSub] = useState([]);

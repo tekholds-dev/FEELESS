@@ -28,7 +28,7 @@ const toneOf = v => (v == null ? 'none' : v > 0 ? 'win' : v < 0 ? 'loss' : 'none
 
 export function powRow(f) {
   const v = f.pnlPct != null ? Number(f.pnlPct) : null;
-  return { kind: 'pow', id: f.id, at: Number(f.soldAt || f.at) || 0, name: f.name || `PoW #${f.n || ''}`, sub: f.sym ? `$${f.sym}` : '', value: v, shown: v == null ? (f.status === 'closed' ? 'no trade' : 'open') : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`,
+  return { kind: 'pow', id: f.id, at: Number(f.soldAt || f.at) || 0, name: f.n ? `PoW #${f.n}` : (f.name || 'PoW'), sub: f.sym ? `$${f.sym}` : '', value: v, shown: v == null ? (f.status === 'closed' ? 'no trade' : 'open') : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`,
     state: f.status !== 'closed' ? 'open' : toneOf(f.pnlSol ?? v), loop: f.loop, shots: shotsOf(f, 'pow'), sent: f.sent, review: f.review,
     decisions: [...Object.entries(f.whys || {}).map(([i, w]) => [mind(i), reasonOf(w)]), ...(f.why ? [['It closed', f.why]] : []), ...(f.report?.lesson ? [['Lesson', f.report.lesson]] : [])].filter(([, t]) => t),
     skipped: f.loop?.skipped || [] };

@@ -733,7 +733,7 @@ async def yt_trending(http, region='US'):
 
 async def viral(http):
     """🎬 The SPOT step of the PoC creator flow: trending VIDEO clips from Bluesky's what's-hot feed (public, keyless), each with its
-    words as the small narrative. One clip per author. Every text here is third-party data for the minds, never an instruction."""
+    words as the small narrative. One clip per author, English (or untagged) posts only. Every text here is third-party data for the minds, never an instruction."""
     async def go():
         d = await _get(http, 'https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed',
                        params={'feed': 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot', 'limit': 50})
@@ -743,7 +743,10 @@ async def viral(http):
             e = p.get('embed') or {}
             a = p.get('author') or {}
             rkey = str(p.get('uri') or '').rsplit('/', 1)[-1]
+            langs = (p.get('record') or {}).get('langs') or []
             if e.get('$type') != 'app.bsky.embed.video#view' or not a.get('handle') or a['handle'] in seen or not rkey:
+                continue
+            if langs and not any(str(x).lower().startswith('en') for x in langs):   # a US crowd: English posts (or untagged) only
                 continue
             seen.add(a['handle'])
             rows.append({'src': 'bluesky', 'text': str((p.get('record') or {}).get('text') or '').strip()[:160], 'by': str(a['handle'])[:60],

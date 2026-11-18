@@ -59,7 +59,7 @@ export function CodeHealth({ call }) {
     <div className="m-seg chl-tabs">{CH_TABS.map(([k, l, tip]) => <button key={k} type="button" className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`chl-tab-${k}`}>
       {l} <em>{d?.counts?.[k] || 0}</em></button>)}</div>
     {(tab === 'dead_export' || tab === 'dead_file') && <div className="m-seg chl-how">{HOW.map(([k, l]) => <button key={k} type="button" className={how === k ? 'active' : ''} onClick={() => setHow(k)}>{l}</button>)}</div>}
-    {tab === 'big' && d?.biggestFiles?.length > 0 && <p className="m-note chl-files">Biggest files: {d.biggestFiles.slice(0, 5).map(f => `${f.file.split('/').pop()} ${f.lines.toLocaleString()}`).join(' · ')}</p>}
+    {tab === 'big' && d?.biggestFiles?.length > 0 && <p className="m-note chl-files">Biggest files: {d.biggestFiles.slice(0, 5).map(f => `${String(f.file || "").split('/').pop()} ${f.lines.toLocaleString()}`).join(' · ')}</p>}
     {!rows.length ? <p className="cc-empty">{d?.at ? 'Nothing here. 🟢' : 'Press Rescan.'}</p>
       : <ul className="chl-list">{rows.slice(0, 120).map((r, i) => <Row key={`${r.file}:${r.line}:${i}`} r={r} root={d.root} max={max} queued={isQueued(d.queued, r)} onQueue={queue} />)}</ul>}
     <p className="m-note">Heuristic: dynamic names (getattr, `x-${'{'}…{'}'}` classes, string routes) can hide a use — check before deleting.</p>

@@ -66,6 +66,15 @@ def _evidence(kind, f):
         return {k: f.get(k) for k in ('market', 'side', 'lev', 'leverage', 'entry', 'exit', 'sizeUsd', 'roePct', 'stop', 'tp', 'sl') if f.get(k) is not None}
     if kind in ('pos', 'poc'):
         return {'refs': (f.get('refs') or [])[:8], 'version': f.get('version')}
+    if kind == 'pob':   # 🎯 owner audit 2026-11-18: a PoB sent the judges no evidence at all, so OSSY and G4 failed real bids for "nothing was read"
+        k = f.get('kalshi') if isinstance(f.get('kalshi'), dict) else {}
+        read = [f"{(b or {}).get('sites') and ', '.join((b or {}).get('sites')[:4])}: {str((b or {}).get('note') or '')[:450]}"
+                for b in list((f.get('browsed') or {}).values())[:2] if isinstance(b, dict) and b.get('note')] if isinstance(f.get('browsed'), dict) else []
+        out = {'bid': {x: k.get(x) for x in ('title', 'side', 'price', 'count', 'status', 'kind') if k.get(x) is not None} or None,
+               'legs': [{x: g.get(x) for x in ('title', 'side', 'price') if g.get(x) is not None} for g in (k.get('legs') or [])[:4] if isinstance(g, dict)] or None,
+               'sitesRead': sorted({s_ for b in (f.get('browsed') or {}).values() if isinstance(b, dict) for s_ in (b.get('sites') or [])})[:10] if isinstance(f.get('browsed'), dict) else None,
+               'whatWasRead': read or None}
+        return {x: v for x, v in out.items() if v}
     return {}
 
 
@@ -81,7 +90,7 @@ def brief(kind, folder, envelope=None, now=None):
         'steps': f.get('steps'), 'sources': _cmp.sources(f)[:12],
         'compareRule': ({k: v for k, v in _cmp.check(kind, f).items() if k != 'hosts'} if float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0) >= COMPARE_SINCE else 'filed before the 4-source rule existed') if kind != 'poe' else None,
         'calls': [{k: c.get(k) for k in ('name', 'market', 'side', 'pick', 'why', 'picks') if c.get(k)} for c in (f.get('calls') or [])[:4] if isinstance(c, dict)],
-        'games': [{k: g.get(k) for k in ('name', 'start', 'final', 'score') if g.get(k)} for g in (f.get('games') or [])[:6] if isinstance(g, dict)],
+        'games': [{k: g.get(k) for k in ('name', 'label', 'start', 'status', 'state', 'final', 'score', 'side', 'won') if g.get(k) is not None and g.get(k) != ''} for g in (f.get('games') or [])[:6] if isinstance(g, dict)],   # PoB games are label/status/state/won (2026-11-18: name/start only → the judges saw a bare '0 - 0')
         'result': {k: f.get(k) for k in ('pnlPct', 'roePct', 'net') if f.get(k) is not None},   # 🔒 v6: never the owner's grade or the stamp: judges read the work, not other verdicts
         'playtest': (f.get('game') or {}).get('playtest') if isinstance(f.get('game'), dict) else None,
         'page': _page_text(ws_page) if ws_page else None,

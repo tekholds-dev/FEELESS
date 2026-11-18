@@ -86,6 +86,7 @@ if (DECK) {
     if (path === '/admin/roles') return answer({ yourRole: 'owner', roles: [] });
     if (path === '/admin/agents') return answer(live());
     if (path === '/admin/rpc') return answer(RPC);
+    if (window.location.search.includes('deck=bridge') && /^\/admin\/(money-pulse|security|traffic|latency|shield|bugs|numbers|pulse)$/.test(path)) return real('/dev-bridge.json').then(r => r.json()).then(j => answer(j[path] || {})).catch(() => answer({}));   // 🛰 the Bridge on a real read-only snapshot (gitignored)
     if (path === '/admin/agent-slots') return answer({ open: 250, taken: 173, left: 77, max: 1000 });   // 🎟 the slots card on a fixture
     if (path === '/admin/collective') return real('/dev-collective.json');   // 💎 the live rules, generated from collective_pool (gitignored)
     if (path === '/admin/colony') return answer(COLONY);   // 🏺 the colony pot on a fixture (the live one needs the owner's session)

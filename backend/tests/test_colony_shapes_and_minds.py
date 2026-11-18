@@ -92,3 +92,10 @@ def test_a_proposal_or_an_open_proof_grades_nobody():
 def test_the_note_says_the_record():
     assert 'alpha has called 5 of 6' in pl.lead_note({'name': 'alpha', 'right': 5, 'n': 6, 'otherRight': 1, 'otherN': 6})
     assert pl.lead_note(None) == ''
+
+
+def test_topic_words_skip_betting_filler():
+    """The board read "just", "vs", "legs" and "slip" as topics (owner audit 2026-11-18). Only real names count."""
+    assert pl._key_words('Jazz vs Clippers parlay slip 2 legs') == {'jazz', 'clippers'}
+    assert pl._key_words('Wake Forest to beat Merrimack Just 2 picks') == {'wake', 'forest', 'merrimack'}
+    assert pl.same_topic('Jazz vs Clippers team to win', 'Jazz vs Clippers parlay slip 2 legs') and not pl.same_topic('Jets vs Chiefs', 'Nets vs Hawks')
