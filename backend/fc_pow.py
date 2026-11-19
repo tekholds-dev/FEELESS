@@ -362,8 +362,43 @@ async def _pow2_reconcile(http, cat, f, buy=None, sell=None):
     if not fills[0] or not fills[1] or fills[0]['side'] != 'buy' or fills[1]['side'] != 'sell' or not fills[0]['cashSol'] or not fills[1]['cashSol']:
         return False
     f.update(buySig=buy['sig'], sellSig=sell['sig'], netPnlSol=round(fills[1]['cashSol'] - fills[0]['cashSol'], 9),
-             settlementVerified=True, cashSpentSol=fills[0]['cashSol'], cashReturnedSol=fills[1]['cashSol'])
+             settlementVerified=True, cashSpentSol=fills[0]['cashSol'], cashReturnedSol=fills[1]['cashSol'],
+             poolSpentSol=fills[0].get('poolSol'), poolReturnedSol=fills[1].get('poolSol'),   # 💧 §1 (Slice 6): P&L is what reached the pool; the fees stay on the receipt
+             feesSol=round(sum(float(x.get('feeSol') or 0) + float(x.get('networkSol') or 0) for x in fills), 9))
     return True
+
+
+def pow_kits(f):
+    """🧰 Slice 6: the PoW's own coin tools that really ran on THIS folder, read from what it kept (never a fixed list). Pure."""
+    coins = [c for c in f.get('coins') or [] if isinstance(c, dict)]; dropped = [c for c in f.get('dropped') or [] if isinstance(c, dict)]
+    srcs = sorted({str(c.get('src')) for c in coins + dropped if c.get('src')})
+    out = []
+    if coins or dropped:
+        out.append(f"coin intake ({', '.join(srcs) or 'shortlist'}): {len(coins) + len(dropped)} candidates")
+    if dropped or any('safe' in c for c in coins):
+        out.append(f"buy guards + safety vet: {len(dropped)} dropped, {sum(1 for c in coins if c.get('safe') is False)} flagged")
+    read_ = sum(1 for c in coins if c.get('read'))
+    if read_:
+        out.append(f"FEELESS coin search: {read_} coins read")
+    if f.get('scouted') or f.get('scout'):
+        out.append(f"scout: {len(f.get('scout') or [])} coins")
+    if f.get('shadow') is not None:
+        out.append('shadow compare against the coins it passed on')
+    if f.get('settlementVerified'):
+        out.append('chain settlement read (both fills)')
+    return out
+
+
+def _pow2_pnl(f):
+    """💧 §1: a real PoW's P&L never includes fees: pool in → pool out (the money that reached the pool), fees apart on the receipt (feesSol;
+    the wallet's cash net stays as netPnlSol). A folder settled before the pool split was kept has only its cash fills, and says so (pnlBasis). → (pnlSol, pnlPct)."""
+    spent, back = f.get('poolSpentSol'), f.get('poolReturnedSol')
+    if spent and back is not None:
+        f['pnlBasis'] = 'pool'
+        pnl = round(float(back) - float(spent), 9)
+        return pnl, round(100 * pnl / float(spent), 2)
+    f['pnlBasis'] = 'cash (fees in: settled before the pool legs were kept)'   # said on the folder, never silent
+    return f.get('netPnlSol'), (round(100 * f['netPnlSol'] / f['cashSpentSol'], 2) if f.get('cashSpentSol') and f.get('netPnlSol') is not None else None)
 
 
 async def _pow2_relink(store):
@@ -383,7 +418,7 @@ async def _pow2_relink(store):
                     continue
                 if await rs._pow2_reconcile(http, c, f, pair[0], pair[1]):
                     f.update(pid=pair[0].get('pid'), sellPid=pair[1].get('pid'), sigsFrom='agent transactions, matched by coin and time')
-                    f['pnlSol'] = f['netPnlSol']; f['pnlPct'] = round(100 * f['netPnlSol'] / f['cashSpentSol'], 2) if f.get('cashSpentSol') else None
+                    f['pnlSol'], f['pnlPct'] = _pow2_pnl(f)   # 💧 §1: pool to pool, fees apart
                     fixed += 1
     return fixed
 
@@ -416,8 +451,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
         f['exit'] = exit_px; f['pnlEstimatePct'] = round(rs._pow.pnl_pct(f['entry'], exit_px), 2)
         f['pnlEstimateSol'] = round(float(f.get('sol') or 0) * f['pnlEstimatePct'] / 100, 6)
     if f.get('real'):
-        f['pnlSol'] = f.get('netPnlSol') if f.get('settlementVerified') else None
-        f['pnlPct'] = round(100 * f['pnlSol'] / f['cashSpentSol'], 2) if f.get('settlementVerified') and f.get('cashSpentSol') else None
+        f['pnlSol'], f['pnlPct'] = _pow2_pnl(f) if f.get('settlementVerified') else (None, None)   # 💧 §1: pool to pool, fees apart
     elif f.get('pnlEstimateSol') is not None:
         f['pnlSol'], f['pnlPct'] = f['pnlEstimateSol'], f['pnlEstimatePct']
     if f.get('real') and f.get('settlementVerified') and (f.get('netPnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
@@ -436,6 +470,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
         d_ = rs.POWSHOTS_DIR / rs.re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / 'report.md').write_text(md_)
     except OSError as e:
         print(f'[pow2] report not kept: {e}')
+    f['kits'] = f.get('kits') or pow_kits(f)   # 🧰 Slice 6: the record names the coin tools this PoW really used (it said only "PoW reads its own coin tools")
     rs._record_file(cat, 'pow', f, now)   # 🧾 Slice 0: the minds that really ran, its sources, its footprint (and TEST)
     cat['powFolders'] = rs._pow.trim_folders((cat.get('powFolders') or []) + [rs._pow.folder_public(f)])   # 📌 kept folders are never trimmed
     won = (f.get('pnlPct') or 0) > 0
@@ -1996,7 +2031,7 @@ async def _pop_gather(http, cat, reads, idx, rid, now):
 async def _pop_round(cat, idx, sys_of, brief, box):
     """One blind round: the listed minds answer at once, inside the round's time limit. A mind that says nothing is a mind with no call."""
     rs = _rs()
-    return await rs._minds_ask([rs._pow2_ask(cat, i, sys_of(i), brief(i), 220, box) for i in idx], rs._pop.ROUND_S)
+    return await rs._minds_ask([rs._pow2_ask(cat, i, sys_of(i), brief(i), rs._pop.CALL_TOKENS, box) for i in idx], rs._pop.ROUND_S)   # 🩹 Slice 6: 220 cut OSSY's call off mid-reason (it filed as a pass)
 
 
 async def _minds_ask(asks, secs):

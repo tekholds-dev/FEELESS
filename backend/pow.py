@@ -696,8 +696,8 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rPair', 'rMind', 'pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'sigsFrom', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'shadow', 'kept', 'hidden',
-            'ran', 'mindsCheck', 'read', 'foot', 'proofChecks', 'test', 'testRun', 'readTids', 'recordError', 'topic')   # 🧾 Slice 0: the true record
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rPair', 'rMind', 'pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'poolSpentSol', 'poolReturnedSol', 'feesSol', 'pnlBasis', 'sigsFrom', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'shadow', 'kept', 'hidden',
+            'ran', 'mindsCheck', 'read', 'foot', 'proofChecks', 'test', 'testRun', 'readTids', 'recordError', 'topic', 'kits')   # 🧾 Slice 0: the true record · Slice 6: + the coin tools it really used
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]

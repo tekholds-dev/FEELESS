@@ -10,6 +10,9 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-19
+- **TESTs run on Happy's agent now** (owner: "test on happy but only proposals, no real trench trades or pow's to speed up testing etc, shouldnt spend more than .50. sicarios are slow asl"): `scripts/test-proof.py --agent happy …`. Proposals and paper only: a TEST PoW is a proposal, a TEST PoB never bids, PoP is paper, nothing posts; at most **$0.25 per proof type** and **$1.00 for all TESTs together** (owner, confirmed: "max .25-.5c per proof type to assure real money testing ready, dont waste my whole $2"; `fc_test.KIND_BUDGET_USD` / `TEST_BUDGET_USD`, counted from the call log; the door refuses past either). Sicario's (free local minds) stays the default. This replaces "every agent test runs on Sicario's agent" in CLAUDE.md §2–3 and VISION "Sicario's agent = the test agent".
+
 ## 2026-11-18
 - **Vision is the bar** (owner: "every proof type and filing were to create a new footprint and to never do the same shit twice"; "THATS THE WHOLE POINT OF AGENTS AND COLLECTIVE — TO PROVIDE ALL THE TOOLS AND KITS"): `docs/VISION.md` holds each part's goal + checks; nothing is done until its checks pass on a real free run.
 - **Wired or it doesn't ship** (owner: "you built my idea visually and … the backend"): every control needs a test proving click → saved → used by the engine → shown in the proof's record.

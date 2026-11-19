@@ -180,6 +180,20 @@ def _pot_keep(c):
     k_['potAlerted'] = (have_ + [x for x in c.get('potAlerted') or [] if x not in have_])[-rs._appr.ALERTED_KEEP:]
 
 
+def _review_keep(cid, key, fid, rv):
+    """📊 Slice 6: poeFolders is an owner key, so _save lays the owner's last snapshot (_KEPT) over the engine's copy and every PoEco verdict was
+    erased on the next save (PoEco #4, 2026-11-19: OSSY + G4 answered, the folder showed none). The verdict goes into that snapshot too. Adds only."""
+    rs = _rs()
+    k_ = rs._KEPT.get(cid)
+    if key not in rs.OWNER_KEYS or not isinstance(k_, dict):
+        return False
+    row_ = next((x for x in k_.get(key) or [] if isinstance(x, dict) and x.get('id') == fid), None)
+    if row_ is None:
+        return False
+    row_['review'] = rs.json.loads(rs.json.dumps(rv))
+    return True
+
+
 def _review_apply(store):
     """The engine files each verdict on its folder and in the proof history."""
     rs = _rs()
@@ -195,9 +209,10 @@ def _review_apply(store):
         cid, kind, fid, rv = rs._REVIEW_DONE.pop(0)
         key = rs._mission.KINDS[kind][1]
         f = next((x for x in (store['cats'].get(cid) or {}).get(key) or [] if x.get('id') == fid), None)
-        if f is None or (((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0) and not rs._review.stand_in(f.get('review')) and not rs._review.stale_brief(kind, f.get('review'))):   # an older version's review is replaced (and a Qwen-voiced ZED one, and a PoB judged on the old brief)
+        if f is None or (((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0) and not rs._review.stand_in(f.get('review')) and not rs._review.stale_brief(kind, f.get('review'), f)):   # an older version's review is replaced (and a Qwen-voiced ZED one, and a PoB judged on the old brief)
             continue
         f['review'] = rv; n += 1
+        _review_keep(cid, key, fid, rv)
         rs._REVIEW_LESSONS[kind] = rs._review.lessons(store, kind)
         try:
             rs._pev.append(rs.DATA_DIR / rs._pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy'), 'why': str(v.get('why') or '')[:120]} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict'],
@@ -263,6 +278,36 @@ async def review_outside_internal(p: _RSM.OutsideReviewIn, request: Request):
     return rs._outside_review_apply(rs._load(), p.cat, p.kind, p.fid, 'claude', p.model_dump())
 
 
+ECO_GRADE_EVERY_S = 600
+_ECO_GRADE = {'at': 0.0}
+
+
+def eco_due(cat, now):
+    """The market PoEcos on this agent whose horn has passed and that reality has not graded yet. Pure."""
+    return [f for f in (cat or {}).get('poeFolders') or [] if isinstance(f, dict) and f.get('kind') == 'market' and not f.get('graded') and now >= float(f.get('due') or 0)]
+
+
+async def _eco_grade_pass(load, now=None):
+    """📊 Slice 6: a market PoEco was graded only when the owner opened its folder (the page asked for eco_grade), so a call nobody opened stayed
+    open forever. Every 10 min the engine grades each due call through the same eco_grade step (fresh DexScreener pools, pure math). → graded count."""
+    rs = _rs(); now = now or rs.time.time()
+    if now - _ECO_GRADE['at'] < ECO_GRADE_EVERY_S:
+        return 0
+    _ECO_GRADE['at'] = now; n = 0
+    store = load() if callable(load) else load   # the store is read only when the pass is due
+    for cid, c in (store.get('cats') or {}).items():
+        if c.get('revoked') or not eco_due(c, now):
+            continue
+        try:   # one agent's error never holds another agent's due calls
+            out = await rs._cat_work(cid, rs.WorkPayload(op='eco_grade', session=rs._AUTO_TOKEN, auto=True))
+            n += int((out or {}).get('graded') or 0)
+        except Exception as e:   # noqa: BLE001
+            print(f'[eco] grade {cid}: {type(e).__name__}: {str(e)[:100]}')
+    if n:
+        print(f'[eco] graded {n} due market call(s)')
+    return n
+
+
 async def _review_loop():
     """🧑‍⚖️ Every REVIEW_EVERY_S, one proof: OSSY and G4 review the newest one nobody reviewed. Off with FEELESS_REVIEW=0."""
     rs = _rs()
@@ -275,6 +320,10 @@ async def _review_loop():
             await rs._review_one(st_)
         except Exception as e:   # noqa: BLE001
             print(f'[review] {type(e).__name__}: {str(e)[:120]}')
+        try:
+            await _eco_grade_pass(rs._load)
+        except Exception as e:   # noqa: BLE001
+            print(f'[eco] grade: {type(e).__name__}: {str(e)[:120]}')
         try:   # 📌 COL-20 P3: once a UTC day, keep the proof record's chain tip outside the database
             if await rs.asyncio.to_thread(rs._pev.anchor, rs.DATA_DIR / rs._pev.DB_NAME, rs.DATA_DIR / rs._pev.ANCHORS):
                 rs._VALUE['at'] = 0
@@ -313,7 +362,7 @@ async def _pow2_relink_once(delay=30):
         copy_ = rs._load()
         if not await rs._pow2_relink(copy_):
             return
-        fresh = rs._load(); n = 0; keys_ = ('pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'sigsFrom', 'pnlSol', 'pnlPct')
+        fresh = rs._load(); n = 0; keys_ = ('pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'poolSpentSol', 'poolReturnedSol', 'feesSol', 'pnlBasis', 'sigsFrom', 'pnlSol', 'pnlPct')
         for cid, c in copy_['cats'].items():
             got = {f['id']: f for f in c.get('powFolders') or [] if f.get('settlementVerified') and f.get('sigsFrom')}
             for f in (fresh['cats'].get(cid) or {}).get('powFolders') or []:

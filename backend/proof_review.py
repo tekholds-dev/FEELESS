@@ -48,6 +48,51 @@ def _iso(t):
         return None
 
 
+RUBRIC_SAT_OUT = {   # 🧑‍⚖️ Slice 6: a PoP whose minds called it and stayed out is a decision, judged on its own five checks (none of them is the result math)
+    'pop': ["1. The markets' prices come from real live reads (the board, each mind's own sources)", "2. Each mind's reason to stay out (or its call) is backed by that data",
+            "3. No mind's call was lost or cut off: a cut-off answer is not a pass", '4. Staying out was the better call than the trade on offer', '5. More than one source was read and they agree'],
+}
+RUBRIC_PROPOSAL = {   # 🧑‍⚖️ Slice 6: a PoW proposal buys nothing (every TEST PoW is one), so it is judged as a proposal, never on a trade it did not make
+    'pow': ['1. Real data on the coin was read before the pick (whatWasRead, shortlist: pool, cap, safety)',
+            "2. The minds' reason is backed by that data, not by hype or one number", '3. The pick was better than the other shortlist coins it could have picked',
+            "4. The proposed stop and take-profit fit the coin's risk and size", '5. The proposal is ready to run as it stands: coin, size, stop and take-profit set, the risk named'],
+}
+RUBRIC_MARKET = {   # 🧑‍⚖️ Slice 6: a PoEco market call (pure math on live pools, graded by reality a day later), judged once it is sealed
+    'poe': ['1. Both pools and their numbers come from a real live read (the pages read)', '2. The question is measurable and settles on a real number at the stated time',
+            '3. The pick follows the stated rule from the baseline numbers (higher 24h volume / liquidity)', '4. Both pools are live and deep enough for the call to mean something',
+            '5. The call is sealed (its hash) and is not a repeat of a past call'],
+}
+
+
+def sat_out(kind, f):
+    """A PoP its minds really called and stayed out of (not a feed or model outage, which files no calls). Pure."""
+    return kind == 'pop' and bool((f or {}).get('noTrade')) and any(isinstance(c, dict) and str(c.get('why') or c.get('side') or '').strip() for c in (f or {}).get('calls') or [])   # a mind that came back blank made no decision
+
+
+def sealed_call(kind, f):
+    """A PoEco market call that is filed and sealed, waiting for reality's grade: judged now, like a PoB before its games settle. Pure."""
+    f = f or {}
+    return kind == 'poe' and f.get('kind') == 'market' and f.get('status') == 'open' and bool(f.get('hash')) and isinstance(f.get('baseline'), dict)
+
+
+def rubric_of(kind, f):
+    """The five checks for THIS proof: a sat-out PoP and a PoEco market call have their own. Pure."""
+    f = f or {}
+    if kind == 'pop' and f.get('noTrade'):
+        return RUBRIC_SAT_OUT['pop']
+    if kind == 'poe' and f.get('kind') == 'market':
+        return RUBRIC_MARKET['poe']
+    if kind == 'pow' and proposal(f):
+        return RUBRIC_PROPOSAL['pow']
+    return RUBRIC.get(kind, [])
+
+
+def proposal(f):
+    """A PoW that proposed a coin and bought nothing (no entry fill). Pure."""
+    f = f or {}
+    return bool(f.get('propose')) and not f.get('entry') and not f.get('boughtAt')
+
+
 def _evidence(kind, f):
     """The kind's own evidence, as the folder recorded it. Pure."""
     if kind == 'pow':
@@ -57,13 +102,32 @@ def _evidence(kind, f):
                 'sizeSol': f.get('sol'), 'realMoney': bool(f.get('real')), 'mindsWhy': [str(x)[:200] for x in (f.get('whys') or {}).values()][:2],
                 'shortlist': [{k: c.get(k) for k in ('sym', 'liq', 'mc', 'ch', 'safe', 'risk', 'src') if c.get(k) is not None} for c in coins[:5]],
                 'shortlistChangeIs': 'the coin\'s 24h price change when it was listed, before the buy',
-                'droppedBySafety': len(f.get('dropped') or []), 'whatWasRead': [f"{c.get('sym') or '?'}{' (BOUGHT)' if c.get('mint') == f.get('mint') else ''}: {str(c.get('read'))[:450]}" for c in coins[:2] if c.get('read')]}
+                'droppedBySafety': len(f.get('dropped') or []), **({'proposalOnly': 'a proposal: nothing was bought, so there is no entry, exit or P&L to check'} if proposal(f) else {}), 'whatWasRead': [f"{c.get('sym') or '?'}{(' (PICKED, not bought)' if proposal(f) else ' (BOUGHT)') if c.get('mint') == f.get('mint') else ''}: {str(c.get('read'))[:450]}" for c in coins[:2] if c.get('read')]}
+    if kind == 'poe' and f.get('kind') == 'market':   # 📊 Slice 6: the call, both pools' numbers (turnover worked out), the seal, and reality's grade once it came
+        def pool(r):
+            r = r if isinstance(r, dict) else {}
+            liq = float(r.get('liqUsd') or 0)
+            return {**{k: r.get(k) for k in ('pair', 'priceUsd', 'vol24h', 'liqUsd', 'chg24h') if r.get(k) is not None}, 'turnover': round(float(r.get('vol24h') or 0) / liq, 3) if liq else None}
+        b = f.get('baseline') or {}
+        out = {'question': f.get('q'), 'rule': f.get('rule'), 'pick': pool(b.get('pick')), 'other': pool(b.get('other')), 'settlesAt': _iso(f.get('due')), 'sealHash': f.get('hash'),
+               'pagesRead': list(((f.get('read') or {}).get('pages') or []))[:4], 'footprintNewPct': (f.get('foot') or {}).get('pct'),
+               'graded': f.get('graded') or 'not yet: reality grades it at settlesAt; judge the call, not an outcome', 'after': f.get('after')}
+        return {k: v for k, v in out.items() if v is not None}
     if kind == 'poe':
         out = {k: f.get(k) for k in ('topic', 'income', 'costs', 'net', 'margin', 'months', 'count', 'burnPerMonth', 'taxPct', 'taxSetAside') if f.get(k) is not None}
         out['fieldsMean'] = 'income / costs / net = totals of every month; margin = net / income %; count = ledger entries (not months); burnPerMonth = average monthly costs; taxSetAside = net x taxPct'
         return out
-    if kind == 'pop':
-        return {k: f.get(k) for k in ('market', 'side', 'lev', 'leverage', 'entry', 'exit', 'sizeUsd', 'roePct', 'stop', 'tp', 'sl') if f.get(k) is not None}
+    if kind == 'pop':   # 📉 Slice 6: + the board every mind read and each mind's own sources (the judges saw only market/side, so a sit-out showed them nothing)
+        out = {k: f.get(k) for k in ('market', 'side', 'lev', 'leverage', 'entry', 'exit', 'sizeUsd', 'roePct', 'stop', 'tp', 'sl') if f.get(k) is not None}
+        out['tradeTaken'] = not f.get('noTrade')
+        out['board'] = [{k: r.get(k) for k in ('market', 'px', 'chgPct', 'high', 'low') if r.get(k) is not None} for r in (f.get('reads') or [])[:4] if isinstance(r, dict)]
+        src = f.get('sources') if isinstance(f.get('sources'), dict) else {}
+        out['ownSources'] = {f'mind{m}': [{k: r.get(k) for k in ('site', 'market', 'px', 'devBps', 'off', 'funding') if r.get(k) is not None} for r in (rows or [])[:5] if isinstance(r, dict) and r.get('ok')]
+                             for m, rows in list(src.items())[:2]}
+        out['whatWasRead'] = [f"{', '.join((b or {}).get('sites') or []) or 'its own window'}: {str((b or {}).get('note') or '')[:300]}" for b in list((f.get('browsed') or {}).values())[:2]
+                              if isinstance(b, dict) and b.get('note')] if isinstance(f.get('browsed'), dict) else []
+        out['cutOff'] = [c.get('name') for c in f.get('calls') or [] if isinstance(c, dict) and c.get('cut')]
+        return {k: v for k, v in out.items() if v not in (None, [], {})}
     if kind in ('pos', 'poc'):
         return {'refs': (f.get('refs') or [])[:8], 'version': f.get('version')}
     if kind == 'pob':   # 🎯 owner audit 2026-11-18: a PoB sent the judges no evidence at all, so OSSY and G4 failed real bids for "nothing was read"
@@ -83,7 +147,7 @@ def brief(kind, folder, envelope=None, now=None):
     f = folder or {}; e = envelope or {}
     ws_page = f.get('_page') or ''
     rows = {
-        'kind': kind, 'yourFiveChecks': RUBRIC.get(kind, []), 'title': e.get('title') or f.get('topic') or f.get('sym') or f.get('name'),
+        'kind': kind, 'yourFiveChecks': rubric_of(kind, f), 'title': e.get('title') or f.get('topic') or f.get('sym') or f.get('name'),
         'status': f.get('status'), 'why': str(f.get('why') or f.get('report') or '')[:600],
         'plan': (f.get('plan') if isinstance(f.get('plan'), str) else json.dumps(f.get('plan'))[:500]) if f.get('plan') else None,
         'today': _iso(now) or _iso(__import__('time').time()), 'filed': _iso(float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0)), 'evidence': _evidence(kind, f),
@@ -176,10 +240,14 @@ def same_issue(a, b):
 
 
 def builders_of(f, cfg, kind):
-    """The models that MADE this proof: the folder's own record when it kept one, else the agent's minds for this kind. Pure."""
+    """The models that MADE this proof: its true record (the call log) when it has one, else the folder's own minds, else the agent's minds for this kind. Pure."""
     import launch_cat
-    own = [str(m) for m in (f or {}).get('minds') or [] if m] if isinstance((f or {}).get('minds'), list) else []
-    return own or launch_cat.minds_for(cfg or {}, kind)
+    f = f or {}
+    ran_ = [str(r.get('asked')) for r in f.get('ran') or [] if isinstance(r, dict) and r.get('asked') and r.get('ok')] if isinstance(f.get('ran'), list) else []   # 🧾 Slice 6: who REALLY answered (call log)
+    own = [str(m) for m in f.get('minds') or [] if m] if isinstance(f.get('minds'), list) else []
+    if ran_ or own:   # both kept: a call the log missed never lets its builder judge it
+        return ran_ + [m for m in own if m not in ran_]
+    return [] if kind == 'poe' else launch_cat.minds_for(cfg or {}, kind)   # 📊 Slice 6: no model ever builds a PoEco (books and market calls are Python), so no judge sits one out
 
 
 def recused(builders):
@@ -220,9 +288,14 @@ def stand_in(rv):
 POB_BRIEF_AT = 1794982777   # 2026-11-18: before this the judges never saw a PoB's bid, legs, reads or full games (a bare "0 - 0"); PoBs judged before it are judged again
 
 
-def stale_brief(kind, rv):
-    """A PoB review made on the old brief, or a review no judge answered, with no outside (owner/Claude) vote to lose: judged again once per run. Pure."""
-    return bool(rv) and not rv.get('outside') and ((kind == 'pob' and float(rv.get('at') or 0) < POB_BRIEF_AT) or unanswered(rv))
+POW_PROPOSAL_AT = 1795114500   # 2026-11-19 (Slice 6): before this a PoW proposal was judged on the trade rubric (failed for "no entry price"); judged again
+
+
+def stale_brief(kind, rv, f=None):
+    """A PoB review made on the old brief, a PoW proposal judged as a trade, or a review no judge answered, with no outside (owner/Claude) vote
+    to lose: judged again once per run. Pure."""
+    return bool(rv) and not rv.get('outside') and ((kind == 'pob' and float(rv.get('at') or 0) < POB_BRIEF_AT)
+                                                    or (kind == 'pow' and proposal(f) and float(rv.get('at') or 0) < POW_PROPOSAL_AT) or unanswered(rv))
 
 
 def unanswered(rv):
@@ -231,7 +304,7 @@ def unanswered(rv):
 
 
 def next_due(store, done=(), kinds=None, handles=None):
-    """The newest closed proof nobody reviewed yet, of any agent and kind. → (cat_id, kind, folder) or None. Pure."""
+    """The newest closed proof nobody reviewed yet, of any agent and kind (+ a PoP its minds sat out, + a sealed PoEco market call). → (cat_id, kind, folder) or None. Pure."""
     import mission
     best = None
     for cid, c in ((store or {}).get('cats') or {}).items():
@@ -241,7 +314,7 @@ def next_due(store, done=(), kinds=None, handles=None):
             if kinds and k not in kinds:
                 continue
             for f in c.get(key) or []:
-                if f.get('status') != 'closed' or (((f.get('review') or {}).get('v') or 0) >= VERSION and not stand_in(f.get('review')) and not stale_brief(k, f.get('review'))) or f.get('noTrade') or (cid, f.get('id')) in done:
+                if (f.get('status') != 'closed' and not sealed_call(k, f)) or (((f.get('review') or {}).get('v') or 0) >= VERSION and not stand_in(f.get('review')) and not stale_brief(k, f.get('review'), f)) or (f.get('noTrade') and not sat_out(k, f)) or (cid, f.get('id')) in done:   # 🧑‍⚖️ Slice 6: a sat-out PoP and a sealed PoEco call are judged too (they never were)
                     continue
                 at = float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0)
                 if best is None or at > best[0]:

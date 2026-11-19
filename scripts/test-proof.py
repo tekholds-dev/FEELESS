@@ -27,9 +27,15 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASE = 'http://127.0.0.1:5088/api/cats/internal/test-proof'
 
 
+AGENT = ''
+
+
 def call(method, body=None):
     key = (ROOT / 'backend' / 'data' / 'internal.key').read_text().strip()
-    req = urllib.request.Request(BASE, method=method, data=json.dumps(body).encode() if body is not None else None,
+    url = BASE + (f'?agent={AGENT}' if AGENT and method == 'GET' else '')
+    if AGENT and isinstance(body, dict):
+        body = {**body, 'agent': AGENT}
+    req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None,
                                  headers={'x-feeless-internal': key, 'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
@@ -60,6 +66,7 @@ def summary(last):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--agent', default='', choices=('', 'sicarios', 'happy'), help="the TEST agent: Sicario's (default, free local minds) or Happy's (its paid minds, proposals + paper only, $0.50 cap)")
     ap.add_argument('--kind', choices=('pow', 'pop', 'pob', 'poc', 'pos', 'poe'))
     ap.add_argument('--topic', default='')
     ap.add_argument('--wait', action='store_true', help='wait until the TEST files (up to --mins)')
@@ -73,6 +80,8 @@ def main():
     ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
     ap.add_argument('--inspect', action='append', default=[], help='PoStatic + --ws: a CSS query for the element to click with inspect (repeatable); --topic is the fix')
     a = ap.parse_args()
+    global AGENT
+    AGENT = a.agent
     if a.state or not a.kind:
         code, j = call('GET')
         for k, v in (j.get('tests') or {}).items():

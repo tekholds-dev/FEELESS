@@ -993,6 +993,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             addrs_ = sorted({f['baseline'][k]['addr'] for f in due_ for k in ('pick', 'other')})
             async with rs.httpx.AsyncClient(timeout=15) as http_:
                 rows_ = await rs._eco_pools(http_, addrs_)
+            if not rows_:   # 🛡 Slice 6: the feed gave nothing (an outage), not "both pools went dark": grade later, never wrong on a blip
+                return {'poeFolders': (cat.get('poeFolders') or [])[::-1], 'graded': 0, 'why': 'DexScreener gave no pools; graded on the next pass'}
             for f in due_:
                 rs._ecm.grade(f, rows_)
             rs.keep_owned(cat); rs._save(store)
@@ -2422,7 +2424,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         poc_ = rs.re.match(r'^\s*(?:file|make|start)\s+a\s+poc\b\s*(.*)$', str(p.text or ''), rs.re.I)
         if poc_ and (cat.get('brainsCfg') or {}).get('brains') and cat_id not in rs._POC_BUSY:   # 📣 "file a poc lakers memes"
             rs._POC_BUSY.add(cat_id); rs.asyncio.create_task(rs._poc_file(cat_id, poc_.group(1).strip()[:120]))
-            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': '📣 Filing a PoC. Both minds read what is trending now and propose blind. ' + ('A TEST on free local minds, $0. ' if rs._test_live(cat, 'poc') else 'Paid model calls. ') + 'Nothing is posted.', 'at': rs.time.time(), 'open': 'features'}])[-200:]
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': '📣 Filing a PoC. Both minds read what is trending now and propose blind. ' + (('A TEST on free local minds, $0. ' if cat.get('handle') == 'sicarios' else 'A TEST on its own minds (paid calls, capped). ') if rs._test_live(cat, 'poc') else 'Paid model calls. ') + 'Nothing is posted.', 'at': rs.time.time(), 'open': 'features'}])[-200:]
             rs.keep_owned(cat); rs._save(store)
             return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         pob_topic_ = rs._pob.topic_of(p.text) if not (site_cmd_ and not site_cmd_.get('why')) else None
@@ -2463,7 +2465,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
             ok_, say_ = rs._pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
                 cat.pop('proofSite', None); cat['pobAsk'] = pob_topic_; cat['pobBy'] = 'test' if rs._test_live(cat, 'pob') else 'auto' if p.auto else 'you'; rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
-                say_ = f'🎲 Filing a PoB on {pob_topic_}. Kalshi first, then major sites in its own windows; both minds call it blind. ' + ('A TEST on free local minds, $0: it never bids.' if rs._test_live(cat, 'pob') else 'Paid model calls. ' + ('One parlay slip from Kalshi\'s own legs: it bids if both back the same legs, otherwise the stronger slip waits for your tap, inside your caps.' if rs._kb.mode_of(pob_topic_) == 'parlay' else 'A real Kalshi bid only if both back the same market, inside your caps.'))
+                say_ = f'🎲 Filing a PoB on {pob_topic_}. Kalshi first, then major sites in its own windows; both minds call it blind. ' + (('A TEST on free local minds, $0: it never bids.' if cat.get('handle') == 'sicarios' else 'A TEST on its own minds (paid calls, capped): it never bids.') if rs._test_live(cat, 'pob') else 'Paid model calls. ' + ('One parlay slip from Kalshi\'s own legs: it bids if both back the same legs, otherwise the stronger slip waits for your tap, inside your caps.' if rs._kb.mode_of(pob_topic_) == 'parlay' else 'A real Kalshi bid only if both back the same market, inside your caps.'))
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': rs.time.time()}, {'by': 'cats', 'text': say_, 'at': rs.time.time(), 'open': 'bids'}])[-200:]
             rs.keep_owned(cat); rs._save(store)
             return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}

@@ -172,7 +172,7 @@ def _review(rv):
 
 
 BID_KEYS = ('ticker', 'title', 'side', 'count', 'price', 'maxPx', 'usd', 'budgetUsd', 'status', 'kalshiStatus', 'filled', 'sentFilled', 'outcome', 'result', 'at', 'confirmedAt', 'settledAt', 'why', 'warn', 'confirmErr')
-TRADE_KEYS = ('sym', 'name', 'sol', 'cashSpentSol', 'cashReturnedSol', 'entry', 'entryUsd', 'exit', 'pnlPct', 'pnlSol', 'netPnlSol', 'roePct', 'boughtAt', 'soldAt', 'settlementVerified', 'real', 'tp', 'sl')
+TRADE_KEYS = ('sym', 'name', 'sol', 'cashSpentSol', 'cashReturnedSol', 'poolSpentSol', 'poolReturnedSol', 'feesSol', 'pnlBasis', 'entry', 'entryUsd', 'exit', 'pnlPct', 'pnlSol', 'netPnlSol', 'roePct', 'boughtAt', 'soldAt', 'settlementVerified', 'real', 'tp', 'sl')
 
 
 def deal_of(kind, f, bids):

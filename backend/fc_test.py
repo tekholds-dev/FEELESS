@@ -20,10 +20,15 @@ class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: 
     op: str = 'start'
     model: Optional[dict] = None
     ws: str = ''   # 🧪 Slice 3: PoStatic only, a TEST folder to change (a new version of it, to prove it keeps every part that worked)
+    agent: str = ''   # 🧪 owner 2026-11-19: '' / 'sicarios' = Sicario's (free local minds) · 'happy' = Happy's (its paid minds, proposals and paper only, TEST_BUDGET_USD in all)
     inspect: Optional[list] = None   # 🔍 Slice 9: with ws, [{click: a CSS query, note}]: each element is clicked through the page's own inspect tool on a headless browser, then fixed through the same build door
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
 SICARIO = 'sicarios'
+AGENTS = {'': SICARIO, 'sicarios': SICARIO, 'happy': 'happy-assistant', 'happy-assistant': 'happy-assistant'}
+TEST_BUDGET_USD = 1.00      # 💸 owner 2026-11-19: TESTs on Happy's agent spend at most $1.00 of model credit, all of them together
+KIND_BUDGET_USD = 0.25      # ... and at most $0.25 per proof type ("max .25-.5c per proof type … dont waste my whole $2")
+BUDGET_SINCE = 1795112700   # ... counted from the owner's ruling (every model call Happy's agent made since, test or not: the safe count)
 LINES = {'pow': 'propose a pow', 'pop': 'file a pop', 'pob': 'file a pob', 'poc': 'file a poc'}   # 💡 a TEST PoW is always a proposal: nothing is bought
 TEST_ASK = {'pos': 'A one-page tool that shows live Solana pool turnover (24h volume ÷ liquidity) from DexScreener, with a chart and a short explainer.'}
 
@@ -33,8 +38,17 @@ def _rs():
     return feecat_service
 
 
-def _sicario(store):
-    return next((c for c in (store.get('cats') or {}).values() if c.get('handle') == SICARIO and not c.get('revoked')), None)
+def _sicario(store, agent=''):
+    """The TEST agent: Sicario's by default, Happy's when asked (owner 2026-11-19). An unknown name is refused, never guessed."""
+    h = AGENTS.get(str(agent or '').lower())
+    if not h:
+        raise _rs().HTTPException(400, 'Agent: sicarios or happy.')
+    return next((c for c in (store.get('cats') or {}).values() if c.get('handle') == h and not c.get('revoked')), None)
+
+
+def spent_since(rows, since=BUDGET_SINCE, kind=None):
+    """$ the agent's model calls cost since the budget started (call log rows), all kinds or one kind's. Pure."""
+    return round(sum(float(r.get('usd') or 0) for r in rows or [] if float(r.get('at') or 0) >= since and (kind is None or r.get('kind') == kind)), 6)
 
 
 def _test_live(cat, kind, now=None):
@@ -148,18 +162,26 @@ def _test_view(cat):
 
 
 @router.get('/api/cats/internal/test-proof')
-async def test_proof_state(request: Request):
-    """🧪 Internal key only: Sicario's TEST proofs, per kind (the last one filed and any still running)."""
+async def test_proof_state(request: Request, agent: str = ''):
+    """🧪 Internal key only: the TEST agent's proofs, per kind (the last one filed and any still running)."""
     rs = _rs()
     rs._internal(request)
-    cat = _sicario(rs._load())
+    cat = _sicario(rs._load(), agent)
     if not cat:
-        raise rs.HTTPException(404, "No Sicario's agent.")
+        raise rs.HTTPException(404, 'No such TEST agent.')
     tests = _test_view(cat); last_ = (tests.get('pos') or {}).get('last')
     if last_:   # 🔍 Slice 9: the TEST PoStatic's inspect before / after
         f_ = next((x for x in cat.get('psFolders') or [] if isinstance(x, dict) and x.get('id') == last_.get('id')), {})
         last_['inspect'] = f_.get('inspect')
     return {'agent': cat.get('name'), 'tests': tests}
+
+
+def busy_with(cat, kind, poc_busy=False):
+    """The OTHER proof this agent is working on right now ('' when none): a chat start line sent then would only steer that one. Pure."""
+    c = cat or {}
+    runs = {'pop': c.get('popRun') or c.get('popRead'), 'pob': c.get('pobRun') or c.get('pobRead'),
+            'pow': (c.get('powRun') or {}).get('folder') if isinstance(c.get('powRun'), dict) else None, 'poc': poc_busy}
+    return next(({'pop': 'PoP', 'pob': 'PoB', 'pow': 'PoW', 'poc': 'PoC'}[k] for k, v in runs.items() if v and k != kind), '')
 
 
 @router.post('/api/cats/internal/test-proof')
@@ -172,19 +194,25 @@ async def test_proof_start(p: TestIn, request: Request):
     kind = str(p.kind or '').lower()
     if kind not in rs._prec.KEYS:
         raise rs.HTTPException(400, 'Kind: pow, pop, pob, poc, pos or poe.')
-    store = rs._load(); cat = _sicario(store)
+    store = rs._load(); cat = _sicario(store, p.agent)
     if not cat:
-        raise rs.HTTPException(404, "No Sicario's agent.")
-    pair = rs._lc.minds_for(cat.get('brainsCfg'), kind)
-    if not pair or any(not str(m).startswith('local/') for m in pair):   # §1: a TEST runs on the owner's own LM Studio only, $0
+        raise rs.HTTPException(404, 'No such TEST agent.')
+    pair = rs._lc.minds_for(cat.get('brainsCfg'), kind); cid = cat['id']; now = rs.time.time()
+    if cat.get('handle') == SICARIO and (not pair or any(not str(m).startswith('local/') for m in pair)):   # §1: a TEST on Sicario's runs on the owner's own LM Studio only, $0
         raise rs.HTTPException(409, f"Sicario's {kind} pair is {pair or 'not set'}: a TEST runs only on free local minds (local/…).")
-    cid = cat['id']; now = rs.time.time()
+    if cat.get('handle') != SICARIO and p.op != 'stop':   # 💸 Happy's: its own paid minds, capped for every TEST together
+        rows_ = rs._calls_of(cid); spent_, kind_ = spent_since(rows_), spent_since(rows_, kind=kind)
+        if spent_ >= TEST_BUDGET_USD or kind_ >= KIND_BUDGET_USD:
+            raise rs.HTTPException(402, f"TESTs on {cat.get('name')} have spent ${spent_:.2f} of ${TEST_BUDGET_USD:.2f} in all and ${kind_:.2f} of ${KIND_BUDGET_USD:.2f} on {kind}: the owner's caps.")
     if p.op == 'stop':
         if kind != 'pop':
             raise rs.HTTPException(400, 'Only an open paper PoP is stopped this way.')
         return await rs._cat_work(cid, rs.WorkPayload(op='ask', text='stop pop', session=rs._AUTO_TOKEN, auto=True))
     if _test_live(cat, kind, now):
         raise rs.HTTPException(409, f'A TEST {kind} is still running on {cat.get("name")}.')
+    other_ = busy_with(cat, kind, cid in getattr(rs, '_POC_BUSY', ()))
+    if other_ and kind in LINES:   # 🧪 Slice 6: the chat door hears a start line as a note to the proof it is working on ("propose a pow" went to a running PoP)
+        raise rs.HTTPException(409, f'{cat.get("name")} is working on a {other_}; a TEST {kind} starts once it files.')
     rs._TEST_ON[(cid, kind)] = {'at': now, 'by': 'Claude', 'run': rs.uuid.uuid4().hex[:10], 'topic': str(p.topic or '')[:120]}
     try:
         if kind == 'poe':   # 📊 PoEco: one sealed market call on live pools, no model

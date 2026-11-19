@@ -15,6 +15,7 @@ SL_RANGE = (0.3, 10.0)            # stop, % price move
 HOLD_MAX_S = 3600                 # a proof ends within the hour
 COLLATERAL_USD = 10.0             # the paper stake every proof is measured on
 FILED_MAX = 40
+CALL_TOKENS = 420                 # 🩹 Slice 6: room for the whole JSON call; 220 cut a real call off mid-reason
 ROUND_S = 45                      # a round of model calls never holds the engine longer than this
 LINE_EVERY_S = 30                 # one price on the folder's trade line every 30 s
 LINE_MAX = 130
@@ -81,15 +82,39 @@ def parse_call(raw):
     """A mind's reply → its clamped call, or None when it gave no usable side (no trade is ever guessed from prose)."""
     m = re.search(r'\{.*\}', str(raw or ''), re.S)
     try:
-        d = json.loads(m.group(0)) if m else {}
+        d = json.loads(m.group(0)) if m else cut_call(raw)
     except ValueError:
-        return None
+        d = cut_call(raw)
     market, side = str(d.get('market') or '').upper(), str(d.get('side') or '').lower()
     if market not in MARKETS or side not in ('long', 'short'):
         return None
     if not reason_is_real(d.get('why')):   # owner 2026-11-07: "PoP calls need the real truth of why". A generic line opens nothing
         return None
-    return {'market': market, 'side': side, 'lev': round(_clip(d.get('lev'), LEV_MIN, LEV_MAX), 2), 'tp': round(_clip(d.get('tp_pct'), *TP_RANGE), 2), 'sl': round(_clip(d.get('sl_pct'), *SL_RANGE), 2), 'why': str(d.get('why') or '')[:220]}
+    return {'market': market, 'side': side, 'lev': round(_clip(d.get('lev'), LEV_MIN, LEV_MAX), 2), 'tp': round(_clip(d.get('tp_pct'), *TP_RANGE), 2), 'sl': round(_clip(d.get('sl_pct'), *SL_RANGE), 2), 'why': str(d.get('why') or '')[:220],
+            **({'cut': True} if d.get('_cut') else {})}
+
+
+def cut_call(raw):
+    """🩹 Slice 6: a reply cut off mid-JSON by its token limit (TEST PoP #1: OSSY's short SOL 2x ended inside its "why") → the fields it DID finish, marked cut.
+    Every field must be complete except a trailing why; a cut market, side or number gives {}, so nothing is ever guessed. Pure."""
+    t = str(raw or ''); i = t.find('{')
+    if i < 0 or '}' in t[i:]:
+        return {}
+    body = t[i:]; d = {}
+    for k in ('market', 'side'):
+        m = re.search(r'"%s"\s*:\s*"([^"]*)"' % k, body)
+        if m:
+            d[k] = m.group(1)
+    for k in ('lev', 'tp_pct', 'sl_pct'):
+        m = re.search(r'"%s"\s*:\s*(-?\d+(?:\.\d+)?)\s*[,}\n]' % k, body)
+        if m:
+            d[k] = float(m.group(1))
+    m = re.search(r'"why"\s*:\s*"(.*)$', body, re.S)
+    if m:
+        d['why'] = m.group(1).rstrip('"\\ ,\n')
+    if not all(k in d for k in ('market', 'side', 'lev', 'tp_pct', 'sl_pct', 'why')):
+        return {}
+    return {**d, '_cut': True}
 
 
 def agree(calls):
