@@ -237,11 +237,30 @@ def _git_page(cat_id, ws):
     return (v_[-1].get('html') or '', d_.get('name') or ws) if v_ else ('', '')
 
 
+_CALLS_BY_REF = {'mt': None, 'by': {}}
+
+
+def _proof_file_fns(cat):
+    """🗂 Slice 14: (public_folder, record) for one agent's proof files. The call log is read once per change of the file, never per proof."""
+    import proof_file as _pfile
+    rs = _rs()
+    path = rs.DATA_DIR / 'mind_calls.jsonl'
+    try:
+        mt = path.stat().st_mtime
+    except OSError:
+        mt = 0
+    if _CALLS_BY_REF['mt'] != mt:
+        _CALLS_BY_REF.update(mt=mt, by=_pfile.index_calls(_pfile.read_calls(path)))
+    by = _CALLS_BY_REF['by']; bids = list(cat.get('kalshiBids') or []); cid = cat.get('id')
+    return (lambda f: _pfile.redact(rs._vv.public_folder(f))), (lambda key, f: _pfile.record(key, f, cat_id=cid, by_ref=by, bids=bids))
+
+
 def _git_files(cat, collective, marked=True):
     """(files, counts) as its owner reads them here. Built off the event loop: the Collective can be large. Anything holding a key or a token is held back."""
     rs = _rs()
     if not collective:
-        return rs._cg.without_leaks({**rs._cg.agent_tree(cat, rs._vv.public_folder, lambda ws: rs._git_page(cat['id'], ws)), **rs._forks.tree(rs._forks.load(rs.DATA_DIR), rs.DATA_DIR, cat['id'])})[0], None
+        pub_, rec_ = _proof_file_fns(cat)
+        return rs._cg.without_leaks({**rs._cg.agent_tree(cat, pub_, lambda ws: rs._git_page(cat['id'], ws), record=rec_), **rs._forks.tree(rs._forks.load(rs.DATA_DIR), rs.DATA_DIR, cat['id'])})[0], None
     store = rs._load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if rs._setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = rs._cg.collective_tree(rs.STASH_DIR, rs._git_page, list(seen.values()))
@@ -433,7 +452,7 @@ def _git_outbound(cat, collective):
     for c in store['cats'].values():   # 🔐 owner 2026-11-05: its private data lives sealed in the Collective's private repo, so nobody pays for storage
         if c.get('revoked') or c.get('id') == 'leader':
             continue
-        cid = c['id']; got, stats = rs._cg.vault_tree(rs._stash.agent_tag(cid), rs._cg.without_leaks(rs._cg.agent_tree(c, rs._vv.public_folder, lambda ws, i=cid: rs._git_page(i, ws)))[0], lambda raw, i=cid: rs._ck.seal_bytes(raw, i), rs.GIT_DIR / 'vault')
+        cid = c['id']; pub_, rec_ = _proof_file_fns(c); got, stats = rs._cg.vault_tree(rs._stash.agent_tag(cid), rs._cg.without_leaks(rs._cg.agent_tree(c, pub_, lambda ws, i=cid: rs._git_page(i, ws), record=rec_))[0], lambda raw, i=cid: rs._ck.seal_bytes(raw, i), rs.GIT_DIR / 'vault')
         files.update(got); vault[rs._stash.agent_tag(cid)] = stats
     (rs.GIT_DIR / 'vault.json').write_text(rs.json.dumps(vault)) if vault else None
     return files, counts

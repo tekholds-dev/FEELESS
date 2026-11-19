@@ -34,6 +34,7 @@ import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { CardSites, BidSites, BID_SITES } from './BidSites';
 import { CostTicket, FolderRidge, PrintDigests, PrintLines, PrintSeed, ProofHead, ProofKit, ProofSubmit, ProofTile as Tile, SitesRead, shortCost } from './ProofKit';
 import { GitFolder } from './GitFolder';
+import { OPEN_PROOF } from './ProofFile';
 import { EcoFolder } from './EcoFolder';
 import { EngineFolder } from './EngineFolder';
 import { CommandCenter } from './CommandCenter';
@@ -1543,6 +1544,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const [picker, setPicker] = useState(start === 'picker'); const [focus, setFocus] = useState(null); const [replay, setReplay] = useState(false);   // ⏪ AGX-8
   const [inbox, setInbox] = useState(start === 'approve'); const [apRows, apDecide, apErr] = useApprovals(cat?.id, work);   // ✅ AGX-10
   const openProof = useCallback(({ win, id }) => { setPicker(false); setFocus({ win, id, at: Date.now() }); openWin(win); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const on = e => { const x = e.detail || {}; if (x.id === cat.id && x.win && x.proof) openProof({ win: x.win, id: x.proof }); }; window.addEventListener(OPEN_PROOF, on); return () => window.removeEventListener(OPEN_PROOF, on); }, [cat.id, openProof]);   // 🗂 Slice 14: a proof file's "open its proof window"
   useEffect(() => { const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setPicker(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
   useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour && !picker && !replay && !inbox) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour, picker, replay, inbox]);
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,

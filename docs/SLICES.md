@@ -192,7 +192,7 @@ FEELESS, Slice 7. Read CLAUDE.md, then docs/VISION.md ("COMP"), then "Slice 7" i
 - [ ] Old proof files show what they have and say plainly what was never recorded.
 - [ ] No key or secret ever shows. A test proves it.
 - [ ] Checked in the browser on a Slice 0 TEST proof, with a screenshot.
-**Status:** not started.
+**Status:** done 2026-11-19. Every agent proof file (PoW/PoP/PoB/PoC/PoStatic + PoEco now) carries `fileRecord` (backend/proof_file.py): true record, page snapshots + Slice 10 stash rows as metadata, step log per mind call (model, route, time, $), kits, judge reviews + their calls, bid/trade + receipt (ids and signatures kept off), a button back to its proof window, and a NEVER RECORDED list; redacted, and a test proves no key/secret shows. Viewer: ProofFile.jsx in the GitHub folder. Seen in the browser on real TEST PoB #10 (pob1795068799) from Sicario, 4/4 checks. Not yet: stash rows (Slice 10 hasn't filed any yet), judge review on #10 still pending.
 
 ## Slice 8 · Proof of everything (runs LAST, after 9–14) · Opus 5.5 medium
 **Why:** one session that trusts nothing and proves every VISION check for real.

@@ -14,6 +14,7 @@ import { statRidges } from '../../lib/gamePrint';
 import { KitPick } from './KitPick';
 import { ForkBoard, StashForks } from './StashForks';
 import { ProjectWork } from './ProjectWork';
+import { ProofFile } from './ProofFile';
 import '../../styles/gitFolder.css';
 
 // 🐙 ITS GITHUB FOLDER (owner 2026-11-05): filed proofs go to its owner's own repo, private or public. With scope="collective", the owner's private repo holds the whole Collective, sorted.
@@ -115,7 +116,7 @@ const StatusDot = ({ item }) => (item?.status ? <i className={`gtr-dot is-${SORT
 function TreeRows({ node, depth, sel, onFile, onFolder, items, picks }) {
   return <>{Object.entries(node.dirs).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => <TreeDir key={k} name={k} node={{ ...v, path: node.path ? `${node.path}/${k}` : k }} depth={depth} sel={sel} onFile={onFile} onFolder={onFolder} items={items} picks={picks} start={false} />)}{node.files.map(([n, sz, path]) => { const I = fileIcon(n); return <li key={path} role="treeitem" aria-selected={sel === path} className={`gtr-item${picks ? ' has-tick' : ''}`}>{picks ? <Tick on={picks.has(path)} onPick={shift => picks.file(path, shift)} label={`Tick ${n}`} /> : null}<button type="button" className={`gtr-row is-file${sel === path ? ' is-sel' : ''}`} style={{ '--d': depth }} onClick={() => onFile(path)} data-tip={`${n}, ${size(sz)}`} data-testid={`git-file-${n}`}><i className="gtr-chev" aria-hidden="true" /><I className="gtr-file" size={15} aria-hidden="true" /><span>{prettyName(n)}</span><StatusDot item={items?.[path]} /><small className="m-num">{size(sz)}</small></button></li>; })}</>;
 }
-const KIND_WORD = { PoW: 'Proof of Work', PoP: 'Proof of Perps', PoB: 'Proof of Bids', PoC: 'Proof of Content', PoStatic: 'PoStatic' };
+const KIND_WORD = { PoW: 'Proof of Work', PoP: 'Proof of Perps', PoB: 'Proof of Bids', PoC: 'Proof of Content', PoStatic: 'PoStatic', PoEco: 'PoEco' };
 const num = (v, d = 2) => (Number(v) || 0).toLocaleString(undefined, { maximumFractionDigits: d });
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
 // A proof as a page, from its real fields. Fields it does not have simply do not show.
@@ -128,9 +129,10 @@ function ProofStatic({ path, d, shots }) {
     <div className="gst-tiles">{tiles.map(([k, v, tone], i) => <div key={k} style={{ '--i': i }}><small>{k}</small><b className={`m-num ${tone || ''}`}>{v}</b></div>)}</div>
     {typeof why === 'string' && why ? <blockquote className="gst-why">{why.slice(0, 600)}</blockquote> : null}
     {coins.length ? <section className="gst-sec"><h4>COINS IT READ</h4><ul className="gst-coins">{coins.slice(0, 8).map((c, i) => <li key={`${c.sym}${i}`} style={{ '--i': i }}><b>${c.sym}</b><span className="gst-bar" data-tip={`Pool ${big(c.liq)}`}><u style={{ transform: `scaleX(${(Number(c.liq) || 0) / topLiq})` }} /></span><small className="m-num">cap {big(c.mc)}</small><em className={`m-num ${c.ch > 0 ? 'up' : 'dn'}`}>{c.ch > 0 ? '+' : ''}{num(c.ch, 1)}%</em></li>)}</ul></section> : null}
-    {shots?.length ? <section className="gst-sec"><h4>SNAPSHOTS</h4><div className="gst-shots">{shots.map(s => <img key={s} src={s} alt="Snapshot from this proof" loading="lazy" />)}</div></section> : null}
+    {shots?.length && !d.fileRecord?.snapshots?.pages?.length ? <section className="gst-sec"><h4>SNAPSHOTS</h4><div className="gst-shots">{shots.map(s => <img key={s} src={s} alt="Snapshot from this proof" loading="lazy" />)}</div></section> : null}
     {steps.length ? <section className="gst-sec"><h4>THE PLAN</h4><ol className="gst-plan">{steps.map((x, i) => <li key={i}>{x.slice(0, 200)}</li>)}</ol></section> : null}
     {talk.length ? <section className="gst-sec"><h4>THE TALK</h4><ul className="gst-talk">{talk.map((t, i) => <li key={i}><b>{t.by || t.who || 'Mind'}</b> {String(t.text || t.say).slice(0, 240)}</li>)}</ul></section> : null}
+    {path.startsWith('proofs/') ? <ProofFile rec={d.fileRecord} /> : null}
   </article>;
 }
 function ListStatic({ rows }) {

@@ -17,6 +17,7 @@ API = 'https://api.github.com'
 PUSH_CAP = 200   # one push; the rest go on the next one
 REPO_RE = re.compile(r'^[A-Za-z0-9._-]{1,100}$')
 FOLDERS = {'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB', 'pocFolders': 'PoC', 'psFolders': 'PoStatic'}
+AGENT_FOLDERS = {**FOLDERS, 'poeFolders': 'PoEco'}   # 🗂 Slice 14: its own repo keeps its PoEcos too
 CAT_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc', 'Code': 'pos'}
 
 
@@ -69,10 +70,11 @@ def sealed_tree(files, seal, cache, cap=200 * 1024 * 1024):
     return out, stats
 
 
-def agent_tree(cat, public_folder, read_page=None, kinds=None):
-    """{path: bytes} for one agent's own repo. Its filed proofs, won or lost, the pages it built, and any page its owner saved."""
+def agent_tree(cat, public_folder, read_page=None, kinds=None, record=None):
+    """{path: bytes} for one agent's own repo. Its filed proofs, won or lost, the pages it built, and any page its owner saved.
+    `record(key, folder)` (Slice 14) adds each proof's full record (`fileRecord`) to its file."""
     out = {}; rows = []
-    for key, word in FOLDERS.items():
+    for key, word in (AGENT_FOLDERS if record else FOLDERS).items():
         if kinds is not None and word not in kinds:
             continue
         for f in (cat or {}).get(key) or []:
@@ -80,7 +82,13 @@ def agent_tree(cat, public_folder, read_page=None, kinds=None):
                 continue
             at = f.get('soldAt') or f.get('closedAt') or f.get('at'); res = result_of(key, f); title = f.get('sym') or f.get('topic') or f.get('market') or f.get('name') or word
             path = f"proofs/{word}/{res}/{month(at)}/{slug(title)}-{str(f['id'])[-8:]}.json"
-            out[path] = json.dumps(public_folder(f), separators=(',', ':'), default=str, sort_keys=True).encode()
+            body = public_folder(f)
+            if record:
+                try:
+                    body = {**body, 'fileRecord': record(key, f)}
+                except Exception as e:   # noqa: BLE001 — a record that will not build never costs the proof its file
+                    body = {**body, 'fileRecord': {'v': 1, 'missing': [f'The full record could not be built ({type(e).__name__}).']}}
+            out[path] = json.dumps(body, separators=(',', ':'), default=str, sort_keys=True).encode()
             rows.append({'kind': word, 'result': res, 'title': str(title)[:80], 'at': at, 'path': path})
     if read_page and (kinds is None or 'PoStatic' in kinds):
         for ws in {f.get('ws') for f in (cat or {}).get('psFolders') or [] if f.get('ws')} | set((cat or {}).get('savedPages') or []):

@@ -26,7 +26,17 @@ function Git() {   // ?git: this machine's real files from public/dev-git.json (
   const fake = async (_, b) => (b.op === 'git_state' ? { files: d.files, link: {}, tree: [], sealed: true, sort: { on: true, counts: { good: 12, bad: 3, disputed: 1, trash_ask: 1, unsorted: 28 }, items: { [shot]: { status: 'trash_ask', votes: { ossy: { verdict: 'trash', why: 'A bot check, nothing readable' }, g4: { verdict: 'trash', why: 'Blank page behind a check' } } } } } } : b.op === 'git_read' ? { ...d.read[b.job], ...(b.job === shot ? { proposed: [{ id: 0, x: 0.06, y: 0.08, w: 0.42, h: 0.2, label: 'Risk score', why: 'Read the score top left. It sits in the danger band, so this coin fails the safety check.', grade: 82, by: ['ossy', 'g4'] }, { id: 1, x: 0.55, y: 0.35, w: 0.38, h: 0.28, label: 'Top holders', why: 'Top ten hold most of the supply. I weighed that against the pool depth.', grade: 66, by: ['g4'] }, { id: 2, x: 0.1, y: 0.62, w: 0.5, h: 0.2, label: 'Liquidity', why: 'Thin pool for this cap.', grade: 40, by: ['ossy'] }] } : null) } : b.op === 'sort_approve' ? { item: { status: 'good', by: 'owner' } } : b.op === 'sort_bulk' ? { items: {} } : b.op === 'sort_set' ? { item: b.tools } : b.op === 'sort_trash' ? { item: { status: b.on ? 'trash' : 'bad', by: 'owner' } } : b.op === 'kit_list' || b.op === 'kit_pick' ? work(_, b) : {});
   return <div style={{ minHeight: '100vh', padding: 12, background: '#060b08' }}><GitFolder cat={{ id: 'dev', handle: 'dev' }} work={fake} scope="collective" /></div>;
 }
+function Proofs() {   // ?proofs (Slice 14): one agent's real proof files from public/dev-git-agent.json (scripts/dev-git-agent.py). Nothing leaves the page
+  const [d, setD] = useState(null);
+  useEffect(() => { fetch('/dev-git-agent.json').then(r => r.json()).then(setD); }, []);
+  if (!d) return null;
+  const raw = p => (p.endsWith('.json') ? JSON.stringify(d.files[p]) : String(d.files[p]));
+  const fake = async (_, b) => (b.op === 'git_state' ? { files: Object.keys(d.files).sort().map(p => [p, raw(p).length]), link: {}, tree: [], total: Object.keys(d.files).length }
+    : b.op === 'git_read' ? { path: b.job, bytes: raw(b.job).length, kind: 'data', data: d.files[b.job] } : {});
+  return <div style={{ minHeight: '100vh', padding: 12, background: '#060b08' }}><GitFolder cat={{ id: 'dev', handle: 'sicario' }} work={fake} /></div>;
+}
 export default function ChatsHarness() {
+  if (window.location.search.includes('proofs')) return <Proofs />;
   if (window.location.search.includes('git')) return <Git />;
   return window.location.search.includes('money') ? <Money /> : <Chats />;
 }
