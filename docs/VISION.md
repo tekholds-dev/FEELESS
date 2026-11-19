@@ -1,7 +1,7 @@
 # VISION — what each part must BE (owner 2026-11-18). Read before touching any proof type, agent, Brains or COMP.
 
-The bar is the **checks** under each part. A card, slice or report is not done until its part's checks pass on a **real free run on Sicario's agent**
-(minds `local/ossy` + `local/g4`, $0, no money), filed into that proof type's own folder marked **TEST**, where the owner can open it.
+The bar is the **checks** under each part. A card, slice or report is not done until its part's checks pass on a **real TEST run on Happy's agent**
+(proposals and paper only, $0.25 per proof type, $1.00 for all TESTs; RULINGS 2026-11-19), filed into that proof type's own folder marked **TEST**, where the owner can open it.
 A check passing only on faked tests counts as **not done** and is reported first, as "faked-only".
 
 ## The point of it all
@@ -90,5 +90,5 @@ Per-type pairs ARE wired today (each type's run reads its own pair). What's miss
 - [ ] COMP learns only from real, judged proofs of each type, each with its own pass/fail evidence.
 - [ ] COMP's exam is on held-out real proofs and is compared against the base model and the judges. A COMP that doesn't beat the base model isn't shipped.
 
-## Sicario's agent = the test agent
-- [ ] Every test Claude runs on an agent runs on Sicario's (free local minds) and files a real proof into that type's own folder, marked **TEST**, so the owner sees every test where the real ones live (and the Test bench keeps its row).
+## Happy's agent = the test agent (owner 2026-11-19, "sicarios are slow")
+- [ ] Every test Claude runs on an agent runs on Happy's agent (`scripts/test-proof.py --agent happy`), proposals and paper only, never a real trench trade, PoW buy or bid. It spends at most $0.25 per proof type and $1.00 for all TESTs together, counted from the call log and refused past the cap. Each TEST files a real proof into that type's own folder, marked **TEST**, where the owner sees it beside the real ones.

@@ -24,7 +24,7 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 - **No back pedals:** a change may never lose something that already worked; the old behaviour stays covered by a test.
 - **Done means:**
   - UI: `docs/specs/style.md` tokens, real data, every tab of the surface checked in the browser, a screenshot shown to the owner.
-  - Backend: a test for the new mechanic (network faked) AND one **real free run on Sicario's agent** (`local/ossy` + `local/g4`, $0, no money) filed into that proof type's own folder marked TEST, its record checked against `docs/VISION.md`; pyflakes clean; the live service checked after reload. Faked tests alone = "faked-only", not done.
+  - Backend: a test for the new mechanic (network faked) AND one **real TEST run on Happy's agent** (proposals and paper only, capped spend: see `docs/RULINGS.md` 2026-11-19 "TESTs run on Happy") filed into that proof type's own folder marked TEST, its record checked against `docs/VISION.md`; pyflakes clean; the live service checked after reload. Faked tests alone = "faked-only", not done.
   - Money code: a second review pass (`/code-review` or `/security-review`) before push; the owner tests it with real money.
   - Then: gate green on real exit codes → pushed to `main` → a history line if a HANDOFF card closed → the report says what is live, faked-only and untested.
 - **Reports:** start with **Faked-only / not wired** whenever anything is, then sections only when they have content: Done · Not verified · Judgment calls · Proposed · % left. Say which VISION checks now pass for real.
@@ -33,11 +33,12 @@ Anything below §1 that gets in the way of what the owner just asked loses to hi
 ## 3 · Machine facts (learned the hard way — apply on every account)
 - Saved backend `.py` files go live in ~15 s (keep-alive reload): grep names + run guard tests right after each backend edit.
 - A backend push makes the owner's `scripts/auto-pull.sh` restart every service: never push backend code while a build/proof is running.
+- A backend `.py` SAVE reloads the services and kills any running TEST run: check `pgrep -f test-proof` is empty before saving, batch backend edits, wait ~20 s after a save before starting a TEST (learned 2026-11-19, two slices side by side).
 - Claude's shell has no LAN route: G4 / LM Studio restarts and pilots run from the **owner's Terminal** — give him the one command.
 - The owner only looks at `localhost:51367` from the main folder: never hand over work from another port/worktree. (The private gate snapshot below is fine — it is not handed over.) Since 2026-11-15, 51367 serves the **production build** (`feeless-frontend` = `scripts/serve-fast.sh`, rebuilt by itself ~3 min after each frontend commit); live-reload dev for Claude's own checks is `feeless-dev` on 51366.
 - Push gate flakes under load: commit in the main tree, then gate + push from `.claude/worktrees/gate` (`git checkout --detach <sha>`; `git push origin HEAD:main`); run nothing beside it. Never gate on `| tail`/`| grep`.
 - Make one real call to an outside service before building on it. Research free/open libraries first (shadcn/ui, Motion, Recharts, Lightweight Charts) — never hand-draw a chart.
-- Every agent test runs on **Sicario's agent** and files into that proof type's own folder, marked TEST (and its `test_bench.file_run` row, Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
+- Every agent test runs on **Happy's agent** via `scripts/test-proof.py --agent happy` (proposals and paper only, $0.25 per proof type, $1.00 for all TESTs together; see RULINGS 2026-11-19) and files into that proof type's own folder, marked TEST (and its `test_bench.file_run` row, Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
 - Never commit `.emergent/recordings/` or `scripts/trim-mongo-caches.py`. Commits end with `Co-Authored-By: <your model> <noreply@anthropic.com>`.
 - Phone / LAN wallet tests need https (wallets ignore plain-http LAN pages): owner runs `cloudflared tunnel --config /dev/null --url http://127.0.0.1:51367 --http-host-header localhost:51367` (his old `~/.cloudflared/config.yml` 404s a bare quick tunnel; `localhost` dials ::1 and fails). keep-alive restarts only the backend: if 51367 is down, start `feeless-frontend` (launch.json).
 - Ship steps for every account: the `feeless-ship` skill (`.claude/skills/feeless-ship/SKILL.md`).
