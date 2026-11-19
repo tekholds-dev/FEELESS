@@ -84,6 +84,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/CatHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/legal') {   // 🧪 LEGAL-1: accept window, Your data, HQ Legal & regions on fixtures (src/dev/LegalHarness.jsx)
   import('./dev/LegalHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/swap') {   // 🧪 Slice 4: the PoC video swap panel + a filed swap (?day, ?empty, ?running) (src/dev/SwapHarness.jsx)
+  import('./dev/SwapHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/play') {   // 🧪 POC-PLAY: the playground on a local picture (?video, ?day) (src/dev/PlayHarness.jsx)
   import('./dev/PlayHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/stash') {   // 🧪 COL-20 P3: the Stash + missions per dollar + record check, live backend (src/dev/StashHarness.jsx)

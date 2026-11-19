@@ -2087,6 +2087,8 @@ import fc_cats as _fc_cats   # noqa: E402  🧹 moved by scripts/move-section.py
 app.include_router(_fc_cats.router)
 import fc_test as _fc_test   # noqa: E402  🧪 Slice 0: TEST proofs on Sicario's agent + the true record on every filing
 app.include_router(_fc_test.router)
+import video_swap_run as _vswap   # noqa: E402  🎭 Slice 4: the PoC video swap on FEELESS's own HQ › Core keys (fal H3 Recast · OpenRouter Aleph 2)
+app.include_router(_vswap.router)
 _record_file = _fc_test._record_file
 _foot_back = _fc_test._foot_back
 _test_live = _fc_test._test_live

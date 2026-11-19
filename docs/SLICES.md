@@ -3,7 +3,13 @@
 **The bar for every slice:** `docs/VISION.md`. A slice is done only when its checks pass on a **real free run on Sicario's agent**
 (`local/ossy` + `local/g4`, $0, no money) filed into that proof type's own folder marked **TEST**, the gate is green and it's pushed.
 
-## The 3 models (pick once per session in the app's model picker; never switch mid-session)
+## Models (pick once per session in the app's model picker; never switch mid-session)
+**Owner 2026-11-18 (latest): every slice runs on Claude Opus 5.5, MEDIUM effort.** ("the issue was one convo doing back-to-back 200 tasks, instead of what we are doing now.") The table below is the original split, kept only for reference.
+
+**Standard prompt** (swap in the slice number; paste it into a new session):
+```
+FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SLICES.md. Do only Slice N, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice N check passes on a real free TEST run on Sicario's agent (no money; scripts/test-proof.py), seen in the browser when it has UI; gate green; pushed. Commit only your own files by path; never push while another gate.sh or TEST run is going. Finish by updating Slice N's Status line.
+```
 | Model | Effort | Used for | Why |
 |---|---|---|---|
 | **Claude Fable 5.2** | high (xhigh for slice 8) | Slices 4, 7, 8: the hardest builds (video swap, COMP) and the final review | Strongest at long agentic coding, but twice the price of Opus, so only 3 sessions |
@@ -17,7 +23,7 @@
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
 5. **At most 2 slices at once**, only the pairs marked "can run beside" (they touch different files). Never 2 backend pushes at the same moment: a push restarts every service.
 
-**Order:** 0 → (1 beside 2) → 3 → (4 beside 5) → 6 → 7 → 8.  Slice 0 is first because every later slice needs TEST filings and a true record.
+**Order (updated 2026-11-18):** 0 ✅ · 1 ✅ · 2 ✅ → now: 3 + 4 (finish) + 5 → then 6 + 10 + 12 + 14 (different files) → then 9 (after 3), 11 (after 10), 13 (after 12), 7 → 8 last.  Slice 0 is first because every later slice needs TEST filings and a true record.
 
 ---
 
@@ -60,7 +66,7 @@ FEELESS, Slice 1. Read CLAUDE.md, then docs/VISION.md ("Brains"), then "Slice 1"
 FEELESS, Slice 2. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 2" in docs/SLICES.md. Do only Slice 2, fully, end to end. Reproduce the bug before changing code. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 2 check passes on a real free TEST run on Sicario's agent (no money), seen in the browser; gate green; pushed. Finish by updating Slice 2's Status line.
 ```
 
-## Slice 3 · PoStatic: full toolkit, unique, clean · Opus 5.5 high
+## Slice 3 · PoStatic: full toolkit, unique, clean · Opus 5.5 medium
 **Why:** "so many integrative tools missing from static." The Collective exists to hand every mind the kits.
 **Area:** `backend/proof_kits.py`, `collective_kits.py`, `method_kits.py`, `kit_fresh.py`, `ps_hidden.py`, `proof_footprint.py`, the build path in `fc_desk.py`.
 **Checks:**
@@ -68,6 +74,7 @@ FEELESS, Slice 2. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 
 - [ ] Uniqueness gate: a near-copy of any past build is refused before filing. Every build gets a new brief, a new centrepiece and a new layout.
 - [ ] Hidden code check adds overlapping blocks, broken links, placeholder text and phone load.
 - [ ] No back pedals: a new version can't lose a part the last version had working.
+- [ ] A studio piece added to a folder is used throughout the site wherever it fits, not placed once (Slice 2's leftover).
 - [ ] 3 TEST PoStatics on Sicario, all different, linked in the report.
 **Status:** not started.
 ```
@@ -82,12 +89,12 @@ FEELESS, Slice 3. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 
 - [ ] Upload a video, get the same video back (motion, timing, camera, sound) with an AI-made person in place. Filed into the PoC folder with before/after side by side, and its cost shown.
 - [ ] The engine key lives in HQ › Core and never in git or logs (§1).
 - [ ] Tests fake the engine. The video engine is paid, so the **owner presses the first real run**; Claude never spends on it.
-**Status:** not started.
+**Status:** on main 2026-11-18 (gate green). Faked-only until the owner presses the first paid run: no real swap has run yet. Pick: **MiniMax H3 Max Recast on fal** (keeps the clip's motion, timing, camera and sound; 768p $0.085/s, no watermark). Runner-up: **Runway Aleph 2 on OpenRouter** (28¢/s, first 10 s, sound laid back from the clip). Real calls made: fal's live API schemas (H3 Recast + the Seedream portrait), free; no paid call. Panel: PoC folder › Video swap (`frontend/src/components/command/VideoSwap.jsx`, `backend/video_swap.py` + `video_swap_run.py`, 21 faked tests). Files the after clip + a before|after side-by-side into the PoC folder with its cost and a receipt. Keys live in HQ › Core (`FAL_KEY` not set yet: add it there, or the swap runs Aleph on your own OpenRouter agent key). Owner + staff only, $10/day cap on FEELESS keys, price seen = price run, never sent twice. **To finish:** the owner presses the first real swap.
 ```
 FEELESS, Slice 4. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 4" in docs/SLICES.md. Do only Slice 4, fully, end to end. Research today's engines with a web search first and make one real call before building on one. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 4 check passes; tests fake the paid engine; the owner presses the first paid run; gate green; pushed. Finish by updating Slice 4's Status line.
 ```
 
-## Slice 5 · PoC: the content engine, graded on reach · Opus 5.5 high · can run beside Slice 4
+## Slice 5 · PoC: the content engine, graded on reach · Opus 5.5 medium · can run beside Slice 4
 **Why:** PoC is 12 text week-plans with 0 passes. It must make real content and prove reach.
 **Area:** `backend/poc_play.py`, `poc_watch.py`, `proof_tools.py` (`viral()`), the PoC folder (`PocWire.jsx`, `WeekBoard.jsx`).
 **Checks:**
@@ -101,7 +108,7 @@ FEELESS, Slice 4. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 4" in
 FEELESS, Slice 5. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 5" in docs/SLICES.md. Do only Slice 5, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 5 check passes on a real free TEST run on Sicario's agent (no money, nothing posted without the owner's approve); gate green; pushed. Finish by updating Slice 5's Status line.
 ```
 
-## Slice 6 · PoW, PoP, PoEco brought up to the bar · Opus 5.5 high
+## Slice 6 · PoW, PoP, PoEco brought up to the bar · Opus 5.5 medium
 **Why:** PoP (5) and PoEco (1) had never been judged as of 2026-11-18, and every type must meet the every-proof checks.
 **Area:** `backend/proof_review.py` (`next_due`), `fc_cats.py` (`_review_one`), `fc_pow.py`, the PoP and PoEco filers.
 **Checks:**
@@ -113,7 +120,7 @@ FEELESS, Slice 5. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 5" in
 FEELESS, Slice 6. Read CLAUDE.md, then docs/VISION.md, then "Slice 6" in docs/SLICES.md. Do only Slice 6, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 6 check passes on real free TEST runs on Sicario's agent (no money); gate green; pushed. Finish by updating Slice 6's Status line.
 ```
 
-## Slice 7 · COMP on real proofs only · Fable 5.2 high
+## Slice 7 · COMP on real proofs only · Opus 5.5 medium
 **Why:** "I'm not confident in COMP." It has to learn from real judged proofs and beat the base model on an honest exam.
 **Area:** `backend/comp_v2.py`, `comp_v2_exam.py`, `comp_teacher.py`, `model_lab.py`, `docs/specs/comp-next.md`.
 **Checks:**
@@ -125,7 +132,69 @@ FEELESS, Slice 6. Read CLAUDE.md, then docs/VISION.md, then "Slice 6" in docs/SL
 FEELESS, Slice 7. Read CLAUDE.md, then docs/VISION.md ("COMP"), then "Slice 7" in docs/SLICES.md. Do only Slice 7, fully. LM Studio runs from the owner's Terminal: give him the one command when needed. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 7 check passes with real exam numbers; gate green; pushed. Finish by updating Slice 7's Status line.
 ```
 
-## Slice 8 · Proof of everything · Fable 5.2 xhigh
+## Slice 9 · PoStatic: inspect, not mark · after Slice 3 (same files)
+**Why:** "users should be able to do an 'inspect element' type thing in static to highlight what AI used to comment on or fix, instead of the mark tool."
+**Area:** the PoStatic page viewer and its fix/comment requests, `backend/fc_desk.py` (build versions), `ps_hidden.py`.
+**Checks:**
+- [ ] Hovering the build highlights any element, the way a browser's inspect does. Clicking it opens "fix this / comment" aimed at that exact element.
+- [ ] The request carries the element's selector, its text and a snapshot. The minds change that element, and the next version shows the before and after of it.
+- [ ] The mark tool is replaced, and its old saved marks still open.
+- [ ] A TEST PoStatic on Sicario fixed through inspect, seen in the browser.
+**Status:** not started.
+
+## Slice 10 · The stash brain: capture, sort, ask first · Opus 5.5 medium
+**Why:** "agents move really faster… the webscrape and static saved helps future requests… any new agent can reuse it… only brains can see the stash, encrypted via categories, and never log any encrypted info."
+**Area:** the brains' page-read path (`cat_agent` browsing, `fc_cat_work.py`), the agent DB / stash (`_adb`, `_ck.seal_bytes`), a new stash index (entities, categories, freshness).
+**Checks:**
+- [ ] Every page a mind loads is kept as scrape, static and screenshot, sealed in the stash.
+- [ ] Every page is sorted by everything on it (teams, players, coins, leagues, markets, dates), not just the reason it was opened. The Bulls–Lakers page with Clippers and Spurs odds is found by a Clippers ask.
+- [ ] Brains ask the stash first and browse only what's missing or stale. The record shows hits vs pages browsed, and the time and $ saved.
+- [ ] Contents are sealed by category and only a brain inside a run can read them. A test proves no sealed text reaches logs, the call log, prints or any API answer.
+- [ ] A stash panel shows growth, hit rate and $ saved by category, never contents.
+- [ ] Two TEST PoBs on Sicario about related games: the second one shows stash hits from the first.
+**Status:** not started.
+
+## Slice 11 · COMP stays ahead · after Slice 10
+**Why:** "COMP always web scraping and staying ahead of the game, having PoBs filed already to compare a PoB filed by another agent, or agents' brains can ask COMP to do a decent-sized task (owner agents only, once per filing)."
+**Area:** `backend/comp_*.py`, the stash from Slice 10, the PoB filer (`fc_pob.py`).
+**Checks:**
+- [ ] COMP keeps reading on a schedule (plain page reads into the stash, no paid model calls), aimed at what's coming up (tonight's games, hot coins).
+- [ ] A new PoB is compared against every other agent's PoB on the same game. The record shows where they agree and disagree.
+- [ ] An owner agent's brain can hand COMP one decent-sized task per filing, refused a second time and for non-owner agents. The record shows the ask and the answer.
+- [ ] The first piece of the Living Atlas (VISION › COMP): facts stored as atoms with a freshness clock, and each source's trust moving with settled outcomes.
+**Status:** not started.
+
+## Slice 12 · PoB: player-prop parlays + bids that always go through · Opus 5.5 medium
+**Why:** "minds need to pick leg parlays as in the best over or under for players" · "can't afford for bids not to go through or filings to f up."
+**Area:** `backend/fc_pob.py`, `kalshi_bid.py`, `pob.py`, `feecat_service.py` (`_kalshi_*`, `_kb_*`).
+**Checks:**
+- [ ] The minds pick the best player overs/unders as legs, each with evidence and a number, only from markets Kalshi really lists.
+- [ ] Every past bid or filing failure (404s, shard balance, read-backs, started games, blank minds) has a test, and each one ends in "sent and confirmed" or a plain-words reason with no money moved.
+- [ ] A filing that breaks halfway resumes or stops cleanly. It never leaves a half-made slip.
+- [ ] A TEST PoB on Sicario with prop legs (TEST never bids). This is money code, so a `/code-review` pass runs before push, and the owner tests the real bid.
+**Status:** not started.
+
+## Slice 13 · PoB folder: the sleek dashboard · after Slice 12
+**Why:** "make PoB a sleek dashboard that views everything beautifully when I / a user opens the PoB folder: either build their own or see what to have the agent file."
+**Area:** the Bids / PoB folder home (`PobFile`, `LiveBidCard`, Bids desk), `docs/specs/style.md`.
+**Checks:**
+- [ ] The folder opens on one dashboard: live and upcoming games, the agent's filings, results, P&L without fees, judge scores, fresh stash odds.
+- [ ] "What to file next" suggestions from tonight's markets, each one filed in one tap.
+- [ ] A user can build their own slip there, which then goes through the same checks.
+- [ ] Every tab is checked in the browser on real data, with a screenshot.
+**Status:** not started.
+
+## Slice 14 · GitHub folder: proof files show everything · Opus 5.5 medium
+**Why:** "no proof should look like this in git: the snapshots and all logs need to show, plus the wired info from each."
+**Area:** the agent GitHub folder viewer (proof file view), the proof-file writer, `proof_record.py`.
+**Checks:**
+- [ ] Each proof file opens to the full record: true record, snapshots, step log (model, time, cost per call), kits used, judge reviews, bid or trade and receipt, a link to the proof window.
+- [ ] Old proof files show what they have and say plainly what was never recorded.
+- [ ] No key or secret ever shows. A test proves it.
+- [ ] Checked in the browser on a Slice 0 TEST proof, with a screenshot.
+**Status:** not started.
+
+## Slice 8 · Proof of everything (runs LAST, after 9–14) · Opus 5.5 medium
 **Why:** one session that trusts nothing and proves every VISION check for real.
 **Checks:**
 - [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
