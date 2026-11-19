@@ -74,6 +74,19 @@ def _record_file(cat, kind, f, now=None):
             test = (test or {'at': f.get('at') or now, 'by': 'Claude', 'run': None, 'lost': True}) if f.get('testRun') else None
         pair = rs._lc.minds_for(cat.get('brainsCfg'), kind)
         mark = {'by': test.get('by') or 'Claude', 'at': round(float(test['at'])), 'agent': cat.get('name'), 'free': True, 'pair': pair, 'run': test.get('run')} if test else None
+        try:   # 🧠 Slice 10: what its brains took from the stash vs browsed, the time and $ saved, each page as metadata only (never a word of it)
+            st_ = rs._sbrain.record_for(rs._sbrain.root_of(rs.DATA_DIR), rs._prec.refs_of(f))
+            if st_:
+                if st_.get('from'):   # which filed proofs first kept the pages it was handed (any agent's)
+                    want_ = {str(r)[5:]: r for r in st_['from'] if str(r).startswith('read:')}; got_ = []
+                    for c_ in (rs._load().get('cats') or {}).values() if want_ else []:
+                        for k_, key_ in rs._prec.KEYS.items():
+                            got_ += [{'kind': rs._prec.CODE[k_], 'n': x.get('n'), 'id': x.get('id'), 'agent': c_.get('name'), 'test': bool(x.get('test'))} for x in c_.get(key_) or []
+                                     if isinstance(x, dict) and str(x.get('readTid') or '') in want_]
+                    st_['fromProofs'] = got_[:8]
+                f['stash'] = st_
+        except Exception as e:   # noqa: BLE001 — the proof still files
+            print(f'[record] stash: {type(e).__name__}')
         rs._prec.stamp(kind, f, rs._calls_of(cat.get('id'), 6000), pair, earlier, _since(rows, f), back, mark, now)
         if back:
             (cat.get('footBack') or {}).pop(kind, None)
@@ -114,7 +127,7 @@ def _test_view(cat):
         last = next((f for f in reversed(cat.get(key) or []) if isinstance(f, dict) and f.get('test')), None)
         live = _test_live(cat, kind)
         out[kind] = {'running': bool(live), 'since': (live or {}).get('at'),
-                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief')}
+                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief', 'stash')}
                              | ({'codeCheck': {k: (last.get('codeCheck') or {}).get(k) for k in ('passed', 'total', 'failed', 'notRun')}} if last.get('codeCheck') else {}) | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
     return out
 

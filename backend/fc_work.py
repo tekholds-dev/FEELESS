@@ -232,7 +232,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             print(f'[agent think] {cat_id}: {str(e)[:120]}')
     env = rs.os.environ
     async with rs.httpx.AsyncClient(timeout=30) as http:
-        sessions, pages = [], []
+        sessions, pages, stok_ = [], [], None
         try:
             t_open_ = rs.time.time()
             asked_ = [bool(j) for j in rs._ca.split_jobs(text, len(models))] if len(models) > 1 else [True]
@@ -251,6 +251,9 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 except Exception as e:   # the live browser did not connect → the reader keeps the model working
                     sessions[-1] = {**s_, 'provider': 'reader', 'live': None, 'note': f"{s_['provider']} did not connect ({str(e)[:60]})"}
                     pages.append(rs._cb.ReaderPage(http))
+            ctx_s_ = rs._CALL_CTX.get() or {}   # 🧠 Slice 10: the stash in front of every window (ask first, keep every public page 3 ways, sealed)
+            stok_, pages = rs._sbrain.start_run(w['task'], pages, sessions, rs.DATA_DIR, ctx_s_.get('ref') or f"task:{w['task'].get('id')}", cat_id, ctx_s_.get('kind') or '',
+                                               [str(h) for h in (cat_now.get('siteSessions') or {})] + [str((rs._warm_for(cat_id) or {}).get('site') or '')][:1 if rs._warm_for(cat_id) else 0])
             w.update(sessions=sessions, pages=pages); w['task']['openSec'] = round(rs.time.time() - t_open_, 1)
 
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
@@ -400,6 +403,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             for x_ in (w.get('task') or {}).get('windows') or []:   # 🧭 the book learns which sites a window really read (blocked ones were filed as they happened)
                 if str(x_.get('url') or '').startswith('http') and x_.get('status') == 'done':
                     rs._src_note(x_['url'], True)
+            rs._sbrain.end_run(w.get('task') or {}, stok_, pages)
             w['pages'] = [None] * len(models)
             if (w.get('task') or {}).get('pow'):
                 try:

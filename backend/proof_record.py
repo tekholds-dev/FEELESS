@@ -222,6 +222,11 @@ def checks(kind, f, pair):
     if kind == 'pos' and kp and kp.get('from'):   # ⏫ Slice 3: a new version keeps every part the last one had working
         rows.append({'key': 'progress', 'label': 'Progress: this version kept every part the last one had working', 'ok': not kp.get('lost'),
                      'why': (f"kept {kp.get('kept')} of {kp.get('had')} parts of page {kp.get('from')}" + (f"; the owner took out {', '.join(kp.get('asked'))}" if kp.get('asked') else '')) if not kp.get('lost') else 'lost: ' + '; '.join(kp['lost'][:4])})
+    sb = f.get('stash') if isinstance(f.get('stash'), dict) else None
+    if sb:   # 🧠 Slice 10: its brains asked the stash first; hits vs pages browsed, and what that saved
+        rows.append({'key': 'stash', 'label': 'Asked the stash first: hits vs pages browsed, time and $ saved', 'ok': int(sb.get('hits') or 0) + int(sb.get('browsed') or 0) > 0,
+                     'why': (f"{sb.get('hits') or 0} stash hits, {sb.get('browsed') or 0} pages browsed ({sb.get('stale') or 0} stale), {sb.get('kept') or 0} kept; "
+                             f"saved {sb.get('savedSecs') or 0} s and ${float(sb.get('savedUsd') or 0):.4f} (${float(sb.get('paidEqUsd') or 0):.3f} on a paid mind)")})
     if kind == 'poc':   # 🎬 Slice 5: trend first, the real files, the owner's approve, reach graded against the goal set at filing
         rows += _studio.record_rows(f)
     return rows

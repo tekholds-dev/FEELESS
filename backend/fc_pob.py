@@ -566,6 +566,8 @@ async def _pob_tick(http, cat, now):
                 await rs._pob_file_safe(cat, rd, now, notes, why)
                 return
             await rs._pob_call(http, cat, rd, now, notes, why)
+    elif do == 'start' and cat.get('pobAsk') and (rs._WORK.get(cat['id']) or {}).get('task', {}).get('stop') and not (rs._WORK.get(cat['id']) or {}).get('done'):
+        rs._POB_WANT[cat['id']] = want or 'start'   # ⏳ Slice 10 fix: the read it was sent back from is still closing its windows (stopped at READ_S): the re-read waits a tick, never files "its windows were busy"
     elif do == 'start' and cat.get('pobAsk') and rs._topic_shared(cat['pobAsk'], now) and not rs._prec.back_due(cat.get('footBack'), 'pob', now):   # a sent-back PoB never reuses a read   # 🧠 COL-9: someone read this topic minutes ago: reuse it, never browse twice
         topic = cat.pop('pobAsk'); sh_ = rs._topic_shared(topic, now); rs._TOPIC_READS[rs._topic_key(topic)]['reused'] += 1
         try:

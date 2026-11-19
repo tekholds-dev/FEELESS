@@ -44,6 +44,7 @@ def summary(last):
     return (f"#{last.get('n')} {last.get('id')} · {ch}\n  minds that ran: {ran}\n  sources: {len((last.get('read') or {}).get('sites') or [])} sites"
             f" {((last.get('read') or {}).get('sites') or [])[:6]}\n  footprint: {(last.get('foot') or {})}\n  bench: {(last.get('test') or {}).get('bench')}"
             + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else '')
+            + (lambda b: f"\n  stash: {b.get('hits')} hits / {b.get('browsed')} browsed ({b.get('stale')} stale) · kept {b.get('kept')} · saved {b.get('savedSecs')} s, ${b.get('savedUsd')} (paid-eq ${b.get('paidEqUsd')}) · cats {b.get('cats')} · from {b.get('from')}" if b else '\n  stash: none recorded')(last.get('stash'))
             + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in (last.get('studio') if isinstance(last.get('studio'), list) else []))
             + (f"\n  version {last.get('version')} · brief {(last.get('brief') or {}).get('centre')} + {(last.get('brief') or {}).get('layout')}" if last.get('brief') or last.get('version') else '')
             + ''.join(f"\n  kit {k.get('name')}: {k.get('did')}" for k in last.get('kitsDid') or [])

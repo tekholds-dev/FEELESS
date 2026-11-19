@@ -96,6 +96,7 @@ import poc_watch as _pw   # noqa: F401  (read by fc_desk, fc_pow as rs._pw)
 import idea_board as _ideas   # noqa: F401  (read by fc_desk as rs._ideas)
 import proof_footprint as _foot   # noqa: F401  (read by fc_desk, fc_hive as rs._foot)
 import proof_record as _prec   # noqa: F401  🧾 Slice 0: the true record on every filed proof (minds from the call log, sources, footprint gate, TEST)
+import stash_brain as _sbrain   # noqa: E402,F401  🧠 Slice 10: the stash brain (every page a mind loads, sealed by category; ask first)
 import collective_stash as _stash
 import collective_kits as _kits   # noqa: F401  (read by fc_cats, fc_desk as rs._kits)
 import agent_topup as _topup   # noqa: F401  (read by fc_pow as rs._topup)
@@ -2128,6 +2129,8 @@ import fc_cats as _fc_cats   # noqa: E402  🧹 moved by scripts/move-section.py
 app.include_router(_fc_cats.router)
 import fc_test as _fc_test   # noqa: E402  🧪 Slice 0: TEST proofs on Sicario's agent + the true record on every filing
 app.include_router(_fc_test.router)
+import fc_stash as _fc_stash   # noqa: E402  🧠 Slice 10: the stash panel (counts only, never contents)
+app.include_router(_fc_stash.router)
 import video_swap_run as _vswap   # noqa: E402  🎭 Slice 4: the PoC video swap on FEELESS's own HQ › Core keys (fal H3 Recast · OpenRouter Aleph 2)
 app.include_router(_vswap.router)
 _record_file = _fc_test._record_file
