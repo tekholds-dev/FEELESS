@@ -825,3 +825,10 @@ button.cwb-rpx:hover { border-color: var(--ppl-dg1); color: var(--ppl-dg1); tran
 @keyframes cwb-auto-pulse { 50% { opacity: .45; } }
 body.fx-lite .cwb-auto-k.is-on .m-chip i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cwb-auto-k.is-on .m-chip i { animation: none; } }
+
+/* 🩹 owner 2026-11-19 "fat bar for nun": in a tall mind window the browser grid stretched its URL row and tab row to fill the spare height.
+   Now the URL bar and the tabs keep their own slim height and the screen takes the rest. */
+.agd-browser.cwb-browser { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.agd-browser.cwb-browser > .agd-url, .agd-browser.cwb-browser > .cwb-tabs { flex: none; }
+.agd-browser.cwb-browser > .cwb-tabs { margin: 0; }
+.agd-browser.cwb-browser > .cwb-view { flex: 1 1 auto; min-height: 0; }
