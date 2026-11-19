@@ -1,8 +1,10 @@
 """🎓 COMP v2 exam — run under .venv-mlx: `.venv-mlx/bin/python backend/comp_v2_exam.py backend/data/comp_v2`.
 
-Every examinee answers the same held-out proofs (test_rows.json, never trained on): the base Qwen3.5-9B, COMP v2 (base + the owner's
-LoRA adapter), the always-the-majority baseline, the owner's own OSSY + G4 (each on its own LM Studio, never a fallback), and the flagship APIs when their key is in backend/.env (Claude via the Anthropic SDK,
+Every examinee answers the same held-out proofs (test_rows.json, never trained on: real, judged proofs only, Slice 7): the base Qwen3.5-9B,
+COMP v2 (base + the owner's LoRA adapter), the always-the-majority baseline, the owner's own OSSY, G4 and ZED (each on its own LM Studio,
+never a fallback), and the flagship APIs when their key is in backend/.env (Claude via the Anthropic SDK,
 GPT and Grok via their HTTP APIs). A flagship with no key is listed as blocked, never scored. exam.json is rewritten after each examinee.
+At the end the ship rule runs (comp_v2.ship): COMP ships only if it beats the base model, and exam.json says why either way.
 """
 import json
 import os
@@ -30,7 +32,8 @@ def env_keys():
         pass
     return {k: (keys.get(k) or os.environ.get(k) or '') for k in ('ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'OPENAI_MODEL', 'XAI_MODEL',
                                                                'LOCAL_LLM_ENABLED', 'LOCAL_LLM_BASE_URL', 'LOCAL_LLM_MODEL', 'LOCAL_LLM_API_KEY',
-                                                               'LAN_LLM_BASE_URL', 'LAN_LLM_MODEL', 'LAN_LLM_API_KEY')}
+                                                               'LAN_LLM_BASE_URL', 'LAN_LLM_MODEL', 'LAN_LLM_API_KEY',
+                                                               'ZED_LLM_BASE_URL', 'ZED_LLM_MODEL', 'ZED_LLM_API_KEY')}
 
 
 OR_FLAGSHIP = {'claude': 'anthropic/claude-opus-5.5', 'gpt': 'openai/gpt-4o-mini', 'grok': 'x-ai/grok-4.7'}   # ids read from OpenRouter /models 2026-11-17
@@ -86,16 +89,36 @@ def openrouter_answers(rows, key, model, cat_id, check, ledger=None, timeout=90)
     return out
 
 
-def own_minds(keys):
-    """🖥 AGX-6: the owner's two judges sit the same exam, each on ITS OWN LM Studio only (never a fallback model, never a paid API):
-    OSSY = LM Studio on this Mac, G4 = LM Studio on the desktop Mac (LAN). → [(id, name, base, model, key, why_blocked)]"""
+def own_minds(keys, pick=None):
+    """🖥 AGX-6 + Slice 7: the owner's three judges sit the same exam, each on ITS OWN LM Studio only (never a fallback model, never a paid
+    API): OSSY = LM Studio on this Mac, G4 = LM Studio on the desktop Mac (LAN), ZED = a Google Gemma (ZED_LLM_BASE_URL, else this Mac's
+    LM Studio). ZED answers only from a Gemma: a Qwen answering as ZED would be OSSY twice, so with no Gemma loaded it is blocked, named.
+    → [(id, name, base, model, key, why_blocked)]"""
     on = str(keys.get('LOCAL_LLM_ENABLED') or '').strip().lower() in ('1', 'true', 'yes', 'on')
     ossy_base = (keys.get('LOCAL_LLM_BASE_URL') or 'http://127.0.0.1:1234/v1').rstrip('/')
     g4_base = (keys.get('LAN_LLM_BASE_URL') or '').rstrip('/')
+    zed_base = (keys.get('ZED_LLM_BASE_URL') or ossy_base).rstrip('/')
+    zed_key = keys.get('ZED_LLM_API_KEY') or keys.get('LOCAL_LLM_API_KEY') or ''
+    zed_model, zed_why = keys.get('ZED_LLM_MODEL') or '', None
+    if not zed_model or 'gemma' not in zed_model.lower():   # `pick` asks its LM Studio which Gemma it has (main passes zed_pick)
+        zed_model = pick(zed_base, zed_key) if pick else ''
+        zed_why = None if zed_model else 'no Gemma loaded in its LM Studio (ZED never answers with another family\'s model)'
     return [('ossy', f"OSSY · {(keys.get('LOCAL_LLM_MODEL') or 'qwen2.5-7b-instruct-mlx').split('/')[-1]}", ossy_base, keys.get('LOCAL_LLM_MODEL') or 'qwen2.5-7b-instruct-mlx',
              keys.get('LOCAL_LLM_API_KEY') or '', None if on else 'off: LOCAL_LLM_ENABLED is not true'),
             ('g4', f"G4 · {(keys.get('LAN_LLM_MODEL') or 'qwen/qwen3.5-4b').split('/')[-1]}", g4_base, keys.get('LAN_LLM_MODEL') or 'qwen/qwen3.5-4b',
-             keys.get('LAN_LLM_API_KEY') or '', None if g4_base else 'off: LAN_LLM_BASE_URL is not set')]
+             keys.get('LAN_LLM_API_KEY') or '', None if g4_base else 'off: LAN_LLM_BASE_URL is not set'),
+            ('zed', f"ZED · {(zed_model or 'Gemma').split('/')[-1]}", zed_base, zed_model, zed_key, zed_why)]
+
+
+def zed_pick(base, key, get=None):
+    """The Gemma ZED's LM Studio has (loaded models first, from LM Studio's own list), or '' when it has none or does not answer."""
+    import httpx
+    get = get or (lambda url: httpx.get(url, headers={'Authorization': f'Bearer {key}'} if key else {}, timeout=8))
+    try:
+        ids = [m.get('id') for m in (get(f'{base}/models').json().get('data') or [])]
+    except Exception:   # noqa: BLE001 — an LM Studio that does not answer gives ZED nothing to use
+        return ''
+    return next((i for i in ids if 'gemma' in str(i).lower()), '')
 
 
 def local_margins(rows_sets, adapter=None, makers=(cv.prompt_of,)):
@@ -195,11 +218,17 @@ def openai_style(rows, key, base, model, timeout=60):
     return out
 
 
-def main(folder):
+def main(folder, free=False):
+    """`free` = no paid call at all (the flagships are listed, never asked): how Claude runs the exam (Slice 7, §1: never spend)."""
     folder = Path(folder)
     rows = json.loads((folder / 'test_rows.json').read_text())
     train = [{'outcome': m['messages'][2]['content']} for m in map(json.loads, (folder / 'train.jsonl').read_text().splitlines())]
-    exam = {'at': round(time.time()), 'n': len(rows), 'task': 'won or lost, from what the proof said before it settled', 'examinees': []}
+    try:
+        ds = json.loads((folder / 'dataset.json').read_text())
+    except (OSError, ValueError):
+        ds = {}
+    exam = {'at': round(time.time()), 'n': len(rows), 'task': 'won or lost, from what the proof said and did before it settled', 'examinees': [],
+            'only': ds.get('only') or '', 'byKind': ds.get('byKind') or [], 'droppedN': ds.get('droppedN') or 0}
 
     def put(e):
         exam['examinees'] = [x for x in exam['examinees'] if x['id'] != e['id']] + [e]
@@ -225,6 +254,7 @@ def main(folder):
 
     t0 = time.time(); ((bv, bt),) = local_margins([valid, rows], None)
     put_local('base', cv.BASE_NAME, bv, bt, round(time.time() - t0))
+    chosen = None
     if not (folder / 'adapter' / 'adapters.safetensors').exists():
         put({'id': 'comp', 'name': 'COMP v2 · 9B LoRA', 'kind': 'local', 'blocked': 'not trained yet'})
     else:
@@ -236,9 +266,9 @@ def main(folder):
         if len(outs) > 1:
             put_local('comp_mem', 'COMP v2 + memory', outs[1][0], outs[1][1], sec)
     keys = env_keys(); g_ = _gr.load(Path(__file__).resolve().parent / 'data' / 'guardrails.json')   # 🛡 AGX-7: the owner's paid-exam switch + question cap
-    qs = rows[:min(MAX_FLAGSHIP_Q, int(_gr.value(g_, 'compFlagships')))]   # the PAID flagships' questions
-    own_qs = rows[:MAX_FLAGSHIP_Q]   # OSSY + G4 are free: the paid switch never limits them
-    for eid, name, base, model, key, why in own_minds(keys):   # 🖥 OSSY + G4: free, on the owner's own machines
+    qs = [] if free else rows[:min(MAX_FLAGSHIP_Q, int(_gr.value(g_, 'compFlagships')))]   # the PAID flagships' questions
+    own_qs = rows   # 🖥 Slice 7: OSSY, G4 and ZED are free: they answer every held-out proof, so their scores compare with COMP's
+    for eid, name, base, model, key, why in own_minds(keys, zed_pick):   # 🖥 OSSY + G4 + ZED: free, on the owner's own machines
         if why:
             put({'id': eid, 'name': name, 'kind': 'own', 'blocked': why}); continue
         try:
@@ -250,11 +280,11 @@ def main(folder):
              lambda k: openai_style(qs, k, 'https://api.openai.com/v1', keys['OPENAI_MODEL'] or 'gpt-4o-mini')),
             ('grok', keys['XAI_MODEL'] or 'grok-3-mini', 'XAI_API_KEY',
              lambda k: openai_style(qs, k, 'https://api.x.ai/v1', keys['XAI_MODEL'] or 'grok-3-mini')))
-    or_key = owner_openrouter()   # 🔑 owner 2026-11-17: "my openrouter key to be useable with comp": a flagship with no key of its own sits the exam on it
+    or_key = owner_openrouter() if qs else ''   # 🔑 owner 2026-11-17: "my openrouter key to be useable with comp": a flagship with no key of its own sits the exam on it
     or_cat, or_check = owner_spend() if or_key else (None, None)
     for eid, name, var, run in flag:
         if not qs:
-            put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'off in your guardrails'}); continue
+            put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': 'free exam: no paid call' if free else 'off in your guardrails'}); continue
         if not keys[var] and or_key:
             name_ = f'{name} · your OpenRouter'
             try:
@@ -270,9 +300,11 @@ def main(folder):
         except Exception as e:   # noqa: BLE001 — one provider failing never stops the exam
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': f'call failed: {type(e).__name__}'})
     exam['done'] = round(time.time())
+    cv.ship(folder, exam, chosen)   # 🚦 Slice 7: shipped only if it beats the base model, and the exam says why either way
     (folder / 'exam.json').write_text(json.dumps(exam))
     cv.keep_history(folder, exam)   # 🏁 AGX-6: every finished exam joins the race
 
 
 if __name__ == '__main__':
-    main(sys.argv[1] if len(sys.argv) > 1 else cv.DATA)
+    args = [a for a in sys.argv[1:] if a != '--free']
+    main(args[0] if args else cv.DATA, free='--free' in sys.argv[1:])

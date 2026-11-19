@@ -531,6 +531,10 @@ async def forge_railtest(request: Request, jid: str):
 import comp_v2 as _c2   # noqa: E402
 
 
+def _real_gate(rs):
+    return _c2.real_gate(rs.DATA_DIR)
+
+
 class Comp2Train(BaseModel):
     iters: int = 200
 
@@ -548,7 +552,7 @@ async def comp2_status(request: Request):
 
 @router.post('/api/reputation/admin/model-lab/comp2/train')
 async def comp2_train(request: Request, b: Comp2Train):
-    """Rebuilds the dataset from the live proofs (same seed, same held-out exam) and starts one LoRA run. One run at a time."""
+    """Rebuilds the dataset from the real, judged proofs (each proof's fold is fixed by its id) and starts one LoRA run. One run at a time."""
     rs = _rs()
     rs._require_owner(request)
     _guard_comp(rs)
@@ -557,8 +561,8 @@ async def comp2_train(request: Request, b: Comp2Train):
         raise rs.HTTPException(409, 'COMP v2 is already training or sitting its exam.')
     if not (st['base']['ready'] and st['base']['mlx']):
         raise rs.HTTPException(503, 'The 9B base or the MLX engine is not on this Mac.')
-    rows = await rs.asyncio.to_thread(_export, rs)
-    await rs.asyncio.to_thread(_c2.write_dataset, rows)
+    gate = await rs.asyncio.to_thread(_real_gate, rs)   # 🎓 Slice 7: real, judged proofs only; everything else is dropped and counted
+    await rs.asyncio.to_thread(_c2.write_dataset, gate)
     await rs.asyncio.to_thread(_c2.start_train, max(20, min(1000, int(b.iters))))
     return await rs.asyncio.to_thread(_c2.status)
 

@@ -64,6 +64,33 @@ function Kinds({ exam }) {
   </section>;
 }
 
+// 🚦 SLICE 7 · THE GATE: COMP learns only from real, judged proofs (each with its pass / fail evidence), and ships only if it beats the
+// base model on the held-out ones. Verdict first, then one meter (COMP vs the base vs always-guess) and what it learned from vs what it dropped.
+const DROP_SAY = { market_row: 'market snapshots', duplicate: 'repeats', source_marker: 'site index rows', judge_only: 'judged only by the judges', open: 'not settled',
+  test: 'TEST proofs', teacher_lesson: 'teacher lessons', no_evidence: 'no evidence', kalshi_lesson: 'Kalshi lessons', flat: 'flat', unreadable: 'unreadable', hand_mark_on_game: 'hand marks on games' };
+export function Gate({ d }) {
+  const ds = d.dataset || {}; const v = d.exam?.ship; const kept = (ds.train || 0) + (ds.valid || 0) + (ds.test || 0);
+  const drops = Object.entries(ds.dropped || {}).sort((a, b) => b[1] - a[1]);
+  const n = v?.n || 0; const bar = x => (n && x != null ? x / n : 0);
+  const say = v ? (v.ship ? 'SHIPPED' : 'NOT SHIPPED') : 'NOT EXAMINED';
+  return <section className={`c2-card m-card c2-gate is-${v ? (v.ship ? 'ship' : 'hold') : 'wait'}`} data-testid="mc2-gate">
+    <h4 className="c2-h">THE GATE <small>{ds.only === 'real judged proofs' ? 'real, judged proofs only' : 'built before the real-proof gate: train again'}</small></h4>
+    <div className="c2-gate-top">
+      <em className={`m-chip${v?.ship ? ' ok' : ' warn'}`} data-testid="mc2-ship" data-tip="COMP ships only when it gets more held-out proofs right than the base model it started from">{say}</em>
+      <p data-testid="mc2-ship-why">{v ? v.why : 'Train it, then run the exam: COMP ships only if it beats the base model.'}</p>
+    </div>
+    {v && n ? <ul className="c2-gate-meter" aria-label="Right on the held-out proofs">
+      {[['COMP', v.comp, 'is-comp'], ['base 9B', v.base, ''], ['always-guess', v.baseline, 'is-baseline']].map(([k, x, c], i) => <li key={k} className={c} style={{ '--i': i }}
+        data-tip={`${x ?? '—'} of ${n} held-out real proofs right`}><span>{k}</span><i><u style={{ transform: `scaleX(${Math.max(0.02, bar(x))})` }} /></i><b className="m-num">{x ?? '—'}<small>/{n}</small></b></li>)}
+    </ul> : null}
+    <div className="c2-facts c2-gate-facts">
+      <span data-tip="Each one a real proof an agent filed, with how it really ended (P&L, the scoreboard, Kalshi, reach or your mark). Never a judge's grade"><small>LEARNS FROM</small><Num v={kept} /><em>{(ds.byKind || []).map(k => `${k.kind} ${k.train + k.valid + k.test}`).join(' · ') || 'real proofs'}</em></span>
+      <span data-tip={drops.map(([k, x]) => `${x} ${DROP_SAY[k] || k}`).join(' · ') || 'nothing dropped'}><small>DROPPED</small><Num v={ds.droppedN} /><em>{drops.slice(0, 2).map(([k, x]) => `${x} ${DROP_SAY[k] || k}`).join(' · ')}</em></span>
+      <span data-tip="How the kept proofs got their pass / fail"><small>SETTLED BY</small><b className="c2-gate-by">{Object.entries(ds.settledBy || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, x]) => `${x} ${k}`).join(' · ') || '—'}</b></span>
+    </div>
+  </section>;
+}
+
 // 🏋 TRAINING: one panel — state, progress, the controls and ONE learning curve (training + held-out)
 function Training({ d, busy, live, iters, setIters, go }) {
   const run = d.run; const c = run.curve || { train: [], val: [] }; const ds = d.dataset; const phase = run.running ? 'train' : d.examRunning ? 'exam' : 'idle';
@@ -79,7 +106,7 @@ function Training({ d, busy, live, iters, setIters, go }) {
     </header>
     <div className="c2-facts">
       <span data-tip="The open model it starts from. Its own weights stay untouched; COMP is a small add-on trained on top"><small>STARTS FROM</small><b>{d.base.name}</b><em className={`m-chip${d.base.ready ? ' ok' : ' warn'}`}>{d.base.ready ? 'on this Mac' : 'missing'}</em></span>
-      <span data-tip="Settled proofs it learns from (flat ones dropped)"><small>LEARNS FROM</small><Num v={ds?.train} /><em>proofs</em></span>
+      <span data-tip="Real, judged proofs it trains on (the rest of the real ones tune it or sit the exam)"><small>TRAINS ON</small><Num v={ds?.train} /><em>proofs</em></span>
       <span data-tip="Held-out proofs only the exam uses: never trained on"><small>EXAM</small><Num v={ds?.test} /><em>proofs</em></span>
       <span data-tip="How the proofs it learns from ended"><small>WON / LOST</small><b className="m-num">{ds ? `${ds.won} / ${ds.lost}` : '—'}</b></span>
     </div>
@@ -95,8 +122,8 @@ function Training({ d, busy, live, iters, setIters, go }) {
     <div className="c2-go">
       <label className="c2-iters" data-tip="How many proofs it studies, one at a time (99 = one pass). More = fits them tighter, and risks memorising"><small className="m-label">STUDY</small>
         <span className="m-seg" role="group" aria-label="Iterations">{[100, 200, 400].map(n => <button key={n} type="button" className={iters === n ? 'active' : ''} aria-pressed={iters === n} data-tip={`${n} steps`} onClick={() => setIters(n)} data-testid={`mc2-iters-${n}`}>{n}</button>)}</span></label>
-      <button type="button" className="m-btn m-go" disabled={busy || live || !d.base.ready} onClick={() => go('/admin/model-lab/comp2/train', { iters })} data-tip="Rebuilds the rows from your live proofs (same held-out exam) and trains a new COMP here. Takes minutes, costs nothing" data-testid="mc2-train">Train COMP</button>
-      <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="COMP vs the base vs always-guess vs your OSSY + G4 (each on its own LM Studio, free) vs every flagship whose key is saved, on the same held-out proofs" data-testid="mc2-exam">Run the exam</button>
+      <button type="button" className="m-btn m-go" disabled={busy || live || !d.base.ready} onClick={() => go('/admin/model-lab/comp2/train', { iters })} data-tip="Rebuilds the rows from your real, judged proofs (a proof's exam seat is fixed by its id) and trains a new COMP here. Takes minutes, costs nothing" data-testid="mc2-train">Train COMP</button>
+      <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="COMP vs the base vs always-guess vs your OSSY, G4 and ZED (each on its own LM Studio, free) vs every flagship whose key is saved, on the same held-out proofs. COMP ships only if it beats the base" data-testid="mc2-exam">Run the exam</button>
     </div>
   </section>;
 }
@@ -105,17 +132,17 @@ function Training({ d, busy, live, iters, setIters, go }) {
 function Ways({ d, busy, collect }) {
   const m = d.market || {}; const mem = (d.exam?.examinees || []).find(e => e.id === 'comp_mem');
   const W = [
-    [Target, 'Studies your proofs', 'Fine-tune (LoRA) on the 9B: what a proof said before it settled → how it ended', 'live', d.dataset ? `${d.dataset.train - (d.dataset.net || 0)} proofs` : ''],
-    [Globe, 'Learns from the market', 'Snapshots live Solana coins on DexScreener every 10 min, settles each an hour later (+20% won · −20% or rugged lost). Train only, never more rows than yours', m.collects ? 'live' : 'wait', m.collects ? `${m.rows || 0} rows · ${m.open || 0} holding` : 'starts with the backend'],
+    [Target, 'Studies your real proofs', 'Fine-tune (LoRA) on the 9B: what a real, judged proof said and did before it settled → how it ended', 'live', d.dataset ? `${d.dataset.train} proofs` : ''],
+    [Globe, 'Watches the market', 'Snapshots live Solana coins on DexScreener every 10 min and settles each an hour later. Kept out of training since Slice 7: a snapshot is not a proof', 'out', m.collects ? `${m.rows || 0} rows kept out` : 'kept out'],
     [Brain, 'Remembers similar proofs', 'Before it answers, it reads the 5 past proofs most like this one and how they ended. A proof settled an hour ago helps right away', mem ? 'live' : 'wait', mem ? `${Math.round(mem.score.acc * 100)}% on the exam` : 'next exam'],
     [ThumbsUp, 'Your grades', 'Your 👍 / 👎 on open proofs (Data & grades tab) become rows where no market settled them', 'live', ''],
     [Scale, 'Learns which answer is better', 'Right-vs-wrong pairs teach it which of two answers is better (DPO)', 'todo', 'not built'],
     [GraduationCap, 'Learns the reasons', 'A bigger Apache-2.0 open model writes the why behind each result; COMP learns the reasoning', 'todo', 'not built · needs ~20 GB model'],
-    [RefreshCw, 'Retrains as proofs settle', 'A new COMP each night, kept only if it beats the last one on the exam', 'todo', 'not built'],
+    [RefreshCw, 'Ships only if it wins', 'After every exam: shipped only if it beats the base model on the held-out real proofs, else the last shipped COMP stays', d.exam?.ship ? 'live' : 'wait', d.shipped?.at ? `shipped ${new Date(d.shipped.at * 1000).toLocaleDateString()}` : 'none shipped yet'],
   ];
   return <section className="c2-card m-card"><h4 className="c2-h">HOW COMP LEARNS <small>{W.filter(w => w[3] === 'live').length} of {W.length} live</small></h4>
     <ul className="c2-ways mc2-ways" data-testid="mc2-ways">{W.map(([Ic, t, say, st, n], i) => <li key={t} className={`is-${st}`} style={{ '--i': i }} data-tip={say}>
-      <i aria-hidden="true"><Ic size={15} strokeWidth={1.75} /></i><b>{t}</b><u className="m-num">{n}</u><em className={`m-chip${st === 'live' ? ' ok' : st === 'wait' ? ' warn' : ''}`}>{st === 'live' ? 'LIVE' : st === 'wait' ? 'WAITING' : 'NOT BUILT'}</em></li>)}</ul>
+      <i aria-hidden="true"><Ic size={15} strokeWidth={1.75} /></i><b>{t}</b><u className="m-num">{n}</u><em className={`m-chip${st === 'live' ? ' ok' : st === 'wait' ? ' warn' : ''}`}>{st === 'live' ? 'LIVE' : st === 'wait' ? 'WAITING' : st === 'out' ? 'KEPT OUT' : 'NOT BUILT'}</em></li>)}</ul>
     <button type="button" className="m-btn c2-collect" disabled={busy} onClick={collect} data-tip="One snapshot + settle pass on DexScreener now (it also runs every 10 minutes)" data-testid="mc2-collect">Collect market rows now</button>
   </section>;
 }
@@ -134,6 +161,7 @@ export function ModelComp2({ call }) {
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d.exam ? <Score exam={d.exam} /> : <section className="c2-hero m-card"><p className="mlb-none">Train it, then run the exam: every model answers the same held-out proofs and the score lands here.</p></section>}
     {verdict ? <p className="c2-verdict" data-testid="mc2-verdict">{verdict}</p> : null}
+    <Gate d={d} />
     <div className="c2-two">
       {d.exam ? <Kinds exam={d.exam} /> : null}
       <section className="c2-card m-card"><h4 className="c2-h">THE RACE <small>{d.examRunning ? 'sitting it now…' : d.exam ? `exam of ${d.exam.n} · ${new Date(d.exam.at * 1000).toLocaleDateString()}` : 'not sat yet'}</small></h4>

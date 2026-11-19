@@ -1,4 +1,4 @@
-"""🚀 COMP v2: the prompt never sees what was written after a proof settled, the split is stable and stratified, the exam scores right,
+"""🚀 COMP v2: the prompt never sees what was written after a proof settled, the split is stable by proof id, the exam scores right,
 the MLX log parses, and the routes refuse a second run (training and the exam processes are faked; MLX is never imported)."""
 import asyncio
 import json
@@ -27,16 +27,18 @@ def test_the_prompt_only_holds_what_was_known_before_it_settled():
     assert [x['role'] for x in m] == ['system', 'user', 'assistant'] and m[2]['content'] == 'won'
 
 
-def test_split_is_stable_stratified_and_never_overlaps(tmp_path):
-    a = cv.split(_rows()); b = cv.split(list(reversed(_rows())))
-    assert [r['title'] for r in a[2]] == [r['title'] for r in b[2]]           # same held-out exam whatever order the proofs come in
-    tr, va, te = a
-    titles = [r['title'] for r in tr + va + te]
-    assert len(titles) == len(set(titles)) == 30                                # flat dropped, nothing in two parts
-    assert {(r['kind'], r['outcome']) for r in te} == {(r['kind'], r['outcome']) for r in tr}
-    c = cv.write_dataset(_rows(), tmp_path)
-    assert c['train'] + c['valid'] + c['test'] == 30 and (tmp_path / 'train.jsonl').read_text().count('\n') == c['train']
-    assert len(json.loads((tmp_path / 'test_rows.json').read_text())) == c['test']
+def test_split_is_stable_by_proof_id_and_never_overlaps(tmp_path):
+    """Slice 7: the folds come from a hash of each proof's id (comp_real.fold), so order never moves a proof and an examined proof is
+    never trained on by a later COMP."""
+    import comp_real as cr
+    rows = [{**r, 'id': f'p{i}'} for i, r in enumerate(_rows())]
+    a = cr.split(rows); b = cr.split(list(reversed(rows)))
+    assert [r['id'] for r in a[2]] == [r['id'] for r in b[2]]
+    ids = [r['id'] for part in a for r in part]
+    assert len(ids) == len(set(ids)) == len(rows)
+    c = cv.write_dataset({'rows': rows, 'dropped': {'test': 2}}, tmp_path)
+    assert c['train'] + c['valid'] + c['test'] == 30 and (tmp_path / 'train.jsonl').read_text().count('\n') == c['train']   # flat never trains
+    assert len(json.loads((tmp_path / 'test_rows.json').read_text())) == c['test'] and c['dropped'] == {'test': 2}
 
 
 def test_answers_scores_and_the_baseline():
@@ -63,7 +65,7 @@ def lab(monkeypatch, tmp_path):
     monkeypatch.setattr(cv, 'DATA', tmp_path)
     monkeypatch.setattr(cv, 'BASE', tmp_path)          # "the base is on this Mac"
     monkeypatch.setattr(cv, 'MLX_PY', tmp_path)
-    monkeypatch.setattr(lab, '_export', lambda rs: _rows())
+    monkeypatch.setattr(lab, '_real_gate', lambda rs: {'rows': [{**r, 'id': f'p{i}'} for i, r in enumerate(_rows())]})   # Slice 7: real proofs only
     started = []
     monkeypatch.setattr(cv, 'start_train', lambda iters, folder=None: started.append(('train', iters)) or 1)
     monkeypatch.setattr(cv, 'start_exam', lambda folder=None: started.append(('exam',)) or 1)
@@ -126,10 +128,10 @@ def test_the_internet_learner_snapshots_then_settles_won_lost_flat_and_rugs(tmp_
     rows = cm.rows(tmp_path, 10)
     assert {(r['title'], r['outcome']) for r in rows} == {('Hold $A for 1 hour', 'won'), ('Hold $B for 1 hour', 'lost'), ('Hold $D for 1 hour', 'lost')}
     assert 'liquidity $20K' in rows[0]['plan'] and cm.rows(tmp_path, 1) == rows[:1]
-    # the rows join training only, capped at the owner's own train count; the exam stays his proofs
-    c = cv.write_dataset(_rows(), tmp_path)
-    test = json.loads((tmp_path / 'test_rows.json').read_text())
-    assert c['net'] == 3 and all(r['kind'] != 'PoMkt' for r in test)
+    # Slice 7: market rows are not proofs, so they never train COMP: they are counted as dropped
+    assert cv.extra_counts(tmp_path, tmp_path / 'none.jsonl')['market_row'] == 3
+    c = cv.write_dataset({'rows': [{**r, 'id': f'p{i}'} for i, r in enumerate(_rows())]}, tmp_path)
+    assert c['net'] == 0 and 'PoMkt' not in c['kinds']
 
 
 def test_memory_recalls_the_most_alike_past_proofs():

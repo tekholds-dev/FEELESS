@@ -29,6 +29,7 @@ def test_each_finished_exam_joins_the_race_once_and_blocked_ones_are_not_points(
 def test_ossy_and_g4_use_only_their_own_lm_studio():
     on = cx.own_minds({'LOCAL_LLM_ENABLED': 'true', 'LOCAL_LLM_BASE_URL': 'http://127.0.0.1:1234/v1/', 'LOCAL_LLM_MODEL': 'qwen/q7',
                         'LAN_LLM_BASE_URL': 'http://10.0.0.9:1234/v1', 'LAN_LLM_MODEL': 'qwen/q4', 'LAN_LLM_API_KEY': 'k'})
-    assert [(e[0], e[2], e[3], e[4], e[5]) for e in on] == [('ossy', 'http://127.0.0.1:1234/v1', 'qwen/q7', '', None), ('g4', 'http://10.0.0.9:1234/v1', 'qwen/q4', 'k', None)]
+    assert [(e[0], e[2], e[3], e[4], e[5]) for e in on[:2]] == [('ossy', 'http://127.0.0.1:1234/v1', 'qwen/q7', '', None), ('g4', 'http://10.0.0.9:1234/v1', 'qwen/q4', 'k', None)]
+    assert on[2][0] == 'zed' and on[2][5].startswith('no Gemma')   # Slice 7: ZED sits it too, from a Gemma only, never a Qwen stand-in
     off = cx.own_minds({})
     assert off[0][5].startswith('off') and off[1][5].startswith('off')   # never a fallback model: off is said, not swapped

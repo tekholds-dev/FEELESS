@@ -7,14 +7,13 @@ Pure parts (dataset, split, log parsing, scoring) are tested here; the heavy par
 """
 import json
 import os
-import random
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-import comp_market as _market
+import comp_real as _real
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / 'data' / 'comp_v2'
@@ -29,9 +28,12 @@ SEED = 7
 
 
 def prompt_of(row):
-    """The question for one row: only what was known before the market (or the owner) settled it."""
+    """The question for one row: only what was known before the market (or the owner) settled it, and what the proof DID before then
+    (Slice 7: the minds' calls and reasons, the bid, the coin at entry, the build plan; comp_real.evidence)."""
     lines = [f"Kind: {row.get('kind', '')}", f"Title: {row.get('title', '')}", f"Source: {row.get('source', '')}"]
     lines += [f'{k.capitalize()}: {row[k]}' for k in BEFORE if row.get(k)]
+    if row.get('evidence'):
+        lines += ['What it did:'] + [f'- {e}' for e in row['evidence'][:14]]
     return '\n'.join(lines) + '\nWon or lost?'
 
 
@@ -41,24 +43,6 @@ def chat_of(row):
         return None
     return {'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': prompt_of(row)},
                          {'role': 'assistant', 'content': row['outcome']}]}
-
-
-def split(rows, seed=SEED, test=0.2, valid=0.1):
-    """Stratified by kind × outcome with a fixed seed, so every version is examined on the same held-out proofs.
-    → (train, valid, test) lists of the raw rows."""
-    groups = {}
-    for r in rows:
-        if r.get('outcome') in LABELS:
-            groups.setdefault((r.get('kind'), r['outcome']), []).append(r)
-    rnd = random.Random(seed)
-    tr, va, te = [], [], []
-    for key in sorted(groups):
-        g = sorted(groups[key], key=lambda r: (r.get('at') or 0, r.get('title') or ''))
-        rnd.shuffle(g)
-        n_te = max(1, round(len(g) * test)) if len(g) >= 3 else 0
-        n_va = max(1, round(len(g) * valid)) if len(g) >= 6 else 0
-        te += g[:n_te]; va += g[n_te:n_te + n_va]; tr += g[n_te + n_va:]
-    return tr, va, te
 
 
 KALSHI_ROWS = 'kalshi_rows.jsonl'
@@ -82,26 +66,48 @@ def add_kalshi_row(row, folder=None):
     return True
 
 
-def write_dataset(rows, folder=None):
-    """Writes train/valid/test.jsonl (mlx-lm chat format) + test_rows.json (the raw rows the exam grades). → counts."""
+def write_dataset(gate, folder=None):
+    """Slice 7: `gate` = comp_real.collect(...): real, judged proofs only, each with its pass / fail evidence. Writes train/valid/test.jsonl
+    (mlx-lm chat format) + the raw rows the exam grades. The folds come from a hash of each proof's id (comp_real.fold), so a proof that
+    sat one exam is never trained on later. Internet market rows and Kalshi lessons no longer train COMP: they are counted as dropped. → counts"""
     folder = Path(folder or DATA)
     folder.mkdir(parents=True, exist_ok=True)
-    rows = list(rows) + [r for r in kalshi_rows(folder) if r.get('id') not in {x.get('id') for x in rows}]   # 🎯 real-money results: the best signal, in every split
-    tr, va, te = split(rows)
-    net = [r for r in _market.rows(folder, len(tr)) if r.get('outcome') in LABELS]   # 🌐 internet rows: train only, never more than his
-    tr = tr + net
-    for name, part in (('train', tr), ('valid', va or tr[:4]), ('test', te)):
+    rows = [r for r in gate['rows'] if r.get('outcome') in LABELS]
+    tr, va, te = _real.split(rows)
+    for name, part in (('train', tr), ('valid', va), ('test', te)):
         with open(folder / f'{name}.jsonl', 'w', encoding='utf-8') as f:
             for r in part:
                 f.write(json.dumps(chat_of(r), ensure_ascii=False) + '\n')
     (folder / 'test_rows.json').write_text(json.dumps(te, ensure_ascii=False))
     (folder / 'train_rows.json').write_text(json.dumps(tr, ensure_ascii=False))
     (folder / 'valid_rows.json').write_text(json.dumps(va, ensure_ascii=False))
-    counts = {'train': len(tr), 'net': len(net), 'valid': len(va), 'test': len(te),
-              'won': sum(r['outcome'] == 'won' for r in tr + va + te), 'lost': sum(r['outcome'] == 'lost' for r in tr + va + te),
-              'kinds': sorted({r.get('kind') for r in tr + va + te}), 'at': round(time.time())}
+    by_kind = {}
+    for part, rs_ in (('train', tr), ('valid', va), ('test', te)):
+        for r in rs_:
+            k = by_kind.setdefault(r['kind'], {'kind': r['kind'], 'train': 0, 'valid': 0, 'test': 0, 'won': 0, 'lost': 0})
+            k[part] += 1; k[r['outcome']] += 1
+    settled = {}
+    for r in rows:
+        settled[r.get('settledBy') or '?'] = settled.get(r.get('settledBy') or '?', 0) + 1
+    counts = {'only': 'real judged proofs', 'train': len(tr), 'net': 0, 'valid': len(va), 'test': len(te),
+              'won': sum(r['outcome'] == 'won' for r in rows), 'lost': sum(r['outcome'] == 'lost' for r in rows),
+              'kinds': sorted(by_kind), 'byKind': sorted(by_kind.values(), key=lambda k: k['kind']), 'settledBy': settled,
+              'dropped': gate.get('dropped') or {}, 'droppedN': sum((gate.get('dropped') or {}).values()), 'why': gate.get('why') or {},
+              'at': round(time.time())}
     (folder / 'dataset.json').write_text(json.dumps(counts))
     return counts
+
+
+def extra_counts(folder=None, teacher=None):
+    """The sources that are not proofs and so never train COMP (Slice 7), counted for the report."""
+    folder = Path(folder or DATA)
+    def lines(p):
+        try:
+            return sum(1 for ln in Path(p).read_text().splitlines() if ln.strip())
+        except OSError:
+            return 0
+    return {'market_row': lines(folder / 'market_rows.jsonl'),
+            'kalshi_lesson': len(kalshi_rows(folder)), 'teacher_lesson': lines(teacher or (ROOT / 'data' / 'comp_teacher.jsonl'))}
 
 
 _ITER = re.compile(r'Iter (\d+): (Train|Val) loss ([\d.]+)')
@@ -174,6 +180,60 @@ def majority(train):
     return 'won' if won * 2 >= len(train) else 'lost'
 
 
+def ship_verdict(exam):
+    """🚦 Slice 7: a COMP that does not beat the base model on the held-out real proofs is NOT shipped, and this says why in plain words.
+    Ships only when COMP (the fine-tune alone, no memory: like for like with the base) gets strictly more questions right than the base 9B
+    AND at least as many as always guessing the majority. → {'ship', 'why', 'comp', 'base', 'baseline', 'n', 'margin'}"""
+    ex = {e['id']: e for e in (exam or {}).get('examinees') or []}
+    def right(i):
+        s = (ex.get(i) or {}).get('score') or {}
+        return s.get('right'), s.get('n')
+    (c, n), (b, _), (m, _) = right('comp'), right('base'), right('baseline')
+    out = {'ship': False, 'comp': c, 'base': b, 'baseline': m, 'n': n or (exam or {}).get('n') or 0, 'margin': None}
+    if c is None:
+        why = (ex.get('comp') or {}).get('blocked') or 'COMP did not sit the exam'
+        return {**out, 'why': f'Not shipped: {why}.'}
+    if b is None:
+        return {**out, 'why': 'Not shipped: the base model did not sit the exam, so there is nothing to beat.'}
+    out['margin'] = c - b
+    pts = round(100 / n, 1) if n else 0
+    if c <= b:
+        return {**out, 'why': f'Not shipped: COMP got {c} of {n} right and the base 9B got {b} of {n}. '
+                              f'{"A tie is not a win" if c == b else "COMP did worse"}: the fine-tune taught it nothing the base did not already know '
+                              f'on these proofs (one answer = {pts} points).'}
+    if m is not None and c < m:
+        return {**out, 'why': f'Not shipped: COMP beat the base ({c} vs {b} of {n}) but not always guessing "{(ex.get("baseline") or {}).get("name", "")}" ({m}).'}
+    return {**out, 'ship': True, 'why': f'Shipped: COMP got {c} of {n} right vs the base 9B {b} (+{c - b}, one answer = {pts} points).'}
+
+
+def ship(folder, exam, chosen):
+    """Writes the verdict into the exam; on a pass, copies the chosen adapter to shipped/ (what COMP serves). On a fail the last shipped
+    COMP stays as it was (or none), so a worse COMP never replaces a better one. → the verdict"""
+    import shutil
+    folder = Path(folder); v = ship_verdict(exam); v['at'] = round(time.time())
+    if v['ship'] and chosen and (Path(chosen) / 'adapters.safetensors').exists():
+        dst = folder / 'shipped'
+        tmp = folder / 'shipped.new'
+        shutil.rmtree(tmp, ignore_errors=True); tmp.mkdir(parents=True)
+        for name in ('adapters.safetensors', 'adapter_config.json'):
+            src = Path(chosen) / name if (Path(chosen) / name).exists() else folder / 'adapter' / name
+            shutil.copy(src, tmp / name)
+        shutil.rmtree(dst, ignore_errors=True); tmp.rename(dst)
+        (folder / 'shipped.json').write_text(json.dumps({**v, 'exam': exam.get('at'), 'picked': exam.get('picked')}))
+    elif v['ship']:
+        v = {**v, 'ship': False, 'why': 'Not shipped: the picked adapter is missing on disk.'}
+    exam['ship'] = v
+    return v
+
+
+def shipped(folder=None):
+    """→ what COMP serves now: the last verdict that passed ({} when none ever has)."""
+    try:
+        return json.loads((Path(folder or DATA) / 'shipped.json').read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 # ── the heavy parts (subprocess; never imported by the backend) ─────────────────────────────────────────────────────────────────────
 
 def train_cmd(iters=300, folder=None):
@@ -223,7 +283,7 @@ def status(folder=None):
                      'mlx': MLX_PY.exists()},
             'dataset': j('dataset.json'), 'run': {**run, 'running': running, 'done': done, 'curve': curve,
                                                   'error': '' if running else _say(err)},
-            'exam': j('exam.json'), 'race': history(folder, j('exam.json')), 'market': j('market.json'), 'examRunning': bool((j('exam_run.json', {}) or {}).get('pid')) and alive(j('exam_run.json', {}).get('pid'))}
+            'exam': j('exam.json'), 'shipped': shipped(folder), 'race': history(folder, j('exam.json')), 'market': j('market.json'), 'examRunning': bool((j('exam_run.json', {}) or {}).get('pid')) and alive(j('exam_run.json', {}).get('pid'))}
 
 
 def race_row(exam):
@@ -284,9 +344,28 @@ def start_exam(folder=None):
     return p.pid
 
 
-if __name__ == '__main__':   # `python comp_v2.py build` writes the dataset from the live proofs
+def real_gate(rs_dir=None, folder=None):
+    """Slice 7: comp_real.collect over the agents' real proofs (their live folders + the stash copies + the owner's Model Lab grades). Read only."""
+    import collective_stash as _st
+    d = Path(rs_dir or ROOT / 'data')
+    try:
+        cats = json.loads((d / 'feecats.json').read_text()).get('cats') or {}
+    except (OSError, ValueError):
+        cats = {}
+    try:
+        grades = json.loads((d / 'model_lab_grades.json').read_text())
+    except (OSError, ValueError):
+        grades = {}
+    root = d / 'stash'
+    return _real.collect(cats, _st.catalog(root) if (root / 'index.db').exists() else [], lambda k: _st.read(root, k),
+                         extra=extra_counts(folder, d / 'comp_teacher.jsonl'), grades=grades)
+
+
+def build_real(rs_dir=None, folder=None):
+    return write_dataset(real_gate(rs_dir, folder), folder)
+
+
+if __name__ == '__main__':   # `python comp_v2.py build` writes the dataset from the real proofs
     sys.path.insert(0, str(ROOT))
     if sys.argv[1:] == ['build']:
-        import rep_model_lab
-        import reputation_service
-        print(write_dataset(rep_model_lab._export(reputation_service)))
+        print(json.dumps(build_real()))

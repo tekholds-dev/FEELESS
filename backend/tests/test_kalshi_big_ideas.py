@@ -52,9 +52,10 @@ def test_settle_pass_grades_a_filled_bid_and_files_one_lesson(monkeypatch, tmp_p
     assert len(comp_v2.kalshi_rows(tmp_path)) == 1 and 'COMP lesson' in cat['chat'][0]['text'] and len(cat['chat']) == 1
 
 
-def test_dataset_takes_the_kalshi_lessons(tmp_path, monkeypatch):
-    monkeypatch.setattr(comp_v2._market, 'rows', lambda f, n: [])
+def test_kalshi_lessons_are_counted_not_trained(tmp_path):
+    """Slice 7: a Kalshi lesson is not a proof record; its PoB folder carries the bid and its real result (comp_real.label)."""
     comp_v2.add_kalshi_row({'id': 'kalshi:o1', 'kind': 'PoB · Kalshi', 'title': 'x', 'outcome': 'won'}, tmp_path)
     assert comp_v2.add_kalshi_row({'id': 'kalshi:o1', 'kind': 'PoB · Kalshi', 'title': 'x', 'outcome': 'won'}, tmp_path) is False
-    counts = comp_v2.write_dataset([{'id': f'p{i}', 'kind': 'PoW', 'title': 't', 'outcome': 'lost'} for i in range(9)], tmp_path)
-    assert counts['won'] == 1 and 'PoB · Kalshi' in counts['kinds']
+    assert comp_v2.extra_counts(tmp_path, tmp_path / 'none.jsonl')['kalshi_lesson'] == 1
+    counts = comp_v2.write_dataset({'rows': [{'id': f'p{i}', 'kind': 'PoW', 'title': 't', 'outcome': 'lost'} for i in range(9)]}, tmp_path)
+    assert counts['won'] == 0 and 'PoB · Kalshi' not in counts['kinds']
