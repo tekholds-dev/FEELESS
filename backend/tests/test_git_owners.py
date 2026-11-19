@@ -35,7 +35,7 @@ def test_a_mark_keeps_the_scroll_it_was_drawn_at():
 
 def test_a_page_reports_its_scroll_and_finds_a_quote():
     page = af.preview('<!doctype html><html><head></head><body>hi</body></html>')
-    assert 'feeless-scroll' in page and 'feeless-find' in page and 'feeless-picked' in page
+    assert 'feeless-scroll' in page and 'feeless-find' in page and 'feeless-inspected' in page   # 🔍 Slice 9: inspect replaced the box picker
 
 
 def test_the_git_chat_gets_names_and_sizes_never_what_is_inside():

@@ -23,7 +23,8 @@ import REAL from './realShelfFixture.json';   // real_world.resolve on the live 
 import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a real unsent proof (Happy Assistant), 2026-11-07
 import ECO from './ecoFixture.json';
 import STUDIO from './studioTestFixture.json';   // 🪦 Slice 2: Sicario's real TEST PoStatic #6 that carried a 3D studio piece (its folder view + filed record), 2026-11-18
-import S3 from './slice3TestFixture.json';   // 🧰🧬 Slice 3: Sicario's real TEST PoStatics (folder views + filed records): kits with what each did, brief, unique, clean, progress
+import S3 from './slice3TestFixture.json';
+import S9 from './slice9TestFixture.json';   // 🔍 Slice 9: Sicario's real TEST PoStatic fixed through inspect (its folder view after the fix + its filed record; pictures inlined)   // 🧰🧬 Slice 3: Sicario's real TEST PoStatics (folder views + filed records): kits with what each did, brief, unique, clean, progress
 import TRC from './trueRecordFixture.json';   // 🧾 Sicario's real filed folders (record fields only), exported from feecats.json after the Slice 0 TEST runs, 2026-11-18
 import { TrueRecord } from '../components/command/TrueRecord';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
@@ -80,6 +81,11 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/[?&]inspect\b/.test(window.location.search)) {   // ?inspect — Slice 9: the real TEST folder fixed through inspect, in the PoStatic desk (open its tile: Inspect, the before → after, comments)
+    const scat = { id: 'sic', name: "Sicario's", handle: 'sicarios' }; const row9 = { id: S9.doc.id, kind: 'build', name: S9.doc.name }; let doc9 = S9.doc;
+    const w9 = async (_c, b) => { if (b.op === 'ws_comment') { doc9 = { ...doc9, comments: b.tools?.drop ? (doc9.comments || []).filter(c => c.id !== b.tools.drop) : [...(doc9.comments || []), { id: `k${Date.now()}`, sel: b.tools?.target?.sel, tag: b.tools?.target?.tag, text: b.tools?.target?.text, note: b.text, at: Date.now() / 1000 }] }; return { doc: doc9 }; } return b.op === 'features' ? { workspaces: [row9], psFolders: [S9.filed] } : b.op === 'state' ? { psFolders: [S9.filed] } : b.op === 'ws_open' ? { doc: doc9 } : {}; };
+    return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><ProofDesk cat={scat} kind="build" work={w9} onCommand={() => {}} /></div>;
+  }
   if (/[?&]slice3\b/.test(window.location.search)) {   // ?slice3 — Slice 3: the real TEST PoStatic folders on Sicario in the PoStatic desk (open a tile: Kits, Static, record)
     const scat = { id: 'sic', name: "Sicario's", handle: 'sicarios' }; const rows3 = S3.folders.map(d => ({ id: d.id, kind: 'build', name: d.name }));
     const w3 = async (_c, b) => (b.op === 'features' ? { workspaces: rows3, psFolders: S3.filed } : b.op === 'state' ? { psFolders: S3.filed } : b.op === 'ws_open' ? { doc: S3.folders.find(d => d.id === (b.text || b.job)) || S3.folders[0] } : {});

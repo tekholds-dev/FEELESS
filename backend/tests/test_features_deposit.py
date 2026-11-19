@@ -83,7 +83,7 @@ def test_folder_limits_and_clean_names():
 def test_a_dragged_box_becomes_words_and_the_helper_stays_in_its_sandbox():
     n = feat.region_note({'x': .1, 'y': .2, 'w': .5, 'h': 9, 'html': '<b>x</b>' * 400})
     assert '10% across' in n and '100% tall' in n and len(n) < 800 and feat.region_note('nope') == ''
-    assert 'feeless-pick' in feat.preview('<html><body>a</body></html>') and 'fetch' not in feat.PICKER
+    assert 'feeless-inspected' in feat.preview('<html><body>a</body></html>') and 'fetch' not in feat.PICKER and 'feeless-pick' not in feat.PICKER   # 🔍 Slice 9: inspect replaced the box picker
 
 
 def test_fresh_memory_keeps_its_record():

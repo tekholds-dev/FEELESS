@@ -9,6 +9,8 @@ from typing import Optional
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+import ps_inspect as _insp   # 🔍 Slice 9: a TEST fix clicks its elements through the page's own inspect tool
+
 router = APIRouter()
 
 
@@ -18,6 +20,7 @@ class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: 
     op: str = 'start'
     model: Optional[dict] = None
     ws: str = ''   # 🧪 Slice 3: PoStatic only, a TEST folder to change (a new version of it, to prove it keeps every part that worked)
+    inspect: Optional[list] = None   # 🔍 Slice 9: with ws, [{click: a CSS query, note}]: each element is clicked through the page's own inspect tool on a headless browser, then fixed through the same build door
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
 SICARIO = 'sicarios'
@@ -47,6 +50,18 @@ def _since(rows, f):
     """A page or post kept in one workspace files a proof per version: its calls start after the last filing from that workspace."""
     ws = f.get('ws')
     return max([float(x.get('at') or 0) for x in rows if ws and x.get('ws') == ws and x.get('id') != f.get('id')] or [0.0])
+
+
+async def _inspect_picks(cid, doc, rows):
+    """🔍 Slice 9: each {click, note} clicked through the page's own inspect tool (the script the viewer's sandbox runs) on the folder's
+    newest page, as the viewer shows it. → the inspected elements, each with the owner-style note, ready for ws_build's region"""
+    rs = _rs(); rows = [r for r in rows or [] if isinstance(r, dict)][:_insp.MAX]
+    html = rs._feat.preview(rs._ws_placed(cid, (doc.get('versions') or [{}])[-1].get('html') or ''))
+    got = await rs.asyncio.wait_for(_insp.pick_in_page(html, [str(r.get('click') or '')[:200] for r in rows], rs._fb.chromium_path()), 120)
+    picks = [{**g, 'kind': 'el', 'mode': 'fix', 'note': str(r.get('note') or '')[:300]} for g, r in zip(got, rows) if g]
+    if not picks:
+        raise rs.HTTPException(400, 'Inspect found none of those elements on the page.')
+    return picks
 
 
 async def _studio_piece(m):
@@ -140,7 +155,11 @@ async def test_proof_state(request: Request):
     cat = _sicario(rs._load())
     if not cat:
         raise rs.HTTPException(404, "No Sicario's agent.")
-    return {'agent': cat.get('name'), 'tests': _test_view(cat)}
+    tests = _test_view(cat); last_ = (tests.get('pos') or {}).get('last')
+    if last_:   # 🔍 Slice 9: the TEST PoStatic's inspect before / after
+        f_ = next((x for x in cat.get('psFolders') or [] if isinstance(x, dict) and x.get('id') == last_.get('id')), {})
+        last_['inspect'] = f_.get('inspect')
+    return {'agent': cat.get('name'), 'tests': tests}
 
 
 @router.post('/api/cats/internal/test-proof')
@@ -174,7 +193,8 @@ async def test_proof_start(p: TestIn, request: Request):
             doc_ = rs._ws_load(cid, p.ws) or {}
             if not doc_.get('test') or not (doc_.get('versions') or []):
                 raise rs.HTTPException(400, 'Only a TEST PoStatic folder that already has a page can be changed this way.')
-            await rs._cat_work(cid, rs.WorkPayload(op='ws_build', job=p.ws, text=str(p.topic or 'Make it better.')[:2000], session=rs._AUTO_TOKEN, auto=True))
+            region_ = await _inspect_picks(cid, doc_, p.inspect) if p.inspect else None
+            await rs._cat_work(cid, rs.WorkPayload(op='ws_build', job=p.ws, text=str(p.topic or 'Make it better.')[:2000], tools={'region': region_} if region_ else None, session=rs._AUTO_TOKEN, auto=True))
             out = {'ws': p.ws}
         elif kind == 'pos':   # 💻 a new PoStatic folder, its plan approved by the test (no owner tap to wait for), built by its own pair
             row_ = rs._feat.new_folder(cat, 'build', f"TEST {rs.time.strftime('%m-%d %H%M', rs.time.gmtime(now))}", now)

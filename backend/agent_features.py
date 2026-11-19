@@ -1,5 +1,6 @@
 """✨ THE FEATURES FOLDER (owner 2026-11-04): what this agent can do, by use, each with a create button. A created folder is a working space its owner opens: Build (code live with its minds), Content (a site, a chat, and Proofs of Content), Edge (the case files, indicators and books). Pure, tested."""
 import agent_refs as _sources
+import ps_inspect as _insp
 import json
 import re
 import time
@@ -162,7 +163,6 @@ function box(){var n=document.elementFromPoint(innerWidth/2,innerHeight/2);while
 addEventListener('scroll',function(e){var t=e.target;say({t:'feeless-scroll',y:scrollY||(t&&t.scrollTop)||0})},{passive:true,capture:true});
 addEventListener('message',function(e){var d=e.data||{};
 if(d.t==='feeless-scrollby'||d.t==='feeless-scrollto'){var b=box()||window,y=Number(d.y)||0;if(d.t==='feeless-scrollby')b.scrollBy(0,y);else b.scrollTo({top:y,behavior:'smooth'})}
-if(d.t==='feeless-pick'){var r=d.r,x=(r.x+r.w/2)*innerWidth,y=(r.y+r.h/2)*innerHeight,el=document.elementFromPoint(x,y);say({t:'feeless-picked',html:el?String(el.outerHTML).slice(0,600):''})}
 if(d.t==='feeless-find'){var out=[];(d.rows||[]).forEach(function(q){var want=String(q.text||'').replace(/\\s+/g,' ').trim().toLowerCase().slice(0,80);if(!want)return;var best=null;document.querySelectorAll('body *').forEach(function(n){if(n.tagName==='SCRIPT'||n.tagName==='STYLE')return;var t=(n.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();if(t.indexOf(want)>=0&&(!best||t.length<best.len))best={n:n,len:t.length}});if(best){var b=best.n.getBoundingClientRect();out.push({key:q.key,x:b.left/innerWidth,y:b.top/innerHeight,w:b.width/innerWidth,h:b.height/innerHeight,sy:scrollY})}});say({t:'feeless-found',rows:out})}
 })})()</script>"""
 
@@ -205,6 +205,9 @@ def file_static(cat, doc, by, now):
         row['print'] = doc['print']
     if isinstance(doc.get('brief'), dict):
         row['brief'] = {k: doc['brief'].get(k) for k in ('id', 'centre', 'layout')}
+    insp_ = _insp.record(doc, row['version'])
+    if insp_:   # 🔍 Slice 9: the inspected elements this version changed (before / after), and the owner's comments on elements
+        row['inspect'] = insp_
     if doc.get('models3d'):   # 🪦 Slice 2: the studio pieces this build was given, and whether its page really carries each exact one
         import owner_models as _om
         row['studio'] = _om.record(doc.get('models3d'), ((doc.get('versions') or [{}])[-1] or {}).get('html'))
@@ -510,7 +513,7 @@ def preview(html):
     import collective_kits as _kits
     h = _kits.open_for_kits(strip_notes(html))   # a page's own kit files load, pages built before this fix too. Nothing else does
     h = re.sub(r'(<head[^>]*>(?:<meta[^>]+content-security-policy[^>]*>)?)', lambda m: m.group(1) + PAGE_ERR, h, count=1, flags=re.I)   # a script crash reaches the panel, so nobody stares at a dead page
-    return h.replace('</body>', NAV + PICKER + '</body>', 1) if '</body>' in h else h + NAV + PICKER
+    return h.replace('</body>', NAV + PICKER + _insp.INSPECT + '</body>', 1) if '</body>' in h else h + NAV + PICKER + _insp.INSPECT   # 🔍 Slice 9: inspect, not mark
 
 
 REGION_MAX = 12
@@ -519,7 +522,10 @@ REGION_MAX = 12
 def region_note(region, blank=False):
     """Every dragged box as words for the model, from numbers and a capped snippet. A note is the owner's. The snippet is data from the page.
     blank (owner 2026-11-11): no page yet, he marked a blank canvas, so each box is where a part goes, built in that spot."""
-    rows = [r for r in (region if isinstance(region, list) else [region]) if isinstance(r, dict)][:REGION_MAX]
+    els, rows = _insp.split(region)   # 🔍 Slice 9: an inspected element is named by its selector and its own code; old box marks read as before
+    rows = rows[:REGION_MAX]
+    if els:
+        return _insp.note(els) + (region_note(rows, blank) if rows else '')
 
     def one(r):
         def pct(k):

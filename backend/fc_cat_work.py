@@ -4,6 +4,7 @@ reaches it, and every function here is still reachable on feecat_service under i
 import feecat_service as _RSM  # noqa: E402,F401  (body models / annotations; this module is imported at the END of the service)
 from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
 from typing import Optional  # noqa: F401
+import ps_inspect as _insp   # 🔍 Slice 9: comments on inspected elements
 
 router = APIRouter()
 
@@ -1449,6 +1450,20 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         rs._feat.add_msg(doc_, 'you', said_, rs.time.time()); doc_.pop('unfinished', None); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(rs.time.time()), 'to': str(p.to or 'both'), 'stage': 'answer' if doc_.get('kind') != 'build' else 'build' if doc_.get('versions') else 'research'}   # a PoC or research answers; only a build writes a page
         rs._ws_save(cat_id, doc_)
         rs._ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)
+        return {'doc': rs._ws_view(cat_id, p.job)}
+    if p.op == 'ws_comment':   # 💬 Slice 9: a comment on one inspected element of the page, free (no build); ✕ takes it off. It reaches every next build
+        doc_ = rs._ws_load(cat_id, str(p.job or ''))
+        if not doc_ or doc_.get('kind') != 'build' or not doc_.get('versions'):
+            raise rs.HTTPException(400, 'Comments go on a built page.')
+        t_ = p.tools if isinstance(p.tools, dict) else {}
+        if t_.get('drop'):
+            _insp.drop_comment(doc_, t_['drop'])
+        else:
+            try:
+                _insp.add_comment(doc_, {**(t_.get('target') or {}), 'note': p.text}, rs.time.time())
+            except ValueError as e:
+                raise rs.HTTPException(400, str(e))
+        rs._ws_save(cat_id, doc_)
         return {'doc': rs._ws_view(cat_id, p.job)}
     if p.op == 'ws_rewind':   # ↩ a page chosen in the chat: its later work and talk are cleared, and the next request goes back in the box
         doc_ = rs._ws_load(cat_id, str(p.job or ''))

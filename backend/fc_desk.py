@@ -4,6 +4,7 @@ reaches it, and every function here is still reachable on feecat_service under i
 import feecat_service as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)
 from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
 from typing import Optional  # noqa: F401
+import ps_inspect as _insp   # 🔍 Slice 9: inspect, not mark
 
 router = APIRouter()
 
@@ -1130,9 +1131,15 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     rs._OR_PLUGINS.set(tuple(rs._feat.or_plugins(rs._feat.build_cfg(doc))))
     stop_why = ''
+    els_, boxes_ = _insp.split(region)   # 🔍 Slice 9: inspected elements get their exact code from the page they were picked on
+    before_ = (((doc.get('versions') or [{}])[-1] or {}).get('html') or '') if kind == 'build' else ''
+    if els_:
+        region = _insp.prepare(before_, els_) + boxes_
+    fix_els_ = [t for t in els_ if t.get('mode') != 'comment' and t.get('found')] if before_ and not boxes_ else []
+    said_ = _insp.note([], doc.get('comments')) if kind == 'build' else ''   # 💬 the owner's comments on elements reach every build of the folder
     try:
         if kind == 'build' and (rs._play.wants_game(text) or (doc.get('game') or {}).get('design')) and not doc.get('scene3d') and not doc.get('ad'):   # 🎮 a folder that holds a game: every ask ("Finish it.", "fix marked area") changes that game through the playtest, never as text patches that missed 6 times on 2026-11-17   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template (an ad's brief reads like a game: 'plays by itself in a loop'; it is a page)
-            usd_, stop_why, paid_own = await rs._build_game(cat, doc, text + rs._feat.region_note(region), brains, order, name, to)
+            usd_, stop_why, paid_own = await rs._build_game(cat, doc, text + rs._feat.region_note(region) + said_, brains, order, name, to)
             cost += usd_
         elif kind == 'build' and not doc.get('ad') and rs._play.wants_scene_builder(text, doc):   # 🧊 owner 2026-11-17 ("regardless of model it chooses the same 3D layout"): the photoscan set builder is for a scene he asks for by name; every other 3D or page ask is written by the picked minds themselves   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
             lead_ = len(doc.get('versions') or []) % len(order) if to == 'both' and len(order) > 1 else 0   # 🧠🧠 owner 2026-11-07 "only ONE mind seems to work": with both picked, the minds take turns leading a 3D round and the other checks it
@@ -1186,7 +1193,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     from_repo_ = ''
             rs._keep_mark_notes(doc, region)
             live_ = ''
-            user = f'{ask_}{rs._know.for_ask(text)}{rs._feat.region_note(region, blank=not cur)}{rs._feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            user = f'{ask_}{rs._know.for_ask(text)}{rs._feat.region_note(region, blank=not cur)}{said_}{rs._feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             if rs._feat.wants_live(text) or 'feeless-live' in str(cur) or rs._psk.wants_market(text):   # 📡 a page that asks for live data gets real numbers and how to receive them (Slice 3: + DexScreener pools and our own candles)
                 live_ = rs._feat.live_line(await rs._page_live(cat), page=True); user += live_
             mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', text, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_
@@ -1208,7 +1215,11 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 def part_(raw_, usd_, by_=name(i)):
                     rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost + usd_, 6), 'by': by_, 'draft': rs.re.sub(r'```(?:html)?', '', raw_)[:rs.WS_DRAFT_CHARS]}})
                 raw, usd, own, html = '', 0.0, paid_own, None
-                if rs._feat.wants_rewrite(cur, text):
+                if cur and fix_els_:   # 🔍 Slice 9: an inspected fix asks for that element only (its exact code, a few style rules) and code puts it back: small enough for the local minds, and it always matches
+                    html, usd, own, same_ = await _inspect_edit(cat, brains[i], cur, fix_els_, text, review=bool(k)); cost += usd; paid_own = own
+                    if same_:
+                        rs._feat.add_msg(doc, name(i), 'I checked the element: it already does what you asked. No change.', rs.time.time()); continue
+                if not html and rs._feat.wants_rewrite(cur, text):
                     raw, usd, own = await rs._ws_page(cat, brains[i], (rs._feat.REVIEW_SYS if k else rs._feat.BUILD_SYS) + rs._feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 16000 if doc.get('ad') else 8000, on_part=part_)
                     cost += usd; paid_own = own; html = rs._aip.html_of(raw)
                 if (not html or not rs._feat.page_complete(html)) and not cur and not k:   # 🧩 no page yet and the whole page did not fit in a reply: build it in sections
@@ -1222,7 +1233,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if (not html or not rs._feat.page_complete(html)) and cur:
                     html, landed_, said_ = cur, 0, ''
                     for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
-                        patch_raw, patch_usd, patch_own = await rs._ws_ask(cat, brains[i], rs._feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{rs._feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:rs._feat.PAGE_PROMPT_CHARS]}', rs._feat.EDIT_REPLY_TOKENS)
+                        patch_raw, patch_usd, patch_own = await rs._ws_ask(cat, brains[i], rs._feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{rs._feat.region_note(region)}{said_}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:rs._feat.PAGE_PROMPT_CHARS]}', rs._feat.EDIT_REPLY_TOKENS)
                         cost += patch_usd; paid_own = patch_own
                         next_, n_, said_ = rs._feat.apply_page_edits(html, patch_raw)
                         if not next_:
@@ -1231,7 +1242,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                         if not said_:
                             break
                     html = html if landed_ else None
-                    stop_why = 'Its changes did not match the page. Mark the part to change with +, or say "rebuild" to have it write the whole page new.' if not landed_ else stop_why
+                    stop_why = 'Its changes did not match the page. Pick the part to change with Inspect, or say "rebuild" to have it write the whole page new.' if not landed_ else stop_why
                 if html and not rs._feat.page_complete(html):
                     rs._feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', rs.time.time())
                     stop_why = 'Its answer was cut off before the page finished.'
@@ -1286,6 +1297,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
         stop_why = 'A model did not answer.'
     if kind == 'build' and len(doc.get('versions') or []) > start_versions and not doc.get('ad'):
         await _ps_after(cat_id, ws_id, doc, start_versions)
+    if kind == 'build' and els_ and before_ and not doc.get('ad'):   # 🔁 Slice 9: each inspected element on the page it was picked on and on the new version
+        await _inspect_after(cat_id, doc, els_, before_, start_versions, text)
     doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); doc['lastCost'] = round(cost, 6)
     if kind == 'build' and len(doc.get('versions') or []) > start_versions:
         doc['stage'] = 'filed'; doc.pop('unfinished', None)
@@ -1319,6 +1332,43 @@ async def _ps_after(cat_id, ws_id, doc, start_versions):
     except Exception as e:   # noqa: BLE001: the check says it did not run; the page still files
         seen_ = {'ran': False, 'why': type(e).__name__}
     doc['codeCheck'] = {**(rs._ps_hidden.run(html, rs._kit_pins(), seen_) or {}), 'version': len(doc.get('versions') or []), **({} if seen_.get('ran') else {'notRun': seen_.get('why')})}
+
+
+async def _inspect_edit(cat, brain, cur, els, text, review=False):
+    """🔍 Slice 9: each inspected element rewritten by one mind from its own code, spliced back by code. → (page or None, $, own, unchanged)"""
+    rs = _rs(); page, usd, own, changed, same = cur, 0.0, False, 0, 0
+    for t in els:
+        raw_, u_, own = await rs._ws_ask(cat, brain, _insp.EL_SYS + (_insp.EL_REVIEW if review else ''), _insp.el_prompt(t, text, page, review), _insp.EL_REPLY_TOKENS); usd += u_
+        new_ = _insp.splice(page, t, raw_)
+        if new_ and new_ != page:
+            page, changed = new_, changed + 1
+        elif new_:
+            same += 1
+    return (page if changed else None), usd, own, bool(review and not changed and same == len(els))
+
+
+def _inspect_shot(cat_id, jpg):
+    """📸 One before / after picture of an inspected element, kept with the folder's media. Its id is random, like every media link."""
+    rs = _rs(); name_ = f'm{rs.secrets.token_hex(6)}.jpg'; d_ = rs._media_dir() / cat_id
+    d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(jpg)
+    return f'/api/cats/media/{cat_id}/{name_}'
+
+
+async def _inspect_after(cat_id, doc, els, before, start_versions, text):
+    """🔁 Slice 9: the inspected elements read on the version they were picked on and on the new one (pictures from a headless browser;
+    without one, their code and words still compare). Mutates doc."""
+    rs = _rs(); v_ = doc.get('versions') or []; after_ = (v_[-1] or {}).get('html') if len(v_) > start_versions else ''
+    look_ = lambda h: rs._feat.preview(rs._ws_placed(cat_id, h))
+    try:
+        rows_ = await rs.asyncio.wait_for(_insp.before_after(before, after_, els, view=look_, save=lambda b: _inspect_shot(cat_id, b), chromium=rs._fb.chromium_path()), 150)
+    except Exception as e:   # noqa: BLE001: no pictures, the code and words still compare
+        print(f'[inspect] pictures: {type(e).__name__}')
+        async def none_(*_a, **_k):
+            return {}
+        rows_ = await _insp.before_after(before, after_, els, shoot=none_)
+    run_ = _insp.keep(doc, rows_, text, start_versions, len(v_) if after_ else None, rs.time.time())
+    if after_:
+        rs._feat.add_msg(doc, 'FEELESS', f"Inspect: {run_['changed']} of {run_['asked']} picked element{'s' if run_['asked'] > 1 else ''} changed on page {len(v_)}. Before and after are under the page.", rs.time.time())
 
 
 def _poc_media(doc):
