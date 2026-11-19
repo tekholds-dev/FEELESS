@@ -2007,6 +2007,9 @@ async def _minds_ask(asks, secs):
             return await rs.asyncio.wait_for(a, secs)
         except rs.asyncio.TimeoutError:
             return ''
+        except Exception as e:   # noqa: BLE001 — 🛡 Slice 12: one mind's model error is that mind blank, never the other mind's answer lost
+            print(f'[minds] one mind failed: {str(e)[:120]}')
+            return ''
     return list(await rs.asyncio.gather(*(one(a) for a in asks)))
 
 

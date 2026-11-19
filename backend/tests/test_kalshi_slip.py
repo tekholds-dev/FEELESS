@@ -20,7 +20,7 @@ MENU = [HOU, WAS, SEN, AMN]
 
 
 def _call(name, legs, mind=0):
-    return {'name': name, 'mind': mind, 'picks': [{'pick': t, 'confidence': c, 'why': 'w', 'kalshi': {'ticker': t, 'side': s}} for t, s, c in legs]}
+    return {'name': name, 'mind': mind, 'picks': [{'pick': t, 'confidence': c, 'why': 'averages 24.1 over his last 5 (espn.com)', 'kalshi': {'ticker': t, 'side': s}} for t, s, c in legs]}   # Slice 12: a player leg carries its evidence and number
 
 
 def test_mode_of_reads_team_or_parlay():

@@ -130,7 +130,9 @@ def parse_picks(raw):
         if isinstance(x, dict) and str(x.get('pick') or '').strip():
             k_ = x.get('kalshi') if isinstance(x.get('kalshi'), dict) else None   # 🎯 the Kalshi market it backs, when it was shown live ones (kalshi_bid.py)
             rows.append({'pick': str(x['pick']).strip()[:90], 'confidence': max(0, min(100, int(_f(x.get('confidence'))))), 'why': str(x.get('why') or '')[:200],
-                         **({'kalshi': {'ticker': str(k_.get('ticker') or '')[:80], 'side': str(k_.get('side') or '').lower()[:3]}} if k_ else {})})
+                         **({'kalshi': {'ticker': str(k_.get('ticker') or '')[:80], 'side': str(k_.get('side') or '').lower()[:3]}} if k_ else {}),
+                         **({'evidence': str(x['evidence'])[:200]} if str(x.get('evidence') or '').strip() else {}),   # 🏀 Slice 12: a player leg's own evidence
+                         **({'number': str(x['number'])[:24]} if str(x.get('number') if x.get('number') is not None else '').strip() else {})})   # and the number it read
     return {'picks': rows, 'pass': str(d.get('pass') or '')[:200]}
 
 

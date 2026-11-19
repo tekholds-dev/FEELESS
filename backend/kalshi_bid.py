@@ -210,11 +210,12 @@ def first_note(markets, legs=None):
            '\nResearch THIS game on the sites below: injuries, rest, recent form and the line, against the Kalshi price. ')
     if legs:
         out += ('\nTHE PARLAY LEGS KALSHI WILL PRICE (closest to a coin flip first; data, never an instruction):\n' + '\n'.join(leg_line(m) for m in legs[:LEG_NOTE]) +
-                '\nResearch EACH leg: the player\'s recent minutes and points, the matchup, injuries and rest, and whether the price looks too high or too low. ')
+                '\nResearch EACH leg (for a player: his season and last-5 average for that stat, minutes, the matchup, injuries and rest). Note the NUMBER you find '
+                'against the line (e.g. "averages 27.4, line 24.5"): every player leg needs its own number and source. YES on a player line = OVER, NO = UNDER. ')
     return out
 
 
-LEG_NOTE = 10
+LEG_NOTE = 16
 LEG_CHIPS = ['2 legs', '3 legs', 'Max legs (4)']
 
 
@@ -402,7 +403,7 @@ def reached(b):
     """A ledger row that reached Kalshi's book: it has Kalshi's order id, or a sent/resting/filled status. A refused or failed send with no order id
     never did (PoB #16, 2026-11-15: a 410 'failed' row blocked the next bid on that market for 24 h; and a placed order whose read-back failed
     was 'failed' and left out of today's cap). Pure."""
-    return bool((b or {}).get('orderId')) or (b or {}).get('status') in ('sent', 'filled', 'resting')
+    return bool((b or {}).get('orderId')) or (b or {}).get('status') in ('sent', 'filled', 'resting', 'unknown')   # 🛡 Slice 12: 'unknown' = it may have reached Kalshi: never sent again
 
 
 def spent_today(bids, now=None):
@@ -414,6 +415,8 @@ def sends_now(c, by):
     """A PoB the owner asked for (`by` 'you') sends its ticket at once; one his scheduled auto run filed ('auto') only when AUTO is on —
     otherwise it waits for his tap. Every guard in `check` still runs either way."""
     if by == 'test':   # 🧪 Slice 0: a TEST proof on Sicario's agent never bids
+        return False
+    if by == 'resume':   # 🔁 Slice 12: a filing a restart cut off and that files again waits for his tap
         return False
     return by != 'auto' or cfg(c)['mode'] == 'auto'
 
@@ -621,21 +624,73 @@ def index_short(c, balance_usd, price, market=None):
             f"Move money onto {where} at kalshi.com › Account › Exchange Indexes before you tap Approve.")
 
 
+class Refused(RuntimeError):
+    """🛡 Slice 12: Kalshi answered with a clear no (an HTTP error code). Nothing reached its book, so nothing moved. Any OTHER failure while
+    sending (a timeout, a dropped line) is unclear: the order may have reached Kalshi, and the service looks it up before saying anything."""
+
+
 def plain_why(why):
     """A Kalshi refusal in the owner's words. Pure."""
     w = str(why or 'Kalshi did not take it.')
+    code = re.search(r'\((\d{3})\)', w); code = int(code.group(1)) if code else 0
     if 'insufficient_shard_balance' in w:
         return ("Kalshi says your money is not on this market's exchange index. Open kalshi.com › Account › Exchange Indexes, move funds onto "
                 "the index this game trades on (or set an allocation so Kalshi keeps it topped up), then file a new PoB on it. This ticket is used up; nothing was sent twice.")
     if 'insufficient_balance' in w:
         return "Kalshi says the balance on this market's exchange index does not cover it. Add funds there or bid smaller, then file a new PoB on it."
-    return w[:240]
+    if code == 410 or 'gone' in w.lower() and code:   # PoB #16: the v1 order route
+        return 'Kalshi retired the order route this used (410 Gone). Nothing reached Kalshi. The app needs an update before it can bid again.'
+    if code in (401, 403) or 'unauthorized' in w.lower() or 'signature' in w.lower():
+        return 'Kalshi did not accept your API key (it may be expired, or lack trading rights). Save a fresh key under Keys › Kalshi.'
+    if code == 429:
+        return 'Kalshi asked us to slow down (too many requests). Nothing went through. Wait a minute and tap again.'
+    if code >= 500:
+        return f'Kalshi itself had an error ({code}). Nothing went through. Try again in a few minutes.'
+    if code == 404 or 'market_not_found' in w or 'not_found' in w:
+        return 'Kalshi no longer lists that market (it closed or was removed). Nothing went through.'
+    if code == 400 or 'invalid' in w.lower():
+        return 'Kalshi turned the order down as invalid (' + re.sub(r'[{}"\[\]]', '', w)[:120] + '). Nothing went through.'
+    return re.sub(r'[{}"\[\]]', '', w)[:240]
+
+
+NO_MONEY = 'No money moved.'
+
+
+def end_of(tk):
+    """🛡 Slice 12: every ticket ends in ONE of these, in plain words (owner: "can't afford for bids not to go through or filings to f up").
+    → {'end', 'say', 'moved'}: 'confirmed' (sent, and Kalshi's own read says what it holds), 'checking' (sent; Kalshi's read is catching up,
+    the 5-min pass reads it again), 'unknown' (it may have reached Kalshi; never re-sent, read again until Kalshi says), 'stopped' (a plain
+    reason, and nothing moved), 'test' (a TEST never bids), 'waiting' (for his tap). Pure."""
+    tk = tk or {}; st = tk.get('status'); t = tk.get('title') or tk.get('ticker') or 'the bid'
+    if st == 'test' or (tk.get('test') and st == 'waiting'):
+        return {'end': 'test', 'say': f'TEST: {t} was never sent (a TEST proof never bids). ' + NO_MONEY, 'moved': False}
+    if st == 'waiting':
+        return {'end': 'waiting', 'say': f'{t} waits for your tap.', 'moved': False}
+    if st == 'unknown':
+        return {'end': 'unknown', 'say': f"{t}: the send was cut off before Kalshi answered, so it may have gone through. It will never be sent again; it is read back from Kalshi until Kalshi says. {tk.get('why') or ''}".strip(), 'moved': None}
+    if tk.get('orderId') and tk.get('confirmedAt') and st == 'canceled' and not tk.get('filled'):   # Kalshi's own record: canceled, none filled
+        return {'end': 'stopped', 'say': f'Kalshi canceled the order on {t} before any contract filled. {NO_MONEY}', 'moved': False}
+    if tk.get('orderId') and (tk.get('confirmedAt') or tk.get('sentFilled')):
+        return {'end': 'confirmed', 'say': f"Sent and confirmed on Kalshi: {t} · {tk.get('filled', 0)} of {tk.get('count')} filled ({tk.get('status')}).", 'moved': bool(tk.get('filled')) or st in ('resting', 'filled')}
+    if tk.get('orderId'):
+        return {'end': 'checking', 'say': f"Sent to Kalshi: {t}. Kalshi's read is catching up ({tk.get('confirmErr') or 'no answer yet'}); it is read again every 5 min. Never re-sent.", 'moved': None}
+    return {'end': 'stopped', 'say': f'Nothing bought on {t}: {plain_why(tk.get("why"))} {NO_MONEY}', 'moved': False}
+
+
+async def find_order(http, key_id, pem, ticker, client_id, since):
+    """🔎 Slice 12: after an unclear send, look on his own Kalshi account for the order we made (by the client order id we gave it). Read only.
+    → the order, or None when Kalshi has none. Raises when Kalshi cannot be read (then nobody can say, and it stays 'unknown')."""
+    path = '/portfolio/orders'
+    r = await http.get(f'{BASE}{path}', params={'ticker': ticker, 'min_ts': int(since) - 60, 'limit': 200}, headers=headers(key_id, pem, 'GET', path))
+    if r.status_code != 200:
+        raise RuntimeError(f'Kalshi said {r.status_code} listing orders: {r.text[:120]}')
+    return next((o for o in (r.json() or {}).get('orders') or [] if client_id and o.get('client_order_id') == client_id), None)
 
 
 async def place(http, key_id, pem, body):
     r = await http.post(f'{BASE}{ORDER_PATH}', json=body, headers=headers(key_id, pem, 'POST', ORDER_PATH))
     if r.status_code not in (200, 201):
-        raise RuntimeError(f'Kalshi refused the order ({r.status_code}): {r.text[:200]}')
+        raise Refused(f'Kalshi refused the order ({r.status_code}): {r.text[:200]}')
     j = r.json() or {}
     return j.get('order') or j   # v2 answers flat: order_id, fill_count, remaining_count (no status: the confirm pass reads it back)
 
@@ -771,11 +826,19 @@ def rivals(rows):
 # answer, and we accept ONE quote at or under the most the ticket shows. One RFQ, one accept, never a resubmit; no quote → nothing is sent.
 COMBO = 'KXMVECROSSCATEGORY-R'
 SLIP_MIN, SLIP_MAX = 2, 4
-PROP_SERIES = {'KXNBAGAME': ('KXNBAPTS', 'KXNBAREB', 'KXNBAAST', 'KXNBA3PT', 'KXNBASPREAD', 'KXNBATOTAL'),
+PROP_SERIES = {'KXNBAGAME': ('KXNBAPTS', 'KXNBAREB', 'KXNBAAST', 'KXNBA3PT', 'KXNBAPRA', 'KXNBASPREAD', 'KXNBATOTAL'),
                'KXNFLGAME': ('KXNFLTD', 'KXNFLRSHYDS', 'KXNFLRECYDS', 'KXNFLPASSYDS', 'KXNFLSPREAD', 'KXNFLTOTAL'),
                'KXNHLGAME': ('KXNHLGOAL', 'KXNHLPTS', 'KXNHLSPREAD', 'KXNHLTOTAL'),
                'KXMLBGAME': ('KXMLBHR', 'KXMLBHITS', 'KXMLBSPREAD', 'KXMLBTOTAL')}
-PER_EVENT, MENU_MAX = 4, 30
+PER_EVENT, MENU_MAX = 4, 44
+# 🏀 Slice 12 (owner: "minds need to pick leg parlays as in the best over or under for players"): a player-stat series lists a ladder per player
+# (Durant 15+ / 20+ / 25+ ...). The menu shows each player's ONE line nearest a coin flip: YES = the over, NO = the under. Every leg the minds
+# pick must be a ticker on this menu (Kalshi really lists it) and, for a player, carry its own evidence and the number it read.
+PLAYER_SERIES = {'KXNBAPTS': 'points', 'KXNBAREB': 'rebounds', 'KXNBAAST': 'assists', 'KXNBA3PT': 'threes', 'KXNBAPRA': 'points + rebounds + assists',
+                 'KXNFLTD': 'touchdowns', 'KXNFLRSHYDS': 'rushing yards', 'KXNFLRECYDS': 'receiving yards', 'KXNFLPASSYDS': 'passing yards',
+                 'KXNHLGOAL': 'goals', 'KXNHLPTS': 'points', 'KXMLBHR': 'home runs', 'KXMLBHITS': 'hits'}
+PLAYERS_PER_STAT = 6
+_NUM = re.compile(r'(?<![\w.])\d+(?:\.\d+)?')
 LEG_LO, LEG_HI = 0.12, 0.88          # a leg the crowd prices near-certain or near-hopeless adds nothing but risk
 SLIP_FAIR_MAX = 0.90                  # a "parlay" priced over 90¢ is not one
 SLIP_SLACK = 1.25                     # the most a contract may cost: the legs' own prices multiplied, plus 25% and 2¢ for the maker
@@ -786,7 +849,7 @@ _COMBO_EVENTS = {'at': 0, 'set': set()}
 def mode_of(topic):
     """'parlay' when the owner asked for one, 'team' for a straight team-to-win bid, None when he did not say. Pure."""
     t = str(topic or '').lower()
-    if re.search(r'\b(parlay|parlays|legs?|slip|sgp)\b', t):
+    if re.search(r'\b(parlay|parlays|legs?|slip|sgp|props?|overs|unders)\b', t):   # 🏀 Slice 12: 'player props' is a slip of player legs
         return 'parlay'
     if re.search(r'\b(team to win|to win|moneyline|ml|straight|winner)\b', t):
         return 'team'
@@ -805,7 +868,42 @@ def leg_rows(markets, n=PER_EVENT):
     return sorted(rows, key=lambda m: abs(price_of(m, 'yes') - 0.5))[:n]
 
 
+def stat_of(t):
+    """'KXNBAPTS-26NOV18HOUIND-HOUKDURANT7-25' → 'points'; '' for a team / spread / total leg. Pure."""
+    return PLAYER_SERIES.get(str(t or '').split('-')[0], '')
+
+
+def prop_line(m):
+    """A player rung's line: floor_strike (24.5), else its '25+' less a half. Pure."""
+    try:
+        return float(m.get('floor_strike'))
+    except (TypeError, ValueError):
+        n = re.search(r'(\d+)\+', str(m.get('yes_sub_title') or m.get('title') or ''))
+        return int(n.group(1)) - 0.5 if n else None
+
+
+def prop_rows(markets, n=PLAYERS_PER_STAT):
+    """🏀 One player-stat event's menu: per player, the open rung priced nearest 50¢ (inside 12¢..88¢); players whose line is closest to a coin
+    flip first, at most `n`. Pure."""
+    best = {}
+    for m in markets or []:
+        if m.get('status') not in ('active', 'open'):
+            continue
+        y = price_of(m, 'yes') or 0
+        if not LEG_LO <= y <= LEG_HI:
+            continue
+        who = '-'.join(str(m.get('ticker') or '').split('-')[:3])
+        if who not in best or abs(y - 0.5) < abs(price_of(best[who], 'yes') - 0.5):
+            best[who] = m
+    return sorted(best.values(), key=lambda m: abs(price_of(m, 'yes') - 0.5))[:n]
+
+
 def leg_line(m):
+    st = stat_of(m.get('ticker'))
+    if st:   # a player: say the over/under plainly
+        who = str(m.get('yes_sub_title') or m.get('title') or '').split(':')[0].strip(); ln = prop_line(m)
+        avg = f" · ESPN season avg {m['espnAvg']}" if isinstance(m.get('espnAvg'), (int, float)) else ''
+        return f"{m.get('ticker')} · {who} {st} · OVER {ln} = YES {price_of(m, 'yes') or '—'} / UNDER {ln} = NO {price_of(m, 'no') or '—'}{avg}"
     return f"{m.get('ticker')} · {m.get('title') or m.get('yes_sub_title')} · YES {price_of(m, 'yes') or '—'} / NO {price_of(m, 'no') or '—'}"
 
 
@@ -814,9 +912,13 @@ def slip_brief(menu, n):
         return ''
     n = max(SLIP_MIN, min(SLIP_MAX, int(n or 3)))
     return (f'\nKALSHI PARLAY LEGS (real money: ONE slip, every leg must hit). Build a slip of {n} legs from these lines: each of your picks is one leg, '
-            'with its own honest confidence and "kalshi": {"ticker": "<ticker>", "side": "yes|no"}. Mix the team to win with its players when what you read '
-            'supports it; never two legs that fight each other (both teams to win). If both of you back the same legs it bids; otherwise the owner gets '
-            'the stronger slip to place with a tap. If you cannot back ' + str(n) + ' legs, give fewer and say why in "pass":\n' + '\n'.join(leg_line(m) for m in menu))
+            'with its own honest confidence and "kalshi": {"ticker": "<ticker>", "side": "yes|no"}. Pick the BEST player overs and unders: YES on a '
+            'player line is the OVER, NO is the UNDER. Every player leg MUST also carry "number": the stat you read that backs it (his average, last '
+            '5 games, or the matchup figure, e.g. 27.4) and "evidence": one line naming the site and the fact. A player leg with no number or no '
+            'evidence is thrown out. Use ONLY tickers from this list, copied exactly; any other ticker is not a Kalshi market and is thrown out. '
+            'Mix the team to win with its players when what you read supports it; never two legs that fight each other (both teams to win). If both '
+            'of you back the same legs it bids; otherwise the owner gets the stronger slip to place with a tap. If you cannot back ' + str(n) +
+            ' legs, give fewer and say why in "pass". Ticker dates read year-month-day: 26NOV18 is 2026 Nov 18 (tonight\'s game):\n' + '\n'.join(leg_line(m) for m in menu))
 
 
 def _subject(t):
@@ -839,7 +941,7 @@ def implied(a, b):
 
 
 def _legs(c, by, slip=True):
-    """One mind's legs: {ticker: (side, conf, why)}, one side per market, one winner per game, no leg another leg already guarantees. Pure."""
+    """One mind's legs: {ticker: (side, conf, why, (evidence, number) | None)}, one side per market, one winner per game, no leg another leg already guarantees. Pure."""
     out, games = {}, set()
     for p in sorted(c.get('picks') or [], key=lambda x: -_conf(x.get('confidence'))):   # strongest first, so a repeated pair keeps its stronger leg
         k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
@@ -848,11 +950,171 @@ def _legs(c, by, slip=True):
             continue
         if slip and s == 'yes' and any(v[0] == 'yes' and implied(t, u) for u, v in out.items()):   # the first (its strongest) of the two stays
             continue
+        if stat_of(t) and not leg_backing(p, by[t]):   # 🏀 Slice 12: a player leg needs its own evidence and number
+            continue
         if t.split('-')[0] in PROP_SERIES:   # a game-winner leg: only one per game
             if game_key(by[t]) in games:
                 continue
             games.add(game_key(by[t]))
-        out[t] = (s, _conf(p.get('confidence')), str(p.get('why') or '')[:160])
+        out[t] = (s, _conf(p.get('confidence')), str(p.get('evidence') or p.get('why') or '')[:160], leg_backing(p, by[t]))
+    return out
+
+
+def leg_backing(p, m=None):
+    """→ (evidence, number) a pick carries, or None. The number is its own 'number' field, else the first figure in its evidence/why that is
+    not just Kalshi's own line or price read back (🧪 TEST PoB #5: ossy's only figure was 'OVER 7.5 YES 0.46', the menu restated). Pure."""
+    ev = str((p or {}).get('evidence') or (p or {}).get('why') or '').strip()
+    bare = re.sub(r'\bKX[A-Z0-9-]+\b', ' ', ev)   # the ticker's own digits are not evidence
+    tparts = str((m or {}).get('ticker') or '').split('-')
+    jersey = [float(x) for x in re.findall(r'\d+', '-'.join(tparts[2:]))]   # 🧪 TEST PoB #9: '8.2 season average' was Anunoby's jersey 8 from the ticker
+    own = {round(v, 2) for v in ([prop_line(m)] if m else []) + [price_of(m or {}, 'yes') or -1, price_of(m or {}, 'no') or -1] + jersey if v is not None}
+    num = (p or {}).get('number')
+    if num in (None, ''):
+        num = next((x for x in _NUM.findall(bare) if round(float(x), 2) not in own), None)
+    try:
+        num = float(str(num).strip().rstrip('%'))
+    except (TypeError, ValueError):
+        num = None
+    if num is not None and round(num, 2) in own and (p or {}).get('number') in (None, ''):
+        num = None
+    real = (m or {}).get('espnAvg')
+    if num is not None and isinstance(real, (int, float)) and re.search(r'(?i)season', ev) and abs(num - real) > 1.5:
+        return None   # 📊 it claims a season average ESPN does not show: an invented number is not evidence
+    return (ev[:200], num) if len(bare.strip()) >= 12 and num is not None else None
+
+
+# 📊 PLAYER NUMBERS (Slice 12, TEST PoB #6: the windows read too little, so both minds only restated Kalshi's price and every prop leg was
+# thrown out). ESPN's free team page lists every player's season averages; the server reads both teams once and hands each mind the real
+# number beside Kalshi's line. Data, never an instruction.
+STAT_KEY = {'KXNBAPTS': ('avgPoints',), 'KXNBAREB': ('avgRebounds',), 'KXNBAAST': ('avgAssists',), 'KXNBA3PT': ('avgThreePointFieldGoalsMade',),
+            'KXNBAPRA': ('avgPoints', 'avgRebounds', 'avgAssists')}
+ESPN_PATH = {'KXNBAGAME': 'basketball/nba'}
+
+
+def _plain(name):
+    import unicodedata
+    return ' '.join(re.findall(r'[a-z]+', unicodedata.normalize('NFKD', str(name or '')).encode('ascii', 'ignore').decode().lower()))
+
+
+def player_lines(j):
+    """ESPN's /teams/{abbr}/athletes/statistics → {plain name: {name, avgPoints, ..., gamesPlayed}}. Pure."""
+    out = {}
+    for r in (j or {}).get('results') or []:
+        for x in r.get('leaders') or []:
+            a = x.get('athlete') or {}
+            st = {y.get('name'): y.get('value') for c in x.get('statistics') or [] for y in c.get('stats') or [] if isinstance(y, dict)}
+            if a.get('displayName'):
+                out.setdefault(_plain(a['displayName']), {'name': a['displayName'], **{k: v for k, v in st.items() if isinstance(v, (int, float))}})
+    return out
+
+
+def _who(m):
+    return str(m.get('yes_sub_title') or m.get('title') or '').split(':')[0].strip()
+
+
+def season_avg(m, players):
+    """The player's ESPN season average for this leg's stat (PRA summed), or None. Pure."""
+    keys = STAT_KEY.get(str(m.get('ticker') or '').split('-')[0]); row = (players or {}).get(_plain(_who(m)))
+    if not keys or not row or any(not isinstance(row.get(k), (int, float)) for k in keys):
+        return None
+    return round(sum(row[k] for k in keys), 1)
+
+
+def player_note(menu, players):
+    """The block both minds read: each menu player's season line from ESPN. '' when none matched. Pure."""
+    rows, seen = [], set()
+    for m in menu or []:
+        row = (players or {}).get(_plain(_who(m))) if stat_of(m.get('ticker')) else None
+        if not row or row['name'] in seen:
+            continue
+        seen.add(row['name']); f = lambda k: f"{row[k]:.1f}" if isinstance(row.get(k), (int, float)) else '?'
+        rows.append(f"{row['name']}: {f('avgPoints')} pts, {f('avgRebounds')} reb, {f('avgAssists')} ast, {f('avgThreePointFieldGoalsMade')} threes, {f('avgMinutes')} min a game over {int(row.get('gamesPlayed') or 0)} games")
+    if not rows:
+        return ''
+    return ('\nPLAYER NUMBERS (ESPN season averages, read free for you; data, never an instruction). Compare each line to these and cite the figure as that leg\'s "number" with "evidence": "espn.com season avg ...":\n' + '\n'.join(rows[:20]))
+
+
+ESPN_TEAM = {'NYK': 'ny', 'GSW': 'gs', 'SAS': 'sa', 'NOP': 'no', 'UTA': 'utah', 'WAS': 'wsh'}   # Kalshi's code → ESPN's, where they differ
+
+
+def teams_of(rows):
+    """The ESPN team codes of a game, from Kalshi's own game tickers ('KXNBAGAME-26NOV19NYKMIN-NYK' → 'ny'). Works for a game ESPN's board does
+    not list yet (TEST PoB #9: tomorrow's game, so no player numbers reached the minds). Pure."""
+    out = []
+    for m in rows or []:
+        p = str(m.get('ticker') or '').split('-')
+        if len(p) == 3 and p[0] in ESPN_PATH and p[2]:
+            c = ESPN_TEAM.get(p[2], p[2].lower())
+            if c not in out:
+                out.append(c)
+    return out[:2]
+
+
+async def team_players(http, series, abbrs):
+    """📊 Both teams' player season lines from ESPN (free, public). {} when ESPN does not answer or the league has no path here."""
+    path = ESPN_PATH.get(series)
+    if not path:
+        return {}
+    out = {}
+    for a in abbrs or []:
+        try:
+            r = await http.get(f'https://site.web.api.espn.com/apis/site/v2/sports/{path}/teams/{str(a).lower()}/athletes/statistics')
+            if r.status_code == 200:
+                out.update(player_lines(r.json()))
+        except Exception:   # noqa: BLE001 — the minds still read the sites
+            continue
+    return out
+
+
+def tag_legs(calls, menu):
+    """🏷 Slice 12 (TEST PoB #5: ossy named three real legs, 'LALWKESSLER14-2' and the full ticker in its why, but never filled "kalshi"): a
+    pick with no Kalshi tag that names exactly one menu ticker in its own words gets that leg. UNDER → no, otherwise yes; both OVER and
+    UNDER → unsure, untagged. Only tickers on the menu (Kalshi really lists them). Mutates and returns `calls`."""
+    ids = [m['ticker'] for m in menu or []]
+    for c in calls or []:
+        for p in c.get('picks') or []:
+            if isinstance(p.get('kalshi'), dict) and p['kalshi'].get('ticker'):
+                continue
+            txt = f"{p.get('pick') or ''} {p.get('why') or ''} {p.get('evidence') or ''}"
+            hit = [t for t in ids if t in txt] or [t for t in ids if str(p.get('pick') or '').strip() and t.endswith('-' + '-'.join(str(p['pick']).strip().split('-')[-2:]))]
+            if len(set(hit)) != 1:
+                continue
+            up = txt.upper(); ov, un = bool(re.search(r'\b(OVER|YES)\b', up)), bool(re.search(r'\bUNDER\b', up))
+            if ov and un:   # both words: unsure which side it meant, so it stays untagged (never a guessed side on real money)
+                continue
+            side = 'no' if un else 'yes'   # 'not injured' / 'no doubt' never flip a leg: only the word UNDER means the NO side
+            p['kalshi'] = {'ticker': hit[0], 'side': side}; p['kalshiFrom'] = 'text'
+    return calls
+
+
+def mind_slips(calls, menu):
+    """🧾 Slice 12: each mind's legs as it built them (menu legs only, its confidence, evidence and number), kept on the folder even when they
+    fall under his minimum confidence and so make no ticket. Pure."""
+    by = {m['ticker']: m for m in menu or []}; out = []
+    for c in calls or []:
+        rows = []
+        for t, (s, conf, why, bk) in _legs(c, by).items():
+            rows.append({'ticker': t, 'title': leg_title(by[t], s), 'side': s, 'conf': conf, **({'stat': stat_of(t), 'line': prop_line(by[t])} if stat_of(t) else {}),
+                         'evidence': (bk or (why, None))[0], 'number': (bk or (None, None))[1]})
+        out.append({'mind': c.get('name'), 'legs': rows})
+    return out
+
+
+def dropped_legs(calls, menu):
+    """🧾 Slice 12: every leg a mind named that is NOT a leg, and why: a ticker Kalshi does not list, or a player leg with no evidence or
+    number. Recorded on the folder, so nothing is thrown out silently. Pure."""
+    mk = {m['ticker']: m for m in menu or []}; by = set(mk); out = []
+    for c in calls or []:
+        name = c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}"
+        for p in c.get('picks') or []:
+            k = p.get('kalshi') if isinstance(p.get('kalshi'), dict) else None
+            t = str((k or {}).get('ticker') or '').strip()
+            if not t:
+                continue
+            if t not in by:
+                out.append({'mind': name, 'ticker': t[:80], 'why': 'not a market Kalshi lists for this game'})
+            elif stat_of(t) and not leg_backing(p, mk[t]):
+                out.append({'mind': name, 'ticker': t, 'why': 'a player leg with no evidence or no number'})
     return out
 
 
@@ -866,14 +1128,20 @@ def slip_of(calls, menu, min_conf):
         a, b = mine
         both = [t for t in a if t in b and a[t][0] == b[t][0] and min(a[t][1], b[t][1]) >= min_conf][:SLIP_MAX]
         if len(both) >= SLIP_MIN:
-            return {'legs': [{'ticker': t, 'side': a[t][0], 'conf': [a[t][1], b[t][1]]} for t in both], 'by': None, 'why': [a[t][2] for t in both]}
+            return {'legs': [{'ticker': t, 'side': a[t][0], 'conf': [a[t][1], b[t][1]], 'backing': [_bk(a[t][3], calls[0].get('name')), _bk(b[t][3], calls[1].get('name'))]} for t in both],
+                    'by': None, 'why': [a[t][2] for t in both]}
     best = None
     for c, legs in zip(calls or [], mine):
         ok = [t for t in legs if legs[t][1] >= min_conf][:SLIP_MAX]
         score = min([legs[t][1] for t in ok] or [0])
         if len(ok) >= SLIP_MIN and (not best or score > best[0]):
-            best = (score, {'legs': [{'ticker': t, 'side': legs[t][0], 'conf': [legs[t][1]]} for t in ok], 'by': c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}", 'why': [legs[t][2] for t in ok]})
+            best = (score, {'legs': [{'ticker': t, 'side': legs[t][0], 'conf': [legs[t][1]], 'backing': [_bk(legs[t][3], c.get('name'))]} for t in ok], 'by': c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}", 'why': [legs[t][2] for t in ok]})
     return best[1] if best else None
+
+
+def _bk(b, name):
+    """One mind's backing for one leg, as the ticket records it. Pure."""
+    return {'mind': name, 'evidence': b[0], 'number': b[1]} if b else {'mind': name, 'evidence': '', 'number': None}
 
 
 PICKS_MAX = 5
@@ -886,7 +1154,7 @@ def picks_of(calls, menu, min_conf, folder_id, now=None):
     by = {m['ticker']: m for m in menu or []}; best = {}
     for c in calls or []:
         name = c.get('name') or f"Mind {'AB'[int(c.get('mind') or 0) % 2]}"
-        for t, (s, conf, why) in _legs(c, by, slip=False).items():   # singles: a spread and its win are two fine bets
+        for t, (s, conf, why, _bk) in _legs(c, by, slip=False).items():   # singles: a spread and its win are two fine bets
             if conf >= min_conf and s == 'yes' and (t not in best or conf > best[t]['conf'][0]):   # Kalshi's order API buys YES only here
                 best[t] = {'ticker': t, 'side': s, 'conf': [conf], 'why': [why], 'by': name}
     rows = sorted(best.values(), key=lambda p: -p['conf'][0])[:PICKS_MAX]
@@ -919,10 +1187,38 @@ def _short(m):
     return str(m.get('yes_sub_title') or m.get('title') or m.get('ticker'))[:40]
 
 
+def leg_title(m, side):
+    """'Kevin Durant OVER 24.5 points' / 'NOT Houston' — what the slip says for one leg. Pure."""
+    st = stat_of(m.get('ticker'))
+    if st:
+        who = str(m.get('yes_sub_title') or m.get('title') or '').split(':')[0].strip()[:28]
+        return f"{who} {'OVER' if side == 'yes' else 'UNDER'} {prop_line(m)} {st}"[:60]
+    return ('' if side == 'yes' else 'NOT ') + _short(m)
+
+
+def slip_whole(tk, menu=None):
+    """🧩 Slice 12: never a half-made slip. → '' when the ticket is whole (2..4 legs, each a Kalshi ticker on the menu with its event, side and a
+    price, every player leg backed), else the plain reason it is not. Pure."""
+    legs = (tk or {}).get('legs') or []
+    if not SLIP_MIN <= len(legs) <= SLIP_MAX:
+        return f'a slip needs {SLIP_MIN} to {SLIP_MAX} legs; it had {len(legs)}'
+    ids = {m.get('ticker') for m in menu or []} if menu is not None else None
+    for g in legs:
+        if not g.get('ticker') or not g.get('event') or g.get('side') not in ('yes', 'no') or not float(g.get('price') or 0) > 0:
+            return f"the leg {g.get('title') or g.get('ticker')} is missing its market, side or price"
+        if ids is not None and g['ticker'] not in ids:
+            return f"the leg {g['ticker']} is not a market Kalshi lists"
+        if g.get('stat') and not any(b.get('evidence') and b.get('number') is not None for b in g.get('backing') or []):
+            return f"the leg {g.get('title')} has no evidence and number"
+    return ''
+
+
 def slip_ticket(slip, menu, folder_id, now=None):
     by = {m['ticker']: m for m in menu or []}
     legs = [{'ticker': g['ticker'], 'event': by[g['ticker']].get('event_ticker'), 'side': g['side'], 'conf': g['conf'],
-             'title': ('' if g['side'] == 'yes' else 'NOT ') + _short(by[g['ticker']]), 'price': price_of(by[g['ticker']], g['side'])} for g in slip['legs']]
+             'title': leg_title(by[g['ticker']], g['side']), 'price': price_of(by[g['ticker']], g['side']),
+             **({'stat': stat_of(g['ticker']), 'line': prop_line(by[g['ticker']]), 'ou': 'over' if g['side'] == 'yes' else 'under'} if stat_of(g['ticker']) else {}),
+             **({'backing': g['backing']} if g.get('backing') else {})} for g in slip['legs']]
     fair = fair_of(legs)
     return {'id': 'kb' + uuid.uuid4().hex[:10], 'kind': 'parlay', 'legs': legs, 'ticker': None, 'side': 'yes', 'title': 'Parlay: ' + ' + '.join(g['title'] for g in legs),
             'conf': [min(g['conf'][i] for g in legs) for i in range(len(legs[0]['conf']))], 'why': slip.get('why'), 'price': fair, 'maxPx': max_px(fair),
@@ -1010,13 +1306,14 @@ async def legs_menu(http, games):
     menu = [m for m in games or [] if m.get('event_ticker') in ok and (str(m.get('ticker') or '').split('-')[0], game_key(m)) in keys]
 
     async def one(ev):
-        r = await http.get(f'{BASE}/markets', params={'event_ticker': ev, 'status': 'open', 'limit': 200})
-        return leg_rows((r.json() or {}).get('markets') if r.status_code == 200 else [])
+        r = await http.get(f'{BASE}/markets', params={'event_ticker': ev, 'status': 'open', 'limit': 500})
+        rows = (r.json() or {}).get('markets') if r.status_code == 200 else []
+        return prop_rows(rows) if stat_of(ev) else leg_rows(rows)   # 🏀 a player series: each player's line nearest a coin flip
     evs = [f'{p}-{k}' for s, k in keys for p in PROP_SERIES.get(s, ()) if f'{p}-{k}' in ok]
-    for rows in await asyncio.gather(*(one(e) for e in evs), return_exceptions=True):
-        if isinstance(rows, list):
-            menu += rows
-    return menu[:MENU_MAX]
+    got = [rows for rows in await asyncio.gather(*(one(e) for e in evs), return_exceptions=True) if isinstance(rows, list)]
+    props = [r for rows in got for r in rows if stat_of(r.get('ticker'))]; lines = [r for rows in got for r in rows if not stat_of(r.get('ticker'))]
+    room = max(0, MENU_MAX - len(menu)); keep_lines = min(len(lines), max(4, room // 4))   # 🏀 players fill most of the menu; spreads/totals keep a few
+    return (menu + props[:room - keep_lines] + lines[:keep_lines])[:MENU_MAX]
 
 
 async def _signed(http, key_id, pem, method, path, **kw):
@@ -1028,14 +1325,14 @@ async def combo_create(http, key_id, pem, legs):
     path = f'/multivariate_event_collections/{COMBO}'
     r = await _signed(http, key_id, pem, 'POST', path, json={'selected_markets': [{'market_ticker': g['ticker'], 'event_ticker': g['event'], 'side': g['side']} for g in legs]})
     if r.status_code not in (200, 201):
-        raise RuntimeError(f'Kalshi would not build the slip ({r.status_code}): {r.text[:200]}')
+        raise Refused(f'Kalshi would not build the slip ({r.status_code}): {r.text[:200]}')
     return (r.json() or {}).get('market_ticker')
 
 
 async def rfq_create(http, key_id, pem, ticker, budget):
     r = await _signed(http, key_id, pem, 'POST', '/communications/rfqs', json={'market_ticker': ticker, 'target_cost_dollars': f'{budget:.2f}', 'rest_remainder': False, 'target_cost_excludes_fees': False})
     if r.status_code not in (200, 201):
-        raise RuntimeError(f'Kalshi refused the quote request ({r.status_code}): {r.text[:200]}')
+        raise Refused(f'Kalshi refused the quote request ({r.status_code}): {r.text[:200]}')
     return (r.json() or {}).get('id')
 
 
@@ -1047,7 +1344,7 @@ async def rfq_quotes(http, key_id, pem, rfq_id):
 async def quote_accept(http, key_id, pem, rfq_id, quote_id):
     r = await _signed(http, key_id, pem, 'PUT', f'/communications/rfqs/{rfq_id}/quotes/{quote_id}/accept', json={'accepted_side': 'yes'})
     if r.status_code not in (200, 204):
-        raise RuntimeError(f'Kalshi refused the accept ({r.status_code}): {r.text[:200]}')
+        raise Refused(f'Kalshi refused the accept ({r.status_code}): {r.text[:200]}')
 
 
 async def rfq_delete(http, key_id, pem, rfq_id):

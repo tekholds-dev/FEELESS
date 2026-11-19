@@ -620,6 +620,9 @@ _SCAN_FILED: set = set()   # filed this pass: "still scanning" ends on the NEXT 
 
 SCAN_BROWSER_S = 90   # its browser's part of one scan
 _POB_WANT: dict = {}   # 💬 'file a bid', read by the engine pass
+LOOKUP_GIVE_S = 120   # 🔎 an unclear send with no order on Kalshi this long after it is a clear no
+_POB_PASS: dict = {}   # 💾 the store the running PoB pass writes (the engine's own)
+_POB_FILING: set = set()   # 🛡 Slice 12: PoB filings running in THIS process (a saved pobFiling mark not in here was cut off by a restart)
 _MADE_BUSY: set = set()     # 🎨 agents making a picture or page right now: one at a time
 _MADE_DONE: list = []       # finished makes, filed by the engine pass (the store's one writer)
 IMAGE_EST_USD = 0.06        # it must hold this much before a picture starts; the provider's real cost is what gets charged
@@ -717,19 +720,42 @@ async def _kalshi_send_raw(cat, tk):
                     tk.update(status='refused', why=why_, balance=bal_)
                 else:
                     tk.setdefault('minds', tk.get('why') if isinstance(tk.get('why'), list) else [])   # 🎓 the minds' reasons stay for COMP's lesson
-                    o_ = await _kb.place(h_, kid_, pem_, _kb.order(tk, n_, px_))
-                    tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_),
-                              **({'sentFilled': True} if _kb.filled_on_send(o_, n_) else {}))   # ✅ Kalshi's own answer: every contract filled
-                    await _kalshi_confirm(h_, kid_, pem_, tk)   # ✅ read it back from Kalshi itself
+                    body_ = _kb.order(tk, n_, px_); tk.update(clientId=body_['client_order_id'], sentAt=round(time.time()), count=n_, price=px_)   # 🔎 our own id: an unclear send is looked up by it
+                    try:
+                        o_ = await _kb.place(h_, kid_, pem_, body_)
+                    except _kb.Refused:
+                        raise   # Kalshi's clear no: nothing reached its book
+                    except Exception as e_:   # noqa: BLE001 — 🛡 Slice 12: cut off before Kalshi answered: look on his account, never send again
+                        o_ = await _kalshi_lookup(h_, kid_, pem_, tk, e_)
+                    if o_:
+                        tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_),
+                                  **({'sentFilled': True} if _kb.filled_on_send(o_, n_) else {}))   # ✅ Kalshi's own answer: every contract filled
+                        await _kalshi_confirm(h_, kid_, pem_, tk)   # ✅ read it back from Kalshi itself
         except Exception as e:   # noqa: BLE001 — a refused or failed call is shown, never retried by itself
             tk.update(status='failed', why=str(e)[:200])
-    tk['doneAt'] = round(time.time())
+    tk['doneAt'] = round(time.time()); tk['end'] = _kb.end_of(tk)   # 🛡 Slice 12: how it ended, in plain words
     cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]; _kb_remember(cat, cat['kalshiBids'][-1])
     if tk.get('orderId'):
         _kalshi_say(cat, tk)
+    elif tk.get('status') == 'unknown':
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '⚠ ' + tk['end']['say'][:390], 'at': time.time(), 'open': 'bids'}])[-200:]
     else:
         _kalshi_say_no(cat, tk)
     return tk
+
+
+async def _kalshi_lookup(h_, kid_, pem_, tk, err):
+    """🔎 Slice 12: the order send was cut off (timeout, dropped line) before Kalshi answered. Look on his own account for the order with our
+    client id. Found → that order (it went through). Not there yet, or Kalshi cannot be read → the ticket is 'unknown': it counts as reached
+    (never re-sent, counted in today's cap) and the 5-min pass looks again; only after LOOKUP_GIVE_S with no such order does it say nothing went through."""
+    try:
+        o_ = await _kb.find_order(h_, kid_, pem_, tk.get('ticker'), tk.get('clientId'), tk.get('sentAt') or time.time())
+    except Exception as e2_:   # noqa: BLE001
+        tk.update(status='unknown', usd=round(float(tk.get('count') or 0) * float(tk.get('price') or 0), 2), why=f'The send was cut off ({type(err).__name__}) and Kalshi could not be read to check ({str(e2_)[:80]}).')   # counted in today's cap: it may be real
+        return None
+    if not o_:
+        tk.update(status='unknown', usd=round(float(tk.get('count') or 0) * float(tk.get('price') or 0), 2), why=f'The send was cut off ({type(err).__name__}) and the order is not on your Kalshi account yet.')
+    return o_
 
 
 # ↪ moved to fc_pow.py: _kalshi_say_no
@@ -763,7 +789,7 @@ async def _kalshi_slip_send_raw(cat, tk):
                 else:
                     tk.setdefault('minds', tk.get('why') if isinstance(tk.get('why'), list) else [])
                     tk['ticker'] = await _kb.combo_create(h_, kid_, pem_, tk['legs'])
-                    rfq_ = await _kb.rfq_create(h_, kid_, pem_, tk['ticker'], budget_)
+                    rfq_ = await _kb.rfq_create(h_, kid_, pem_, tk['ticker'], budget_); tk['rfqId'] = rfq_   # 🔎 kept, so an unclear accept can be read back
                     wake_, stop_ = asyncio.Event(), asyncio.Event()
                     feed_ = asyncio.create_task(_kb.quote_feed(kid_, pem_, rfq_, wake_, stop_))   # ⚡ wakes the wait the moment a maker answers
                     got_, t0_ = None, time.time()
@@ -774,7 +800,13 @@ async def _kalshi_slip_send_raw(cat, tk):
                         tk.update(status='refused', why=f"No market maker quoted the slip at {float(tk['maxPx']):.3f} or less within {_kb.QUOTE_WAIT_S} s, so nothing was bought.", balance=bal_)
                     else:
                         q_, px_, n_ = got_
-                        await _kb.quote_accept(h_, kid_, pem_, rfq_, q_['id'])
+                        tk.update(quoteId=q_['id'], sentAt=round(time.time()))
+                        try:
+                            await _kb.quote_accept(h_, kid_, pem_, rfq_, q_['id'])
+                        except _kb.Refused:
+                            tk.pop('quoteId', None); raise   # Kalshi's clear no: nothing bought
+                        except Exception:   # noqa: BLE001 — 🛡 Slice 12: cut off mid-accept: it may be real; never accepted again, read back by the 5-min pass
+                            tk.update(status='unknown', price=px_, count=n_, usd=round(n_ * px_, 2)); rfq_ = None; raise   # counted in today's cap: it may be real
                         tk.update(status='sent', quoteId=q_['id'], price=px_, count=n_, why=why_)
                         t0_ = time.time(); st_ = None
                         while time.time() - t0_ < _kb.FILL_WAIT_S:   # ⏳ the maker confirms (3 s on a combo), then Kalshi executes it
@@ -784,22 +816,26 @@ async def _kalshi_slip_send_raw(cat, tk):
                                 break
                         if st_ and st_.get('status') == 'executed':
                             n_ = _kb._fp(st_.get('yes_contracts_fp')) or n_
-                            tk.update(status='filled', filled=n_, count=n_, usd=round(n_ * px_, 2), orderId=st_.get('rfq_creator_order_id') or q_['id'], balance=round(bal_ - n_ * px_, 2))
+                            tk.update(status='filled', filled=n_, count=n_, usd=round(n_ * px_, 2), orderId=st_.get('rfq_creator_order_id') or q_['id'], balance=round(bal_ - n_ * px_, 2), confirmedAt=round(time.time()))   # ✅ Kalshi's own quote record says executed
                             rfq_ = None   # executed: the RFQ is closed by Kalshi
-                        else:
+                        elif st_ and st_.get('status') == 'cancelled':
                             tk.update(status='refused', why='The market maker did not confirm the quote, so nothing was bought.', balance=bal_)
+                        else:   # 🛡 Slice 12: accepted, and not executed or cancelled yet: it may still fill. Never re-sent; read back every 5 min
+                            tk.update(status='unknown', usd=round(n_ * px_, 2), why=f"Accepted on Kalshi; the maker had not confirmed within {_kb.FILL_WAIT_S} s, so it may still fill.", balance=bal_); rfq_ = None
                 if rfq_:
                     await _kb.rfq_delete(h_, kid_, pem_, rfq_)
         except Exception as e:   # noqa: BLE001 — shown on the ticket, never retried by itself
-            if tk.get('quoteId') and tk.get('status') == 'sent':   # accepted, fill unknown: it may be real, so it stays on the ledger as sent
-                tk['why'] = f'Accepted on Kalshi, but the fill could not be read back ({str(e)[:120]}). Check it on Kalshi.'
+            if tk.get('quoteId') and tk.get('status') in ('sent', 'unknown'):   # accepted (or cut off mid-accept), fill unknown: it may be real, never re-sent
+                tk.update(status='unknown', why=f'The accept may have gone through, but the fill could not be read back ({str(e)[:120]}).')
             else:
                 tk.update(status='failed', why=str(e)[:200])
     if stop_:   # ⚡ the feed ends with the send, whatever happened
         stop_.set(); feed_.cancel()
-    tk['doneAt'] = round(time.time())
+    tk['doneAt'] = round(time.time()); tk['end'] = _kb.end_of(tk)
     cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]; _kb_remember(cat, cat['kalshiBids'][-1])
-    if tk.get('orderId'):
+    if not tk.get('orderId'):   # 🛡 Slice 12: a slip that did not fill says so in chat (it used to say nothing)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': ('⚠ ' if tk.get('status') == 'unknown' else '🛑 ') + tk['end']['say'][:390], 'at': time.time(), 'open': 'bids'}])[-200:]
+    else:
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"✅ Kalshi filled my slip: {tk.get('title')} · {tk.get('count'):g} × {float(tk.get('price') or 0):.3f} = ${float(tk.get('usd') or 0):.2f}.", 'at': time.time(), 'open': 'bids'}])[-200:]
     return tk
 
@@ -835,7 +871,7 @@ _kalshi_send = _kb_once(_kalshi_send_raw)
 _kalshi_slip_send = _kb_once(_kalshi_slip_send_raw)
 
 
-_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf', 'sentFilled', 'readTries')
+_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr', 'minds', 'result', 'outcome', 'settledAt', 'livePx', 'kind', 'legs', 'maxPx', 'quoteId', 'warn', 'pxHist', 'budgetUsd', 'retryOf', 'sentFilled', 'readTries', 'clientId', 'rfqId', 'end', 'sentAt')
 
 
 # ↪ moved to fc_pob.py: _kalshi_confirm, _kalshi_say, _kalshi_refresh, _kalshi_settle_pass, _pob_final, _kalshi_rivals, _kalshi_view, _pob_file
@@ -2173,6 +2209,8 @@ _kb_claim = _fc_pob._kb_claim
 _kalshi_confirm = _fc_pob._kalshi_confirm
 _kalshi_say = _fc_pob._kalshi_say
 _kalshi_refresh = _fc_pob._kalshi_refresh
+_kalshi_unknown = _fc_pob._kalshi_unknown
+_kalshi_unknown_pass = _fc_pob._kalshi_unknown_pass
 _kalshi_settle_pass = _fc_pob._kalshi_settle_pass
 _pob_final = _fc_pob._pob_final
 _kalshi_rivals = _fc_pob._kalshi_rivals
@@ -2191,6 +2229,9 @@ _topic_shared = _fc_pob._topic_shared
 _topic_keep = _fc_pob._topic_keep
 _pob_topic_file = _fc_pob._pob_topic_file
 _kalshi_index_warn = _fc_pob._kalshi_index_warn
+_pob_file_safe = _fc_pob._pob_file_safe
+_pob_stopped = _fc_pob._pob_stopped
+_pob_cut_off = _fc_pob._pob_cut_off
 _pob_tick = _fc_pob._pob_tick
 _pob_pass = _fc_pob._pob_pass
 _pop_pass = _fc_pob._pop_pass
