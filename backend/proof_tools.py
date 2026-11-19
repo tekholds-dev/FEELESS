@@ -146,6 +146,10 @@ def team_list(games):
 def games_for(text, games):
     """The games a proof's words are about: a team's name in the text. Saved on the folder so its result can be read later. Pure."""
     t = _word(text); out = []
+    named = lambda tm: bool((lambda s: s and re.search(rf'\b{re.escape(s[-1])}\b', t))(_word(tm.get('short')).split()) or (_word(tm.get('name')) and _word(tm.get('name')) in t))
+    both = [g for g in games if len(g.get('teams') or []) == 2 and all(named(tm) for tm in g['teams'])]
+    if both:   # 🛡 Slice 11 fix: "Clippers vs Spurs" is that NBA game, never Ipswich at Spurs (TEST PoB #17 was matched to the EPL)
+        games = both
     for g in games:
         for tm in g['teams']:
             short = _word(tm.get('short')).split()

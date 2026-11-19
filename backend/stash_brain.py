@@ -170,6 +170,16 @@ def _hit(c, run, row, how, now, secs, paid):
     c.execute('INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', (now, 'hit', row[1], row[0], run['ref'], run['agent'], run['kind'], how, secs, float(row[5] or 0), paid, row[6] or ''))
 
 
+def fresh_copy(root, url, now=None, env=None):
+    """True when the stash already holds a fresh copy of `url` (COMP's reader skips it). Reads the index only: no seal is opened, nothing counted."""
+    now = float(now or time.time())
+    if not (root / 'index.db').exists():
+        return False
+    with _db(root) as c:
+        row = c.execute('SELECT at, fresh FROM pages WHERE uh = ? ORDER BY at DESC LIMIT 1', (_h(norm_url(url), env),)).fetchone()
+    return bool(row) and now - row[0] <= row[1]
+
+
 def url_hit(root, token, url, now=None, env=None):
     """A brain is about to open `url`: the freshest kept copy when it is still fresh (and not one this same run kept). → the page, or
     {'stale': True} when only an old copy exists, or None when the stash never saw it."""

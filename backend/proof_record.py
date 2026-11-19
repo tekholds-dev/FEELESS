@@ -227,6 +227,26 @@ def checks(kind, f, pair):
         rows.append({'key': 'stash', 'label': 'Asked the stash first: hits vs pages browsed, time and $ saved', 'ok': int(sb.get('hits') or 0) + int(sb.get('browsed') or 0) > 0,
                      'why': (f"{sb.get('hits') or 0} stash hits, {sb.get('browsed') or 0} pages browsed ({sb.get('stale') or 0} stale), {sb.get('kept') or 0} kept; "
                              f"saved {sb.get('savedSecs') or 0} s and ${float(sb.get('savedUsd') or 0):.4f} (${float(sb.get('paidEqUsd') or 0):.3f} on a paid mind)")})
+    if kind == 'pob' and sb:   # 📡 Slice 11: COMP read ahead, so its pages were already in the stash when the brains asked
+        comp_ = [r for r in _rows(sb.get('from')) if str(r).startswith(('comp:', 'comptask:'))]
+        ref_ = ((f.get('peers') or {}).get('comp') or {}) if isinstance(f.get('peers'), dict) else {}
+        age_ = (_f(f.get('at')) - _f(ref_.get('readAt'))) if ref_.get('readAt') and f.get('at') else None
+        held_ = age_ is not None and -600 <= age_ <= 1800
+        rows.append({'key': 'ahead', 'label': 'COMP read ahead: it already held a fresh reading of this game (no model, $0)', 'ok': bool(comp_) or held_,
+                     'why': '; '.join(x for x in (f"{len(comp_)} of the stash pages its brains were handed came from COMP's reads" if comp_ else '',
+                                                  f"COMP read {ref_.get('game')} {max(0, round(age_ / 60))} min before it filed" if held_ else '') if x)
+                     or "COMP held no fresh reading of this game, and no stash page it was handed came from COMP's reads"})
+    pe = f.get('peers') if isinstance(f.get('peers'), dict) else None
+    if kind == 'pob' and pe is not None:   # 🤝 Slice 11: beside every other agent's PoB on the same game, and COMP's reference
+        import pob_peers as _pp
+        rows.append({'key': 'peers', 'label': "Compared with every other agent's PoB on this game (and COMP's reference): where they agree and disagree",
+                     'ok': bool(pe.get('peers') or pe.get('comp')), 'why': _pp.say(pe)})
+    ct = f.get('compTask') if isinstance(f.get('compTask'), dict) else None
+    if ct:   # 🛰 Slice 11: the one task its brains handed COMP, and what came back
+        t = ct.get('task') or {}
+        rows.append({'key': 'comp', 'label': 'Handed COMP one task: the ask and the answer (one per filing, owner agents only)', 'ok': t.get('status') == 'done',
+                     'why': (f"asked \"{str(t.get('ask'))[:90]}\"; {len(t.get('facts') or [])} facts back" + (f", read fresh: {', '.join(t.get('read') or [])}" if t.get('read') else '')
+                             + (f"; {len(ct.get('refused') or [])} more asks refused" if ct.get('refused') else '')) if t else 'refused: ' + str(((ct.get('refused') or [{}])[0]).get('why'))[:160]})
     if kind == 'poc':   # 🎬 Slice 5: trend first, the real files, the owner's approve, reach graded against the goal set at filing
         rows += _studio.record_rows(f)
     return rows

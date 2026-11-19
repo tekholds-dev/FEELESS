@@ -473,6 +473,10 @@ async def _pob_grade_pass(http, store, now):
         await rs._kalshi_settle_pass(http, store, now)
     except Exception as e:   # noqa: BLE001 — the scoreboard pass still runs
         print(f'[kalshi] settle: {str(e)[:100]}')
+    try:   # 🗺 Slice 11: every settled PoB moves the trust of each source it read, once
+        rs._cahead.settle_folders(rs.DATA_DIR, list(store['cats'].values()), now)
+    except Exception as e:   # noqa: BLE001
+        print(f'[atlas] settle: {type(e).__name__}')
     for c_ in store['cats'].values():   # 🧹 repeated score lines leave the chat (owner 2026-11-15: 5 copies of one score)
         if c_.get('chat'):
             kept_ = rs._pob.dedupe_scores(c_['chat'])

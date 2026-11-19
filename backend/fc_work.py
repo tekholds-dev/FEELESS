@@ -383,6 +383,8 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
                 if tool in ('inbox', 'mailbox'):
                     return await rs._mail_tool(http, rs._load()['cats'].get(cat_id) or {}, tool)
+                if str(tool or '').lower() == 'comp':   # 🛰 Slice 11: COMP takes ONE task per filing, owner agents only (plain reads, no model)
+                    return await rs._ctask.handle(http, rs._load()['cats'].get(cat_id) or cat_now, (rs._CALL_CTX.get() or {}).get('ref'), q, stok_, rs.DATA_DIR)
                 return await rs._ct.run_tool(http, tool, q)
             await rs._ca.run(w['task'], ask, pages, wait_human, names, feeless)
         finally:

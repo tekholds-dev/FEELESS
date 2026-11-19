@@ -97,6 +97,10 @@ import idea_board as _ideas   # noqa: F401  (read by fc_desk as rs._ideas)
 import proof_footprint as _foot   # noqa: F401  (read by fc_desk, fc_hive as rs._foot)
 import proof_record as _prec   # noqa: F401  🧾 Slice 0: the true record on every filed proof (minds from the call log, sources, footprint gate, TEST)
 import stash_brain as _sbrain   # noqa: E402,F401  🧠 Slice 10: the stash brain (every page a mind loads, sealed by category; ask first)
+import atlas as _atlas   # noqa: E402,F401  🗺 Slice 11: the Living Atlas (atoms with a freshness clock, source trust from settled outcomes)
+import comp_ahead as _cahead   # noqa: E402,F401  📡 Slice 11: COMP stays ahead (plain page reads on a schedule, no model) + its reference per game
+import comp_task as _ctask   # noqa: E402,F401  🛰 Slice 11: an owner agent's brain hands COMP one task per filing
+import pob_peers as _peers   # noqa: E402,F401  🤝 Slice 11: a new PoB beside every other agent's PoB on the same game
 import collective_stash as _stash
 import collective_kits as _kits   # noqa: F401  (read by fc_cats, fc_desk as rs._kits)
 import agent_topup as _topup   # noqa: F401  (read by fc_pow as rs._topup)
@@ -1060,6 +1064,12 @@ async def _start_relink():
 
 
 @app.on_event('startup')
+async def _start_comp_ahead():
+    if os.environ.get('FEELESS_COMP_AHEAD', '1') != '0' and 'pytest' not in __import__('sys').modules:   # 📡 Slice 11: plain page reads every 20 min, no model call ($0)
+        asyncio.create_task(_cahead.loop(DATA_DIR))
+
+
+@app.on_event('startup')
 async def _start_hive():
     if SELF_START and os.environ.get('FEELESS_HIVE', '1') != '0':   # 🛑 discontinued (owner 2026-11-14)
         asyncio.create_task(_hive_loop())
@@ -1274,6 +1284,10 @@ async def health():
     store = _load()
     # 🔁 `busy` = folder builds + ad runs alive right now: scripts/keep-alive.sh reloads new backend code only when this is 0 (a restart kills a run)
     busy = sum(1 for t in list(_WS_LIVE.values()) + list(_ADS_LIVE.values()) if t is not None and not t.done())
+    now_ = time.time()   # 🛡 Slice 11 fix: a proof's read (its windows working) and a PoB being filed count too; a reload mid-read killed Slice 10's TEST runs 3 + 4
+    busy += sum(1 for w in list(_WORK.values()) if w and not w.get('done') and now_ - float(w.get('at') or 0) < 1800)
+    busy += sum(1 for c in store['cats'].values() if any(now_ - float((c.get(k) or {}).get('at') or 0) < 1200 for k in ('pobRead', 'pobFiling') if isinstance(c.get(k), dict)))
+    busy += sum(1 for c in store['cats'].values() if c.get('pobAsk')) + sum(1 for v in list(_TEST_ON.values()) if now_ - float((v or {}).get('at') or 0) < 2700)   # a PoB asked but not yet reading, and a live TEST claim
     return {'ok': True, 'cats': len(store['cats']), 'events': len(store['events']), 'busy': busy}
 
 

@@ -15,3 +15,11 @@ def _rs():
 async def stash_brain_panel():
     rs = _rs()
     return await rs.asyncio.to_thread(rs._sbrain.stats, rs._sbrain.root_of(rs.DATA_DIR))
+
+
+@router.get('/api/cats/proofs/comp-ahead')
+async def comp_ahead_panel():
+    """📡 Slice 11 · COMP stays ahead: its passes (counts), the games it holds a reference for, the atlas (atoms by kind, fresh / stale,
+    from 2+ sources) and the trust table. No page, fact or address leaves here (comp_ahead.panel, atlas.stats)."""
+    rs = _rs()
+    return await rs.asyncio.to_thread(rs._cahead.panel, rs.DATA_DIR)

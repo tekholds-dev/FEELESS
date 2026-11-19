@@ -245,6 +245,14 @@ def _pob_gone_say(cat, topic, gone, nxt, you=None):
 
 def _pob_file(cat, rec, line):
     rs = _rs()
+    try:   # 🤝 Slice 11: beside every other agent's PoB on this game + COMP's reference; the one task its brains handed COMP
+        if rec.get('topic') or rec.get('calls'):
+            rec = {**rec, 'peers': rs._peers.compare(rec, cat.get('id'), list((rs._load().get('cats') or {}).values()), rs._cahead.load_refs(rs.DATA_DIR))}
+        ct_ = rs._ctask.record_for(rs._prec.refs_of(rec))
+        if ct_:
+            rec = {**rec, 'compTask': ct_}
+    except Exception as e:   # noqa: BLE001 — the proof still files
+        print(f'[pob] peers: {type(e).__name__}')
     f_ = rs._record_file(cat, 'pob', {**rec, 'n': rs._pob.number(cat), 'kits': rs._KIT_LAST.get((cat.get('id'), 'pob')) or [], 'stampRules': rs._stamp.CURRENT_RULES})   # 🧾 Slice 0: the minds that really ran, its sources, its footprint (and TEST)
     cat['pobFolders'] = rs._pob.trim(list(cat.get('pobFolders') or []) + [f_])   # 📜 settles by the rules it was filed under
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': rs.time.time(), 'open': 'bids'}])[-200:]
@@ -595,7 +603,8 @@ async def _pob_tick(http, cat, now):
             except Exception as e:   # noqa: BLE001 — research goes on; the final call reads the legs again
                 print(f'[pob] kalshi legs first: {str(e)[:100]}')
         page_ = await rs._pob_facts(rs._kb.game_named(topic, await rs._pob_games(topic)))   # 🏟 ESPN's facts on this game, free, for both minds: neither spends steps on ESPN
-        why = rs._read_start(cat, page_ + rs._kb.first_note(kb_first_, legs_first_) + rs._pob.topic_goal(topic, sites), who, 'pob')
+        comp_ = rs._ctask.job_line(cat)   # 🛰 Slice 11: an owner agent's brains may hand COMP one task
+        why = rs._read_start(cat, comp_ + page_ + rs._kb.first_note(kb_first_, legs_first_) + rs._pob.topic_goal(topic, sites), who, 'pob')
         by_ = cat.pop('pobBy', None) or 'you'   # 🎯 who asked travels with this run, never left on the agent for the next one
         if why:
             cat.pop('proofHosts', None)
@@ -603,7 +612,7 @@ async def _pob_tick(http, cat, now):
             return
         t_ = rs._WORK[cat['id']]['task']; t_['keepShots'] = True
         if len(t_.get('jobs') or []) > 1:   # 👣 each mind has its own sites and angle, so they never run one search twice
-            t_['jobs'] = [page_ + rs._kb.first_note(kb_first_, legs_first_) + rs._pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) + rs._prec.back_line(cat.get('footBack'), 'pob', now) for i_ in range(2)][:len(t_['jobs'])]
+            t_['jobs'] = [comp_ + page_ + rs._kb.first_note(kb_first_, legs_first_) + rs._pob.topic_goal(topic, foot_['sites'][i_], foot_['angles'][i_]) + rs._prec.back_line(cat.get('footBack'), 'pob', now) for i_ in range(2)][:len(t_['jobs'])]
         cat['pobRead'] = {'who': who, 'at': round(now), 'tid': t_['id'], 'topic': topic, 'sites': sites, 'by': by_, 'kalshi': [m.get('ticker') for m in kb_first_][:6], **({'resumeOf': cat.pop('pobResumeOf')} if cat.get('pobResumeOf') else {})}
         kb_say_ = rs._kb.first_say(kb_first_, kb_key_)
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🌐 Researching {topic}: {', '.join(sites[:3])} and more, in its own windows. Snapshots go in the folder.{kb_say_}", 'at': now, 'open': 'bids'}])[-200:]
