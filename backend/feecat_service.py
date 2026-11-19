@@ -115,6 +115,9 @@ import evidence_marks as _marks   # noqa: F401  (read by fc_desk as rs._marks)
 import proof_stamp as _stamp   # noqa: F401  (read by fc_desk, fc_orders as rs._stamp)
 import proof_print as _pprint   # noqa: F401  🧬 each proof's own fingerprint, from its evidence (read by fc_cat_work)
 import ps_hidden as _ps_hidden   # noqa: F401  (read by fc_cats as rs._ps_hidden)
+import ps_kits as _psk   # noqa: F401  (Slice 3, read by fc_desk as rs._psk: the full PoStatic toolkit)
+import ps_unique as _psu   # noqa: F401  (Slice 3, read by fc_desk as rs._psu: every build unique)
+import ps_keep as _pskeep   # noqa: F401  (Slice 3, read by fc_desk as rs._pskeep: no back pedals)
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof   # noqa: F401  (read by fc_cats, fc_cloud as rs._mission)
 import datetime as dt   # noqa: F401  (read by fc_desk as rs.dt)
 import postiz as _pz   # 📮 POC-PLAY item 8: a picked week board posts for real through Postiz's official OAuth API   # noqa: F401  (read by fc_desk as rs._pz)
@@ -1976,6 +1979,8 @@ _build_3d = _fc_desk._build_3d
 _ws_run = _fc_desk._ws_run
 _poc_media = _fc_desk._poc_media
 _poc_view = _fc_desk._poc_view
+_page_live = _fc_desk._page_live
+_ps_past = _fc_desk._ps_past
 _week_file = _fc_tools._week_file
 _poc_file = _fc_tools._poc_file
 cat_indicator = _fc_tools.cat_indicator

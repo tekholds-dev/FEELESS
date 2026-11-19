@@ -17,6 +17,7 @@ class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: 
     topic: str = ''
     op: str = 'start'
     model: Optional[dict] = None
+    ws: str = ''   # 🧪 Slice 3: PoStatic only, a TEST folder to change (a new version of it, to prove it keeps every part that worked)
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
 SICARIO = 'sicarios'
@@ -113,7 +114,8 @@ def _test_view(cat):
         last = next((f for f in reversed(cat.get(key) or []) if isinstance(f, dict) and f.get('test')), None)
         live = _test_live(cat, kind)
         out[kind] = {'running': bool(live), 'since': (live or {}).get('at'),
-                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio')} | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
+                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief')}
+                             | ({'codeCheck': {k: (last.get('codeCheck') or {}).get(k) for k in ('passed', 'total', 'failed', 'notRun')}} if last.get('codeCheck') else {}) | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
     return out
 
 
@@ -155,6 +157,12 @@ async def test_proof_start(p: TestIn, request: Request):
     try:
         if kind == 'poe':   # 📊 PoEco: one sealed market call on live pools, no model
             out = await rs._cat_work(cid, rs.WorkPayload(op='eco_call', session=rs._AUTO_TOKEN, auto=True))
+        elif kind == 'pos' and p.ws:   # ⏫ Slice 3: a change to a TEST folder Claude made: its next version, through the same build door
+            doc_ = rs._ws_load(cid, p.ws) or {}
+            if not doc_.get('test') or not (doc_.get('versions') or []):
+                raise rs.HTTPException(400, 'Only a TEST PoStatic folder that already has a page can be changed this way.')
+            await rs._cat_work(cid, rs.WorkPayload(op='ws_build', job=p.ws, text=str(p.topic or 'Make it better.')[:2000], session=rs._AUTO_TOKEN, auto=True))
+            out = {'ws': p.ws}
         elif kind == 'pos':   # 💻 a new PoStatic folder, its plan approved by the test (no owner tap to wait for), built by its own pair
             row_ = rs._feat.new_folder(cat, 'build', f"TEST {rs.time.strftime('%m-%d %H%M', rs.time.gmtime(now))}", now)
             rs._ws_save(cid, {**rs._feat.new_doc(row_), 'cfg': {'suggest': False}, 'test': True}); rs.keep_owned(cat); rs._save(store)

@@ -897,15 +897,18 @@ def _ws_rewind(cat, cat_id, doc, n, now):
     return got['request']
 
 
-async def _ws_sections(cat, minds, text, extra):
+async def _ws_sections(cat, minds, text, extra, brief=None, live=''):
     """🧩 A page built in sections: the first mind writes a small shell, then the minds take the sections in turn, each reply short enough to finish.
     Cloud minds write their sections at the same time; a local machine writes one at a time. → (html or None, $, own key, parts written)"""
     rs = _rs()
     raw, usd, own = await rs._ws_ask(cat, minds[0], rs._feat.SECTIONS_SYS, f'BUILD THIS: {str(text)[:2000]}', 500)   # the mind plans; code writes the frame, so the frame always finishes
-    shell = rs._feat.code_shell(rs._feat.plan_sections(raw, text)); parts = rs._feat.shell_parts(shell)
-    async def one(i, n, brief):
-        r_, u_, _o = await rs._ws_ask(cat, minds[i % len(minds)], rs._feat.PART_SYS.format(n=n) + extra[:1500], f'THE PAGE: {str(text)[:800]}\nTHIS SECTION ({n}): {brief}\nTHE OTHER SECTIONS: {'; '.join(f'{m}: {b_}' for m, b_ in parts if m != n)}', 1400)
+    plan = rs._feat.plan_sections(raw, text); shell = rs._feat.code_shell(plan, brief); parts = rs._feat.shell_parts(shell)
+    cp = rs._feat.centre_part(plan, brief); cp = str(cp + 1) if cp is not None else None
+    async def one(i, n, brief):   # 🧰 Slice 3: the toolkit + this section's own kit come FIRST, so the 1,500-character cut never drops them
+        kit_ = rs._psk.part_line(brief_c, n == cp, live, brief) if brief_c else ''
+        r_, u_, _o = await rs._ws_ask(cat, minds[i % len(minds)], rs._feat.PART_SYS.format(n=n) + kit_ + extra[:1500], f'THE PAGE: {str(text)[:800]}\nTHIS SECTION ({n}): {brief}\nTHE OTHER SECTIONS: {'; '.join(f'{m}: {b_}' for m, b_ in parts if m != n)}', 1400)
         return n, rs._feat.part_html(r_), u_
+    brief_c = brief
     jobs = [(i, n, b) for i, (n, b) in enumerate(parts)]
     got = [await one(*j) for j in jobs] if any(str(m).startswith('local/') for m in minds) else await rs.asyncio.gather(*[one(*j) for j in jobs])
     usd += sum(g[2] for g in got); done = {n: h for n, h, _ in got if h.strip()}
@@ -1070,6 +1073,53 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     return cost, '', own
 
 
+_PS_PRINTS: dict = {}   # 🧬 (agent, folder, version) → the fingerprint of a filed PoStatic that carried none (filed before Slice 3)
+_PAGE_LIVE: dict = {'at': 0.0, 'pools': [], 'candles': None}
+PAGE_LIVE_S = 60
+
+
+def _ps_past(store, ws_id):
+    """🧬 Every past PoStatic build of EVERY agent, its folder excepted (its own versions are its progress, not a copy), oldest first.
+    → [{n, ws, agent, print, brief, at}]"""
+    rs = _rs(); out = []
+    for cid, c in (store.get('cats') or {}).items():
+        for f in c.get('psFolders') or []:
+            if not isinstance(f, dict) or not f.get('ws') or f.get('ws') == ws_id:
+                continue
+            pr = f.get('print')
+            if not isinstance(pr, dict):
+                key = (cid, f.get('ws'), f.get('version'))
+                if key not in _PS_PRINTS:
+                    vs = (rs._ws_load(cid, f['ws']) or {}).get('versions') or []; v = int(f.get('version') or len(vs) or 1)
+                    _PS_PRINTS[key] = rs._psu.fingerprint(((vs[min(len(vs), max(1, v)) - 1] if vs else {}) or {}).get('html'))
+                pr = _PS_PRINTS[key]
+            if pr:
+                want = (f.get('unique') or {}).get('want') or {}
+                out.append({'n': f.get('n'), 'ws': f.get('ws'), 'agent': c.get('name'), 'print': pr, 'at': float(f.get('at') or 0),
+                            'brief': {'centre': want.get('centre') or pr.get('centre'), 'layout': want.get('layout') or pr.get('layout')}})
+    return sorted(out, key=lambda r: r['at'])
+
+
+async def _page_live(cat):
+    """📡 The live kit's numbers for a page: the shared live feed (SOL price, slot, TPS) + the top Solana pools from DexScreener + SOL/USDC
+    5 m candles from our own candle index. Read here, passed into the locked page by the frame; cached a minute. Read only. → dict"""
+    rs = _rs(); base = dict(await rs._live_feed(cat)); now = rs.time.time()
+    if now - _PAGE_LIVE['at'] > PAGE_LIVE_S:
+        async with rs.httpx.AsyncClient(timeout=10, headers={'User-Agent': 'FEELESS'}) as h_:
+            async def js(u):
+                try:
+                    r = await h_.get(u)
+                    return r.json() if r.status_code == 200 else None
+                except Exception:   # noqa: BLE001: one dead source leaves its part empty
+                    return None
+            sol, boosts, cnd = await rs.asyncio.gather(js(rs._psk.DEX_SOL), js(rs._psk.DEX_BOOSTS), js(f'http://127.0.0.1:5099/api/candles/solana/{rs._psk.CANDLE_PAIR}?interval=5m'))
+            addrs = [b.get('tokenAddress') for b in boosts or [] if isinstance(b, dict) and b.get('chainId') == 'solana' and b.get('tokenAddress')][:12]
+            toks = await js(rs._psk.DEX_TOKENS.format(','.join(addrs))) if addrs else []
+        pools = rs._psk.pools_of(sol, toks); candles = rs._psk.candles_of(cnd)
+        _PAGE_LIVE.update(at=now, pools=pools or _PAGE_LIVE['pools'], candles=candles or _PAGE_LIVE['candles'])
+    return {**base, 'pools': _PAGE_LIVE['pools'], 'candles': _PAGE_LIVE['candles'], 'poolsSource': 'DexScreener', 'poolsAt': round(_PAGE_LIVE['at'])}
+
+
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     rs = _rs()
@@ -1135,15 +1185,24 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 except rs.httpx.HTTPError:
                     from_repo_ = ''
             rs._keep_mark_notes(doc, region)
+            live_ = ''
             user = f'{ask_}{rs._know.for_ask(text)}{rs._feat.region_note(region, blank=not cur)}{rs._feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
-            if rs._feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
-                user += rs._feat.live_line(await rs._live_feed(cat), page=True)
+            if rs._feat.wants_live(text) or 'feeless-live' in str(cur) or rs._psk.wants_market(text):   # 📡 a page that asks for live data gets real numbers and how to receive them (Slice 3: + DexScreener pools and our own candles)
+                live_ = rs._feat.live_line(await rs._page_live(cat), page=True); user += live_
             mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', text, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_
             if (rs._assets.wants_3d(text) or doc.get('scene3d')) and 'three' not in picks_ and not doc.get('ad'):   # 🧊 a 3D ask written by the minds: real three.js, their own design
                 picks_ = ['three', *picks_]
             picks_ = list(rs._ads.KITS) if doc.get('ad') else picks_   # 🎬 an ad gets GSAP, never a game kit (Phaser dragged in the game playtest and its STATE / SCORE counter, 2026-11-11)
             stash_, doc['kitsStash'] = rs._kits.stash_line(rs.KITS_DIR, 'pos', text, picks_)
             kits_ = rs._kits.use_line(picks_) + stash_ + rs._parts.offer_line(rs._parts.offer(rs._parts_path(), text)) + rs._mark_lessons() + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._recall(cat, 'Code', text) + rs._om.page_line(doc.get('models3d'))   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            past_ = _ps_past(rs._load(), ws_id) if not doc.get('ad') else []   # 🧬 Slice 3: every past build of every agent, to be unlike
+            if not doc.get('ad'):
+                kits_ += rs._psk.menu_line(picks_)   # 🧰 Slice 3: every approved kit, not only the 3 picks
+            if not cur and not doc.get('ad'):   # 🆕 a new page gets a brief no past build had: its own centrepiece and layout
+                doc['brief'] = rs._psu.brief(text, [p['brief'] for p in past_], seed=ws_id)
+            brief_ = doc.get('brief') if not cur else None
+            kits_ += rs._psu.brief_line(brief_)
+            retried_ = False
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -1153,7 +1212,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     raw, usd, own = await rs._ws_page(cat, brains[i], (rs._feat.REVIEW_SYS if k else rs._feat.BUILD_SYS) + rs._feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 16000 if doc.get('ad') else 8000, on_part=part_)
                     cost += usd; paid_own = own; html = rs._aip.html_of(raw)
                 if (not html or not rs._feat.page_complete(html)) and not cur and not k:   # 🧩 no page yet and the whole page did not fit in a reply: build it in sections
-                    html_s_, usd_s_, own_s_, n_s_ = await rs._ws_sections(cat, [brains[j] for j in order], text, read_ + kits_); cost += usd_s_; paid_own = paid_own or own_s_
+                    html_s_, usd_s_, own_s_, n_s_ = await rs._ws_sections(cat, [brains[j] for j in order], text, read_ + kits_, doc.get('brief') if not doc.get('ad') else None, live_); cost += usd_s_; paid_own = paid_own or own_s_
                     if html_s_:
                         html = html_s_; rs._feat.add_msg(doc, name(i), f"The whole page did not fit in one reply, so it was built in {n_s_} sections" + (f" shared by {' and '.join(name(j) for j in order)}." if len(order) > 1 else '.'), rs.time.time())
                 if (not html or not rs._feat.page_complete(html)) and cur and not region and rs._feat.wants_restyle(text):   # 🎨 a new LOOK on a page too big to write whole: one CSS block that wins, never patches that must match by the letter
@@ -1180,8 +1239,30 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     faults_ = rs._feat.page_faults(html)
                     if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
                         css_, fix_usd_, paid_own = await rs._ws_ask(cat, brains[i], rs._feat.REPAIR_SYS, rs._feat.repair_prompt(html, faults_), 3000); cost += fix_usd_; html = rs._feat.add_css(html, css_)
-                    pk3_ = [*picks_, 'three'] if doc.get('models3d') and 'three' not in picks_ else picks_   # 🪦 the owner's models are live three.js
-                    html = rs._kits.open_for_kits(rs._kits.with_kit_tags(rs._om.mount(html, doc.get('models3d')), pk3_), pk3_); doc['kitsUsed'] = rs._kits.kit_report(html, picks_); doc['kitsOutside'] = rs._kits.outside_files(html, picks_)
+                    def finish_(h_):   # 🧰 the files of every kit its code uses (picks + toolkit + three for the owner's models), then the lock
+                        pk3_ = rs._psk.carry(picks_, h_, models=bool(doc.get('models3d')))
+                        return rs._kits.open_for_kits(rs._kits.with_kit_tags(rs._om.mount(h_, doc.get('models3d')), pk3_), pk3_), pk3_
+                    html, pk3_ = finish_(html); pr_ = rs._psu.fingerprint(html); g_ = rs._psu.gate(pr_, past_)
+                    gone_ = rs._pskeep.lost(cur, html, text) if cur else []
+                    if (g_['copy'] or gone_) and not retried_ and not doc.get('ad'):   # 🧬⏫ Slice 3: a near-copy, or a version that loses a working part, is sent back ONCE
+                        retried_ = True; near_ = {**g_, 'nearest': g_.get('nearest')} if g_['copy'] else None
+                        rs._feat.add_msg(doc, 'FEELESS', ('It came out too close to an earlier PoStatic. ' if g_['copy'] else '') + (f"It dropped {len(gone_)} part{'s' if len(gone_) > 1 else ''} the last page had working. " if gone_ else '') + 'Sent back once to write it again.', rs.time.time())
+                        rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': 'retry', 'spent': round(cost, 6)}})
+                        raw_r_, usd_r_, own_r_ = await rs._ws_page(cat, brains[i], (rs._feat.REVIEW_SYS if (k or cur) else rs._feat.BUILD_SYS) + rs._feat._sources.proof_line('pos') + read_ + kits_ + rs._psu.brief_line(doc.get('brief') if g_['copy'] else None, near_) + rs._pskeep.keep_line(gone_),
+                                                                  user if not (k or cur) else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
+                        cost += usd_r_; paid_own = own_r_; h_r_ = rs._aip.html_of(raw_r_)
+                        if h_r_ and rs._feat.page_complete(h_r_):
+                            html, pk3_ = finish_(h_r_); pr_ = rs._psu.fingerprint(html); g_ = rs._psu.gate(pr_, past_); gone_ = rs._pskeep.lost(cur, html, text) if cur else []
+                    if g_['copy'] or gone_:   # refused before it files: the last page is safe
+                        why_ = (f"It was {round(g_['like'] * 100)}% like PoStatic #{g_.get('nearest')}, an earlier build: a near-copy never files." if g_['copy'] else
+                                'It would have lost ' + '; '.join(p_['name'] for p_ in gone_[:4]) + ', which the last page had working.')
+                        stop_why = why_; rs._feat.add_msg(doc, name(i), f'Not kept. {why_} Nothing changed, and the last page is safe.', rs.time.time())
+                        doc.setdefault('refused', []).append({'at': round(rs.time.time()), 'by': name(i), 'copy': bool(g_['copy']), 'like': g_['like'], 'nearest': g_.get('nearest'), 'lost': [p_['name'] for p_ in gone_][:6]}); doc['refused'] = doc['refused'][-12:]
+                        rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
+                        continue
+                    doc['kitsUsed'] = rs._psk.did(html, picks_); doc['kitsOutside'] = rs._kits.outside_files(html, pk3_)   # 🧾 each kit with what it did
+                    doc['unique'] = rs._psu.record(doc.get('brief'), pr_, g_); doc['print'] = pr_
+                    doc['keep'] = rs._pskeep.record(cur, html, text, len(doc.get('versions') or []) or None)
                     cur = html; rs._feat.add_version(doc, html, name(i), rs.time.time()); rs._parts_used(cat_id, ws_id, html); rs._feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', rs.time.time())
                 else:
                     stop_why = stop_why or 'Its answer held no page.'
@@ -1203,6 +1284,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         rs._feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', rs.time.time())
         stop_why = 'A model did not answer.'
+    if kind == 'build' and len(doc.get('versions') or []) > start_versions and not doc.get('ad'):
+        await _ps_after(cat_id, ws_id, doc, start_versions)
     doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); doc['lastCost'] = round(cost, 6)
     if kind == 'build' and len(doc.get('versions') or []) > start_versions:
         doc['stage'] = 'filed'; doc.pop('unfinished', None)
@@ -1214,6 +1297,28 @@ async def _ws_run(cat_id, ws_id, to, text, region):
         doc['pending'] = False; rs._ws_save(cat_id, doc)
     if built or (cost and not paid_own):
         rs._WS_DONE.append({'cat': cat_id, 'cost': cost, 'own': paid_own, 'doc': rs.json.loads(rs.json.dumps(doc)) if built else None}); rs._POW_WAKE.set()
+
+
+async def _ps_after(cat_id, ws_id, doc, start_versions):
+    """🧬🕵 Slice 3, after any build path made a new version: a game or 3D-studio build gets the same uniqueness gate as a page (refused =
+    its versions from this run are taken back), and the newest page gets the hidden code check on a real phone (never shown to the builders:
+    it lands on the filed record only). Mutates doc."""
+    rs = _rs(); html = ((doc.get('versions') or [{}])[-1] or {}).get('html') or ''
+    if not doc.get('unique') or (doc.get('print') or {}).get('hash') != (rs._psu.fingerprint(html) or {}).get('hash'):
+        pr_ = rs._psu.fingerprint(html); g_ = rs._psu.gate(pr_, _ps_past(rs._load(), ws_id))
+        if g_['copy']:
+            doc['versions'] = (doc.get('versions') or [])[:start_versions]
+            rs._feat.add_msg(doc, 'FEELESS', f"Not kept. It was {round(g_['like'] * 100)}% like PoStatic #{g_.get('nearest')}, an earlier build: a near-copy never files. The last page is safe.", rs.time.time())
+            doc.setdefault('refused', []).append({'at': round(rs.time.time()), 'copy': True, 'like': g_['like'], 'nearest': g_.get('nearest')})
+            return
+        doc['unique'] = rs._psu.record(doc.get('brief'), pr_, g_); doc['print'] = pr_
+        doc['kitsUsed'] = doc.get('kitsUsed') or rs._psk.did(html, [])
+    try:
+        async with rs.httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0 (FEELESS link check)'}) as h_:
+            seen_ = await rs.asyncio.wait_for(rs._ps_hidden.browser(html, rs._fb.chromium_path(), h_), 150)
+    except Exception as e:   # noqa: BLE001: the check says it did not run; the page still files
+        seen_ = {'ran': False, 'why': type(e).__name__}
+    doc['codeCheck'] = {**(rs._ps_hidden.run(html, rs._kit_pins(), seen_) or {}), 'version': len(doc.get('versions') or []), **({} if seen_.get('ran') else {'notRun': seen_.get('why')})}
 
 
 def _poc_media(doc):

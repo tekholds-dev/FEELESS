@@ -12,6 +12,7 @@ import play_studio as _play
 
 MAX = 6        # models one build carries
 MOUNTS = 8     # live models one page draws at once (a browser allows ~16 WebGL contexts)
+WANT = 3       # 🪦 Slice 3: places a piece takes across a page (the hero + 2 more where it fits), owner 2026-11-17 "throughout the site"
 
 
 def _id(v):
@@ -115,26 +116,60 @@ def _shape(scale):
 _SPOT = re.compile(r'<div data-feeless-model="[^"]*" data-feeless-spot="code"[^>]*></div>')
 
 
+def _fit_at(h):
+    """Where a piece fits besides the hero: the break after the middle section, then just before the footer (else after the last section).
+    → [index in h]. Pure."""
+    ends = [m.end() for m in re.finditer(r'</section>', h, re.I)]
+    out = [ends[(len(ends) - 1) // 2]] if len(ends) >= 2 else []
+    foot = re.search(r'<footer\b', h, re.I)
+    out += [foot.start()] if foot else ([ends[-1]] if len(ends) >= 3 else [])
+    return list(dict.fromkeys(out))
+
+
+def fits(html):
+    """The places besides the hero this page has room for, read with any code-put spot taken out. → count. Pure."""
+    return len(_fit_at(_SPOT.sub('', str(html or ''))))
+
+
+def _spot(r, big):
+    return (f'<div data-feeless-model="{r["id"]}" data-feeless-spot="code" role="img" aria-label="{_html.escape(r["name"])}" '
+            + ('style="height:min(56vh,480px)"></div>' if big else 'style="height:min(34vh,300px);margin:24px auto;max-width:960px"></div>'))
+
+
 def mount(html, rows):
     """A page build: the live model goes into every spot the page marked (data-feeless-model). A page that marked none gets one under its header,
-    so the model is never missing. Run again on each version: the old copy of this code is replaced, never doubled. Taken out of the build, its
-    code, credit line and the spot code put in leave the page too. → html"""
+    so the model is never missing; and (Slice 3) a page with fewer than WANT spots gets the rest where they fit, at a section break and before its
+    footer, the pieces taking turns, so a studio piece is used throughout the site, not once. Run again on each version: the old copy of this
+    code is replaced, never doubled. Taken out of the build, its code, credit line and the spot code put in leave the page too. → html"""
     h = re.sub(r'<p id="feeless-models-by"[^>]*>.*?</p>', '', _OLD.sub('', str(html or '')), flags=re.S); rows = clean(rows)
     if not rows:
         return _SPOT.sub('', h)
     if 'data-feeless-model' not in h:
-        spot = f'<div data-feeless-model="{rows[0]["id"]}" data-feeless-spot="code" role="img" aria-label="{_html.escape(rows[0]["name"])}" style="height:min(56vh,480px)"></div>'
+        spot = _spot(rows[0], True)
         at = h.find('</header>')
         if at >= 0:
             h = h[:at + 9] + spot + h[at + 9:]
         else:
             h = re.sub(r'(<body[^>]*>)', lambda m: m.group(1) + spot, h, count=1)
+    have = len(re.findall(r'data-feeless-model="', h))
+    if have < WANT:   # 🪦 the rest of the places, by code, where the page has room (a section break, before the footer), the pieces taking turns
+        at = [p for p in _fit_at(h) if not re.search(r'data-feeless-model="[^"]*"[^>]*>\s*</div>\s*$', h[max(0, p - 600):p]) and not re.match(r'\s*<div[^>]*data-feeless-model', h[p:])][:WANT - have]   # never right beside a spot already there
+        for i, pos in sorted(enumerate(at), key=lambda x: -x[1]):   # from the end, so the earlier place keeps its index
+            h = h[:pos] + _spot(rows[(have + i) % len(rows)], False) + h[pos:]
     data = {r['id']: {'name': r['name'], 'url': r['obj']['asset']['url'], 'files': r['obj']['asset'].get('files') or {}, 'rot': r['obj']['rot'], 'spin': r['obj'].get('spin') or 0,
                       'shape': _shape(r['obj'].get('scale')), 'height': r['obj'].get('height') or 0} for r in rows}
     code = _RUN.replace('__MODELS__', json.dumps(data).replace('<', '\\u003c')).replace('__MOUNTS__', str(MOUNTS))
     by = _assets.credits([{'objects': [r['obj'] for r in rows]}])   # a CC-BY model's creator is named, as its licence asks (CC0 needs none)
     tag = (f'<p id="feeless-models-by" style="font:12px system-ui;opacity:.6;text-align:center;margin:12px">3D: {_html.escape(by)}</p>' if by else '') + f'<script type="module" id="feeless-models">\n{code}\n</script>'
     return h.replace('</body>', tag + '</body>', 1) if '</body>' in h else h + tag
+
+
+def places(html):
+    """How many places in the page carry a studio piece. → {model id: n}. Pure."""
+    out = {}
+    for mid in re.findall(r'data-feeless-model="([^"]*)"', str(html or '')):
+        out[mid] = out.get(mid, 0) + 1
+    return out
 
 
 def mounted(html):
@@ -150,11 +185,13 @@ def mounted(html):
 def record(rows, html):
     """🧾 The studio pieces a filed PoStatic was given, each with the exact tweaks it carries and whether its page really mounts THAT piece
     (same file, same turn and spin). → [{id, name, url, height, turn, spin, used}]"""
-    on = mounted(html); out = []
-    for r in clean(rows):
+    on = mounted(html); out = []; at = places(html); room = min(WANT, 1 + fits(html)); allr = clean(rows)
+    total = sum(at.values())
+    for r in allr:
         o = r['obj']; got = on.get(r['id']) or {}
         out.append({'id': r['id'], 'name': r['name'], 'url': o['asset']['url'], 'height': o.get('height') or 0, 'turn': o['rot'], 'spin': o.get('spin') or 0,
-                    'used': got.get('url') == o['asset']['url'] and got.get('rot') == o['rot'] and (got.get('spin') or 0) == (o.get('spin') or 0)})
+                    'used': got.get('url') == o['asset']['url'] and got.get('rot') == o['rot'] and (got.get('spin') or 0) == (o.get('spin') or 0),
+                    'places': at.get(r['id'], 0), 'pagePlaces': total, 'room': room})   # 🪦 Slice 3: throughout the site, wherever it fits
     return out
 
 

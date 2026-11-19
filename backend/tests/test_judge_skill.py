@@ -98,8 +98,8 @@ def test_kits_on_a_page_are_checked_against_todays_pins():
     r = ps_hidden.run(page, pins)
     assert {k['pkg']: k['ok'] for k in r['kits']} == {'echarts': False, 'three': True} and 'kits-current' in r['failed']
     r2 = ps_hidden.run(page.replace('echarts@5.4.3', 'echarts@6.0.0'), pins)
-    assert 'kits-current' not in r2['failed'] and r2['total'] == 10
-    assert ps_hidden.run(page)['total'] == 9 and ps_hidden.run(page)['kits'] == []   # no pins = the old nine checks
+    assert 'kits-current' not in r2['failed'] and r2['total'] == 11   # Slice 3 (v3) adds no-dead-anchors; every older check still runs
+    assert ps_hidden.run(page)['total'] == 10 and ps_hidden.run(page)['kits'] == []   # no pins = the old nine checks + v3's no-dead-anchors
 
 
 def test_verified_missions_per_dollar_counts_settled_proofs_and_their_workspace_spend():

@@ -198,11 +198,30 @@ def checks(kind, f, pair):
         {'key': 'kits', 'label': "Its kind's own kits, and which it used", 'ok': bool(kits) or kind in ('poe', 'pow'),
          'why': ', '.join(map(str, kits[:6])) if kits else ('PoEco uses no kit: pure math' if kind == 'poe' else 'PoW reads its own coin tools' if kind == 'pow' else 'no kit was recorded')},
     ]
+    kd = [k for k in _rows(f.get('kitsDid')) if isinstance(k, dict)]
+    if kind == 'pos' and kd:   # 🧰 Slice 3: each kit with what it did, read from the page's code
+        rows[3]['why'] = '; '.join(f"{k.get('name')}: {k.get('did')}" for k in kd[:6])[:400]
     st = [r for r in _rows(f.get('studio')) if isinstance(r, dict)]
-    if kind == 'pos' and st:   # 🪦 Slice 2: a PoStatic given studio pieces proves its page carries each exact one (file, turn, spin)
-        miss = [r.get('name') for r in st if not r.get('used')]
-        rows.append({'key': 'studio', 'label': 'The 3D studio pieces it was given are in the page, exactly as set', 'ok': not miss,
-                     'why': ', '.join(f"{r.get('name')} ({r.get('height') or 'as made'} m, spin {r.get('spin') or 0})" for r in st[:4]) if not miss else f"missing from the page: {', '.join(map(str, miss[:4]))}"})
+    if kind == 'pos' and st:   # 🪦 Slice 2: a PoStatic given studio pieces proves its page carries each exact one (file, turn, spin) · Slice 3: throughout the site
+        miss = [r.get('name') for r in st if not r.get('used')]; room = max([int(r.get('room') or 1) for r in st] or [1]); at = max([int(r.get('pagePlaces') or 0) for r in st] or [0])
+        few = 'room' in st[0] and at < room
+        rows.append({'key': 'studio', 'label': 'The 3D studio pieces it was given are in the page, exactly as set, throughout the site', 'ok': not miss and not few,
+                     'why': (f"missing from the page: {', '.join(map(str, miss[:4]))}" if miss else f"in {at} of the {room} places it fits" if few else
+                             ', '.join(f"{r.get('name')} ({r.get('height') or 'as made'} m, spin {r.get('spin') or 0})" for r in st[:4]) + (f", in {at} places" if 'room' in st[0] else ''))})
+    u = f.get('unique') if isinstance(f.get('unique'), dict) else None
+    if kind == 'pos' and u:   # 🧬 Slice 3: a new brief, not a near-copy of any past build, its own centrepiece + layout
+        same = u.get('nearestPair') is not None and u.get('nearestPair') == [u.get('centre'), u.get('layout')]
+        rows.append({'key': 'unique', 'label': 'Unique: a new brief, a new centrepiece and layout, no near-copy of a past build', 'ok': bool(u.get('briefNew')) and not u.get('copy') and not same,
+                     'why': f"brief {(u.get('want') or {}).get('centre')} + {(u.get('want') or {}).get('layout')}; page {u.get('centre')} + {u.get('layout')}; {round(float(u.get('like') or 0) * 100)}% like the nearest" + (f" (#{u.get('nearest')})" if u.get('nearest') else '')})
+    cc = f.get('codeCheck') if isinstance(f.get('codeCheck'), dict) else None
+    if kind == 'pos' and cc:   # 🕵 Slice 3: the hidden code check (overlap, broken links, placeholder text, phone load), never shown to the builders
+        rows.append({'key': 'clean', 'label': 'Clean: the hidden code check (overlap, links, placeholder text, phone load)', 'ok': not cc.get('failed') and not cc.get('notRun'),
+                     'why': (f"{cc.get('passed')}/{cc.get('total')} code checks" + (', on a real phone' if cc.get('seen') else '') if not cc.get('failed') and not cc.get('notRun') else
+                             ('the phone check did not run: ' + str(cc.get('notRun')) if cc.get('notRun') else 'failed: ' + ', '.join(list(map(str, cc.get('failed') or []))[:6])))})
+    kp = f.get('keep') if isinstance(f.get('keep'), dict) else None
+    if kind == 'pos' and kp and kp.get('from'):   # ⏫ Slice 3: a new version keeps every part the last one had working
+        rows.append({'key': 'progress', 'label': 'Progress: this version kept every part the last one had working', 'ok': not kp.get('lost'),
+                     'why': (f"kept {kp.get('kept')} of {kp.get('had')} parts of page {kp.get('from')}" + (f"; the owner took out {', '.join(kp.get('asked'))}" if kp.get('asked') else '')) if not kp.get('lost') else 'lost: ' + '; '.join(kp['lost'][:4])})
     if kind == 'poc':   # 🎬 Slice 5: trend first, the real files, the owner's approve, reach graded against the goal set at filing
         rows += _studio.record_rows(f)
     return rows

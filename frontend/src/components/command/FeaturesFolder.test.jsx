@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FeaturesFolder, FEATURES, ProofDesk, STARTERS, briefOf } from './FeaturesFolder';
+import { FeaturesFolder, FEATURES, KitsUsed, ProofDesk, STARTERS, briefOf } from './FeaturesFolder';
 import { nextMove } from './CollectiveTop';
 
 jest.mock('../terminal/TrenchChart', () => ({ TrenchChart: () => <i data-testid="trench" /> }));
@@ -769,3 +769,18 @@ test('🛰 PoC station: the launch path reads the PoC record, offers the one nex
 });
 
 beforeEach(() => { try { localStorage.setItem('feeless.modelLab.tab2', 'build'); } catch { /* none */ } });   // these Model Lab tests start on Build (Grow is the default, tested in CompGrow.test.js)
+
+
+test('Slice 3: the folder lists every kit the page uses with what it did, picks first, a skipped pick said so', () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const rows = [{ id: 'motion', name: 'Motion', used: true, did: 'headline and sections ease in', by: 'minds', picked: true }, { id: 'heroui', name: 'HeroUI', used: false, did: '', picked: true },
+    { id: 'lwcharts', name: 'Lightweight Charts', used: true, did: '1 price chart (candlestick)', by: 'code', picked: false }];
+  act(() => root.render(<KitsUsed rows={rows} outside={[]} />));
+  const btn = el.querySelector('[data-testid="ws-kits-did"]'); expect(btn.textContent).toBe('Kits 2'); expect(el.querySelector('[data-testid="ws-kits-list"]')).toBeNull();
+  act(() => btn.click());
+  expect(el.querySelector('[data-testid="ws-kit-motion"]').textContent).toContain('headline and sections ease in');
+  expect(el.querySelector('[data-testid="ws-kit-motion"]').textContent).toContain('your pick · said by the minds');
+  expect(el.querySelector('[data-testid="ws-kit-lwcharts"]').textContent).toContain('toolkit · read from the code');
+  expect(el.querySelector('[data-testid="ws-kit-heroui"]').textContent).toContain('does not use it');
+  act(() => root.unmount()); el.remove();
+});

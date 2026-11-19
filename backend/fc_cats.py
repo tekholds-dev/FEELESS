@@ -93,7 +93,7 @@ async def _review_one(store):
     rv = {**rs._review.combine(by, out_, builders_, body), 'at': round(rs.time.time())}
     live_.update(done=rv['at'], score=rv['score'], verdict=rv['verdict'], agree=rv['agree'])
     if kind == 'pos' and f_.get('_page'):   # 🕵 P1: code-run checks the builders are never shown; independent of any judge (they still run when every judge sat out)
-        rv['hidden'] = rs._ps_hidden.run(f_['_page'], rs._kit_pins())   # P2: + every reused kit on today's tested pin (the review lists the kits it checked)
+        rv['hidden'] = rs._ps_hidden.run(f_['_page'], rs._kit_pins(), (f.get('codeCheck') or {}).get('seen'))   # Slice 3: + what a real phone saw when the page was built   # P2: + every reused kit on today's tested pin (the review lists the kits it checked)
     rs._REVIEW_DONE.append((cid, kind, f.get('id'), rv)); rs._POW_WAKE.set()
     return rv
 

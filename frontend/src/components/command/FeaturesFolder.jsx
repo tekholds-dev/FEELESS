@@ -11,6 +11,7 @@ export { nextOptions };
 import { addFile, AttachChips, ReviewChips } from './CatWorkbench';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { apiUrl } from '../../lib/api';
+import { useWallet } from '../../hooks/useWallet';
 import { codeTree, packageOf, zipFiles } from '../../lib/codeTree';
 import { Ic3 } from '../../lib/icon3d';
 import { isCalm } from '../../lib/fxPause';
@@ -252,9 +253,13 @@ function CodeTree({ doc, name, marks }) {
     <div className="fcv-ed"><Tabs files={files.map(x => x.path).slice(0, 8)} at={f.path} onPick={setAt} />{f.path === 'kits.txt' ? <Packages text={f.text} /> : f.path === 'index.html' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy}  marks={marks} /> : <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>{f.path}</b><span>{f.text.split('\n').length} lines</span></div><CodeLines rows={plainRows(f.text)} path={f.path} /><StatusBar rows={plainRows(f.text)} path={f.path} /></div>}</div></div>;
 }
 // 💾 Keeps this page in its own folder. Sealed under its key in the Collective's store, in its own repo if one is linked. Only its owner opens it.
-// 🧰 Which picked kits this page really uses, read from its code.
+// 🧰 Every kit this page carries (the owner's picks, used or not, then each toolkit kit its code uses) with what each did (Slice 3).
 export function KitsUsed({ rows, outside }) {
-  return rows?.length ? <span className="kit-used" data-testid="ws-kits-used">{(outside || []).map(u => <em key={u} data-tip={`Not one of your kits: ${u}`} data-testid="ws-kit-outside">✕ Also loads {String(u).replace(/^(https?:)?\/\//, '').split('/')[0]}</em>)}{rows.map(k => <em key={k.id} className={k.used ? 'is-on' : ''} data-tip={k.used ? 'Its code uses this kit' : 'Picked, but this page does not use it. Ask it to'}>{k.used ? '✓' : '✕'} {k.name}</em>)}</span> : null;
+  const [open, setOpen] = useState(false); const used = (rows || []).filter(k => k.used);
+  if (!rows?.length) return null;
+  return <span className="kit-used" data-testid="ws-kits-used">{(outside || []).map(u => <em key={u} data-tip={`Not one of your kits: ${u}`} data-testid="ws-kit-outside">✕ Also loads {String(u).replace(/^(https?:)?\/\//, '').split('/')[0]}</em>)}
+    <button type="button" className={`m-btn kit-did-btn${open ? ' is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-tip="Every kit this page uses and what each did, read from its code" data-testid="ws-kits-did">Kits <b className="m-num">{used.length}</b></button>
+    {open ? <ol className="kit-did" data-testid="ws-kits-list">{rows.map((k, i) => <li key={k.id} style={{ '--i': i }} className={k.used ? 'is-on' : ''} data-testid={`ws-kit-${k.id}`}><b>{k.used ? '✓' : '✕'} {k.name}</b><span>{k.used ? (k.did || 'Its code uses this kit') : 'Picked, but this page does not use it. Ask it to'}</span><small>{k.picked ? 'your pick' : 'toolkit'} · {k.by === 'minds' ? 'said by the minds' : 'read from the code'}</small></li>)}</ol> : null}</span>;
 }
 // 📂 Puts a built page on its own branch of the user's linked project.
 export function SendToProject({ cat, row, doc, work }) {
@@ -331,6 +336,8 @@ function BuildSpace({ cat, row, work, draft, onFiled }) {
   useEffect(() => { const n = doc?.versions || 0; if (n > was.current && was.current >= 0 && doc) { if (was.current || n) setNoti(true); } was.current = n; }, [doc?.versions]);   // eslint-disable-line react-hooks/exhaustive-deps
   const wantsLive = /feeless-live|FEELESS_LIVE/.test(doc?.code || ''); const [live, setLive] = useState(null);
   useEffect(() => { if (!wantsLive) return undefined; let on = true; const pull = () => { if (document.hidden) return; Promise.resolve().then(() => work(cat.id, { op: 'live_feed' })).then(j => { if (!on || !j?.live) return; setLive(j.live); frame.current?.contentWindow?.postMessage({ t: 'feeless-live', live: j.live }, '*'); }).catch(() => {}); }; pull(); const iv = setInterval(pull, 20000); const f = frame.current; const onLoad = () => setTimeout(pull, 300); f?.addEventListener('load', onLoad); return () => { on = false; clearInterval(iv); f?.removeEventListener('load', onLoad); }; }, [wantsLive, cat.id, work, doc?.preview]);   // 📡 real numbers into a page that shows live data: the server reads them, the page never touches the network
+  const { wallet: myWallet, connect: connectWallet } = useWallet() || {};
+  useEffect(() => { const on = e => { if (e.source !== frame.current?.contentWindow || e.data?.t !== 'feeless-wallet-connect') return; const reply = w => frame.current?.contentWindow?.postMessage({ t: 'feeless-wallet', address: w?.address || null, sol: null }, '*'); if (myWallet?.address) reply(myWallet); else Promise.resolve(connectWallet?.()).then(r => reply(r?.wallet || r)).catch(() => reply(null)); }; window.addEventListener('message', on); return () => window.removeEventListener('message', on); }, [myWallet, connectWallet]);   // 👛 Slice 3: a page's Connect wallet, read-only: it gets a public address, and no message can ask to sign or send
   useEffect(() => { const on = e => { if (e.source === frame.current?.contentWindow && e.data?.t === 'feeless-link' && /^https?:\/\//i.test(String(e.data.href)) && !/x\.invalid/.test(e.data.href)) window.open(e.data.href, '_blank', 'noopener,noreferrer'); }; window.addEventListener('message', on); return () => window.removeEventListener('message', on); }, []);   // 🧭 an outside link in a built page opens in its own tab, never inside the frame
   useEffect(() => { const on = e => { if (e.source === frame.current?.contentWindow && e.data?.t === 'feeless-picked') setMarks(ms => { const i = ms.findLastIndex(m => m.html == null); return i < 0 ? ms : ms.map((m, k) => (k === i ? { ...m, html: String(e.data.html || '').slice(0, 600) } : m)); }); }; window.addEventListener('message', on); return () => window.removeEventListener('message', on); }, []);
   const at = e => { const r = over.current.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };

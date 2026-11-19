@@ -27,6 +27,11 @@ def live_line(feed, page=False):
     if not f.get('solUsd') and not f.get('slot'):
         return ''
     head = f"\nLIVE NUMBERS, read just now from Solana and DexScreener ({f.get('source', 'FEELESS RPC')}): {json.dumps(f)}."
+    pools = [p for p in (feed or {}).get('pools') or [] if isinstance(p, dict)][:6]; cn = (feed or {}).get('candles') or {}
+    if page and pools:   # 🧰 Slice 3: the live kit's pools (DexScreener) and candles (our own index), the same rows the page receives
+        head += ' live.pools (DexScreener, first 6 of ' + str(len((feed or {}).get('pools') or [])) + '): ' + json.dumps([{k: p.get(k) for k in ('pair', 'dex', 'priceUsd', 'liqUsd', 'vol24', 'turnover', 'change24')} for p in pools]) + '.'
+    if page and cn.get('rows'):
+        head += f" live.candles: {cn.get('pair')} {cn.get('interval')} from the FEELESS candle index, {len(cn['rows'])} rows of [time, open, high, low, close, volume], the last: {json.dumps(cn['rows'][-1])}."
     if not page:
         return head + ' Use only these numbers when you state a live figure, and say when they were read.'
     return head + (" Draw these numbers into the page as it opens, then take fresh ones from a message that lands within a second and every 20 seconds after (window.FEELESS_LIVE always holds the latest): "
@@ -60,15 +65,42 @@ def plan_sections(raw, text=''):
             'daynight': bool(d.get('daynight')) or bool(re.search(r'(?i)\b(day|night|light|dark)\b.{0,20}\b(mode|theme|switch|toggle|option)', str(text))), 'sections': [{'name': str(x.get('name') or f'Part {n + 1}')[:30], 'brief': str(x.get('brief') or '')[:160]} for n, x in enumerate(rows)]}
 
 
-def code_shell(plan):
+LAYOUT_CSS = {   # 🧬 Slice 3: the brief's layout, so two pages built in sections never share one frame
+    'bento': 'main{grid-template-columns:repeat(4,1fr);grid-auto-flow:dense}main>section{grid-column:span 2}main>section[data-feeless-centre]{grid-column:span 4;grid-row:span 2}@media(max-width:760px){main{grid-template-columns:1fr}main>section,main>section[data-feeless-centre]{grid-column:auto}}',
+    'split': 'main{grid-template-columns:1.2fr 1fr;align-items:start}main>section[data-feeless-centre]{position:sticky;top:76px;grid-row:span 6}@media(max-width:760px){main{grid-template-columns:1fr}main>section[data-feeless-centre]{position:static}}',
+    'sidebar': 'main{grid-template-columns:240px 1fr;max-width:1320px}main>section:first-child{grid-row:span 8;position:sticky;top:76px;align-self:start}@media(max-width:760px){main{grid-template-columns:1fr}main>section:first-child{position:static}}',
+    'scroll': 'main{max-width:none;padding:0;gap:0}main>section{min-height:92vh;display:grid;align-content:center;padding:8vh max(20px,8vw)}main>section:nth-child(even){background:var(--panel)}',
+    'magazine': 'main{max-width:1080px}main>section:not([data-feeless-centre]){columns:2 320px;column-gap:32px}main>section:not([data-feeless-centre]) h2{column-span:all;font-size:30px}',
+    'stage': 'main{max-width:none;padding:0}main>section[data-feeless-centre]{min-height:78vh;padding:0}main>section:not([data-feeless-centre]){max-width:980px;margin:0 auto;padding:0 20px;width:100%}',
+    'cards': 'main>section:not(:first-child){display:grid;grid-auto-flow:column;grid-auto-columns:min(320px,82vw);gap:14px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:8px}main>section>*{scroll-snap-align:start}',
+    'console': 'body{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}main{grid-template-columns:repeat(3,1fr);gap:10px}main>section{border:1px solid var(--line);border-radius:6px;padding:12px}main>section[data-feeless-centre]{grid-column:span 2;grid-row:span 2}@media(max-width:760px){main{grid-template-columns:1fr}main>section[data-feeless-centre]{grid-column:auto}}',
+}
+FONTS = ('system-ui,-apple-system,Segoe UI,Roboto,sans-serif', 'Georgia,Cambria,"Times New Roman",serif', '"Avenir Next",Avenir,"Helvetica Neue",sans-serif',
+         '"Gill Sans","Trebuchet MS",sans-serif', 'ui-rounded,"SF Pro Rounded",system-ui,sans-serif', '"Iowan Old Style",Palatino,serif')
+CENTRE_WORDS = {'3d': r'3d|scene|model|world', 'candles': r'chart|price|candle|trend', 'datachart': r'chart|graph|data|trend|turnover|compare', 'map': r'map|where|place',
+                'tool': r'form|calculat|tool|input|estimate', 'table': r'table|list|rank|pools|top', 'numbers': r'numbers|stats|live|kpi', 'story': r'how|why|story|explain'}
+
+
+def centre_part(plan, brief):
+    """Which section carries the brief's centrepiece: the first whose words fit it, else the second (the first is usually the hero). → index"""
+    if not brief:
+        return None
+    rx = CENTRE_WORDS.get(brief.get('centre'), r'$^'); secs = plan.get('sections') or []
+    hit = next((i for i, x in enumerate(secs) if re.search(rx, f"{x.get('name')} {x.get('brief')}", re.I)), None)
+    return hit if hit is not None else min(1, len(secs) - 1)
+
+
+def code_shell(plan, brief=None):
     """The page frame is written by code, so it always finishes: design tokens, a nav, a working Day / Night switch when asked, and base parts
-    (.card, .grid, .stat, .btn, .tag, .muted) the sections use. Pure."""
+    (.card, .grid, .stat, .btn, .tag, .muted) the sections use. Slice 3: with a brief, the frame takes that brief's layout and font, its
+    title is the page's <h1>, and the centrepiece's section is marked (data-feeless-centre) for the mind that writes it. Pure."""
     import html as _h
     e = lambda x: _h.escape(str(x or ''))
     secs = plan['sections']; acc = plan['accent']
     nav = ''.join(f'<a href="#p{n + 1}">{e(x["name"])}</a>' for n, x in enumerate(secs))
     toggle = '<button class="btn ghost" id="dn" type="button" aria-label="Day or night">☾ Night</button>' if plan['daynight'] else ''
-    body = ''.join(f'<section id="p{n + 1}" data-part="{n + 1}" data-brief="{e(x["brief"])}"></section>' for n, x in enumerate(secs))
+    cp = centre_part(plan, brief)
+    body = ''.join(f'<section id="p{n + 1}" data-part="{n + 1}" data-brief="{e(x["brief"])}"' + (f' data-feeless-centre="{e(brief["centre"])}"' if n == cp else '') + '></section>' for n, x in enumerate(secs))
     light = '--bg:#f6f7fb;--panel:#ffffff;--ink:#111827;--mute:#6b7280;--line:#e5e7eb;'
     dark = '--bg:#07090d;--panel:#0f141c;--ink:#e8edf5;--mute:#8b95a7;--line:#1e2633;'
     js = ("const b=document.getElementById('dn');if(b){const set=n=>{document.documentElement.dataset.theme=n?'night':'day';b.textContent=n?'☀ Day':'☾ Night'};set(" + ('true' if plan['dark'] else 'false') + ");b.onclick=()=>set(document.documentElement.dataset.theme!=='night')}"
@@ -84,7 +116,9 @@ def code_shell(plan):
             '.btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:600;cursor:pointer}.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}.btn:hover{filter:brightness(1.08)}'
             '.tag{display:inline-block;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);font-size:11px;font-weight:700;letter-spacing:.04em}.muted{color:var(--mute)}h1,h2,h3{margin:0 0 8px;line-height:1.15}'
             'table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}'
-            f'</style></head><body><header class="top"><b>{e(plan["title"])}</b><small>{e(plan["tagline"])}</small><nav>{nav}</nav>{toggle}</header><main>{body}</main><script>{js}</script></body></html>')
+            + (LAYOUT_CSS.get((brief or {}).get('layout'), '') + 'body{font-family:' + FONTS[int(str((brief or {}).get('id') or '0')[:6], 16) % len(FONTS)] + '}header.top h1{margin:0;font-size:17px}' if brief else '')
+            + '</style></head><body><header class="top">' + (f'<h1>{e(plan["title"])}</h1>' if brief else f'<b>{e(plan["title"])}</b>') + f'<small>{e(plan["tagline"])}</small><nav>{nav}</nav>{toggle}</header>'
+            + (f'<main data-feeless-layout="{e(brief["layout"])}">' if brief else '<main>') + f'{body}</main><script>{js}</script></body></html>')
 
 
 def shell_parts(shell):
@@ -101,7 +135,13 @@ def part_html(raw):
     t = re.sub(r'(?is)\*{0,2}\b(Checked|Missing|Did ?Not|Done|Plan|Question|Status|Answer|Context|Task|Constraints|Crucial|Note)\b\*{0,2}\s*:\*{0,2}[^<]*', '', t)   # a mind's report about its work is never page content
     t = t[t.find('<'):] if '<' in t else t
     t = re.sub(r'(?is)^.*?<body[^>]*>|</body>.*$|</?html[^>]*>|<head>.*?</head>', '', t) if re.search(r'(?i)<body|<html', t) else t
-    return t[:20000]
+    t = t[:20000]
+    t = t[:t.rfind('<')] if t.rfind('<') > t.rfind('>') else t   # a reply cut off mid-tag ("<span id") ends before it
+    for tag in ('script', 'style'):   # a reply cut off mid-<script> would swallow the next section and throw: drop the unfinished script, close an open style
+        last = t.lower().rfind('<' + tag); end = t.lower().rfind('</' + tag)
+        if last > end:
+            t = t[:last] if tag == 'script' else t + '</style>'
+    return t
 
 
 def assemble(shell, parts):
@@ -155,6 +195,16 @@ def file_static(cat, doc, by, now):
     row = {'id': 'ps' + secrets.token_hex(5), 'n': max([int(r.get('n') or 0) for r in rows] + [len(rows)]) + 1, 'kind': 'PoStatic', 'at': round(now), 'closedAt': round(now), 'status': 'closed', 'topic': str(doc.get('name') or 'Page')[:60], 'ws': doc.get('id'), 'version': len(doc.get('versions') or []), 'by': str(by)[:12], 'plan': plan.get('summary'), 'refs': [{k: r.get(k) for k in ('title', 'url', 'source')} for r in plan.get('refs') or []], 'steps': plan.get('steps') or [],
            'sitesRead': [{'host': r.get('host'), 'name': r.get('name'), 'ok': bool(r.get('ok'))} for r in doc.get('sitesRead') or [] if isinstance(r, dict)][:12],   # 🧾 COL-8: what the build really read reaches the record (37 of 62 pages recorded none)
            'kits': [k.get('id') for k in doc.get('kitsUsed') or [] if isinstance(k, dict) and k.get('used')][:8], 'markNotes': list(doc.get('markNotes') or [])[-6:]}   # 🖍 COL-14
+    kd = [{'id': k.get('id'), 'name': k.get('name'), 'did': k.get('did'), 'by': k.get('by'), 'picked': bool(k.get('picked'))} for k in doc.get('kitsUsed') or [] if isinstance(k, dict) and k.get('used') and k.get('did')]
+    if kd:   # 🧰 Slice 3: each kit the page uses, with what it did (read from its code)
+        row['kitsDid'] = kd[:12]
+    for key in ('unique', 'keep', 'codeCheck'):   # 🧬 a new brief + not a near-copy · ⏫ no part lost · 🕵 the hidden code check (never shown to the builders)
+        if isinstance(doc.get(key), dict):
+            row[key] = doc[key]
+    if isinstance(doc.get('print'), dict):
+        row['print'] = doc['print']
+    if isinstance(doc.get('brief'), dict):
+        row['brief'] = {k: doc['brief'].get(k) for k in ('id', 'centre', 'layout')}
     if doc.get('models3d'):   # 🪦 Slice 2: the studio pieces this build was given, and whether its page really carries each exact one
         import owner_models as _om
         row['studio'] = _om.record(doc.get('models3d'), ((doc.get('versions') or [{}])[-1] or {}).get('html'))

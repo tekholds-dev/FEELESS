@@ -23,6 +23,7 @@ import REAL from './realShelfFixture.json';   // real_world.resolve on the live 
 import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a real unsent proof (Happy Assistant), 2026-11-07
 import ECO from './ecoFixture.json';
 import STUDIO from './studioTestFixture.json';   // 🪦 Slice 2: Sicario's real TEST PoStatic #6 that carried a 3D studio piece (its folder view + filed record), 2026-11-18
+import S3 from './slice3TestFixture.json';   // 🧰🧬 Slice 3: Sicario's real TEST PoStatics (folder views + filed records): kits with what each did, brief, unique, clean, progress
 import TRC from './trueRecordFixture.json';   // 🧾 Sicario's real filed folders (record fields only), exported from feecats.json after the Slice 0 TEST runs, 2026-11-18
 import { TrueRecord } from '../components/command/TrueRecord';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
@@ -79,6 +80,11 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/[?&]slice3\b/.test(window.location.search)) {   // ?slice3 — Slice 3: the real TEST PoStatic folders on Sicario in the PoStatic desk (open a tile: Kits, Static, record)
+    const scat = { id: 'sic', name: "Sicario's", handle: 'sicarios' }; const rows3 = S3.folders.map(d => ({ id: d.id, kind: 'build', name: d.name }));
+    const w3 = async (_c, b) => (b.op === 'features' ? { workspaces: rows3, psFolders: S3.filed } : b.op === 'state' ? { psFolders: S3.filed } : b.op === 'ws_open' ? { doc: S3.folders.find(d => d.id === (b.text || b.job)) || S3.folders[0] } : {});
+    return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><ProofDesk cat={scat} kind="build" work={w3} onCommand={() => {}} /></div>;
+  }
   if (/[?&]studio\b/.test(window.location.search)) {   // ?studio — Slice 2: the real TEST folder on Sicario that carried a studio piece, in the PoStatic desk (open its tile: chips, Static, record)
     const scat = { id: 'sic', name: "Sicario's", handle: 'sicarios' }; const row = { id: STUDIO.doc.id, kind: 'build', name: STUDIO.doc.name };
     const swork = async (_c, b) => (b.op === 'features' ? { workspaces: [row], psFolders: [STUDIO.filed] } : b.op === 'state' ? { psFolders: [STUDIO.filed] } : b.op === 'ws_open' ? { doc: STUDIO.doc } : {});

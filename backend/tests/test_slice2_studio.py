@@ -20,7 +20,8 @@ PAGE = '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" co
 def test_a_page_carries_the_exact_piece_its_turn_spin_and_proportions_and_the_record_reads_it_back():
     rows = [om.take(STONE, 1)]; html = om.mount(PAGE, rows); got = om.mounted(html)['tombstone_01']
     assert got['url'] == URL and got['rot'] == [0, 0.61, 0] and got['spin'] == 6 and got['shape'] == [1.0, 0.5, 0.5] and got['height'] == 1.6
-    assert om.record(rows, html) == [{'id': 'tombstone_01', 'name': 'Tombstone', 'url': URL, 'height': 1.6, 'turn': [0, 0.61, 0], 'spin': 6, 'used': True}]
+    assert om.record(rows, html) == [{'id': 'tombstone_01', 'name': 'Tombstone', 'url': URL, 'height': 1.6, 'turn': [0, 0.61, 0], 'spin': 6, 'used': True,
+                                      'places': 1, 'pagePlaces': 1, 'room': 1}]   # Slice 3 adds where it sits: this page has no section breaks, so the hero is all the room
     assert not om.record(rows, PAGE)[0]['used']   # a page without it is never counted as carrying it
     other = om.mount(PAGE, [om.take({**STONE, 'spin': 0}, 1)]); assert not om.record(rows, other)[0]['used']   # a different spin is not THAT piece
     assert om._shape([0.01, 0.01, 0.01]) == [1.0, 1.0, 1.0]   # a uniform size never shrinks the page's model to a dot

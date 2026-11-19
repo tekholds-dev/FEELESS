@@ -187,3 +187,14 @@ def _fresh_rate_limits():
                 if isinstance(v, dict):
                     v.clear()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_real_phone_check(monkeypatch):
+    """📱 Slice 3: tests never start a headless browser or ask outside links for the PoStatic hidden check (a test may patch its own)."""
+    import ps_hidden as _ph
+
+    async def _fake(html, chromium=None, http=None, **_k):
+        return {'ran': False, 'why': 'faked in tests'}
+    monkeypatch.setattr(_ph, 'browser', _fake)
+    yield

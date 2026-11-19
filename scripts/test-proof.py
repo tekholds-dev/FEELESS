@@ -9,6 +9,8 @@ and adds a Test bench row. A TEST PoW is a proposal (nothing bought, never the c
   .venv/bin/python scripts/test-proof.py --state                  # the last TEST of every kind
   .venv/bin/python scripts/test-proof.py --kind pos --model ox-805187f02f8e424cb11b4f7c3a63a1c3 --size 1.6 --turn 35 --spin 6 --wait
                                                                  # Slice 2: a PoStatic carrying a 3D studio piece (size m, turn °, spin)
+  .venv/bin/python scripts/test-proof.py --kind pos --ws wd1234567890 --topic "add a pools table" --wait
+                                                                 # Slice 3: a new version of a TEST PoStatic folder (it must keep every part that worked)
 
 The internal key is read from backend/data/internal.key and sent as a header; it is never printed."""
 import argparse
@@ -43,6 +45,11 @@ def summary(last):
             f" {((last.get('read') or {}).get('sites') or [])[:6]}\n  footprint: {(last.get('foot') or {})}\n  bench: {(last.get('test') or {}).get('bench')}"
             + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else '')
             + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in (last.get('studio') if isinstance(last.get('studio'), list) else []))
+            + (f"\n  version {last.get('version')} · brief {(last.get('brief') or {}).get('centre')} + {(last.get('brief') or {}).get('layout')}" if last.get('brief') or last.get('version') else '')
+            + ''.join(f"\n  kit {k.get('name')}: {k.get('did')}" for k in last.get('kitsDid') or [])
+            + (lambda u: f"\n  unique: page {u.get('centre')} + {u.get('layout')}, {round(float(u.get('like') or 0) * 100)}% like #{u.get('nearest')}{' COPY' if u.get('copy') else ''}" if u else '')(last.get('unique'))
+            + (lambda c: f"\n  code check: {c.get('passed')}/{c.get('total')} failed {c.get('failed')}{' NOT RUN ' + str(c.get('notRun')) if c.get('notRun') else ''}" if c else '')(last.get('codeCheck'))
+            + (lambda k: f"\n  progress: kept {k.get('kept')}/{k.get('had')} of page {k.get('from')}, lost {k.get('lost')}" if k and k.get('from') else '')(last.get('keep'))
             + (lambda s: f"\n  PoC trend: {(s.get('trend') or {}).get('text')} ({(s.get('trend') or {}).get('source')})\n  PoC files: {sum(1 for x in s.get('files') or [] if x.get('url'))}/12 · goal {(s.get('goal') or {}).get('target')} {(s.get('goal') or {}).get('type')} by {(s.get('goal') or {}).get('by')}"
                if s else '')(last.get('studio') if isinstance(last.get('studio'), dict) else None))
 
@@ -59,6 +66,7 @@ def main():
     ap.add_argument('--size', type=float, default=0, help='its size in metres, as the studio sets it')
     ap.add_argument('--turn', type=float, default=0, help='its turn in degrees')
     ap.add_argument('--spin', type=float, default=0)
+    ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
     a = ap.parse_args()
     if a.state or not a.kind:
         code, j = call('GET')
@@ -67,7 +75,8 @@ def main():
         return 0 if code == 200 else 1
     code, j = call('GET'); before = (((j.get('tests') or {}).get(a.kind) or {}).get('last') or {}).get('id')
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
-                            **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {})})
+                            **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
+                            **({'ws': a.ws} if a.ws and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:
         return 0 if code == 200 else 1

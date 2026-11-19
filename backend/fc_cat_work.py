@@ -1174,7 +1174,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         row_['hidden'] = p.on is not False; rs.keep_owned(cat); rs._save(store)
         return {'hidden': row_['hidden'], 'id': row_['id']}
     if p.op == 'live_feed':   # 📡 real numbers for a page that shows live data: the preview passes them into its frame
-        return {'live': await rs._live_feed(cat)}
+        return {'live': await rs._page_live(cat)}   # 🧰 Slice 3: + DexScreener pools and our own SOL candles (the live kit)
     if p.op == 'store_check':   # 📱 its latest page, checked the way App Review / Google Play would see it wrapped as an app (store_check)
         doc_ = rs._ws_load(cat_id, p.job)
         v_ = (doc_ or {}).get('versions') or []
