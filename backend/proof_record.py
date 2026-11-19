@@ -15,6 +15,7 @@ ONCE to find new info (its repeated sites go last and its minds are told what to
 gate can never loop a proof forever or swallow it."""
 import re
 
+import poc_studio as _studio
 import proof_footprint as _foot
 
 KEYS = {'pow': 'powFolders', 'pop': 'popFolders', 'pob': 'pobFolders', 'poc': 'pocFolders', 'pos': 'psFolders', 'poe': 'poeFolders'}
@@ -202,6 +203,8 @@ def checks(kind, f, pair):
         miss = [r.get('name') for r in st if not r.get('used')]
         rows.append({'key': 'studio', 'label': 'The 3D studio pieces it was given are in the page, exactly as set', 'ok': not miss,
                      'why': ', '.join(f"{r.get('name')} ({r.get('height') or 'as made'} m, spin {r.get('spin') or 0})" for r in st[:4]) if not miss else f"missing from the page: {', '.join(map(str, miss[:4]))}"})
+    if kind == 'poc':   # 🎬 Slice 5: trend first, the real files, the owner's approve, reach graded against the goal set at filing
+        rows += _studio.record_rows(f)
     return rows
 
 

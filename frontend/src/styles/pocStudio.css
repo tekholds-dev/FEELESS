@@ -1,0 +1,52 @@
+/* 🎬 PoC content studio (PocStudio.jsx, Slice 5) — m-* tokens, one keyframe set pst*. */
+.pst { position: relative; display: grid; gap: 12px; padding: 14px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); overflow: hidden; }
+.pst-head { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(170px, 1fr) auto; gap: 14px; align-items: center; }
+.pst-trend { display: grid; gap: 4px; min-width: 0; }
+.pst-trend a { color: var(--m-text); font: 700 16px var(--f-display); line-height: 1.2; text-decoration: none; overflow-wrap: anywhere; }
+.pst-trend a:hover, .pst-trend a:focus-visible { color: var(--m-accent); outline: none; }
+.pst-trend small { color: var(--m-dim); font: 600 11px var(--f-mono); }
+.pst-meter { display: grid; gap: 6px; }
+.pst-meter-bar { height: 8px; border-radius: 8px; background: var(--m-line); overflow: hidden; }
+.pst-meter-bar i { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 50%, transparent), var(--m-accent)); box-shadow: 0 0 12px var(--m-accent); transform-origin: left; transition: transform .8s var(--m-ease); }
+.pst-meter span { display: flex; gap: 6px; align-items: baseline; } .pst-meter small { color: var(--m-mute); font: 600 10px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.pst .is-up { color: var(--m-accent); } .pst .is-dn { color: var(--m-danger); }
+.pst-facts { display: flex; gap: 14px; margin: 0; }
+.pst-facts div { display: grid; gap: 2px; } .pst-facts dt { color: var(--m-mute); font: 700 9px var(--f-mono); letter-spacing: .12em; } .pst-facts dd { margin: 0; font-size: 16px; }
+.pst-angle { margin: 0; color: var(--m-dim); font: 500 13px var(--f-ui); } .pst-angle b { color: var(--m-text); }
+.pst-test { margin-left: 8px; color: var(--m-warn); border-color: var(--m-warn); }
+.pst-formats { justify-self: start; }
+.pst-files { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.pst-files figure { display: grid; gap: 6px; margin: 0; padding: 8px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-bg); animation: pstIn .35s var(--m-ease) both; animation-delay: calc(var(--i) * 55ms); transition: transform .15s var(--m-ease), border-color .15s; }
+.pst-files figure:hover { transform: translateY(-2px); border-color: var(--m-line-hi); }
+.pst-files img, .pst-files video { display: block; width: 100%; border-radius: 6px; background: var(--m-bg); object-fit: cover; }
+.pst-files.is-story img, .pst-files.is-story video { aspect-ratio: 9 / 16; } .pst-files.is-feed img, .pst-files.is-feed video { aspect-ratio: 4 / 5; } .pst-files.is-wide img, .pst-files.is-wide video { aspect-ratio: 16 / 9; }
+.pst-text p { margin: 0; max-height: 180px; overflow: auto; color: var(--m-text); font: 500 12px/1.45 var(--f-ui); white-space: pre-wrap; scrollbar-width: thin; }
+.pst-text .m-btn { justify-self: start; min-height: 32px; }
+.pst-cards { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; } .pst-cards img { flex: 0 0 31%; width: 31%; }
+.pst-approve, .pst-posted { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--m-line-hi); border-radius: var(--m-r-sm); background: var(--m-surface-2); }
+.pst-goal { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .pst-goal .m-input { width: 120px; } .pst-goal small { color: var(--m-dim); font: 500 11px var(--f-ui); flex: 1 1 200px; }
+.pst-svcs { justify-self: start; flex-wrap: wrap; }
+.pst-hint, .pst-msg { color: var(--m-dim); font: 500 12px var(--f-ui); } .pst-hint a { color: var(--m-accent); } .pst-msg { color: var(--m-danger); }
+.pst-accts { display: flex; flex-wrap: wrap; gap: 6px; }
+.pst-plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.pst-plat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 6px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); animation: pstIn .3s var(--m-ease) both; animation-delay: calc(var(--i) * 45ms); transition: border-color .15s, background .15s; }
+.pst-plat .m-btn { min-height: 32px; } .pst-plat select.m-input { width: auto; min-height: 32px; } .pst-plat small { color: var(--m-mute); font: 600 10px var(--f-mono); text-transform: uppercase; }
+.pst-plat.is-on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
+.pst-plat.is-on .m-btn { background: var(--m-accent); color: var(--m-accent-ink); border-color: var(--m-accent); }
+.pst-real { display: flex; gap: 8px; align-items: center; color: var(--m-warn); font: 600 12px var(--f-ui); }
+.pst-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--m-accent); border-radius: var(--m-r-sm); animation: pstIn .2s var(--m-ease) both; }
+.pst-confirm p { margin: 0; font: 500 13px var(--f-ui); } .pst-confirm .m-btn { justify-self: start; }
+.pst-posted ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pst-posted li { padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 999px; font: 600 11px var(--f-mono); } .pst-posted li a { color: var(--m-accent); }
+.pst-posted li.is-bad { border-color: var(--m-danger); color: var(--m-danger); }
+.pst-reads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pst-read { display: grid; gap: 2px; padding: 8px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); } .pst-read small { color: var(--m-dim); font: 500 11px var(--f-ui); }
+.pst-read .m-chip { justify-self: start; }
+@keyframes pstIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  .pst-head { grid-template-columns: 1fr; } .pst-files { grid-template-columns: 1fr 1fr; } .pst-reads { grid-template-columns: 1fr; }
+}
+body.fx-lite .pst-files figure, body.fx-lite .pst-plat, body.fx-lite .pst-confirm { animation: none; } body.fx-lite .pst-meter-bar i { transition: none; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .pst-files figure, .pst-plat, .pst-confirm { animation: none; } .pst-meter-bar i { transition: none; } }
+body.theme-day .pst-files img, body.theme-day .pst-files video { background: var(--m-surface-2); }
+body.theme-day .pst-meter-bar i { box-shadow: none; }

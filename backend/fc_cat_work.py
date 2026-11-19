@@ -59,6 +59,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🎯 {desk_['label']} \"{desk_['name']}\" is on the desk. Your words go to it.", 'at': rs.time.time(), 'open': desk_['open']}])[-200:]
         rs.keep_owned(cat); rs._save(store)
         return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+    if p.op in rs._fc_poc.OPS:   # 🎬 Slice 5: the PoC studio's goal / accounts / approve / reach (the approve refuses the internal key)
+        return await rs._fc_poc.op(cat_id, cat, store, p, internal_)
     if p.op == 'approvals':   # ✅ AGX-10: its Approve inbox
         return {'approvals': rs._appr.view(cat)}
     if p.op == 'approve':   # ✅ the owner's tap: only now does a usage-spending row run (text = row id, job = 'yes' | 'no')

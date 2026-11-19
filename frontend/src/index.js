@@ -82,6 +82,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/cats') {   // 🧪 one agent's desk + REAL MODE proposals on a fixture cat (src/dev/CatHarness.jsx)
   import('./dev/CatHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/pocstudio') {   // 🎬 Slice 5: the PoC content studio on Sicario's real TEST PoC (?posted, ?day) (src/dev/PocStudioHarness.jsx)
+  import('./dev/PocStudioHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/legal') {   // 🧪 LEGAL-1: accept window, Your data, HQ Legal & regions on fixtures (src/dev/LegalHarness.jsx)
   import('./dev/LegalHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/swap') {   // 🧪 Slice 4: the PoC video swap panel + a filed swap (?day, ?empty, ?running) (src/dev/SwapHarness.jsx)

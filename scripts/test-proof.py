@@ -42,7 +42,9 @@ def summary(last):
     return (f"#{last.get('n')} {last.get('id')} · {ch}\n  minds that ran: {ran}\n  sources: {len((last.get('read') or {}).get('sites') or [])} sites"
             f" {((last.get('read') or {}).get('sites') or [])[:6]}\n  footprint: {(last.get('foot') or {})}\n  bench: {(last.get('test') or {}).get('bench')}"
             + (f"\n  no trade: {last.get('why')}" if last.get('noTrade') else '')
-            + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in last.get('studio') or []))
+            + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in (last.get('studio') if isinstance(last.get('studio'), list) else []))
+            + (lambda s: f"\n  PoC trend: {(s.get('trend') or {}).get('text')} ({(s.get('trend') or {}).get('source')})\n  PoC files: {sum(1 for x in s.get('files') or [] if x.get('url'))}/12 · goal {(s.get('goal') or {}).get('target')} {(s.get('goal') or {}).get('type')} by {(s.get('goal') or {}).get('by')}"
+               if s else '')(last.get('studio') if isinstance(last.get('studio'), dict) else None))
 
 
 def main():
