@@ -27,7 +27,7 @@ def classify(url):
     host = (urlparse(u).hostname or '').lower()
     for dom, name in NO_DOWNLOAD.items():
         if host == dom or host.endswith('.' + dom):
-            raise ValueError(f"{name} doesn't allow downloading its videos. Save the clip from the {name} app (it has to be yours, or you need the rights), then upload the file.")
+            raise ValueError(f"{name} doesn't allow downloading its videos. Save the clip from the {name} app (it has to be yours, or you need the rights), then press Add your clip (or drop it in the clip farm).")
     if not DIRECT.search(urlparse(u).path or ''):
         raise ValueError('That link is not a video file. Paste a Bluesky post, or a link that ends in .mp4, .webm or .mov.')
     return 'direct', u

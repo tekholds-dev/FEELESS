@@ -7,6 +7,8 @@ PoC goes out only through Slice 5's approve door (fc_poc.op 'poc_approve', the o
   POST /api/cats/{id}/clipfarm/link    {url, ws, note, rights}
   GET  /api/cats/{id}/clipfarm         the runs, each with a progress line per step, every candidate and each mind's pick and score
   POST /api/cats/{id}/clipfarm/slot    {job, day}   a clip PoC's day on the wireframe board (Mon–Sun, or '' to clear)
+  GET  /api/cats/vid/{id}               🔗 an in-house FEELESS video link (the converted upload or a finished clip): unguessable id, Range, 7-day expiry
+  POST /api/cats/{id}/clipfarm/unlink  {id}          the link stops working now (the converted upload's file is removed with it)
 The owner signs each call (ownerId + session); Claude's TESTs use the internal key and are marked TEST."""
 import asyncio
 import json
@@ -24,6 +26,8 @@ _FARMING = set()
 DAYS = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')
 KEEP_RUNS = 12
 MIND_WAIT_S = 300
+LINK_S = 7 * 86400      # an in-house video link plays for 7 days, then answers 410 (its upload file is swept)
+VID = __import__('re').compile(r'^v[0-9a-f]{20}$')
 KEEP_S = 1800           # how long a run / clip PoC this module wrote is guarded against an older copy's save
 _MEM = {}               # cat id → {'runs': {run id: (at, run)}, 'folders': {folder id: (at, folder)}}
 
@@ -86,7 +90,7 @@ def _cat(cat_id):
 
 
 def _run_view(r):
-    return {k: r.get(k) for k in ('id', 'at', 'name', 'source', 'secs', 'w', 'h', 'ws', 'test', 'status', 'steps', 'cands', 'picks', 'clips', 'cost', 'minds', 'err', 'firstClipS', 'doneS', 'words', 'cuts', 'laughs', 'note')}
+    return {k: r.get(k) for k in ('id', 'at', 'name', 'source', 'secs', 'w', 'h', 'ws', 'test', 'status', 'steps', 'cands', 'picks', 'clips', 'cost', 'minds', 'err', 'firstClipS', 'doneS', 'words', 'cuts', 'laughs', 'note', 'links', 'ext', 'converted')}
 
 
 def _set(cat_id, run_id, **kw):
@@ -116,14 +120,50 @@ def _step(cat_id, run_id, key, state, note='', t0=None):
     _remember(cat_id, run=r); rs._save(store)
 
 
-def _new_run(cat_id, name, source, info, ws, note, test):
+def _new_run(cat_id, name, source, info, ws, note, test, ext='mp4'):
     rs = _rs(); store = rs._load(); cat = store['cats'][cat_id]
     r = {'id': 'cr' + secrets.token_hex(5), 'at': round(time.time()), 'name': str(name or 'Your video')[:80], 'source': source, 'secs': info['secs'], 'w': info['w'], 'h': info['h'],
          'ws': ws or None, 'note': str(note or '')[:200], 'test': bool(test), 'status': 'running', 'cost': 0.0, 'clips': [], 'cands': [], 'picks': [],
          'steps': [{'key': k, 'label': l, 'state': 'todo'} for k, l in _cf.STEPS]}
-    r['steps'][0].update(state='done', note=f"{int(info['secs'] // 60)}:{int(info['secs'] % 60):02d} · {info['w']}×{info['h']} · {info['fps']:g} fps", secs=0)
+    r['steps'][0].update(state='done', note=f"{int(info['secs'] // 60)}:{int(info['secs'] % 60):02d} · {info['w']}×{info['h']} · {info['fps']:g} fps · {info.get('box') or '?'} {info.get('vcodec')}/{info.get('acodec') or 'no sound'}", secs=0)
+    r['ext'] = ext; r['links'] = []
     cat['clipRuns'] = (list(cat.get('clipRuns') or []) + [r])[-KEEP_RUNS:]; _remember(cat_id, run=r); rs._save(store)
     return r
+
+
+def _link(cat_id, run_id, file_name, kind, label, folder=None, fmt=None):
+    """🔗 A new in-house link to a file in this agent's media folder, kept on its run. → the link row"""
+    now = time.time()
+    row = {'id': 'v' + secrets.token_hex(10), 'file': file_name, 'kind': kind, 'label': str(label)[:80], 'at': round(now), 'exp': round(now + LINK_S),
+           **({'folder': folder} if folder else {}), **({'fmt': fmt} if fmt else {}), 'url': ''}
+    row['url'] = f"/api/cats/vid/{row['id']}"
+    rs = _rs(); store = rs._load(); cat = store['cats'].get(cat_id) or {}
+    r = next((x for x in cat.get('clipRuns') or [] if x.get('id') == run_id), None)
+    if r is not None:
+        r['links'] = (list(r.get('links') or []) + [row])[-24:]; _remember(cat_id, run=r); rs._save(store)
+    return row
+
+
+def _find_link(store, vid):
+    for cid, c in (store.get('cats') or {}).items():
+        for r in c.get('clipRuns') or []:
+            for k in r.get('links') or []:
+                if k.get('id') == vid:
+                    return cid, c, r, k
+    return None
+
+
+def sweep(cat_id):
+    """Expired upload links: their converted file is removed (clip files stay: their PoC needs them). → how many"""
+    rs = _rs(); store = rs._load(); cat = store['cats'].get(cat_id) or {}; now = time.time(); n = 0
+    for r in cat.get('clipRuns') or []:
+        for k in r.get('links') or []:
+            if k.get('exp', 0) < now and k.get('kind') == 'upload' and not k.get('swept'):
+                (rs._media_dir() / cat_id / k['file']).unlink(missing_ok=True); k['swept'] = True; n += 1
+                _remember(cat_id, run=r)
+    if n:
+        rs._save(store)
+    return n
 
 
 def _saver(cat_id):
@@ -167,7 +207,7 @@ def _file_clip(cat_id, run, k, pick, files, tr, calls, cost_each, test_mark):
                        'lead': pick['lead'], 'payoff': pick.get('payoff') or '', 'track': tr, 'from': run['name'], 'secs': run['secs']},
               'trend': {'text': f"Your upload: {run['name']}", 'source': 'your upload' if run['source'] == 'upload' else run['source'], 'kind': 'upload'}, 'trends': [],
               'mind': pick['lead'], 'angle': f"clip {k + 1} of the upload, {pick['s']:.0f}–{pick['e']:.0f} s", 'hook': hook, 'sub': pick.get('payoff') or '',
-              'post': {'story': cap, 'feed': cap, 'wide': cap}, 'thread': [], 'beats': [], 'goal': goal_, 'files': files, 'slot': '',
+              'post': {'story': cap, 'feed': cap, 'wide': cap}, 'links': {fl['format']: fl['link'] for fl in files if fl.get('piece') == 'video' and fl.get('link')}, 'thread': [], 'beats': [], 'goal': goal_, 'files': files, 'slot': '',
               'maker': {'name': 'FEELESS clip farm (faster-whisper + OpenCV + ffmpeg, on this machine)', 'usd': 0.0, 'watermark': False},
               'why': ' · '.join(f"Mind {'AB'[m['mind']]} {m['score']}: {m['why']}" for m in pick['minds'] if m['score'] is not None)[:400]}
     f_ = {'id': f"poc{int(now)}c{k}", **({'ws': run['ws']} if run.get('ws') else {}), 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(now), 'status': 'closed', 'paper': True,
@@ -183,20 +223,35 @@ def _file_clip(cat_id, run, k, pick, files, tr, calls, cost_each, test_mark):
     return f_
 
 
+async def _converted(cat_id, run_id, run, conv, info, ext, note_, t0):
+    """The converter's step is done: the clean MP4 gets its in-house link."""
+    up_ = _link(cat_id, run_id, conv.name, 'upload', run['name'])
+    _set(cat_id, run_id, converted={'from': f"{info.get('box') or ext}", 'note': note_, 'url': up_['url']})
+    _step(cat_id, run_id, 'convert', 'done', note_ + ' · link ' + up_['url'], t0)
+
+
 async def farm(cat_id, run_id, src, note=''):
     """The whole run in the background, a progress line per step. Nothing posts."""
-    rs = _rs(); t_all = time.time(); test_mark = None; src = Path(src)
+    rs = _rs(); t_all = time.time(); test_mark = None; src = Path(src); conv_job = None; conv = None; linked = False
     try:
         cat = rs._load()['cats'].get(cat_id) or {}; run = next(x for x in cat.get('clipRuns') or [] if x['id'] == run_id)
         test_mark = dict(rs._TEST_ON.get((cat_id, 'poc')) or {}) if run.get('test') else None
         info = _cf.probe(src)
+        _step(cat_id, run_id, 'convert', 'running'); t_conv = time.time(); ext = run.get('ext') or src.suffix.lstrip('.').lower()
+        (rs._media_dir() / cat_id).mkdir(parents=True, exist_ok=True); conv = rs._media_dir() / cat_id / f"m{secrets.token_hex(6)}.mp4"
+        orig = src
+        if _cf.clean(info, ext):
+            shutil.move(str(src), conv); orig = conv; linked = True
+            await _converted(cat_id, run_id, run, conv, info, ext, f"already H.264 + AAC MP4: kept as it is ({conv.stat().st_size / 1e6:.0f} MB)", t_conv)
+        # ⚡ an odd file: the transcript and the peaks read the original (they need only the sound and the cut times), then the converter runs
+        # while the minds think (an LM Studio wait, not this Mac's CPU). Run beside the transcript it fought it for CPU: 206 s, seen live.
         _step(cat_id, run_id, 'words', 'running'); t0 = time.time()
-        audio = await asyncio.to_thread(_cf.pcm, src); words = await asyncio.to_thread(_cf.transcribe, audio)
+        audio = await asyncio.to_thread(_cf.pcm, orig); words = await asyncio.to_thread(_cf.transcribe, audio)
         _step(cat_id, run_id, 'words', 'done', f'{len(words)} words, local faster-whisper ({_cf.WHISPER}), $0', t0)
         if len(words) < 20:
             raise ValueError('Almost nothing is said in it, so there is nothing to clip by words.')
         _step(cat_id, run_id, 'peaks', 'running'); t0 = time.time()
-        loud = _cf.loudness(audio); cuts = await asyncio.to_thread(_cf.scene_cuts, src); laughs = _cf.laughs(words, loud)
+        loud = _cf.loudness(audio); cuts = await asyncio.to_thread(_cf.scene_cuts, orig); laughs = _cf.laughs(words, loud)
         _step(cat_id, run_id, 'peaks', 'done', f'{len(cuts)} scene cuts, {len(laughs)} loud moments with no words, loudness every ½ s', t0)
         _step(cat_id, run_id, 'moments', 'running'); t0 = time.time()
         cands = _cf.moments(words, loud, cuts, laughs, info['secs'])
@@ -204,6 +259,10 @@ async def farm(cat_id, run_id, src, note=''):
             raise ValueError('No 15–60 s stretch of speech was found in it.')
         _set(cat_id, run_id, cands=cands, words=len(words), cuts=len(cuts), laughs=len(laughs))
         _step(cat_id, run_id, 'moments', 'done', f'{len(cands)} candidates, 15–60 s, cut on sentence ends', t0)
+        if orig is not conv:
+            conv_job = asyncio.ensure_future(asyncio.to_thread(_cf.convert, src, conv)); await asyncio.sleep(0.5)
+            if conv_job.done():
+                conv_job.result()   # a file ffmpeg can't read at all stops here, before any mind is asked
         _step(cat_id, run_id, 'minds', 'running'); t0 = time.time()
         cat = rs._load()['cats'].get(cat_id) or {}
         mrows, cost, own, calls, brains = await _minds(cat, run_id, cands, run['name'], note)
@@ -217,10 +276,17 @@ async def farm(cat_id, run_id, src, note=''):
                 rs._lc.charge(c_['brainsCfg'], cost); rs._save(store)
         if not picks:
             raise ValueError('Neither mind found a moment worth a clip (every score under 4).')
+        if conv_job is not None:
+            secs_ = await conv_job; src.unlink(missing_ok=True); linked = True
+            await _converted(cat_id, run_id, run, conv, info, ext, f"{(info.get('box') or ext)} {info.get('vcodec')}/{info.get('acodec') or 'no sound'} → H.264/AAC .mp4, {conv.stat().st_size / 1e6:.0f} MB in {secs_} s, $0 (ran while the minds thought)", t_conv)
+        src = conv; info = _cf.check(_cf.probe(src), src.stat().st_size)
         _step(cat_id, run_id, 'clips', 'running', f'0 of {len(picks)} clips'); t0 = time.time(); filed = []
         for k, p in enumerate(picks):
             files, tr = await asyncio.to_thread(_cf.make_clip, src, p, words, info, cuts, _saver(cat_id), 'ffmpeg',
                                                 lambda fmt, k=k: _step(cat_id, run_id, 'clips', 'running', f'clip {k + 1} of {len(picks)}: {_cf.FORMATS[fmt][2]} made'))
+            for fl in files:   # 🔗 every finished clip format gets its own in-house link, pasted into its PoC
+                if fl.get('piece') == 'video' and fl.get('url'):
+                    fl['link'] = _link(cat_id, run_id, fl['url'].rsplit('/', 1)[-1], 'clip', f"{p['hook']} · {_cf.FORMATS[fl['format']][2]}", fmt=fl['format'])['url']
             f_ = _file_clip(cat_id, run, k, p, files, tr, calls, cost / len(picks), test_mark)
             if f_:
                 filed.append(f_['id'])
@@ -244,11 +310,19 @@ async def farm(cat_id, run_id, src, note=''):
         except Exception:   # noqa: BLE001
             pass
     finally:
+        if conv_job is not None and not conv_job.done():   # a run that failed beside the converter waits for it before the upload goes
+            try:
+                await conv_job
+            except Exception:   # noqa: BLE001
+                pass
+        if conv is not None and not linked:
+            conv.unlink(missing_ok=True)   # a half-made MP4 with no link is never kept
         _FARMING.discard(cat_id)
         if test_mark is not None:
             rs._TEST_ON.pop((cat_id, 'poc'), None)
         try:
-            src.unlink(missing_ok=True)   # the upload itself is not kept: only the clips made from it
+            if src.parent.name == 'tmp':   # the raw upload (before the converter) is never kept; the converted copy lives on behind its link
+                src.unlink(missing_ok=True)
         except OSError:
             pass
 
@@ -264,7 +338,7 @@ def _start(cat_id, cat, who, path, name, source, ws, note):
     test = who == 'internal'
     if test:
         rs._TEST_ON[(cat_id, 'poc')] = {'at': time.time(), 'by': 'Claude', 'run': secrets.token_hex(5), 'topic': f'clip farm: {name}'[:120]}
-    r = _new_run(cat_id, name, source, info, ws, note, test)
+    r = _new_run(cat_id, name, source, info, ws, note, test, path.suffix.lstrip('.').lower())
     _FARMING.add(cat_id)
     asyncio.create_task(farm(cat_id, r['id'], path, note))
     return {'run': _run_view(r)}
@@ -372,6 +446,8 @@ async def clip_link(cat_id: str, request: Request):
 @router.get('/api/cats/{cat_id}/clipfarm')
 async def clip_runs(cat_id: str, request: Request, ownerId: str = '', session: str = ''):
     store, cat = _cat(cat_id); _who(request, store, cat, ownerId, session)
+    if sweep(cat_id):
+        store, cat = _cat(cat_id)
     return {'runs': [_run_view(r) for r in reversed(cat.get('clipRuns') or [])], 'busy': cat_id in _FARMING,
             'limits': {'secs': _cf.MAX_S, 'mb': _cf.MAX_BYTES // 1_000_000, 'types': sorted(_cf.EXTS), 'clip': [_cf.CLIP_MIN, _cf.CLIP_MAX]}}
 
@@ -394,3 +470,68 @@ async def clip_slot(cat_id: str, request: Request):
     f['studio']['slot'] = day; f['studio']['slotAt'] = round(time.time())
     rs.keep_owned(cat); rs._save(store)
     return {'pocFolders': rs._poc_view(cat)}
+
+
+def byte_range(header, size):
+    """'bytes=a-b' / 'bytes=a-' / 'bytes=-n' → (start, end) inside the file, None when absent or several ranges, 'bad' when unsatisfiable. Pure."""
+    m = __import__('re').fullmatch(r'\s*bytes=(\d*)-(\d*)\s*', str(header or ''))
+    if not m or (not m.group(1) and not m.group(2)):
+        return None
+    if not m.group(1):
+        n = int(m.group(2)); return (max(0, size - n), size - 1) if n else 'bad'
+    a = int(m.group(1)); b = min(int(m.group(2)) if m.group(2) else size - 1, size - 1)
+    return (a, b) if a < size and a <= b else 'bad'
+
+
+@router.get('/api/cats/vid/{vid}')
+async def video_link(vid: str, request: Request):
+    """🔗 An in-house FEELESS video link: the id is the permission (80 random bits, never listed anywhere public), Range requests so it seeks
+    at once, inline in the browser (a phone opens it straight away), 410 after its 7 days or once deleted."""
+    rs = _rs()
+    from starlette.responses import FileResponse
+    if not VID.fullmatch(str(vid or '')):
+        raise rs.HTTPException(404, 'No such video.')
+    hit = _find_link(rs._load(), vid)
+    if not hit:
+        raise rs.HTTPException(404, 'No such video.')
+    cid, _c, _r, k = hit
+    if k.get('exp', 0) < time.time() or k.get('gone'):
+        raise rs.HTTPException(410, 'This video link has ended.')
+    f_ = rs._media_dir() / cid / str(k.get('file') or '')
+    if not rs._mg.NAME.fullmatch(f_.name) or not f_.is_file():
+        raise rs.HTTPException(410, 'This video link has ended.')
+    head = {'Cache-Control': 'private, max-age=3600', 'X-Robots-Tag': 'noindex, nofollow', 'Content-Disposition': 'inline', 'X-Content-Type-Options': 'nosniff',
+            'Accept-Ranges': 'bytes'}
+    size = f_.stat().st_size; rg = byte_range(request.headers.get('range'), size)
+    if rg == 'bad':
+        return rs.Response(status_code=416, headers={**head, 'Content-Range': f'bytes */{size}'})
+    if rg is None:
+        return FileResponse(f_, media_type='video/mp4', headers=head)
+    from starlette.responses import StreamingResponse
+    a, b = rg
+
+    def chunks():   # seeks straight to the asked part, 1 MB at a time: a phone scrubbing a 100 MB clip never waits for the whole file
+        with f_.open('rb') as fh:
+            fh.seek(a); left = b - a + 1
+            while left > 0:
+                buf = fh.read(min(1 << 20, left))
+                if not buf:
+                    break
+                left -= len(buf); yield buf
+    return StreamingResponse(chunks(), status_code=206, media_type='video/mp4', headers={**head, 'Content-Range': f'bytes {a}-{b}/{size}', 'Content-Length': str(b - a + 1)})
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/unlink')
+async def unlink(cat_id: str, request: Request):
+    """The link stops now. An upload link also removes the converted upload's file; a clip link only ends the link (its PoC keeps the clip)."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); _who(request, store, cat, str(body.get('ownerId') or ''), str(body.get('session') or ''))
+    vid = str(body.get('id') or '')
+    for r in cat.get('clipRuns') or []:
+        for k in r.get('links') or []:
+            if k.get('id') == vid and not k.get('gone'):
+                k['gone'] = round(time.time())
+                if k.get('kind') == 'upload':
+                    (rs._media_dir() / cat_id / k['file']).unlink(missing_ok=True)
+                _remember(cat_id, run=r); rs._save(store)
+                return {'run': _run_view(r)}
+    raise rs.HTTPException(404, 'No such link.')

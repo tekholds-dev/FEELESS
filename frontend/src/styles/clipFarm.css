@@ -45,6 +45,12 @@
 .cfm-days { flex-wrap: wrap; } .cfm-days button { min-width: 40px; }
 .cfm[data-w640] .cfm-tiles { grid-template-columns: 0.75fr 1fr; } .cfm[data-w640] .cfm-tile.is-wide { grid-column: 1 / -1; }
 .cfm[data-w640] .cfm-steps li { grid-template-columns: 20px minmax(0, 1fr); } .cfm[data-w640] .cfm-steps small { grid-column: 2; }
+.cfm-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--m-warn); border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-warn) 7%, transparent); animation: cfmIn .25s var(--m-ease) both; }
+.cfm-card b { color: var(--m-text); font: 700 13px var(--f-ui); } .cfm-card span, .cfm-card li { color: var(--m-dim); font: 500 12px var(--f-ui); } .cfm-card ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; } .cfm-card .cfm-row { justify-content: flex-start; }
+.cfm-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfm-link { display: inline-flex; gap: 5px; align-items: center; padding: 3px 8px; border: 1px solid var(--m-line-hi); border-radius: 999px; color: var(--m-accent); }
+.cfm-link small { color: var(--m-dim); font: 600 10px var(--f-mono); } .cfm-link a, .cfm-link button { display: inline-grid; place-items: center; padding: 2px; border: 0; background: none; color: var(--m-accent); cursor: pointer; }
+.cfm-link a:hover, .cfm-link button:hover, .cfm-link a:focus-visible, .cfm-link button:focus-visible { color: var(--m-text); outline: none; }
 @keyframes cfmIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes cfmSpin { to { transform: rotate(360deg); } }
 @keyframes cfmPulse { 50% { transform: scale(1.12); opacity: .7; } }

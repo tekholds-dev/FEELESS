@@ -7,7 +7,7 @@ import '../styles/features.css';
 
 // 🧪 DEV ONLY (`/dev/clipfarm`, never in a production build): the clip farm on Sicario's REAL TEST run, its real clip files served by the
 // backend. The clip routes are answered here from the fixture (the page has no owner sign-in), so nothing reaches the server and nothing can
-// post: the day buttons save into this page only. ?running shows the same run mid-way. ?day = day theme. ?empty = before any upload.
+// post: the day buttons save into this page only, and Delete on a link ends it in this page only. ?running shows the same run mid-way. ?day = day theme. ?empty = before any upload.
 
 const REAL_FETCH = window.fetch; const HOOK = { setLog: () => {}, setPocs: () => {}, pocs: FIX.folders };
 window.fetch = async (url, opt = {}) => {   // installed before the first render: ClipFarm's first load is answered from the fixture too
@@ -16,6 +16,7 @@ window.fetch = async (url, opt = {}) => {   // installed before the first render
   HOOK.setLog(l => [...l, `${opt.method || 'GET'} ${u.replace(/\?.*/, '')} ${opt.body || ''}`].slice(-4));
   const ok = j => ({ ok: true, status: 200, json: async () => j });
   if (u.includes('/slot')) { const b = JSON.parse(opt.body || '{}'); HOOK.pocs = HOOK.pocs.map(f => f.id === b.job ? { ...f, studio: { ...f.studio, slot: b.day } } : f); return ok({ pocFolders: HOOK.pocs }); }
+  if (u.includes('/unlink')) { const b = JSON.parse(opt.body || '{}'); FIX.run.links = (FIX.run.links || []).map(k => k.id === b.id ? { ...k, gone: true } : k); return ok({ ok: true }); }   // page only: the real link stays
   if (/empty/.test(q)) return ok({ runs: [], busy: false });
   const run = /running/.test(q) ? { ...FIX.run, status: 'running', clips: FIX.run.clips.slice(0, 1), doneS: null, steps: FIX.run.steps.map(s => s.key === 'clips' ? { ...s, state: 'running', note: 'clip 2 of 3: 9:16 made', secs: null } : s.key === 'file' ? { ...s, state: 'todo', note: '' } : s) } : FIX.run;
   return ok({ runs: [run], busy: /running/.test(q) });

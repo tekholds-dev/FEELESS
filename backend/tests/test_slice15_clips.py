@@ -6,6 +6,7 @@ import asyncio
 import json
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -34,10 +35,13 @@ def _cands(secs=120.0):
 
 def test_only_mp4_mov_webm_up_to_5_min_with_sound_is_taken_and_the_refusals_say_what_to_do():
     assert cf.ext_of('My Stream.MOV') == 'mov' and cf.ext_of('x', 'video/webm') == 'webm' and cf.ext_of('a.m4v') == 'm4v'
-    with pytest.raises(ValueError, match='MP4, MOV or WebM'):
-        cf.ext_of('clip.avi')
+    assert cf.ext_of('clip.avi') == 'avi' and cf.ext_of('x.mkv') == 'mkv'   # the free converter takes these too
+    with pytest.raises(ValueError, match='MP4, MOV, WebM, MKV, AVI'):
+        cf.ext_of('clip.gif')
     ok = {'secs': 300.2, 'w': 1920, 'h': 1080, 'fps': 30, 'audio': True}
     assert cf.check(ok, 100) is ok   # exactly 5:00 is fine
+    assert cf.clean({**ok, 'vcodec': 'h264', 'acodec': 'aac', 'pix': 'yuv420p'}, 'mp4') and not cf.clean({**ok, 'vcodec': 'hevc', 'acodec': 'aac', 'pix': 'yuv420p'}, 'mov')
+    assert not cf.clean({**ok, 'vcodec': 'h264', 'acodec': 'aac', 'pix': 'yuv420p', 'rot': True}, 'mp4') and not cf.clean({**ok, 'w': 3840, 'vcodec': 'h264', 'acodec': 'aac', 'pix': 'yuv420p'}, 'mp4')
     with pytest.raises(ValueError, match='6:04 long. Up to 5:00'):
         cf.check({**ok, 'secs': 364.7}, 100)
     with pytest.raises(ValueError, match='MB'):
@@ -51,7 +55,7 @@ def test_only_mp4_mov_webm_up_to_5_min_with_sound_is_taken_and_the_refusals_say_
 @pytest.mark.parametrize('url,name', [('https://www.youtube.com/watch?v=abc', 'YouTube'), ('https://youtu.be/abc', 'YouTube'), ('https://www.twitch.tv/some/clip/x', 'Twitch'),
                                       ('https://clips.twitch.tv/Funny', 'Twitch'), ('https://www.instagram.com/reel/x/', 'Instagram'), ('https://www.tiktok.com/@a/video/1', 'TikTok')])
 def test_youtube_twitch_instagram_links_are_never_downloaded_save_it_from_the_app_then_upload(url, name):
-    with pytest.raises(ValueError, match=f"{name} doesn't allow downloading.*upload the file"):
+    with pytest.raises(ValueError, match=f"{name} doesn't allow downloading.*Add your clip \\(or drop it in the clip farm\\)"):
         cs.classify(url)
 
 
@@ -182,10 +186,13 @@ def test_the_upload_door_needs_the_rights_tick_refuses_a_youtube_link_and_an_ove
 
 
 @pytest.mark.skipif(not FFMPEG, reason='ffmpeg is not installed')
-def test_a_run_files_each_picked_clip_as_a_poc_with_goal_cost_record_and_progress_and_posts_nothing(svc, tmp_path, monkeypatch):
+@pytest.mark.parametrize('odd', [False, True], ids=['clean-mp4', 'needs-the-converter'])
+def test_a_run_files_each_picked_clip_as_a_poc_with_goal_cost_record_and_progress_and_posts_nothing(svc, tmp_path, monkeypatch, odd):
     fs, cat, store = svc
     import fc_clips
     src = _video(tmp_path / 'talk.mp4', 80)
+    if odd:   # the converter runs beside the transcript and the minds, and its step still says what it did
+        monkeypatch.setattr(cf, 'clean', lambda info, ext: False)
     monkeypatch.setattr(cf, 'transcribe', lambda a, model=cf.WHISPER: _words(80))
     asked = []
 
@@ -207,7 +214,11 @@ def test_a_run_files_each_picked_clip_as_a_poc_with_goal_cost_record_and_progres
         assert s['goal']['target'] == 3000 and s['goal']['by'] == 'minds' and not f.get('posted') and s['maker']['watermark'] is False
         rows = {x['key']: x for x in ps.record_rows(f)}
         assert set(rows) == {'source', 'moments', 'reframe', 'files', 'approve', 'reach'} and all(x['ok'] for x in rows.values()), rows
-    assert not src.exists()   # the upload is not kept, only the clips made from it
+    assert not src.exists() and run['converted']['url'].startswith('/api/cats/vid/v')   # the upload lives on only behind its in-house link
+    conv_note = next(x for x in run['steps'] if x['key'] == 'convert')['note']
+    assert ('ran while the minds thought' in conv_note) if odd else ('kept as it is' in conv_note)
+    assert all(set(f['studio']['links']) == {'story', 'feed', 'wide'} for f in cat['pocFolders'])   # every clip format's link is in its PoC
+    fc_clips._MEM.clear()
     assert '✂ 2 clips cut' in cat['chat'][-1]['text'] and 'Nothing was posted' in cat['chat'][-1]['text']
 
 
@@ -253,3 +264,65 @@ def test_a_local_minds_reply_cut_off_mid_way_still_gives_every_score_it_finished
     more = cut[:cut.index(',{"n":5')] + '],"picks":[{"n":4,"hook":"Two parts showed up","caption":"c","views":900},{"n":1,"hook":"cut he'
     m = cf.parse_mind(more, c)
     assert [p['n'] for p in m['picks']] == [4] and m['picks'][0]['hook'] == 'Two parts showed up'
+
+
+@pytest.mark.skipif(not FFMPEG, reason='ffmpeg is not installed')
+def test_the_free_converter_turns_an_odd_file_into_a_clean_h264_aac_mp4_and_refuses_junk_plainly(tmp_path):
+    src = tmp_path / 'odd.mkv'
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=size=2560x1440:rate=50:duration=4', '-f', 'lavfi', '-i', 'sine=frequency=500:duration=4:sample_rate=22050',
+                    '-c:v', 'mpeg4', '-q:v', '5', '-c:a', 'pcm_s16le', str(src)], check=True, timeout=120)
+    info = cf.probe(src); assert info['vcodec'] == 'mpeg4' and info['acodec'] == 'pcm_s16le' and not cf.clean(info, 'mkv')
+    out = tmp_path / 'clean.mp4'; secs = cf.convert(src, out); got = cf.probe(out)
+    assert secs >= 0 and got['vcodec'] == 'h264' and got['acodec'] == 'aac' and (got['w'], got['h']) == (1920, 1080) and got['fps'] <= 60 and cf.clean(got, 'mp4')
+    junk = tmp_path / 'junk.mov'; junk.write_bytes(b'not a video' * 200)
+    with pytest.raises(ValueError, match='ffmpeg could not read a picture'):
+        cf.probe(junk)
+
+
+def test_an_in_house_link_plays_with_range_ends_after_its_days_and_can_be_deleted(svc, tmp_path, monkeypatch):
+    fs, cat, _ = svc
+    import fc_clips
+    from fastapi.testclient import TestClient
+    (tmp_path / 'c1').mkdir(exist_ok=True); (tmp_path / 'c1' / 'mabcdef012345.mp4').write_bytes(bytes(range(256)) * 40)
+    cat['clipRuns'] = [{'id': 'r1', 'at': 1, 'steps': [], 'links': []}]
+    k = fc_clips._link('c1', 'r1', 'mabcdef012345.mp4', 'upload', 'talk')
+    assert fc_clips.VID.fullmatch(k['url'].rsplit('/', 1)[-1]) and k['exp'] - k['at'] == 7 * 86400
+    c = TestClient(fs.app)
+    r = c.get(k['url'], headers={'Range': 'bytes=100-199'})
+    assert r.status_code == 206 and r.content == (bytes(range(256)) * 40)[100:200] and r.headers['content-type'] == 'video/mp4' and 'noindex' in r.headers['x-robots-tag']
+    assert c.get(k['url'], headers={'Range': 'bytes=-10'}).content == (bytes(range(256)) * 40)[-10:] and c.get(k['url'], headers={'Range': 'bytes=99999-'}).status_code == 416
+    assert fc_clips.byte_range('bytes=0-', 50) == (0, 49) and fc_clips.byte_range('bytes=0-5,9-10', 50) is None and fc_clips.byte_range('items=1-2', 50) is None
+    assert c.get('/api/cats/vid/v' + '0' * 20).status_code == 404 and c.get('/api/cats/vid/..%2Fx').status_code == 404
+    cat['clipRuns'][0]['links'][0]['exp'] = 1
+    assert c.get(k['url']).status_code == 410
+    assert fc_clips.sweep('c1') == 1 and not (tmp_path / 'c1' / 'mabcdef012345.mp4').exists()   # an expired upload's file is removed
+    k2 = fc_clips._link('c1', 'r1', 'mfedcba543210.mp4', 'clip', 'a clip'); (tmp_path / 'c1' / 'mfedcba543210.mp4').write_bytes(b'x' * 2000)
+    assert c.get(k2['url']).status_code == 200
+    assert c.post('/api/cats/c1/clipfarm/unlink', json={'id': k2['id']}).status_code == 200
+    assert c.get(k2['url']).status_code == 410 and (tmp_path / 'c1' / 'mfedcba543210.mp4').exists()   # a clip link ends; its PoC keeps the clip
+    fc_clips._MEM.clear()
+
+
+@pytest.mark.skipif(not FFMPEG, reason='ffmpeg is not installed')
+def test_a_file_the_converter_cannot_turn_stops_before_any_mind_is_asked_and_leaves_nothing(svc, tmp_path, monkeypatch):
+    fs, cat, store = svc
+    import fc_clips
+    src = _video(tmp_path / 'talk.mov', 80)
+    monkeypatch.setattr(cf, 'clean', lambda info, ext: False)
+    monkeypatch.setattr(cf, 'transcribe', lambda a, model=cf.WHISPER: _words(80))
+
+    def bad(s_, out):
+        Path(out).write_bytes(b'half'); raise ValueError('The free converter could not turn it into an MP4 (test).')
+    monkeypatch.setattr(cf, 'convert', bad)
+    asked = []
+
+    async def ask(*a):
+        asked.append(a); return '{}', 0.0, False
+    monkeypatch.setattr(fs, '_ws_ask', ask)
+    info = cf.probe(src); r = fc_clips._new_run('c1', 'talk', 'upload', info, None, '', False)
+    asyncio.run(fc_clips.farm('c1', r['id'], src))
+    run = cat['clipRuns'][-1]
+    assert run['status'] == 'failed' and 'free converter' in run['err'] and not asked and not run.get('clips')
+    assert next(x for x in run['steps'] if x['key'] == 'convert')['state'] == 'failed'
+    assert not any(p.read_bytes() == b'half' for p in tmp_path.rglob('*.mp4'))   # the half-made MP4 is gone
+    fc_clips._MEM.clear()

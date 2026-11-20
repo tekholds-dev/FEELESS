@@ -53,3 +53,4 @@ body.theme-day .pst-meter-bar i { box-shadow: none; }
 /* ✂ Slice 15: a clip-farm PoC — its square feed, its upload's name, three pieces a row */
 .pst-from { color: var(--m-text); font: 700 16px var(--f-display); line-height: 1.2; overflow-wrap: anywhere; }
 .pst-files.is-clip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pst-files.is-clip.is-feed img, .pst-files.is-clip.is-feed video { aspect-ratio: 1; }
+.pst-vlink { justify-self: start; color: var(--m-accent); font: 700 11px var(--f-mono); text-decoration: none; } .pst-vlink:hover, .pst-vlink:focus-visible { color: var(--m-text); outline: none; }

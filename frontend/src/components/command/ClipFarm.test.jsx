@@ -1,15 +1,15 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import ClipFarm, { boardRows, fileProblem, linkProblem } from './ClipFarm';
+import ClipFarm, { boardRows, fileProblem, linkProblem, platformOf, SAVE_STEPS } from './ClipFarm';
 import PocStudio from './PocStudio';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const $ = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 const FILES = ['video', 'image'].flatMap(pc => ['story', 'feed', 'wide'].map(fm => ({ piece: pc, format: fm, url: `/api/cats/media/c/m${pc}${fm}.${pc === 'video' ? 'mp4' : 'jpg'}` })))
   .concat(['story', 'feed', 'wide'].map(fm => ({ piece: 'post', format: fm, url: `/api/cats/poc/c/t${fm}.txt`, text: 'cap #x' })));
-const CLIP = { id: 'poc1c0', n: 4, at: 10, cost: 0.0012, studio: { hook: 'She wanted to explore', files: FILES, goal: { type: 'reach', target: 3000, by: 'minds' }, maker: { usd: 0 }, slot: '',
+const CLIP = { id: 'poc1c0', n: 4, at: 10, cost: 0.0012, studio: { hook: 'She wanted to explore', files: FILES, links: { story: '/api/cats/vid/v1', feed: '/api/cats/vid/v2', wide: '/api/cats/vid/v3' }, goal: { type: 'reach', target: 3000, by: 'minds' }, maker: { usd: 0 }, slot: '',
   clip: { run: 'cr1', rank: 1, s: 7.4, e: 44.3, dur: 36.9, from: 'Astronaut talk', both: 8.5, minds: [{ mind: 0, score: 8, why: 'hook' }, { mind: 1, score: 9, why: 'payoff' }], track: { how: 'face' } } } };
-const RUN = { id: 'cr1', name: 'Astronaut talk', secs: 300, w: 1920, h: 1080, status: 'done', firstClipS: 61, doneS: 104, cost: 0.0024, clips: ['poc1c0'],
+const RUN = { id: 'cr1', name: 'Astronaut talk', converted: { from: 'mov', note: 'hevc → h264', url: '/api/cats/vid/v0' }, links: [{ id: 'v0', kind: 'upload', exp: Date.now() / 1000 + 9e5 }], secs: 300, w: 1920, h: 1080, status: 'done', firstClipS: 61, doneS: 104, cost: 0.0024, clips: ['poc1c0'],
   steps: [{ key: 'probe', label: 'Read the file', state: 'done', note: '5:00', secs: 0 }, { key: 'words', label: 'Transcript with word times', state: 'done', note: '907 words', secs: 23 }, { key: 'minds', label: 'Both minds pick blind', state: 'running', note: '' }],
   cands: [{ n: 1, s: 7.4, e: 44.3, first2: "I've wanted to explore", local: 5.2, minds: [{ mind: 0, score: 8, picked: true, why: 'hook' }, { mind: 1, score: 9, picked: true, why: 'payoff' }] },
     { n: 2, s: 58, e: 94, first2: 'and my sister', local: 4.4, minds: [{ mind: 0, score: 3, why: 'slow' }, { mind: 1, score: null, why: '' }] }],
@@ -17,7 +17,9 @@ const RUN = { id: 'cr1', name: 'Astronaut talk', secs: 300, w: 1920, h: 1080, st
 
 test('pure: the limits are said before anything goes up, and YouTube / Twitch / Instagram links are never fetched', () => {
   expect(fileProblem({ name: 'a.mp4', size: 1e6 }, 120)).toBe('');
-  expect(fileProblem({ name: 'a.avi', size: 1e6, type: 'video/x-msvideo' }, 10)).toMatch(/MP4, MOV or WebM/);
+  expect(fileProblem({ name: 'a.avi', size: 1e6, type: 'video/x-msvideo' }, 120)).toBe(''); expect(fileProblem({ name: 'a.mkv', size: 1e6 }, 120)).toBe('');
+  expect(fileProblem({ name: 'a.pdf', size: 1e6, type: 'application/pdf' }, 0)).toMatch(/MP4, MOV, WebM, MKV, AVI/);
+  expect(platformOf('https://www.tiktok.com/@a/video/1')).toBe('TikTok'); expect(platformOf('https://bsky.app/x')).toBe(''); expect(SAVE_STEPS.Twitch.length).toBeGreaterThan(0);
   expect(fileProblem({ name: 'a.mov', size: 1e6 }, 364)).toMatch(/6:04 long\. Up to 5:00/);
   expect(fileProblem({ name: 'a.webm', size: 700e6 }, 60)).toMatch(/700 MB/);
   expect(linkProblem('https://www.youtube.com/watch?v=x')).toMatch(/YouTube doesn't allow downloading/);
@@ -35,7 +37,11 @@ test('the run shows a progress line per step and every candidate with each mind�
   expect($(el, 'cfm-step-words').textContent).toContain('907 words'); expect($(el, 'cfm-step-minds').className).toContain('is-running');
   const rows = el.querySelectorAll('[data-testid="cfm-moments"] tbody tr');
   expect(rows).toHaveLength(2); expect(rows[0].className).toContain('is-made'); expect(rows[0].textContent).toContain('8★9★'); expect(rows[1].textContent).toContain('3—');
-  expect($(el, 'cfm-vid-story').getAttribute('src')).toContain('mvideostory'); expect($(el, 'cfm-vid-feed')).not.toBeNull(); expect($(el, 'cfm-vid-wide')).not.toBeNull();
+  expect($(el, 'cfm-vid-story').getAttribute('src')).toContain('mvideostory');
+  expect($(el, 'cfm-link-poc1c0-story').querySelector('a').getAttribute('href')).toContain('/api/cats/vid/v1');
+  expect($(el, 'cfm-uplink').querySelector('a').getAttribute('href')).toContain('/api/cats/vid/v0');
+  await act(async () => $(el, 'cfm-uplink-del').click());
+  expect(JSON.parse(calls.find(c => String(c[0]).includes('/unlink'))[1].body)).toMatchObject({ id: 'v0' }); expect($(el, 'cfm-vid-feed')).not.toBeNull(); expect($(el, 'cfm-vid-wide')).not.toBeNull();
   await act(async () => $(el, 'cfm-day-poc1c0-Wed').click());
   const slot = calls.find(c => String(c[0]).includes('/slot'));
   expect(JSON.parse(slot[1].body)).toMatchObject({ job: 'poc1c0', day: 'Wed' }); expect(onPocs).toHaveBeenCalledWith([expect.objectContaining({ id: 'poc1c0' })]);
@@ -50,7 +56,8 @@ test('a link to YouTube is refused in the page, and nothing uploads without the 
   const inp = $(el, 'cfm-link'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   await act(async () => { set.call(inp, 'https://youtu.be/abc'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => $(el, 'cfm-link-go').click());
-  expect($(el, 'cfm-err').textContent).toMatch(/YouTube doesn't allow downloading/);
+  expect($(el, 'cfm-redirect').textContent).toMatch(/YouTube doesn't allow downloading/); expect($(el, 'cfm-redirect').querySelectorAll('li').length).toBe(2);
+  expect($(el, 'cfm-redirect-upload')).not.toBeNull();
   expect(global.fetch.mock.calls.some(c => String(c[0]).includes('/link'))).toBe(false);
   act(() => root.unmount()); el.remove();
 });
@@ -61,6 +68,7 @@ test('a clip PoC in the studio says the upload it came from, both minds’ score
   await act(async () => root.render(<PocStudio cat={{ id: 'c' }} f={{ ...CLIP, studio: { ...CLIP.studio, slot: 'Fri' } }} work={work} />));
   expect($(el, 'pst-clip-from').textContent).toBe('Astronaut talk');
   expect(el.textContent).toContain('Mind A 8/10 · Mind B 9/10'); expect(el.textContent).toContain('planned Fri'); expect(el.textContent).toContain('9/9');
+  expect($(el, 'pst-link-story').getAttribute('href')).toContain('/api/cats/vid/v1');
   expect(el.textContent).not.toContain('THREAD'); expect(el.querySelector('.pst-files').className).toContain('is-clip');
   act(() => root.unmount()); el.remove();
 });

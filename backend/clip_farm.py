@@ -19,12 +19,12 @@ from pathlib import Path
 
 MAX_S = 300                         # the owner's cap: up to 5 minutes
 MAX_BYTES = 600 * 1024 * 1024       # a 5-min 1080p phone recording is ~150–500 MB
-EXTS = {'mp4': 'video/mp4', 'mov': 'video/quicktime', 'webm': 'video/webm', 'm4v': 'video/mp4'}
+EXTS = {'mp4': 'video/mp4', 'mov': 'video/quicktime', 'webm': 'video/webm', 'm4v': 'video/mp4', 'mkv': 'video/x-matroska', 'avi': 'video/x-msvideo'}   # any of these goes through the free converter
 CLIP_MIN, CLIP_MAX, HOOK_S = 15.0, 60.0, 2.0
 MAX_CANDS, MAX_PICKS = 8, 3
 FORMATS = {'story': (1080, 1920, '9:16'), 'feed': (1080, 1080, '1:1'), 'wide': (1920, 1080, '16:9')}   # the folder's own format keys: feed = the 1:1 square here
 WHISPER = 'base'                    # local model: free, ~150 MB, downloaded once into the Hugging Face cache
-STEPS = (('probe', 'Read the file'), ('words', 'Transcript with word times'), ('peaks', 'Loudness, laughs and scene cuts'), ('moments', 'Candidate moments'),
+STEPS = (('probe', 'Read the file'), ('convert', 'Free converter: clean H.264 + AAC .mp4'), ('words', 'Transcript with word times'), ('peaks', 'Loudness, laughs and scene cuts'), ('moments', 'Candidate moments'),
          ('minds', 'Both minds pick blind'), ('clips', 'Track, cut, reframe and caption'), ('file', 'Filed as PoCs'))
 FONT = Path(__file__).resolve().parent.parent / 'frontend' / 'public' / 'assets' / 'pdf-fonts' / 'LiberationSans-Bold.ttf'
 GREEN = (25, 230, 140, 255)          # FEELESS green: a rendered file is the one place a colour is a number
@@ -39,7 +39,7 @@ def ext_of(name, ctype=''):
     m = re.search(r'\.([A-Za-z0-9]{2,5})$', str(name or ''))
     e = (m.group(1).lower() if m else '') or next((k for k, v in EXTS.items() if v == str(ctype or '').split(';')[0].strip().lower()), '')
     if e not in EXTS:
-        raise ValueError('Upload an MP4, MOV or WebM video.')
+        raise ValueError('Upload a video file: MP4, MOV, WebM, MKV, AVI or M4V.')
     return e
 
 
@@ -56,7 +56,7 @@ def probe(path, ffprobe='ffprobe'):
     except (TypeError, ValueError):
         secs = 0.0
     if not v or secs <= 0:
-        raise ValueError('That file could not be read as a video. Export it again as an MP4.')
+        raise ValueError('ffmpeg could not read a picture in that file, so it is not a video it can convert. Export it again from your app.')
     w, h = int(v.get('width') or 0), int(v.get('height') or 0)
     rot = str(((v.get('tags') or {}).get('rotate')) or next((sd.get('rotation') for sd in v.get('side_data_list') or [] if 'rotation' in sd), '') or '0')
     if rot.strip('-') in ('90', '270'):
@@ -66,7 +66,38 @@ def probe(path, ffprobe='ffprobe'):
         fps = float(a) / float(b or 1) or 30.0
     except (ValueError, ZeroDivisionError):
         fps = 30.0
-    return {'secs': round(secs, 2), 'w': w, 'h': h, 'fps': round(min(60.0, max(1.0, fps)), 2), 'audio': any(s.get('codec_type') == 'audio' for s in d.get('streams') or [])}
+    a_ = next((s for s in d.get('streams') or [] if s.get('codec_type') == 'audio'), None)
+    return {'secs': round(secs, 2), 'w': w, 'h': h, 'fps': round(min(60.0, max(1.0, fps)), 2), 'audio': bool(a_),
+            'vcodec': str(v.get('codec_name') or '?'), 'acodec': str((a_ or {}).get('codec_name') or ''), 'pix': str(v.get('pix_fmt') or ''),
+            'box': str((d.get('format') or {}).get('format_name') or '').split(',')[0], 'rot': rot.strip('-') in ('90', '270')}
+
+
+# ── 0½ · the free converter (owner 2026-11-19: "a free converter for .mov etc") ──────────────────────────────────────────────────────
+def clean(info, ext):
+    """Already a plain H.264 + AAC MP4 (yuv420p, no rotation flag, ≤ 1920 px)? Then it is kept as it is. Pure."""
+    return (ext in ('mp4', 'm4v') and info.get('vcodec') == 'h264' and info.get('acodec') == 'aac' and info.get('pix') in ('yuv420p', 'yuvj420p')
+            and not info.get('rot') and max(info.get('w') or 0, info.get('h') or 0) <= 1920)
+
+
+def convert_args(src, out, encoder='h264_videotoolbox'):
+    """Any video ffmpeg reads (HEVC / iPhone .mov, MKV, AVI, WebM VP9, odd audio) → H.264 + AAC 48 kHz stereo MP4, long side ≤ 1920 px,
+    at most 60 fps, upright (ffmpeg applies the rotation flag), at most MAX_S seconds, faststart so it plays while it loads."""
+    enc = ['-c:v', 'h264_videotoolbox', '-b:v', '10M', '-allow_sw', '1'] if encoder == 'h264_videotoolbox' else ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20']
+    return ['ffmpeg', '-v', 'error', '-nostdin', '-y', '-i', str(src), '-t', f'{MAX_S + 0.5:.1f}', '-map', '0:v:0', '-map', '0:a:0?',
+            '-vf', "scale='if(gt(iw,ih),min(1920,iw),-2)':'if(gt(iw,ih),-2,min(1920,ih))',fps='min(60,source_fps)'", *enc, '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '160k', '-ac', '2', '-ar', '48000', '-movflags', '+faststart', str(out)]
+
+
+def convert(src, out):
+    """Runs the converter (Apple's hardware encoder, then plain x264 if that fails). → seconds it took. ValueError with a plain reason."""
+    t0 = time.time(); last = ''
+    for enc in ('h264_videotoolbox', 'libx264'):
+        r = subprocess.run(convert_args(src, out, enc), capture_output=True, timeout=900)
+        if r.returncode == 0 and Path(out).is_file() and Path(out).stat().st_size > 1000:
+            return round(time.time() - t0, 1)
+        last = ((r.stderr or b'').decode(errors='replace').strip().splitlines() or [''])[-1][:140]
+    Path(out).unlink(missing_ok=True)
+    raise ValueError(f'The free converter could not turn it into an MP4 ({last or "ffmpeg gave no reason"}). Export it again from your app.')
 
 
 def check(info, size):

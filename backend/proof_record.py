@@ -184,14 +184,20 @@ def fresh_sites(back, kind, now, sites, keep=4):
     return good if len(good) >= keep else good + [s for s in sites or [] if _host(s) in bad]
 
 
+def _clip_from(f):
+    """✂ Slice 15: the upload a clip-farm PoC was cut from ('' for every other proof; a PoStatic's `studio` is a list of pieces)."""
+    s = f.get('studio') if isinstance(f.get('studio'), dict) else {}
+    return (s.get('clip') or {}).get('from') if isinstance(s.get('clip'), dict) else ''
+
+
 def checks(kind, f, pair):
     """The VISION checks for every proof, on this one folder. → [{key, label, ok, why}]"""
     m = f.get('mindsCheck') or match(f.get('ran'), pair, kind); rd = f.get('read') or sources(kind, f); ft = f.get('foot') or {}
     kits = [k for k in _rows(f.get('kits')) if k]
     rows = [
         {'key': 'minds', 'label': 'The minds that really ran, from the call log', 'ok': bool(m.get('ok')), 'why': m.get('why')},
-        {'key': 'sources', 'label': 'Every source it read is listed', 'ok': bool(rd.get('sites')) or kind == 'poe' and bool(rd.get('pages')) or bool(((f.get('studio') or {}).get('clip') or {}).get('from')),
-         'why': f"{len(rd.get('sites') or [])} sites, {len(rd.get('pages') or [])} pages" if rd.get('sites') or rd.get('pages') else f"its only source: the upload \"{str(((f.get('studio') or {}).get('clip') or {}).get('from'))[:60]}\"" if ((f.get('studio') or {}).get('clip') or {}).get('from') else 'no source was recorded'},
+        {'key': 'sources', 'label': 'Every source it read is listed', 'ok': bool(rd.get('sites')) or kind == 'poe' and bool(rd.get('pages')) or bool(_clip_from(f)),
+         'why': f"{len(rd.get('sites') or [])} sites, {len(rd.get('pages') or [])} pages" if rd.get('sites') or rd.get('pages') else f"its only source: the upload \"{str(_clip_from(f))[:60]}\"" if _clip_from(f) else 'no source was recorded'},
         {'key': 'footprint', 'label': 'A new footprint (a repeat is sent back first)', 'ok': not ft.get('repeat'),
          'why': (f"{ft.get('pct')}% new" + (f" next to #{ft.get('nearest')}" if ft.get('nearest') else '') + (', after one send-back' if ft.get('sentBack') else ''))
          if not ft.get('repeat') else f"still {100 - int(ft.get('pct') or 0)}% like #{ft.get('nearest')} after one send-back"},

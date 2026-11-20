@@ -60,7 +60,7 @@ def summary(last):
             + (lambda c: f"\n  code check: {c.get('passed')}/{c.get('total')} failed {c.get('failed')}{' NOT RUN ' + str(c.get('notRun')) if c.get('notRun') else ''}" if c else '')(last.get('codeCheck'))
             + ''.join(f"\n  inspect {r.get('sel')}: {'CHANGED' if r.get('changed') else 'GONE' if r.get('gone') else 'SAME'} · before {((r.get('before') or {}).get('text') or '')[:60]!r} → after {((r.get('after') or {}).get('text') or '')[:60]!r}" for r in ((last.get('inspect') or {}).get('run') or {}).get('rows') or [])
             + (lambda k: f"\n  progress: kept {k.get('kept')}/{k.get('had')} of page {k.get('from')}, lost {k.get('lost')}" if k and k.get('from') else '')(last.get('keep'))
-            + (lambda s: f"\n  PoC trend: {(s.get('trend') or {}).get('text')} ({(s.get('trend') or {}).get('source')})\n  PoC files: {sum(1 for x in s.get('files') or [] if x.get('url'))}/12 · goal {(s.get('goal') or {}).get('target')} {(s.get('goal') or {}).get('type')} by {(s.get('goal') or {}).get('by')}"
+            + (lambda s: f"\n  PoC trend: {(s.get('trend') or {}).get('text')} ({(s.get('trend') or {}).get('source')})\n  PoC files: {sum(1 for x in s.get('files') or [] if x.get('url'))}/{len(s.get('files') or []) or 12} · goal {(s.get('goal') or {}).get('target')} {(s.get('goal') or {}).get('type')} by {(s.get('goal') or {}).get('by')}"
                if s else '')(last.get('studio') if isinstance(last.get('studio'), dict) else None))
 
 
