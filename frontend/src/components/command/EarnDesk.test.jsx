@@ -33,6 +33,7 @@ test('a TEST filing approves only on purpose and nothing else is offered before 
   expect(q('ern-bid-mind-0').textContent).toContain('KEPT');
   expect(q('ern-bid-mind-1').textContent).toContain('NOT KEPT');
   expect(q('ern-approve').disabled).toBe(true);
+  expect(q('ern-rec').open).toBe(false);   // the desk bar: the record + checks fold into one slim row
   expect(q('ern-sent')).toBeNull(); expect(q('ern-paid')).toBeNull();
   act(() => { q('ern-real').click(); });
   act(() => { q('ern-approve').click(); });

@@ -17,7 +17,7 @@ function Meter({ label, v, max, tip }) {
 }
 
 function Listing({ r, i, busy, onBid }) {
-  return <motion.li className="ern-row" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 8) * 0.04 }} data-testid={`ern-row-${i}`}>
+  return <motion.li className="ern-row" initial={{ y: 6 }} animate={{ y: 0 }} transition={{ delay: Math.min(i, 8) * 0.04 }} data-testid={`ern-row-${i}`}>
     <span className="ern-score m-num" data-tip="Fit 30 + pay 30 + time 20 + profit 20">{r.score}</span>
     <div className="ern-main"><a href={r.url} target="_blank" rel="noopener noreferrer" className="ern-title">{r.title}<ExternalLink size={11} aria-hidden="true" /></a>
       <span className="ern-facts"><em className="m-chip">{PLAT[r.src] || r.src}</em><em className="m-chip ok">{r.cat}</em><span>{r.pay}</span><span>{r.daysLeft == null ? 'no deadline' : `${r.daysLeft} d left`}</span><span>{r.rivals} entered</span></span>
@@ -41,6 +41,15 @@ export function EarnBoard({ v, busy, onFind, onBid }) {
   </section>;
 }
 
+// The true record + checks, folded into one slim row (the desk bar, RULINGS 2026-11-20): tap to open.
+export function RecordRow({ f }) {
+  const ch = f.proofChecks || []; const ok = ch.filter(c => c.ok).length; const ran = (f.ran || []).filter(r => r.ok).map(r => String(r.asked).split('/').pop());
+  return <details className="ern-rec" data-testid="ern-rec"><summary><b className={`m-num ${ok === ch.length && ch.length ? 'is-up' : 'is-bad'}`}>{ok}/{ch.length}</b> checks
+    <span>{ran.join(' + ') || 'no mind'}</span><span>{(f.read?.sites || []).length} sites</span><span>{f.foot?.pct ?? '—'}% new</span><span>{(f.kits || []).length} kits</span>{f.test ? <em className="trec-tag">TEST</em> : null}</summary>
+    <ul>{ch.map(c => <li key={c.key} className={c.ok ? 'is-ok' : 'is-bad'}><b>{c.ok ? '✓' : '✗'} {c.label}</b><span>{c.why}</span></li>)}
+      {f.read?.sites?.length ? <li><b>Sources</b><span>{f.read.sites.join(', ')}</span></li> : null}{f.kits?.length ? <li><b>Kits</b><span>{f.kits.join(', ')}</span></li> : null}</ul></details>;
+}
+
 function Bid({ b, kept }) {
   return <article className={`ern-bid${kept ? ' is-kept' : ''}`} data-testid={`ern-bid-mind-${b.mind}`}><header><b>Mind {'AB'[b.mind % 2]}</b><em>{kept ? 'KEPT' : 'NOT KEPT'}</em><span className="m-num">{b.score}</span></header>
     {b.bid ? <p className="ern-text">{b.bid}</p> : <p className="ern-say">No readable bid came back.</p>}
@@ -58,7 +67,8 @@ export function EarnFiling({ f, onBack, busy, act }) {
     <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · earn</b>{test ? <em className="trec-tag">TEST</em> : null}</header>
     <a className="ern-ft" href={l.url} target="_blank" rel="noopener noreferrer" data-testid="ern-listing">{l.title}<ExternalLink size={12} aria-hidden="true" /></a>
     <span className="ern-facts"><em className="m-chip">{f.platform?.name}</em><em className="m-chip ok">{l.cat}</em><span>{l.pay}</span><span>{l.daysLeft == null ? 'no deadline' : `${l.daysLeft} d left`}</span><span>{l.rivals} entered</span><span>score <b className="m-num">{l.score}</b></span></span>
-    <div className="ern-kpis"><span><small>EXPECTED PROFIT</small><b className="m-num is-up">{usd(l.expProfit)}</b></span><span><small>MINDS COST</small><b className="m-num">{usd(f.cost)}</b></span><span><small>HOURS SAVED</small><b className="m-num">{l.hours}</b></span><span><small>WIN CHANCE</small><b className="m-num">{Math.round((l.chance || 0) * 100)}%</b></span></div>
+    <p className="ern-kpis" data-testid="ern-kpis"><span><small>EXPECTED</small><b className="m-num is-up">{usd(l.expProfit)}</b></span><span><small>MINDS</small><b className="m-num">{usd(f.cost)}</b></span><span><small>HOURS SAVED</small><b className="m-num">{l.hours}</b></span><span><small>WIN CHANCE</small><b className="m-num">{Math.round((l.chance || 0) * 100)}%</b></span></p>
+    <RecordRow f={f} />
     <ol className="ern-track" aria-label="Where it stands" data-testid="ern-track">{TRACK.map(([k, lab], i) => <li key={k} className={ended ? (i <= Math.max(0, at) ? 'is-done' : '') : i < at ? 'is-done' : i === at ? 'is-now' : ''}>{lab}</li>)}{ended ? <li className="is-bad">{f.stage === 'lost' ? 'Lost' : 'Unpaid'}</li> : null}</ol>
     <div className="ern-bids">{(f.bids || []).map(b => <Bid key={b.mind} b={b} kept={b.mind === f.kept} />)}</div>
     <section className="ern-door m-card" data-testid="ern-door">
