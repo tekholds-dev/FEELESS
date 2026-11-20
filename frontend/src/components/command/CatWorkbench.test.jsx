@@ -348,13 +348,15 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
-  expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
+  expect(q('pwd-hero').textContent).toContain('P&L · NO FEES'); expect(q('phd-pow-row')).not.toBeNull();   // ⛏ Slice 25: it opens on the coin-work dashboard under one slim record row
+  await act(async () => { q('pwd-tab-filed').click(); }); expect(q('dsk-x-pow9').textContent).toContain('AAA'); expect(q('dsk-x-pow9').textContent).toContain('-4.2%');
+  await act(async () => { q('pwd-tab-tools').click(); });   // its share, PoI, kernel, site door and wallet watches live one tab away
   expect(q('prf-tab-record').getAttribute('aria-selected')).toBe('true'); expect(q('ws-todesk')).toBeNull();   // rail tabs: its record first; no Back to desk until a folder is open
   await act(async () => { q('prf-tab-tools').click(); }); expect(q('prf-tab-tools').getAttribute('aria-selected')).toBe('true'); await act(async () => { q('prf-tab-record').click(); });
   expect(q('dsk-poi').textContent).toContain('solscan.io promoted'); expect(q('dsk-poi').querySelectorAll('.pf-print').length).toBe(2);   // one mind view, no second diagram
   await act(async () => { q('dsk-memory-1').click(); }); expect(q('dsk-memory-1').textContent).toContain('Tap again');
   await act(async () => { q('dsk-memory-1').click(); }); expect(memoryOps).toContain('memory_restore');
-  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('ws-todesk')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('.lucide-thumbs-down')).not.toBeNull();   // 📁 FolderArt: the line icon on the folder
+  await act(async () => { q('pwd-tab-filed').click(); }); await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('ws-todesk')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('.lucide-thumbs-down')).not.toBeNull();   // 📁 FolderArt: the line icon on the folder
   expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
   await act(async () => { q('dsk-x-poi').click(); }); expect(q('poi-folder')).not.toBeNull(); expect(q('pf-mind-0')).not.toBeNull();   // 🧬 exactly one PoI child folder
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); });
@@ -414,6 +416,7 @@ test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% 
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'h1', name: 'Happy', colonyShare: { on: false, pct: 10 } }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('pwd-tab-tools').click(); });   // ⛏ Slice 25: the share door is on the dashboard's Tools tab
   expect(q('dsk-share').textContent).toContain('stay in its wallet');
   await act(async () => { q('dsk-share-20').click(); });
   expect(signed.at(-1)).toMatch(/^FEELESS auto-collect\nSend this % of each winning proof of \+50% or more to the Pool\nagent:h1\npct:20\nts:\d+$/); expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
@@ -449,13 +452,13 @@ test('📌 keep / 🗑 delete a PoW folder or one coin folder from the desktop (
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'h1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
-  await act(async () => { q('dsk-x-pow9').click(); }); await act(async () => { q('dsk-fold-keep').click(); });
+  await act(async () => { q('pwd-tab-filed').click(); }); await act(async () => { q('dsk-x-pow9').click(); }); await act(async () => { q('dsk-fold-keep').click(); });
   expect(posts.at(-1)).toMatchObject({ op: 'pow_folder', job: 'keep', text: 'pow9', on: true }); expect(q('dsk-fold-keep').textContent).toContain('Kept');
   await act(async () => { q('dsk-x-coin-M2').click(); }); await act(async () => { q('dsk-coin-del').click(); });
   expect(posts).toHaveLength(1); await act(async () => { q('dsk-coin-del').click(); });                      // asks twice
   expect(posts.at(-1)).toMatchObject({ job: 'delete_coin', secret: 'M2' }); expect(q('dsk-x-coin-M2')).toBeNull();
   await act(async () => { q('dsk-fold-del').click(); }); await act(async () => { q('dsk-fold-del').click(); });
-  expect(posts.at(-1)).toMatchObject({ job: 'delete', text: 'pow9' }); expect(q('dsk-x-pow9')).toBeNull();
+  expect(posts.at(-1)).toMatchObject({ job: 'delete', text: 'pow9' }); await act(async () => { q('pwd-tab-filed').click(); }); expect(q('dsk-x-pow9')).toBeNull();
   act(() => root.unmount());
 });
 
