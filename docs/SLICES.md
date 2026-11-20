@@ -11,7 +11,7 @@
 1. ~~Slice 13 (PoB dashboard)~~ ✅ 2026-11-19, on main.
 2. **Slice 15 (PoC clip farming, owner 2026-11-19).**
 3. **Slice 16 (PoEco earns real money, owner 2026-11-19).** Running.
-3b. **Slices 24–28 (owner 2026-11-20): every proof desk redone as a clean dashboard for long work, plus PoC's bugs:** 24 PoC (+ the broken clip line + Runway Aleph's 400) · 25 PoW · 26 PoP · 27 PoStatic · 28 PoEco.
+3b. **Desks (owner 2026-11-20):** 24 PoC ✅ · 25 PoW ✅ · **26 PoP (NEXT, its card is ready in the manager session)** · **29 clip studio** (grid, week planner, chat in the plan, caption / transition / effect editor, the cut-off caption bug) · 27 PoStatic · 28 PoEco.
 4. **Slices 17–23 (the owner's earn ideas, in order):** 17 Solana bounties · 18 clips as a service · 19 faceless channels · 20 PoStatic storefront · 21 affiliate micro-sites · 22 agent for hire (waits on a legal ruling) · 23 cheaper-model race.
 5. **Slice 8 (proof of everything) last.**
 **The prompt** is the standard prompt below with the slice number. Pick Opus 5.5 medium and never switch mid-session.
@@ -35,10 +35,10 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 16 → 24–28 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 26 → 29 → 27 → 28 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
 6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
-**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 16 (PoEco earns, running) → 24–28 (desk redos) → 17–23 (earn ideas) → 8 last.
+**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 26 (PoP desk) → 29 (clip studio) → 27 (PoStatic desk) → 28 (PoEco desk) → 17–23 (earn ideas) → 8 last.
 
 ---
 
@@ -276,6 +276,22 @@ FEELESS, Slice 25. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 FEELESS, Slice 26. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 26" in docs/SLICES.md. Do only Slice 26, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 26 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 26's Status line.
 ```
 
+## Slice 29 · Clip studio: the clip folder as a real editor + week planner (owner 2026-11-20) · Opus 5.5 medium · after 26, before 27
+**Why:** owner, with screenshots of PoC #21 and the new PoC dashboard: "yess and clip farming should show file folder with some cool smart way to show a grid and easy way for user to plan a week or have agent plan and user able to chat in file of the plan etc, able to edit captions and different transition and effects user or ai can use to make unique and ultimate design etc, like do better."
+**Area:** `ClipFarm.jsx`, `PocDash.jsx`, `PocWire.jsx` / `WeekBoard.jsx`, `backend/clip_farm.py`, `fc_clips.py` (ffmpeg render).
+**Checks:**
+- [ ] **Bug (PoC #21 screenshot):** the caption box on the 9:16 clip is cut off at the frame edge ("…since I was a", the word "kid." lost), while the 1:1 one wraps right. Captions always fit and wrap inside the frame, on every format, with a test.
+- [ ] **Clip folder = a smart grid:** every clip of a run as playable tiles, grouped by source and format, with hover-play, its score, hook and status (to approve / planned / posted), plus quick filters. No long list rows.
+- [ ] **Week planner:** drag clips onto a Mon–Sun board with times per platform, or tap "agent plans it" (the minds fill the week from the scores and the trend reader, saying why for each slot). Both ways land in the same saved plan.
+- [ ] **Chat in the plan:** a chat inside the plan's file. The owner asks ("move the best one to Friday, make Tuesday funnier") and the minds change the plan and the clips. Every change is versioned and can be undone.
+- [ ] **Edit like an editor:** captions (words, timing, style: font, colour, size, position, word-by-word highlight), transitions (cut, fade, zoom, whip, glitch) and effects (punch-in zoom, shake, colour grade, speed ramp, B-roll / emoji pop) as presets the owner OR the minds can apply. A live preview, rendered by ffmpeg ($0, local), no watermark, each clip's look unique (no two clips the same preset set).
+- [ ] **Type and polish (owner: "poor layout/ui and fonts bigasl like just basic asf"):** the clip viewer (PoC #21: two giant side-by-side players with a lone Download button) and the PoC post rows get the RULINGS 2026-11-20 type scale (body 12–13 px, labels 10–11 px, one hero number per card) and designed depth, not plain boxes.
+- [ ] Everything still files through Slice 5's approve door (nothing posts by itself) and meets the desk bar (RULINGS 2026-11-20): full / half / phone width, night and day, with a screenshot per tab, on real clips (the ohara_iphone run).
+**Status:** not started.
+```
+FEELESS, Slice 29. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoC"), then RULINGS 2026-11-20, then "Slice 29" in docs/SLICES.md. Do only Slice 29, fully, end to end. Research free/open caption, transition and effect tools first (ffmpeg filters, open caption styles) and make one real local render before building on one. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 29 check passes on real clips, seen in the browser on 51366 at full / half / phone width with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed and confirmed on origin/main. Finish by updating Slice 29's Status line.
+```
+
 ## Slice 27 · PoStatic desk: a dashboard for building
 **Area:** the PoStatic folder (`ProofDeskLazy kind="build"`, the page viewer, inspect, studio).
 **Checks:**
@@ -391,7 +407,7 @@ FEELESS, Slice 22. Read CLAUDE.md, then docs/VISION.md ("Brains" and "PoW · PoP
 FEELESS, Slice 23. Read CLAUDE.md, then docs/VISION.md ("COMP" and "The point of it all"), then "Slice 23" in docs/SLICES.md. Do only Slice 23, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 23 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 23's Status line.
 ```
 
-## Slice 8 · Proof of everything (runs LAST, after 9–28) · Opus 5.5 medium
+## Slice 8 · Proof of everything (runs LAST, after 9–29) · Opus 5.5 medium
 **Why:** one session that trusts nothing and proves every VISION check for real.
 **Checks:**
 - [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
