@@ -241,7 +241,7 @@ test('🖥 the private desktop: the live window minimizes to the taskbar, the Va
   await act(async () => { q('safe-yes').click(); }); expect(q('dsk-win-vault').textContent).toContain('proton.me');
   await act(async () => { q('dsk-tab-sealed').click(); }); expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('dsk-tab-sealed').textContent).toContain('1');
   await act(async () => { q('dsk-ico-pow').click(); }); expect(q('dsk-win-pow')).not.toBeNull();             // ⛏ its proofs folder
-  await act(async () => { q('dsk-ico-honey').click(); }); for (let i = 0; i < 40 && !q('cll-view-more'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); }); await act(async () => { q('cll-view-more').click(); }); for (let i = 0; i < 40 && !q('dsk-honey'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); }); expect(q('dsk-honey').textContent).toContain('ITS POT'); expect(q('dsk-potsend')).not.toBeNull(); await act(async () => { q('dsk-ico-pop').click(); }); expect(q('pop-desk')).not.toBeNull(); expect(q('pop-start')).not.toBeNull(); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
+  await act(async () => { q('dsk-ico-honey').click(); }); for (let i = 0; i < 40 && !q('cll-view-more'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); }); await act(async () => { q('cll-view-more').click(); }); for (let i = 0; i < 40 && !q('dsk-honey'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 50)); }); expect(q('dsk-honey').textContent).toContain('ITS POT'); expect(q('dsk-potsend')).not.toBeNull(); await act(async () => { q('dsk-ico-pop').click(); }); expect(q('ppx')).not.toBeNull(); expect(q('pop-start')).not.toBeNull(); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
   await act(async () => { q('cwb-pop-close').click(); }); expect(closed).toEqual([1]);
   act(() => root.unmount());
   const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);
@@ -493,12 +493,15 @@ test('📉 PoP is folders like PoW: dated folder → report, market folder, disc
   const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="pop" />); });
   const q = t => document.querySelector(`[data-testid="${t}"]`);
-  expect(q('pop-desk')).not.toBeNull(); expect(q('pop-x-p2').textContent).toContain('PoP #2'); expect(q('pop-x-p1').textContent).toContain('no trade');
+  expect(q('ppx')).not.toBeNull(); expect(q('dsk-wall')).toBeNull();   // Slice 26: the PoP dashboard, no tile wall over it
+  expect(q('ppx-win').textContent).toBe('0%'); expect(q('ppx-pnl').textContent).toBe('−$0.32'); expect(q('ppx-sit-n').textContent).toContain('1');
+  await act(async () => { q('pop-start').click(); }); expect(asked.at(-1)).toMatchObject({ op: 'pop', job: 'start' });   // the door is wired: click → the engine's pop op
+  await act(async () => { q('ppx-tab-filed').click(); }); expect(q('pop-x-p2').textContent).toContain('PoP #2'); expect(q('pop-x-p1').textContent).toContain('no trade');
   await act(async () => { q('pop-x-p2').click(); }); expect(q('pop-x-report').textContent).toContain('BAD TRADE'); expect(q('pop-x-m-BTC').textContent).toContain('-0.60%');
   await act(async () => { q('pop-keep').click(); }); expect(asked.filter(x => x.op === 'pop_folder').at(-1)).toMatchObject({ op: 'pop_folder', job: 'keep', text: 'p2', on: true }); expect(q('pop-keep').textContent).toContain('Kept');
   await act(async () => { q('pop-x-report').click(); }); expect(q('pop-report').textContent).toContain('short BTC closed at stop');
   await act(async () => { document.querySelector('[aria-label="Up one folder"]').click(); }); await act(async () => { q('pop-x-m-BTC').click(); }); expect(q('pop-market').textContent).toContain('below the midpoint');
-  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
+  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f; try { localStorage.removeItem('feeless.popDashTab'); } catch { /* none */ }
 });
 
 test('🎲 PoB: files from the Bids desk, and a folder shows what each mind read in its own browser', async () => {

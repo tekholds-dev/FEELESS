@@ -116,6 +116,7 @@ frontend/public/dev-agents.json
 frontend/public/dev-feecat.json
 frontend/public/dev-prompts.json
 frontend/public/dev-pow.json
+frontend/public/dev-pop.json
 frontend/public/dev-pob.json
 frontend/public/dev-pob-dash.json
 frontend/public/dev-agent.json

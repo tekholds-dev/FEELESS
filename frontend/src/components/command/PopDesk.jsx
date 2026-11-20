@@ -47,7 +47,7 @@ export function ProposalCard({ c, send, busy }) {
 }
 
 // Did their proposals work? The only way to learn if a blind agree beats an argued one, from their own record.
-function ProposalScore({ rows }) {
+export function ProposalScore({ rows }) {
   const closed = rows.filter(r => r.ghost); if (!closed.length) return null;
   return <div className="pop-score" data-testid="pop-score"><em>THEIR PROPOSALS</em>{Object.entries(CONVICTION).map(([k, [tag]]) => { const xs = closed.filter(r => r.conviction === k); return xs.length ? <span key={k} className="m-chip">{tag} {xs.filter(r => r.won).length}/{xs.length}</span> : null; })}</div>;
 }
