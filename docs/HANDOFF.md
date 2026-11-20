@@ -1,7 +1,7 @@
 # HANDOFF — open work only (cleaned 2026-11-14). The owner's chat ask always comes first; this page never blocks it.
 
 > No claiming. A finished card becomes one line in `docs/history/<month>.md` and leaves this page. Rules: `CLAUDE.md` → `docs/RULINGS.md`. Old detail for any ID: grep `docs/archive/`.
-> **NOW (2026-11-19): read "NEXT ACCOUNT: START HERE" at the top of `docs/SLICES.md`.** ONE slice at a time, each in its own session started by a manager session (RULINGS 2026-11-19). Slice 13 ✅. Left: Slice 15 (PoC clip farming, running) → Slice 16 (PoEco earns real money) → Slices 17–23 (earn ideas) → Slice 8 last. The bar is `docs/VISION.md`. Each slice updates its own Status line there.
+> **NOW (2026-11-19): read "NEXT ACCOUNT: START HERE" at the top of `docs/SLICES.md`.** ONE slice at a time, each in its own session started by a manager session (RULINGS 2026-11-19). Slice 13 ✅. Slice 15 ✅. Left: Slice 16 (PoEco earns real money, running) → Slices 24–28 (every proof desk redone, the desk bar in RULINGS 2026-11-20) → Slices 17–23 (earn ideas) → Slice 8 last. The bar is `docs/VISION.md`. Each slice updates its own Status line there.
 > **State 2026-11-14:** the build order is done (LOOK-1, COMP-1, AGENT-AUTO, SEC-1, MODEL-CFG, STYLE-1, JUDGE, POC-PLAY, free readiness run = READY) and the COMP redo is live. What is left for Claude is SITE-8's scale work; the rest is the owner's.
 
 ## WHERE WE LEFT OFF (2026-11-14 ~12:15 CT, opus-5.5 session — all of it is on GitHub main)

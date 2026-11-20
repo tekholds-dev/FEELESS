@@ -10,7 +10,8 @@
 **Where it stands (2026-11-19, ~17:00 CT):** on main, slices 0–7, 9, 10, 11, 12 and 14 have their Status lines (10 ⛔ 5/6, 11 ⛔ 2/4, 7 ⛔: COMP 11/22 vs base 13/22, not shipped). **Left, in this order:**
 1. ~~Slice 13 (PoB dashboard)~~ ✅ 2026-11-19, on main.
 2. **Slice 15 (PoC clip farming, owner 2026-11-19).**
-3. **Slice 16 (PoEco earns real money, owner 2026-11-19).**
+3. **Slice 16 (PoEco earns real money, owner 2026-11-19).** Running.
+3b. **Slices 24–28 (owner 2026-11-20): every proof desk redone as a clean dashboard for long work, plus PoC's bugs:** 24 PoC (+ the broken clip line + Runway Aleph's 400) · 25 PoW · 26 PoP · 27 PoStatic · 28 PoEco.
 4. **Slices 17–23 (the owner's earn ideas, in order):** 17 Solana bounties · 18 clips as a service · 19 faceless channels · 20 PoStatic storefront · 21 affiliate micro-sites · 22 agent for hire (waits on a legal ruling) · 23 cheaper-model race.
 5. **Slice 8 (proof of everything) last.**
 **The prompt** is the standard prompt below with the slice number. Pick Opus 5.5 medium and never switch mid-session.
@@ -34,10 +35,10 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 15 → 16 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 16 → 24–28 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
 6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
-**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 15 (clip farming) → 16 (PoEco earns) → 17–23 (earn ideas) → 8 last.
+**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 16 (PoEco earns, running) → 24–28 (desk redos) → 17–23 (earn ideas) → 8 last.
 
 ---
 
@@ -238,7 +239,64 @@ FEELESS, Slice 15. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 15" 
 FEELESS, Slice 16. Read CLAUDE.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 16" in docs/SLICES.md. Do only Slice 16, fully, end to end. Research each platform's terms with a web search first and make one real public read before building on one. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 16 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent or delivered), seen in the browser; gate green; pushed. Finish by updating Slice 16's Status line.
 ```
 
-## Slices 17–23 · the owner's earn ideas (owner 2026-11-19: "loving the proposals!! … add these all + u suggested to slices"). Opus 5.5 medium each, in this order, after 16, before 8.
+## Slices 24–28 · every proof desk redone for long work (owner 2026-11-20). Opus 5.5 medium each, after 16, before 17.
+Owner: "issues and layout needs to be cleaner, more dashboard like for each proof type, a unique look for easy working … each proof type will have a user in it for hours potentially building or working on sumn cool!" One desk per slice, deep (never a shallow pass over all of them).
+
+## Slice 24 · PoC desk: fixes + a dashboard for content work
+**Why:** owner's screenshots 2026-11-20: the PoC home is a huge header and a giant checks block, and the clip board is broken.
+**Area:** `PocStudio.jsx`, `ClipFarm.jsx`, the PoC folder home (`ProofHead` for poc, `ProofDeskLazy kind="content"`), `backend/media_gen.py` (Runway Aleph 2 on OpenRouter).
+**Checks:**
+- [ ] **Bug:** in Clips, a run's info line (`5:00 · 1920×1080 · …`, "Your upload, converted …", candidate counts) renders one letter per line down the page. Find the cause and fix it, with a test that the line keeps its width.
+- [ ] **Bug:** Runway Aleph 2 · Replace fails with `400: Validation of body failed: Unrecognized key: "references"`. Read OpenRouter's current `/videos` schema (one real free call), send the body it takes, and add a test with that schema. ("Out of credit" is the owner's provider balance: keep the plain message.)
+- [ ] Slice 15's named miss: first clip on a converted iPhone .mov in under 2 min, or the cause named with numbers.
+- [ ] The PoC home is a content dashboard: what's trending now, its posts and their reach / cost per 1,000 views, clips waiting for approve, this week's plan, with the live tools beside it, not under a wall.
+- [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
+**Status:** not started.
+```
+FEELESS, Slice 24. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoC"), then "Slice 24" in docs/SLICES.md. Do only Slice 24, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 24 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 24's Status line.
+```
+
+## Slice 25 · PoW desk: a dashboard for coin work
+**Area:** the PoW folder (`PowExplorer`, `ProofHead` for pow, `ProofRail`).
+**Checks:**
+- [ ] It opens on a coin-work dashboard: open proposals and trades, P&L without fees (§1) with its curve, the coins it's watching with live prices, the minds' last calls, and its guards (age / pool / already-ran) at a glance.
+- [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
+**Status:** not started.
+```
+FEELESS, Slice 25. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 25" in docs/SLICES.md. Do only Slice 25, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 25 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 25's Status line.
+```
+
+## Slice 26 · PoP desk: a dashboard for paper perps
+**Area:** the PoP folder (`PopApp`, `ProofHead` for pop).
+**Checks:**
+- [ ] It opens on a perps dashboard: open paper positions with entry / mark / liquidation and P&L, a real chart (Lightweight Charts), its win rate, and the minds' sit-out reasons.
+- [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
+**Status:** not started.
+```
+FEELESS, Slice 26. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 26" in docs/SLICES.md. Do only Slice 26, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 26 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 26's Status line.
+```
+
+## Slice 27 · PoStatic desk: a dashboard for building
+**Area:** the PoStatic folder (`ProofDeskLazy kind="build"`, the page viewer, inspect, studio).
+**Checks:**
+- [ ] It opens on a builder's dashboard: the live page big, versions, inspect + studio one tap away, kits used, and its unique / clean / progress checks slim. Hours of building must feel like an editor, not a report.
+- [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
+**Status:** not started.
+```
+FEELESS, Slice 27. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoStatic"), then "Slice 27" in docs/SLICES.md. Do only Slice 27, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 27 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 27's Status line.
+```
+
+## Slice 28 · PoEco desk: a dashboard for earning
+**Area:** the PoEco folder (`EcoFolder`), Slice 16's earn finder.
+**Checks:**
+- [ ] It opens on an earning dashboard: jobs found with expected profit, bids waiting for approve, work in progress, money paid vs the minds' cost, and its market calls.
+- [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
+**Status:** not started.
+```
+FEELESS, Slice 28. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 28" in docs/SLICES.md. Do only Slice 28, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 28 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 28's Status line.
+```
+
+## Slices 17–23 · the owner's earn ideas (owner 2026-11-19: "loving the proposals!! … add these all + u suggested to slices"). Opus 5.5 medium each, in this order, after 24–28, before 8. Each one's UI meets the desk bar (RULINGS 2026-11-20).
 
 ## Slice 17 · Solana bounty hunter
 **Why:** Superteam Earn and GitHub / Algora bounties pay USDC or SOL for code, writing and design. FEELESS is Solana-first, and the Pool already holds these coins.
@@ -333,7 +391,7 @@ FEELESS, Slice 22. Read CLAUDE.md, then docs/VISION.md ("Brains" and "PoW · PoP
 FEELESS, Slice 23. Read CLAUDE.md, then docs/VISION.md ("COMP" and "The point of it all"), then "Slice 23" in docs/SLICES.md. Do only Slice 23, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 23 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 23's Status line.
 ```
 
-## Slice 8 · Proof of everything (runs LAST, after 9–23) · Opus 5.5 medium
+## Slice 8 · Proof of everything (runs LAST, after 9–28) · Opus 5.5 medium
 **Why:** one session that trusts nothing and proves every VISION check for real.
 **Checks:**
 - [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
