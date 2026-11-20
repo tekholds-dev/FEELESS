@@ -11,7 +11,8 @@
 1. ~~Slice 13 (PoB dashboard)~~ ✅ 2026-11-19, on main.
 2. **Slice 15 (PoC clip farming, owner 2026-11-19).**
 3. **Slice 16 (PoEco earns real money, owner 2026-11-19).**
-4. **Slice 8 (proof of everything) last.**
+4. **Slices 17–23 (the owner's earn ideas, in order):** 17 Solana bounties · 18 clips as a service · 19 faceless channels · 20 PoStatic storefront · 21 affiliate micro-sites · 22 agent for hire (waits on a legal ruling) · 23 cheaper-model race.
+5. **Slice 8 (proof of everything) last.**
 **The prompt** is the standard prompt below with the slice number. Pick Opus 5.5 medium and never switch mid-session.
 **Owner's open items (Claude can't do these):** load a Gemma model in this Mac's LM Studio for the ZED judge (Sicario's proofs get no verdict, and COMP's exam had no ZED). Then real-money tests once Slice 8's VISION report is in.
 
@@ -33,10 +34,10 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 15 → 16 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 15 → 16 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
 6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
-**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 15 (clip farming) → 16 (PoEco earns) → 8 last.
+**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 15 (clip farming) → 16 (PoEco earns) → 17–23 (earn ideas) → 8 last.
 
 ---
 
@@ -237,16 +238,102 @@ FEELESS, Slice 15. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 15" 
 FEELESS, Slice 16. Read CLAUDE.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 16" in docs/SLICES.md. Do only Slice 16, fully, end to end. Research each platform's terms with a web search first and make one real public read before building on one. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 16 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent or delivered), seen in the browser; gate green; pushed. Finish by updating Slice 16's Status line.
 ```
 
-## Proposed slices (ideas, not in the order: the owner picks; owner 2026-11-19 "think of more cool ideas like i did for poeco")
-- **Solana bounty hunter:** Superteam Earn + GitHub/Algora bounties, which pay in USDC/SOL for code, writing and design. FEELESS is Solana-first, and these pay in the coins the Pool already holds.
-- **Clip farming as a service:** Slice 15's clips sold to streamers and podcasters (a Fiverr / Contra gig, or monthly retainers). It turns PoC from reach into paid work.
-- **Faceless channel runner:** one niche channel per agent (Shorts / TikTok / Reels) fed by PoC and clip farming, graded on creator-fund and affiliate payouts. Reach turns into recurring money.
-- **PoStatic storefront:** build and sell digital products (landing-page templates, Notion/Canva packs, micro-tools) on Gumroad / Etsy digital, graded on sales. PoStatic already builds unique sites; this makes them earn.
-- **Affiliate micro-sites:** PoStatic + the stash's fresh data make small useful sites (calculators, comparison pages) that earn affiliate/ad money, graded on real payouts per site.
-- **Agent for hire inside FEELESS:** other users rent an agent's proven skill (its proof record is the résumé), paid in $FEE. Needs the owner's dated legal ruling first (custodian / broker risk).
-- **Cheaper-model race:** every earn job is run by a cheap model with the atlas beside an expensive one without it, and the folder shows who earned more per $. That's VISION's "any model, better and cheaper", proved in real dollars.
+## Slices 17–23 · the owner's earn ideas (owner 2026-11-19: "loving the proposals!! … add these all + u suggested to slices"). Opus 5.5 medium each, in this order, after 16, before 8.
 
-## Slice 8 · Proof of everything (runs LAST, after 9–16) · Opus 5.5 medium
+## Slice 17 · Solana bounty hunter
+**Why:** Superteam Earn and GitHub / Algora bounties pay USDC or SOL for code, writing and design. FEELESS is Solana-first, and the Pool already holds these coins.
+**Area:** builds on Slice 16's `eco_earn.py` (finder, scoring, approve door), plus the bounty feeds.
+**Checks:**
+- [ ] Reads open bounties (public feeds only), scores fit, pay and minds' cost, and shows the best ones in PoEco with the expected profit.
+- [ ] The minds draft the submission (code as a real PR on a fork, writing as a file). The Collective checks it before the owner's approve.
+- [ ] Graded on the bounty actually paid (on-chain receipt or the owner's mark) against the minds' cost.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 17. Read CLAUDE.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 17" in docs/SLICES.md. Do only Slice 17, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 17 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 17's Status line.
+```
+
+## Slice 18 · Clip farming as a service
+**Why:** Slice 15's clips sold to streamers and podcasters (Fiverr / Contra gigs or monthly retainers). It turns PoC from reach into paid work.
+**Area:** Slice 15's clip engine + Slice 16's earn door.
+**Checks:**
+- [ ] A client's video in (upload or their in-house link) → clips back on a FEELESS link, with a revision round the owner approves.
+- [ ] Gig listings and retainer offers drafted by the minds, sent only on approve. Graded on money paid per client against the minds' cost.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 18. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 18" in docs/SLICES.md. Do only Slice 18, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 18 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 18's Status line.
+```
+
+## Slice 19 · Faceless channel runner
+**Why:** one niche Shorts / TikTok / Reels channel per agent, fed by PoC and clip farming. Reach turns into recurring money.
+**Area:** PoC studio, Slice 15 clips, Slice 5's post + reach reads.
+**Checks:**
+- [ ] The agent picks a niche from the trend reader and keeps a weekly plan on the wireframe board, each post made as real files.
+- [ ] Graded on creator-fund and affiliate payouts per channel (the owner's mark or the platform's numbers) and cost per 1,000 views.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 19. Read CLAUDE.md, then docs/VISION.md ("PoC"), then "Slice 19" in docs/SLICES.md. Do only Slice 19, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 19 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 19's Status line.
+```
+
+## Slice 20 · PoStatic storefront
+**Why:** PoStatic already builds unique sites. This sells them as digital products (landing-page templates, Notion / Canva packs, micro-tools) on Gumroad / Etsy digital.
+**Area:** PoStatic builds (`fc_desk.py`, `ps_*`), Slice 16's earn door.
+**Checks:**
+- [ ] Each product is a real downloadable bundle with a listing (title, cover, price) drafted by the minds, listed only on approve.
+- [ ] Graded on real sales against the minds' cost. Platform fees live on the receipt.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 20. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 20" in docs/SLICES.md. Do only Slice 20, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 20 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 20's Status line.
+```
+
+## Slice 21 · Affiliate micro-sites
+**Why:** PoStatic + the stash's fresh data make small useful sites (calculators, comparison pages) that earn affiliate or ad money.
+**Area:** PoStatic, the stash / atlas (Slices 10–11), Slice 16's earn door.
+**Checks:**
+- [ ] Each site is built from fresh stash atoms and refreshed on their freshness clock, unique by Slice 3's gate.
+- [ ] Graded on real affiliate / ad payouts per site (the owner's mark or the program's report) against cost.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 21. Read CLAUDE.md, then docs/VISION.md ("PoStatic"), then "Slice 21" in docs/SLICES.md. Do only Slice 21, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 21 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 21's Status line.
+```
+
+## Slice 22 · Agent for hire inside FEELESS
+**Why:** other users rent an agent's proven skill (its proof record is the résumé), paid in $FEE.
+**Area:** agent profile + proof record, Slice 14's proof files, the $FEE payment path.
+**Checks:**
+- [ ] **Blocked until the owner's dated legal ruling** (custodian / broker risk, §1 Legal). The slice starts by writing the exact question into RULINGS › Open questions, then stops ⛔ until he answers.
+- [ ] After the ruling: a hire page per agent (skills from real judged proofs, price, what it won't do); a hire runs as that agent's proof, and the renter approves delivery.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started (waits on the owner's legal ruling).
+```
+FEELESS, Slice 22. Read CLAUDE.md, then docs/VISION.md ("Brains" and "PoW · PoP · PoEco"), then "Slice 22" in docs/SLICES.md. Do only Slice 22, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 22 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 22's Status line.
+```
+
+## Slice 23 · Cheaper-model race
+**Why:** VISION's "any model, better and cheaper", proved in real dollars. Owner 2026-11-19: "cheaper model race will only replay latest test i click to test as it would be real money and the stash and comp is growing to be and help this."
+**Area:** COMP (`comp_v2*.py`), the stash / atlas, the Test bench, Slice 16's earn filings.
+**Checks:**
+- [ ] It runs ONLY when the owner clicks it, and only on the LATEST TEST he picks: that TEST is replayed by a cheap model with the stash + atlas + COMP beside an expensive model without them. Never on a live job, never on its own.
+- [ ] Both answers are judged blind by the Collective, and the folder shows quality, $ cost and time for each, plus the stash hits and COMP's help that made the difference.
+- [ ] Each race is kept, so the board shows the gap closing (or not) as the stash and COMP grow. Inside the TEST caps.
+- [ ] Nothing goes out (bid, post, listing, delivery, payout) without the owner's approve, from his own connected accounts. FEELESS never holds the money (§1 Legal). Only platforms whose terms allow AI-made work.
+- [ ] Every every-proof check (minds, sources, new footprint, kits) on its filings, and a TEST run on Happy up to the approve step, seen in the browser with a screenshot.
+**Status:** not started.
+```
+FEELESS, Slice 23. Read CLAUDE.md, then docs/VISION.md ("COMP" and "The point of it all"), then "Slice 23" in docs/SLICES.md. Do only Slice 23, fully, end to end. Research with a web search first and make one real public read before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 23 check passes on a real TEST run (scripts/test-proof.py --agent happy, inside the TEST caps; nothing sent, posted, sold or paid), seen in the browser; gate green; pushed. Finish by updating Slice 23's Status line.
+```
+
+## Slice 8 · Proof of everything (runs LAST, after 9–23) · Opus 5.5 medium
 **Why:** one session that trusts nothing and proves every VISION check for real.
 **Checks:**
 - [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
