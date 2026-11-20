@@ -284,7 +284,7 @@ def test_the_test_door_files_an_earn_filing_and_never_a_market_call(svc, monkeyp
         cat['handle'] = 'happy-assistant'
         out = asyncio.run(fs._fc_test.test_proof_start(fs._fc_test.TestIn(kind='poe', door='earn', agent='happy'), _Req(fs)))
     finally:
-        fs._fc_earn._bid = old
+        fs._fc_earn._bid = old; fs._TEST_ON.clear()   # the faked bid never files, so its TEST claim would stay live (health() counts it as busy)
     assert out['ok'] and started == [('c1', '')] and not cat['poeFolders']
 
 
