@@ -1,14 +1,22 @@
 # SLICES — the fix plan (owner 2026-11-18). One slice = one session = one model. Paste the prompt, pick the model, let it run.
 
-**The bar for every slice:** `docs/VISION.md`. A slice is done only when its checks pass on a **real free run on Sicario's agent**
-(`local/ossy` + `local/g4`, $0, no money) filed into that proof type's own folder marked **TEST**, the gate is green and it's pushed.
+**The bar for every slice:** `docs/VISION.md`. A slice is done only when its checks pass on a **real TEST run on Happy's agent**
+(`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 for all TESTs; RULINGS 2026-11-19) filed into that proof type's own folder marked **TEST**, the gate is green and it's pushed.
+
+## ▶ NEXT ACCOUNT: START HERE (owner 2026-11-19: "only need one slice running at a time")
+**ONE slice at a time.** One session runs one slice to the end, pushes its Status line (✅ or ⛔), and only then does the next slice start. Never two side by side, and no manager session spinning up others.
+**Where it stands (2026-11-19, ~17:00 CT):** on main, slices 0–7, 9, 10, 11, 12 and 14 have their Status lines (10 ⛔ 5/6, 11 ⛔ 2/4, 7 ⛔: COMP 11/22 vs base 13/22, not shipped). **Left, in this order:**
+1. **Slice 13 (PoB dashboard): resume it.** It was cut off by the usage limit mid-build. Its work is **uncommitted in the main folder** (new `backend/pob_dash.py`, `backend/tests/test_slice13_pob_dash.py`, `frontend/src/components/command/PobDash.jsx` + test, `frontend/src/styles/pobDash.css`; edits to `fc_cat_work.py`, `fc_pob.py`, `fc_test.py`, `feecat_service.py`, `kalshi_bid.py`, `CatWorkbench.jsx`, `CatHarness.jsx`, `scripts/test-proof.py`, `.gitignore`). Run `git status` and `git diff` first, keep what's right, finish the checks, then commit those files by path. The backend edits are already live (the services are healthy, pyflakes clean).
+2. **Slice 8 (proof of everything) last.**
+**The prompt** is the standard prompt below with the slice number. Pick Opus 5.5 medium and never switch mid-session.
+**Owner's open items (Claude can't do these):** load a Gemma model in this Mac's LM Studio for the ZED judge (Sicario's proofs get no verdict, and COMP's exam had no ZED). Then real-money tests once Slice 8's VISION report is in.
 
 ## Models (pick once per session in the app's model picker; never switch mid-session)
 **Owner 2026-11-18 (latest): every slice runs on Claude Opus 5.5, MEDIUM effort.** ("the issue was one convo doing back-to-back 200 tasks, instead of what we are doing now.") The table below is the original split, kept only for reference.
 
 **Standard prompt** (swap in the slice number; paste it into a new session):
 ```
-FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SLICES.md. Do only Slice N, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice N check passes on a real free TEST run on Sicario's agent (no money; scripts/test-proof.py), seen in the browser when it has UI; gate green; pushed. Commit only your own files by path; never push while another gate.sh or TEST run is going. Finish by updating Slice N's Status line.
+FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SLICES.md. Do only Slice N, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice N check passes on a real TEST run on Happy's agent (scripts/test-proof.py --agent happy, proposals and paper only, $0.25 per proof type, $1.00 total), seen in the browser when it has UI; gate green; pushed. Commit only your own files by path; never push while another gate.sh or TEST run is going. Finish by updating Slice N's Status line.
 ```
 | Model | Effort | Used for | Why |
 |---|---|---|---|
@@ -21,10 +29,10 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **TWO slices at a time, in two lanes (owner 2026-11-19 night: "run 2 slices max while im sleep… make this really true authentic and secure").** Lane A: 10 → 11 → 7. Lane B: 9 → 6 → 13. Slice 8 runs last, after 7 and 13. A slice starts only when the slice before it in its lane shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
-6. **At most 2 slices at once**, only the pairs marked "can run beside" (they touch different files). Never 2 backend pushes at the same moment: a push restarts every service.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 13 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
-**Order (updated 2026-11-18):** 0 ✅ · 1 ✅ · 2 ✅ → now: 3 + 4 (finish) + 5 → then 6 + 10 + 12 + 14 (different files) → then 9 (after 3), 11 (after 10), 13 (after 12), 7 → 8 last.  Slice 0 is first because every later slice needs TEST filings and a true record.
+**Order (2026-11-19):** everything up to 14 has a Status line on main; left: 13 (resume) → 8 last.
 
 ---
 
@@ -183,7 +191,7 @@ FEELESS, Slice 7. Read CLAUDE.md, then docs/VISION.md ("COMP"), then "Slice 7" i
 - [ ] "What to file next" suggestions from tonight's markets, each one filed in one tap.
 - [ ] A user can build their own slip there, which then goes through the same checks.
 - [ ] Every tab is checked in the browser on real data, with a screenshot.
-**Status:** not started.
+**Status:** ⏸ paused 2026-11-19 (usage limit, mid-build). Work is uncommitted in the main folder: see "NEXT ACCOUNT: START HERE" at the top. Resume from `git status` / `git diff`. No check is done yet.
 
 ## Slice 14 · GitHub folder: proof files show everything · Opus 5.5 medium
 **Why:** "no proof should look like this in git: the snapshots and all logs need to show, plus the wired info from each."
@@ -200,9 +208,9 @@ FEELESS, Slice 7. Read CLAUDE.md, then docs/VISION.md ("COMP"), then "Slice 7" i
 **Checks:**
 - [ ] `/code-review` (high) on everything slices 0–7 pushed. Every real finding fixed.
 - [ ] Slice 10's open check: one clean pair of related TEST PoBs while NO other slice saves backend files. The second must show stash hits from the first (runs 3 and 4 were killed by other slices' reloads).
-- [ ] One TEST proof of every type on Sicario. Every VISION checkbox is marked pass or fail with a link to the proof that shows it.
+- [ ] One TEST proof of every type on Happy's agent (proposals and paper only, inside the $1.00 total). Every VISION checkbox is marked pass or fail with a link to the proof that shows it.
 - [ ] The report = VISION with every box ticked or a named reason, faked-only first.
 **Status:** not started.
 ```
-FEELESS, Slice 8. Read CLAUDE.md, then docs/VISION.md, then docs/SLICES.md. Trust nothing: review everything slices 0–7 pushed (/code-review high), fix real findings, then run one TEST proof of every type on Sicario's agent (no money) and mark every VISION checkbox pass/fail with a link to the proof. Gate green; pushed. Report faked-only first.
+FEELESS, Slice 8. Read CLAUDE.md, then docs/VISION.md, then docs/SLICES.md. Trust nothing: review everything slices 0–7 pushed (/code-review high), fix real findings, then run one TEST proof of every type on Happy's agent (scripts/test-proof.py --agent happy, proposals and paper only, $1.00 total) and mark every VISION checkbox pass/fail with a link to the proof. Gate green; pushed. Report faked-only first.
 ```
