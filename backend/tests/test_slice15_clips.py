@@ -326,3 +326,26 @@ def test_a_file_the_converter_cannot_turn_stops_before_any_mind_is_asked_and_lea
     assert next(x for x in run['steps'] if x['key'] == 'convert')['state'] == 'failed'
     assert not any(p.read_bytes() == b'half' for p in tmp_path.rglob('*.mp4'))   # the half-made MP4 is gone
     fc_clips._MEM.clear()
+
+
+def test_the_transcript_tries_apples_gpu_first_and_falls_back_to_the_cpu_for_good(monkeypatch):
+    """Slice 24: whisper on the GPU (6.7 s vs 14.6 s on a 5:00 HEVC .mov, measured 2026-11-20); any GPU failure falls back once to the CPU."""
+    import platform
+    monkeypatch.setattr(platform, 'system', lambda: 'Darwin'); monkeypatch.setattr(platform, 'machine', lambda: 'arm64')
+    monkeypatch.setattr(cf, '_MODEL', {}); monkeypatch.setattr(cf, '_NO_GPU', set())
+    assert cf.whisper_devices() == ['mps', 'cpu']
+    W = type('W', (), {'start': 1.0, 'end': 1.4, 'word': ' hi'}); S = type('S', (), {'words': [W]})
+    made = []
+
+    class Fake:
+        def __init__(self, dev): self.dev = dev
+        def transcribe(self, *_a, **_k):
+            if self.dev == 'mps':
+                raise RuntimeError('mps backend unavailable')
+            return [S], None
+    monkeypatch.setattr(cf, '_whisper', lambda model, dev: made.append(dev) or Fake(dev))
+    assert cf.transcribe([0.0]) == [{'s': 1.0, 'e': 1.4, 'w': 'hi'}] and made == ['mps', 'cpu']
+    assert cf.whisper_devices() == ['cpu']   # never tried again in this process
+    made.clear(); cf.transcribe([0.0]); assert made == ['cpu']
+    monkeypatch.setattr(platform, 'machine', lambda: 'x86_64'); monkeypatch.setattr(cf, '_NO_GPU', set())
+    assert cf.whisper_devices() == ['cpu']

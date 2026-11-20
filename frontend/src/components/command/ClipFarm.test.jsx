@@ -72,3 +72,25 @@ test('a clip PoC in the studio says the upload it came from, both minds’ score
   expect(el.textContent).not.toContain('THREAD'); expect(el.querySelector('.pst-files').className).toContain('is-clip');
   act(() => root.unmount()); el.remove();
 });
+
+// ✂ Slice 24 (owner's screenshot: a run's notes one letter per line): hive.css, loaded on every agent desk, owned .cfm / .cfm-steps (a 5-column
+// steps grid), so each step row shrank to a fifth and its note column to 0 px. Every class the clip farm renders must be styled ONLY by its
+// own sheet (or the shared m-* presets), and its step rows keep a note column that never collapses below the label.
+test('the clip farm keeps its own class names: no other sheet styles them, so a step note keeps its width', async () => {
+  const fs = require('fs'); const path = require('path'); const dir = path.join(__dirname, '..', '..', 'styles');
+  const sheets = fs.readdirSync(dir).filter(f => f.endsWith('.css')).map(f => [f, fs.readFileSync(path.join(dir, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')]);
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ runs: [RUN], busy: false }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<ClipFarm cat={{ id: 'c' }} wsId="w1" pocs={[CLIP]} />));
+  const classes = [...new Set([...el.querySelectorAll('[class]')].flatMap(n => [...n.classList]))].filter(c => !/^(m-|is-|active$|lucide)/.test(c));
+  expect(classes.length).toBeGreaterThan(10); expect(classes.every(c => c.startsWith('clf'))).toBe(true);
+  for (const c of classes) {
+    const owners = sheets.filter(([, css]) => new RegExp(`\\.${c.replace(/[-]/g, '\\-')}(?![\\w-])`).test(css)).map(([f]) => f);
+    expect([c, owners.filter(f => f !== 'clipFarm.css')]).toEqual([c, []]);
+  }
+  const css = sheets.find(([f]) => f === 'clipFarm.css')[1];
+  expect(css).toMatch(/\.clf-steps li \{ display: flex; flex-wrap: wrap;/);                       // a row that wraps, needing no measured width
+  expect(css).toMatch(/\.clf-steps small \{ flex: 1 1 200px; min-width: 0;/);                       // under 200 px left, the note takes its own full line
+  expect(el.querySelector('[data-testid="cfm-step-words"]').className).toBe('is-done');
+  act(() => root.unmount()); el.remove();
+});

@@ -29,3 +29,21 @@ body.fx-lite .trec::after { display: none; } body.fx-lite .trec, body.fx-lite .t
 body.theme-day .trec { --trec: color-mix(in srgb, var(--m-accent) 58%, var(--m-text)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-surface) 70%, transparent); } body.theme-day .trec.is-bad { --trec: color-mix(in srgb, var(--m-warn) 58%, var(--m-text)); }
 body.theme-day .trec-m { --mc: color-mix(in srgb, var(--m-accent) 58%, var(--m-text)); } body.theme-day .trec-m.is-bad { --mc: var(--m-danger); } body.theme-day .trec-v b { text-shadow: none; }
 @media (max-width: 640px) { .trec-meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .trec-facts div { grid-template-columns: 1fr; gap: 2px; } }
+/* 🧾 RecordFold (the desk bar, Slice 24): the record + checks as one slim row, open on tap. Reused by every proof desk. */
+.rfold { --rf: var(--pk, var(--m-accent)); min-width: 0; border: 1px solid var(--m-line); border-radius: 10px; background: color-mix(in srgb, var(--rf) 5%, var(--m-surface)); }
+.rfold.is-bad { --rf-v: var(--m-warn); }
+.rfold-row { display: flex; align-items: center; gap: 6px 12px; width: 100%; min-height: 36px; padding: 5px 10px; border: 0; background: none; color: var(--m-text); text-align: left; cursor: pointer; flex-wrap: wrap; border-radius: inherit; font: 500 11.5px var(--f-ui); }
+.rfold-row:hover { background: color-mix(in srgb, var(--rf) 8%, transparent); } .rfold-row:focus-visible { outline: 2px solid var(--rf); outline-offset: -2px; }
+.rfold-v { font: 700 14px var(--f-mono); color: var(--rf-v, var(--rf)); } .rfold-k { margin-left: -8px; font: 800 9px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute); }
+.rfold-fail { font: 800 9px var(--f-mono); letter-spacing: .08em; font-style: normal; color: var(--m-warn); }
+.rfold-f { display: inline-flex; align-items: baseline; gap: 5px; min-width: 0; white-space: nowrap; color: var(--m-dim); }
+.rfold-f small { font: 800 8.5px var(--f-mono); letter-spacing: .1em; color: var(--m-mute); } .rfold-f i { font-style: normal; color: var(--m-text); }
+.rfold-n { font: 600 11px var(--f-mono); }
+.rfold-chev { margin-left: auto; width: 8px; height: 8px; border-right: 2px solid var(--m-mute); border-bottom: 2px solid var(--m-mute); transform: rotate(45deg) translateY(-2px); transition: transform .18s var(--m-ease, ease); }
+.rfold.is-open .rfold-chev { transform: rotate(225deg) translateY(-2px); }
+.rfold-body { display: grid; gap: 8px; padding: 0 10px 10px; animation: rfoldIn .18s var(--m-ease, ease) both; } .rfold-body .trec { margin-top: 0; }
+@keyframes rfoldIn { from { transform: translateY(-4px); } }
+body.fx-lite .rfold-body, body.fx-lite .rfold-chev { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .rfold-body { animation: none; } .rfold-chev { transition: none; } }
+body.theme-day .rfold { --rf: color-mix(in srgb, var(--pk, var(--m-accent)) 60%, var(--m-text)); background: color-mix(in srgb, var(--rf) 4%, var(--m-surface)); }
+@media (max-width: 640px) { .rfold-row { gap: 4px 10px; } .rfold-n { display: none; } }

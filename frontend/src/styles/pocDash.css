@@ -1,0 +1,85 @@
+/* 📣 PocDash.jsx (pcd-*): the PoC desk dashboard (Slice 24, the desk bar). PoC's own light (--pk, pink) on the meta.css tokens; an "on air" pulse
+   on Trending. Width from lib/boxRef on .pcd-wrap (data-w900 / data-w640), never a container query. Motion = transform only (never starts
+   invisible), staggered by --i; still under body.fx-lite and prefers-reduced-motion; day theme below. */
+.pcd-wrap { --pc: var(--pk, var(--m-accent)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 300px); gap: 10px; align-items: start; min-width: 0; }
+.pcd-wrap[data-w900] { grid-template-columns: minmax(0, 1fr); }
+.pcd-side { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.pcd { display: grid; gap: 8px; min-width: 0; }
+.pcd-none { margin: 4px 0; color: var(--m-dim); font: 500 12px/1.45 var(--f-ui); }
+
+/* the hero: four numbers in one low row */
+.pcd-hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pcd-wrap[data-w640] .pcd-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pcd-kpi { position: relative; display: grid; align-content: start; gap: 2px; min-width: 0; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 11px; overflow: hidden; text-align: left; color: var(--m-text);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 9%, var(--m-surface)), var(--m-surface)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 7%, transparent);
+  animation: pcdIn .3s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.pcd-kpi > small { font: 800 8.5px var(--f-mono); letter-spacing: .12em; color: var(--m-mute); }
+.pcd-kpi > b.m-num { font: 700 20px/1.1 var(--f-mono); white-space: nowrap; } .pcd-kpi > b small { font-size: 11px; color: var(--m-mute); margin-left: 1px; }
+.pcd-kpi.is-reach > b.m-num { color: var(--pc); text-shadow: 0 0 14px color-mix(in srgb, var(--pc) 45%, transparent); }
+.pcd-kpi > em { font: 500 10.5px var(--f-ui); font-style: normal; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.pcd-kpi { cursor: pointer; font: inherit; transition: border-color .15s, transform .15s var(--m-ease); }
+button.pcd-kpi:hover { border-color: color-mix(in srgb, var(--pc) 55%, var(--m-line)); transform: translateY(-1px); } button.pcd-kpi:active { transform: translateY(0); }
+button.pcd-kpi:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
+.pcd-meter { display: block; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--m-text) 9%, transparent); overflow: hidden; }
+.pcd-meter u { display: block; height: 100%; border-radius: inherit; background: var(--pc); transform-origin: left; transition: transform .5s var(--m-ease); }
+.pcd-meter.is-up u { background: var(--m-accent); } .pcd-meter.is-dn u { background: var(--m-danger); }
+.pcd-dots { display: flex; gap: 3px; margin: 2px 0 1px; } .pcd-dots i { flex: 1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--m-text) 10%, transparent); }
+.pcd-dots i.is-on { background: var(--pc); } .pcd-dots i.is-today { box-shadow: 0 0 0 1px var(--m-text); }
+
+/* tabs + panes */
+.pcd-tabs { justify-self: start; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .pcd-tabs::-webkit-scrollbar { display: none; }
+.pcd-tabs > button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; white-space: nowrap; } .pcd-tabs em { font-style: normal; opacity: .75; }
+.pcd-onair { width: 7px; height: 7px; border-radius: 50%; background: var(--m-danger); box-shadow: 0 0 8px var(--m-danger); animation: pcdPulse 1.4s ease-in-out infinite; }
+.pcd-pane { display: grid; gap: 8px; min-width: 0; animation: pcdIn .2s var(--m-ease) both; }
+.pcd-src { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; font: 600 10px var(--f-mono); color: var(--m-mute); }
+.pcd-src span { display: inline-flex; align-items: center; gap: 4px; } .pcd-src i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-line-hi); } .pcd-src .is-on i { background: var(--m-accent); }
+
+/* one row per clip / PoC: thumb · words · numbers · actions */
+.pcd-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pcd-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; min-width: 0; padding: 5px 8px 5px 5px; border: 1px solid var(--m-line); border-radius: 10px;
+  background: var(--m-surface); animation: pcdIn .25s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 35ms); transition: border-color .15s; }
+.pcd-row:hover { border-color: color-mix(in srgb, var(--pc) 45%, var(--m-line)); }
+.pcd-row:has(> .pcd-open) { display: block; padding: 0; }
+.pcd-open { display: grid; grid-template-columns: 44px minmax(0, 1fr) repeat(3, auto) auto; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 5px 8px 5px 5px; border: 0; border-radius: inherit; background: none; color: var(--m-text); font: inherit; text-align: left; cursor: pointer; }
+.pcd-open:focus-visible { outline: 2px solid var(--pc); outline-offset: -2px; }
+.pcd-rows.is-dense .pcd-open { grid-template-columns: 44px minmax(0, 1fr) auto auto; padding: 3px 8px 3px 5px; }
+.pcd-thumb { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; overflow: hidden; background: color-mix(in srgb, var(--pc) 14%, var(--m-bg)); color: var(--pc); text-decoration: none; }
+.pcd-thumb.is-tall { height: 52px; } .pcd-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcd-num { display: grid; place-items: center; width: 44px; font: 700 12px var(--f-mono); font-style: normal; color: var(--pc); }
+.pcd-t { display: grid; gap: 2px; min-width: 0; }
+.pcd-t b { font: 600 12.5px/1.3 var(--f-ui); color: var(--m-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; }
+.pcd-t small { font: 500 10.5px var(--f-mono); color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcd-n { display: grid; justify-items: end; gap: 2px; min-width: 52px; white-space: nowrap; } .pcd-n b { font: 700 12.5px var(--f-mono); } .pcd-n b small { color: var(--m-mute); font-weight: 600; }
+.pcd-n > small { font: 600 9px var(--f-mono); letter-spacing: .06em; color: var(--m-mute); text-transform: uppercase; } .pcd-n .pcd-meter { width: 64px; } .pcd-n.is-wide .pcd-meter { width: 90px; }
+.pcd-act { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; } .pcd-act .m-btn { min-height: 32px; padding: 0 9px; font-size: 11px; white-space: nowrap; }
+.pcd-v { font: 800 9.5px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); } .pcd-v.is-up { color: var(--m-accent); } .pcd-v.is-dn { color: var(--m-danger); }
+.pcd-topics { display: flex; flex-wrap: wrap; gap: 5px; } .pcd-topics .m-chip { cursor: pointer; }
+.pcd-wrap[data-w640] .pcd-row { grid-template-columns: 40px minmax(0, 1fr) auto; } .pcd-wrap[data-w640] .pcd-row .pcd-act { grid-column: 2 / -1; justify-content: flex-start; }
+.pcd-wrap[data-w640] .pcd-open { grid-template-columns: 40px minmax(0, 1fr) auto; } .pcd-wrap[data-w640] .pcd-open > .pcd-n ~ .pcd-n { display: none; }
+.pcd-wrap[data-w640] .pcd-thumb { width: 40px; height: 40px; } .pcd-wrap[data-w640] .pcd-num { width: 40px; }
+
+/* the week: seven columns, today ringed */
+.pcd-week { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.pcd-week li { display: grid; align-content: start; gap: 4px; min-width: 0; min-height: 84px; padding: 6px; border: 1px solid var(--m-line); border-radius: 9px; background: var(--m-surface); animation: pcdIn .25s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.pcd-week li.is-today { border-color: var(--pc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc) 35%, transparent); }
+.pcd-week small { font: 800 9px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute); } .pcd-week em { color: var(--m-mute); font-style: normal; }
+.pcd-chip { min-height: 32px; padding: 4px 6px; border: 1px solid color-mix(in srgb, var(--pc) 40%, var(--m-line)); border-radius: 7px; background: color-mix(in srgb, var(--pc) 10%, transparent); color: var(--m-text); font: 600 10.5px/1.25 var(--f-ui); text-align: left; cursor: pointer; overflow-wrap: break-word; }
+.pcd-chip.is-posted { border-color: var(--m-accent); } .pcd-chip:hover, .pcd-chip:focus-visible { border-color: var(--pc); outline: none; }
+.pcd-wrap[data-w640] .pcd-week { grid-template-columns: minmax(0, 1fr); } .pcd-wrap[data-w640] .pcd-week li { min-height: 0; grid-template-columns: 76px minmax(0, 1fr); align-items: center; }
+.pcd-wrap[data-w640] .pcd-week li > :not(small) { grid-column: 2; }
+
+@keyframes pcdIn { from { transform: translateY(5px); } }   /* slide only: never starts invisible (a hidden or paused page still shows it) */
+@keyframes pcdPulse { 50% { transform: scale(.6); } }
+body.fx-lite .pcd-kpi, body.fx-lite .pcd-row, body.fx-lite .pcd-pane, body.fx-lite .pcd-week li, body.fx-lite .pcd-onair { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pcd-kpi, .pcd-row, .pcd-pane, .pcd-week li, .pcd-onair { animation: none; } .pcd-meter u, button.pcd-kpi { transition: none; } }
+body.theme-day .pcd-wrap { --pc: color-mix(in srgb, var(--pk, var(--m-accent)) 62%, var(--m-text)); }
+body.theme-day .pcd-kpi { background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 7%, var(--m-surface)), var(--m-surface)); box-shadow: none; }
+body.theme-day .pcd-kpi.is-reach > b.m-num { text-shadow: none; }
+@media (max-width: 640px) { .pcd-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pdk-folders { display: grid; gap: 6px; margin-top: 4px; } .pdk-folders > h4 { margin: 0; font: 800 9.5px var(--f-mono); letter-spacing: .14em; color: var(--m-mute); }
+/* the desk bar: a PoC folder in a half window (its root measured by lib/boxRef, data-w760) stacks its work over its chat, so the work gets the width */
+.pfx.is-poc[data-w760] .fea-content { grid-template-columns: minmax(0, 1fr); }
+.pfx.is-poc[data-w760] .fea-content-side { position: static; height: auto; min-height: 420px; }
+/* the TEST chip never breaks a letter off; on a phone it sits under the numbers in the last column, not in the 40px thumb column */
+.pcd-open > .trec-tag { white-space: nowrap; justify-self: end; }
+.pcd-wrap[data-w640] .pcd-open > .trec-tag { grid-column: -2 / -1; }

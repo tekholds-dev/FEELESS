@@ -245,13 +245,18 @@ async def farm(cat_id, run_id, src, note=''):
             await _converted(cat_id, run_id, run, conv, info, ext, f"already H.264 + AAC MP4: kept as it is ({conv.stat().st_size / 1e6:.0f} MB)", t_conv)
         # ⚡ an odd file: the transcript and the peaks read the original (they need only the sound and the cut times), then the converter runs
         # while the minds think (an LM Studio wait, not this Mac's CPU). Run beside the transcript it fought it for CPU: 206 s, seen live.
-        _step(cat_id, run_id, 'words', 'running'); t0 = time.time()
-        audio = await asyncio.to_thread(_cf.pcm, orig); words = await asyncio.to_thread(_cf.transcribe, audio)
+        # ⚡ Slice 24: the scene cuts (ffmpeg on the CPU) run beside the transcript (whisper on Apple's GPU): 5:00 HEVC .mov, both done in ~15 s, not 68
+        _step(cat_id, run_id, 'words', 'running'); _step(cat_id, run_id, 'peaks', 'running'); t0 = time.time()
+        cut_job = asyncio.ensure_future(asyncio.to_thread(_cf.scene_cuts, orig))
+        try:
+            audio = await asyncio.to_thread(_cf.pcm, orig); words = await asyncio.to_thread(_cf.transcribe, audio)
+        except BaseException:
+            cut_job.cancel(); raise
         _step(cat_id, run_id, 'words', 'done', f'{len(words)} words, local faster-whisper ({_cf.WHISPER}), $0', t0)
         if len(words) < 20:
+            cut_job.cancel()
             raise ValueError('Almost nothing is said in it, so there is nothing to clip by words.')
-        _step(cat_id, run_id, 'peaks', 'running'); t0 = time.time()
-        loud = _cf.loudness(audio); cuts = await asyncio.to_thread(_cf.scene_cuts, orig); laughs = _cf.laughs(words, loud)
+        loud = _cf.loudness(audio); cuts = await cut_job; laughs = _cf.laughs(words, loud)
         _step(cat_id, run_id, 'peaks', 'done', f'{len(cuts)} scene cuts, {len(laughs)} loud moments with no words, loudness every ½ s', t0)
         _step(cat_id, run_id, 'moments', 'running'); t0 = time.time()
         cands = _cf.moments(words, loud, cuts, laughs, info['secs'])

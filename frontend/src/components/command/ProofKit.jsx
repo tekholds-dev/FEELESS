@@ -1,5 +1,5 @@
 import { KitPick } from './KitPick';
-import { TrueRecord } from './TrueRecord';
+import { RecordFold, TrueRecord } from './TrueRecord';
 import { assertLegal } from '../../lib/legal';
 import { useSolPrice } from '../../lib/solPrice';
 import { ChatSettings } from '../chat/ChatKit';
@@ -233,7 +233,24 @@ function SiteFile({ kind, cat, work, onBrowse }) {
 // 🧰 READS FIRST is about THIS proof only (owner 2026-11-14: "it must make sense"): a PoB window never shows PoC's kits. A proof with no kits shows no row.
 export const KIT_KIND = { pow: 'pow', pop: 'pop', pob: 'pob', bids: 'pob', poc: 'poc', content: 'poc', pos: 'pos', postatic: 'pos', build: 'pos' };
 const RECORD_KIND = { bids: 'pob', postatic: 'pos', build: 'pos', content: 'poc' };   // 🧾 Slice 0: the window's kind → the record's kind
-export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse }) {
+export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse, slim = false }) {
+  if (slim) return <ProofHeadSlim kind={kind} folders={folders} d={d} cat={cat} work={work} onBrowse={onBrowse} />;
+  return <ProofHeadFull kind={kind} folders={folders} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />;
+}
+// 🧾 The desk bar (RULINGS 2026-11-20, Slice 24): the whole head as ONE slim row: name, what it spent, its record's checks and facts. A tap opens
+// its steps, its kit picker, its sites and the full true record. `<ProofHead slim>` on any proof desk.
+function ProofHeadSlim({ kind, folders, d, cat, work, onBrowse }) {
+  const [sites, setSites] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d);
+  const spent = (folders || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0);
+  return <RecordFold kind={RECORD_KIND[kind] || kind} folders={folders} testid={`phd-${kind}`}
+    lead={<span className="phd-slim-n"><b>{KIND_NAME[kind]}</b><small className="m-num">{(folders || []).length} filed · {shortCost(spent)}</small></span>}>
+    <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
+    <div className="phd-slim-tools">{work && cat?.id && KIT_KIND[kind] ? <KitPick cat={cat} work={work} kind={KIT_KIND[kind]} /> : null}
+      <button type="button" className="m-btn" aria-expanded={sites} onClick={() => setSites(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
+    {sites ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}
+  </RecordFold>;
+}
+function ProofHeadFull({ kind, folders, d, cat, pool, work, onBrowse }) {
   const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address || cat?.agentWallet?.address);
   const costOf = rows => (rows || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0); const spent = costOf(folders); const known = (folders || []).some(f => f.cost != null || f.costUsd != null); const allKinds = [['PoW', d?.powFolders], ['PoP', d?.popFolders], ['PoB', d?.pobFolders], ['PoC', d?.pocFolders], ['PoStatic', d?.psFolders], ['Jobs', d?.jobs]]; const everything = allKinds.reduce((sum, [, r]) => sum + costOf(r), 0);
   return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={44} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small>{known ? <small className="phd-cost m-num" data-testid={`phd-cost-${kind}`}>{shortCost(spent)} on these. <CostTicket usd={everything} title="All its model calls" rows={allKinds.map(([k, r]) => [k, shortCost(costOf(r))])} /> on every proof and job</small> : null}</span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>

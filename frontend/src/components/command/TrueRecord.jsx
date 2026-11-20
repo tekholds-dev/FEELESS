@@ -52,3 +52,27 @@ export function TrueRecord({ kind, folders }) {
     </dl>
   </section>;
 }
+
+// 🧾 THE DESK BAR (RULINGS 2026-11-20, Slice 24): the true record + checks folded into ONE slim row, open on tap. Every proof desk reuses it
+// (`<RecordFold kind folders>`; anything type-only, such as its steps or kit picker, goes in as children and shows only when open).
+export function RecordFold({ kind, folders, lead = null, tail = null, children = null, testid }) {
+  const [open, setOpen] = useState(false);
+  const f = useMemo(() => lastOf(folders, false) || lastOf(folders, true), [folders]);
+  const checks = checksOf(f) || []; const ok = checks.filter(c => c.ok).length; const ran = (f?.ran || []).filter(r => r.ok).map(r => SHORT(r.asked));
+  const fails = checks.filter(c => !c.ok).map(c => c.key);
+  const id = testid || `rfold-${kind}`;
+  return <section className={`rfold${open ? ' is-open' : ''}${f && ok < checks.length ? ' is-bad' : ''}`} data-testid={id}>
+    <button type="button" className="rfold-row" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip={open ? 'Fold the record away' : 'Its true record: every check, the minds that ran, every source, its footprint'} data-testid={`${id}-row`}>
+      {lead}
+      {f ? <><b className="rfold-v m-num">{ok}/{checks.length || 4}</b><small className="rfold-k">checks</small>
+        {fails.length ? <em className="rfold-fail" data-tip={`Failing: ${fails.join(', ')}`}>{fails.slice(0, 2).join(' · ').toUpperCase()}{fails.length > 2 ? ` +${fails.length - 2}` : ''}</em> : null}
+        <span className="rfold-f"><small>MINDS</small>{ran.join(' + ') || 'none'}</span>
+        <span className="rfold-f"><small>SOURCES</small><i className="m-num">{(f.read?.sites || []).length}</i></span>
+        <span className="rfold-f"><small>NEW</small><i className="m-num">{f.foot?.pct ?? '—'}%</i></span>
+        <span className="rfold-f"><small>KITS</small><i className="m-num">{(f.kits || []).length}</i></span>
+        <span className="rfold-f rfold-n">{CODE[kind]} #{f.n ?? '?'}</span><TestTag f={f} /></> : <span className="rfold-f">No {CODE[kind]} filed yet: its record shows here once one is.</span>}
+      {tail}<i className="rfold-chev" aria-hidden="true" />
+    </button>
+    {open ? <div className="rfold-body" data-testid={`${id}-body`}>{children}<TrueRecord kind={kind} folders={folders} /></div> : null}
+  </section>;
+}

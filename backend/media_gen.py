@@ -132,6 +132,18 @@ SWAP_RULE = ('Video 1 (the reference video) is the source clip and image 1 (the 
              'hair, skin, outfit and build as image 1 in every frame, moving exactly as the original person moves. Change nothing else.')
 ALEPH_PROMPT_MAX = 1000   # Runway's promptText limit
 ALEPH_MIN_USD = 0.56      # OpenRouter's /videos/models for Aleph 2: minimum_cents_per_generation 56 (read 2026-11-17)
+ALEPH_ASPECTS = ('16:9', '4:3', '3:2', '1:1', '2:3', '3:4', '9:16', '21:9')   # OpenRouter /videos/models supported_aspect_ratios for Aleph 2 (read 2026-11-20)
+
+
+def aleph_aspect(aspect):
+    """The nearest ratio Aleph 2 takes (a tall 9:21 clip → 9:16; /videos accepts 9:21, Aleph does not). Pure."""
+    try:
+        a, b = (int(x) for x in str(aspect or '9:16').split(':')); r = a / b
+    except (TypeError, ValueError, ZeroDivisionError):
+        return '9:16'
+    return min(ALEPH_ASPECTS, key=lambda x: abs(int(x.split(':')[0]) / int(x.split(':')[1]) - r))
+
+
 ALEPH_HOLD_S = 30         # 💵 owner 2026-11-17 (a 402 "out of credit" with $7.93 left, nothing charged): OpenRouter checks the balance against Aleph's
                           # longest clip (30 s) before it starts, not against the 10 s we send. Only the real clip is billed after.
 
@@ -207,12 +219,15 @@ def v2v_req(model_id, key, image, video, prompt='', seconds=None, aspect=None):
         # 'Unrecognized key: "references"'. Runway's own schema (docs.dev.runwayml.com/openapi.json, read 2026-11-17): Aleph 2 takes guidance
         # pictures ONLY as `keyframes: [{uri, seconds}]` (≤ 5, https or data URI) and a promptText of at most 1000 characters. OpenRouter lists
         # `keyframes` as Aleph 2's passthrough; passthrough goes under provider.options.<provider slug> ("runway", read from its /endpoints).
+        # Re-read 2026-11-20 (Slice 24, /openapi.json + /videos/models): input_references "other providers use image references and ignore
+        # the rest", so a picture there still becomes Runway's `references`; only the clip goes there. The owner's 400 of 2026-11-17 15:18 ran
+        # before this body shipped (17:35); his run at 18:37 passed validation and stopped at the credit check (402). Aspect snapped to Aleph's list.
         if not image or not video:
             raise ValueError('A swap needs your clip and the character picture.')
         note = ' '.join(str(prompt or '').split())
         text = (ALEPH_RULE + (f' Where these words differ from the above, follow them: {note}' if note else ''))[:ALEPH_PROMPT_MAX]
         return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {
-            'model': ep, 'prompt': text, 'aspect_ratio': aspect or '9:16',
+            'model': ep, 'prompt': text, 'aspect_ratio': aleph_aspect(aspect),
             'input_references': [{'type': 'video_url', 'video_url': {'url': video}}],
             'provider': {'options': {'runway': {'keyframes': [{'uri': image, 'seconds': 0}]}}}}
     if model_id == 'or-flux-edit':

@@ -13,7 +13,7 @@ import '../../styles/clipFarm.css';
 export const MAX_S = 300; export const MAX_MB = 600;
 export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHAPES = [['story', '9:16', 'Shorts · Reels · TikTok'], ['feed', '1:1', 'Feed square'], ['wide', '16:9', 'YouTube · X']];
-const STATE_IC = { done: <Check size={13} />, running: <Loader2 size={13} className="cfm-spin" />, failed: <X size={13} />, todo: null };
+const STATE_IC = { done: <Check size={13} />, running: <Loader2 size={13} className="clf-spin" />, failed: <X size={13} />, todo: null };
 const box = boxRef([640]);
 
 /** Pure: what is wrong with a picked file before it goes up (the server checks again with ffprobe), or ''. */
@@ -49,7 +49,7 @@ export const abs = u => { try { return new URL(apiUrl(u), window.location.href).
 function LinkChip({ url, label, onDelete, testid }) {
   const [done, setDone] = useState(false);
   if (!url) return null;
-  return <span className="cfm-link" data-testid={testid}><Link2 size={12} aria-hidden="true" /><small>{label}</small>
+  return <span className="clf-link" data-testid={testid}><Link2 size={12} aria-hidden="true" /><small>{label}</small>
     <a href={apiUrl(url)} target="_blank" rel="noreferrer noopener" data-tip="Open the in-house FEELESS link (plays in any browser, 7 days)"><ExternalLink size={12} /></a>
     <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(abs(url)); setDone(true); setTimeout(() => setDone(false), 1500); } catch { /* no clipboard here */ } }} data-tip="Copy the link: paste it to your phone or into a post">{done ? <Check size={12} /> : <Copy size={12} />}</button>
     {onDelete ? <button type="button" onClick={onDelete} data-tip="End this link now" data-testid={`${testid}-del`}><Trash2 size={12} /></button> : null}</span>;
@@ -62,29 +62,29 @@ const file = (f, piece, fmt) => (f?.studio?.files || []).find(x => x.piece === p
 const clock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function Steps({ run }) {
-  return <ol className="cfm-steps" aria-label="Progress">{(run.steps || []).map((s, i) => <li key={s.key} className={`is-${s.state}`} style={{ '--i': i }} data-testid={`cfm-step-${s.key}`}>
-    <span className="cfm-dot" aria-hidden="true">{STATE_IC[s.state]}</span><b>{s.label}</b><small>{s.note || (s.state === 'todo' ? 'waiting' : '')}{s.secs != null ? ` · ${s.secs} s` : ''}</small></li>)}</ol>;
+  return <ol className="clf-steps" aria-label="Progress">{(run.steps || []).map((s, i) => <li key={s.key} className={`is-${s.state}`} style={{ '--i': i }} data-testid={`cfm-step-${s.key}`}>
+    <span className="clf-dot" aria-hidden="true">{STATE_IC[s.state]}</span><b>{s.label}</b><small>{s.note || (s.state === 'todo' ? 'waiting' : '')}{s.secs != null ? ` · ${s.secs} s` : ''}</small></li>)}</ol>;
 }
 
 function Moments({ run }) {
   const minds = run.minds || [];
   if (!(run.cands || []).length) return null;
-  return <div className="cfm-moments" data-testid="cfm-moments"><table><thead><tr><th>#</th><th>Where</th><th>First 2 s</th><th data-tip="Code's own score: hook, payoff, loudness, laughs, cuts">Code</th>
+  return <div className="clf-moments" data-testid="cfm-moments"><table><thead><tr><th>#</th><th>Where</th><th>First 2 s</th><th data-tip="Code's own score: hook, payoff, loudness, laughs, cuts">Code</th>
     {minds.length ? minds.map(m => <th key={m.mind} data-tip={m.model}>Mind {'AB'[m.mind % 2]}<small>{m.name}</small></th>) : <><th>Mind A</th><th>Mind B</th></>}<th>Made</th></tr></thead>
     <tbody>{run.cands.map(c => { const made = (run.picks || []).some(p => p.n === c.n); return <tr key={c.n} className={made ? 'is-made' : ''}>
-      <td className="m-num">{c.n}</td><td className="m-num">{clock(c.s)}–{clock(c.e)}<small> {Math.round(c.e - c.s)} s</small></td><td className="cfm-first">“{c.first2}”</td><td className="m-num">{c.local}</td>
-      {(c.minds || [{}, {}]).map((m, i) => <td key={i} className="m-num" data-tip={m.why || 'no score'}>{m.score == null ? '—' : m.score}{m.picked ? <span className="cfm-pick" aria-label="picked">★</span> : null}</td>)}
+      <td className="m-num">{c.n}</td><td className="m-num">{clock(c.s)}–{clock(c.e)}<small> {Math.round(c.e - c.s)} s</small></td><td className="clf-first">“{c.first2}”</td><td className="m-num">{c.local}</td>
+      {(c.minds || [{}, {}]).map((m, i) => <td key={i} className="m-num" data-tip={m.why || 'no score'}>{m.score == null ? '—' : m.score}{m.picked ? <span className="clf-pick" aria-label="picked">★</span> : null}</td>)}
       <td>{made ? <Scissors size={14} aria-label="made" /> : null}</td></tr>; })}</tbody></table></div>;
 }
 
 function Board({ rows, onSlot, onOpen, busy }) {
-  if (!rows.length) return <p className="cfm-none">The clips land here as phone story, feed and wide tiles, each with a day of the week.</p>;
-  return <div className="cfm-board" data-testid="cfm-board">{rows.map((f, i) => { const c = f.studio.clip; const slot = f.studio.slot || ''; return <article key={f.id} className="cfm-clip" style={{ '--i': i }} data-testid={`cfm-clip-${f.id}`}>
+  if (!rows.length) return <p className="clf-none">The clips land here as phone story, feed and wide tiles, each with a day of the week.</p>;
+  return <div className="clf-board" data-testid="cfm-board">{rows.map((f, i) => { const c = f.studio.clip; const slot = f.studio.slot || ''; return <article key={f.id} className="clf-clip" style={{ '--i': i }} data-testid={`cfm-clip-${f.id}`}>
     <header><span className="m-label">PoC #{f.n}{f.test ? ' · TEST' : ''}</span><b>{f.studio.hook}</b><small>{clock(c.s)}–{clock(c.e)} of {c.from} · both minds {c.both ?? '—'}/10 · goal {Number(f.studio.goal?.target || 0).toLocaleString()} views · ${(Number(f.cost || 0)).toFixed(4)}</small></header>
-    <div className="cfm-tiles">{SHAPES.map(([k, r, tip]) => { const v = file(f, 'video', k); const im = file(f, 'image', k); return <figure key={k} className={`cfm-tile is-${k}`} data-tip={tip}>
+    <div className="clf-tiles">{SHAPES.map(([k, r, tip]) => { const v = file(f, 'video', k); const im = file(f, 'image', k); return <figure key={k} className={`clf-tile is-${k}`} data-tip={tip}>
       <span className="m-label">{r}</span>{v ? <video src={apiUrl(v.url)} poster={im ? apiUrl(im.url) : undefined} controls muted playsInline preload="none" data-testid={`cfm-vid-${k}`} /> : <small>not made</small>}</figure>; })}</div>
-    <footer><div className="m-seg cfm-days" role="group" aria-label="Day to post">{DAYS.map(d => <button key={d} type="button" aria-pressed={slot === d} className={slot === d ? 'active' : ''} disabled={busy || !!f.posted} onClick={() => onSlot(f.id, slot === d ? '' : d)} data-testid={`cfm-day-${f.id}-${d}`}>{d}</button>)}</div>
-      <span className="cfm-links">{SHAPES.map(([k, r]) => <LinkChip key={k} url={f.studio.links?.[k]} label={r} testid={`cfm-link-${f.id}-${k}`} />)}</span>
+    <footer><div className="m-seg clf-days" role="group" aria-label="Day to post">{DAYS.map(d => <button key={d} type="button" aria-pressed={slot === d} className={slot === d ? 'active' : ''} disabled={busy || !!f.posted} onClick={() => onSlot(f.id, slot === d ? '' : d)} data-testid={`cfm-day-${f.id}-${d}`}>{d}</button>)}</div>
+      <span className="clf-links">{SHAPES.map(([k, r]) => <LinkChip key={k} url={f.studio.links?.[k]} label={r} testid={`cfm-link-${f.id}-${k}`} />)}</span>
       <button type="button" className="m-btn" onClick={() => onOpen?.(f)} data-tip="Its PoCs: the goal, the platforms and the approve" data-testid={`cfm-open-${f.id}`}>{f.posted ? 'Posted · reach' : 'Approve and post…'}</button></footer>
   </article>; })}</div>;
 }
@@ -122,31 +122,31 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
     const j = await r.json().catch(() => ({})); if (!r.ok) setErr(errorText(j, r.status)); else onPocs?.(j.pocFolders); } finally { setSlotBusy(false); } };
 
   const run = runs[0]; const rows = boardRows(pocs);
-  return <section ref={box} className="cfm m-live" aria-label="Clip farm" data-testid="clip-farm">
-    <header className="cfm-head"><span><small className="m-label">CLIP FARM · FREE ON THIS MACHINE</small><strong>Drop a video, get the moments back as clips</strong></span>
+  return <section ref={box} className="clf m-live" aria-label="Clip farm" data-testid="clip-farm">
+    <header className="clf-head"><span><small className="m-label">CLIP FARM · FREE ON THIS MACHINE</small><strong>Drop a video, get the moments back as clips</strong></span>
       <small>Up to 5:00 · any MP4, MOV, WebM, MKV or AVI (converted free on this machine) · captioned, reframed on the speaker, 9:16 · 1:1 · 16:9 · nothing posts without your approve</small></header>
-    <div className={`cfm-drop${drag ? ' is-drag' : ''}${pct != null ? ' is-busy' : ''}`} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+    <div className={`clf-drop${drag ? ' is-drag' : ''}${pct != null ? ' is-busy' : ''}`} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
       onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f && !running && pct == null) send(f); }} data-testid="cfm-drop">
       <Film size={26} aria-hidden="true" /><b>{pct != null ? `Uploading ${pct}%` : running ? 'Clipping your video…' : 'Drop your video here'}</b>
       <small>YouTube, Twitch or Instagram? Save it from the app, then drop the file. A Bluesky post or a direct .mp4 link works below.</small>
-      <span className="cfm-row"><label className="cfm-rights"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} data-testid="cfm-rights" /> It's mine, or I have the rights</label>
+      <span className="clf-row"><label className="clf-rights"><input type="checkbox" checked={rights} onChange={e => setRights(e.target.checked)} data-testid="cfm-rights" /> It's mine, or I have the rights</label>
         <button type="button" className="m-btn m-go" disabled={running || pct != null} onClick={() => input.current?.click()} data-testid="cfm-pick"><Upload size={14} /> Upload a video</button>
         <input ref={input} type="file" accept="video/*,.mp4,.mov,.webm,.m4v,.mkv,.avi" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) send(f); }} data-testid="cfm-file" /></span>
-      <span className="cfm-row"><input className="m-input" value={note} onChange={e => setNote(e.target.value)} placeholder="Note for the minds (optional): what to look for" aria-label="Note for the minds" data-testid="cfm-note" />
+      <span className="clf-row"><input className="m-input" value={note} onChange={e => setNote(e.target.value)} placeholder="Note for the minds (optional): what to look for" aria-label="Note for the minds" data-testid="cfm-note" />
         <input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="https://bsky.app/… or https://…/video.mp4" aria-label="Video link" data-testid="cfm-link" />
         <button type="button" className="m-btn" disabled={!link.trim() || running || pct != null} onClick={fromLink} data-testid="cfm-link-go"><Link2 size={14} /> Use link</button></span>
     </div>
-    {card ? <div className="cfm-card" role="note" data-testid="cfm-redirect"><b>{card} doesn't allow downloading its videos, so FEELESS never fetches them.</b>
+    {card ? <div className="clf-card" role="note" data-testid="cfm-redirect"><b>{card} doesn't allow downloading its videos, so FEELESS never fetches them.</b>
       <span>Save it from the {card} app (it has to be yours, or you need the rights), then upload the file here:</span>
       <ol>{(SAVE_STEPS[card] || []).map(t => <li key={t}>{t}</li>)}</ol>
-      <span className="cfm-row"><button type="button" className="m-btn m-go" onClick={() => { setCard(''); input.current?.click(); }} data-testid="cfm-redirect-upload"><Upload size={14} /> Upload the saved file</button>
+      <span className="clf-row"><button type="button" className="m-btn m-go" onClick={() => { setCard(''); input.current?.click(); }} data-testid="cfm-redirect-upload"><Upload size={14} /> Upload the saved file</button>
         <button type="button" className="m-btn" onClick={() => setCard('')}>Close</button></span></div> : null}
-    {err ? <small className="cfm-err" role="alert" data-testid="cfm-err">{err}</small> : null}
-    {run ? <div className="cfm-run" data-testid="cfm-run"><header><span className="m-label">{run.status === 'running' ? 'RUNNING' : run.status === 'done' ? 'DONE' : 'STOPPED'}{run.test ? ' · TEST' : ''}</span>
+    {err ? <small className="clf-err" role="alert" data-testid="cfm-err">{err}</small> : null}
+    {run ? <div className="clf-run" data-testid="cfm-run"><header><span className="m-label">{run.status === 'running' ? 'RUNNING' : run.status === 'done' ? 'DONE' : 'STOPPED'}{run.test ? ' · TEST' : ''}</span>
       <b>{run.name}</b><small className="m-num">{clock(run.secs || 0)} · {run.w}×{run.h}{run.firstClipS ? ` · first clip ${Math.round(run.firstClipS)} s` : ''}{run.doneS ? ` · all ${Math.round(run.doneS)} s` : ''} · minds ${Number(run.cost || 0).toFixed(4)}</small></header>
-      {run.converted?.url ? <span className="cfm-links"><LinkChip url={(run.links || []).some(k => k.kind === 'upload' && !k.gone && !k.swept && k.exp * 1000 > Date.now()) ? run.converted.url : ''} label="Your upload, converted" onDelete={() => unlink(run.converted.url)} testid="cfm-uplink" /></span> : null}
-      <Steps run={run} />{run.err ? <small className="cfm-err">{run.err}</small> : null}<Moments run={run} /></div> : null}
-    <h4 className="cfm-h">Clip board · story / feed / wide, a day each</h4>
+      {run.converted?.url ? <span className="clf-links"><LinkChip url={(run.links || []).some(k => k.kind === 'upload' && !k.gone && !k.swept && k.exp * 1000 > Date.now()) ? run.converted.url : ''} label="Your upload, converted" onDelete={() => unlink(run.converted.url)} testid="cfm-uplink" /></span> : null}
+      <Steps run={run} />{run.err ? <small className="clf-err">{run.err}</small> : null}<Moments run={run} /></div> : null}
+    <h4 className="clf-h">Clip board · story / feed / wide, a day each</h4>
     <Board rows={rows} busy={slotBusy} onSlot={slot} onOpen={onOpen} />
   </section>;
 }

@@ -1,7 +1,6 @@
 """🎬 PoC images and video on the owner's own fal.ai / Replicate key: picks, guards, a whole job (submit → poll → keep the file),
 failures said plainly, and the key never sent to the file's own link."""
 import asyncio
-import json
 
 import pytest
 
@@ -133,3 +132,24 @@ def test_every_provider_refusal_says_what_happened_and_what_to_do():
     assert 'key was refused' in mg.plain_why(401, '') and 'key was refused' in mg.plain_why(None, 'Invalid API key provided')
     assert 'busy' in mg.plain_why(429, 'slow down') and 'ours to fix' in mg.plain_why(400, 'Unrecognized key: "references"')
     assert "safety check" in mg.plain_why(None, 'Content flagged by moderation')
+
+
+def test_aleph_body_matches_openrouters_live_videos_schema():
+    """Slice 24 (owner's screenshot: 400 'Unrecognized key: "references"'): the Aleph 2 body against OpenRouter's own schema, read free 2026-11-20."""
+    import json
+    from pathlib import Path
+    sch = json.loads((Path(__file__).parent / 'fixtures' / 'openrouter_videos_aleph.json').read_text())
+    for asp in ('9:16', '16:9', '9:21', '2:1', None, 'junk'):
+        _, url, _h, b = mg.v2v_req('or-aleph-swap', 'k', 'https://x/p.jpg', 'https://x/v.mp4', 'left guy', 10, asp)
+        assert url.endswith('/api/v1/videos') and b['model'] == sch['model']['id']
+        assert set(b) <= set(sch['request']['properties'])                       # no key OpenRouter's /videos does not know
+        assert b['aspect_ratio'] in sch['model']['supported_aspect_ratios']      # 9:21 / 2:1 are /videos ratios Aleph refuses
+        refs = b['input_references']
+        assert all(r['type'] in sch['input_reference_types'] for r in refs)
+        assert [r['type'] for r in refs] == ['video_url']   # "other providers use image references": a picture here = Runway's `references` = the 400
+        assert set(b['provider']) <= set(sch['request']['provider_properties'])
+        assert set(b['provider']['options']['runway']) <= set(sch['model']['allowed_passthrough_parameters'])
+        assert b['provider']['options']['runway']['keyframes'] == [{'uri': 'https://x/p.jpg', 'seconds': 0}]
+        assert len(b['prompt']) <= mg.ALEPH_PROMPT_MAX and 'duration' not in b and 'resolution' not in b   # Aleph lists neither
+    assert mg.aleph_aspect('9:21') == '9:16' and mg.aleph_aspect('2:1') == '16:9' and mg.aleph_aspect('5:2') == '21:9'
+    assert set(mg.ALEPH_ASPECTS) == set(sch['model']['supported_aspect_ratios'])

@@ -1,0 +1,77 @@
+{
+ "_read": "OpenRouter GET /api/v1/videos/models + /openapi.json (VideoGenerationRequest, InputReference), free reads 2026-11-20, trimmed",
+ "model": {
+  "id": "runway/aleph-2",
+  "supported_aspect_ratios": [
+   "16:9",
+   "4:3",
+   "3:2",
+   "1:1",
+   "2:3",
+   "3:4",
+   "9:16",
+   "21:9"
+  ],
+  "supported_durations": null,
+  "supported_resolutions": null,
+  "generate_audio": false,
+  "pricing_skus": {
+   "cents_per_second_output": "28",
+   "minimum_cents_per_generation": "56"
+  },
+  "allowed_passthrough_parameters": [
+   "contentModeration",
+   "keyframes"
+  ]
+ },
+ "request": {
+  "properties": [
+   "aspect_ratio",
+   "callback_url",
+   "creativity",
+   "duration",
+   "frame_images",
+   "generate_audio",
+   "input_references",
+   "model",
+   "previous_job_id",
+   "prompt",
+   "provider",
+   "resolution",
+   "seed",
+   "session_id",
+   "size",
+   "trace",
+   "upscale_factor",
+   "user"
+  ],
+  "aspect_ratio_enum": [
+   "16:9",
+   "9:16",
+   "1:1",
+   "4:3",
+   "3:4",
+   "3:2",
+   "2:3",
+   "21:9",
+   "9:21",
+   "2:1",
+   "5:2"
+  ],
+  "input_references_note": "Reference assets to guide video generation. Accepts image, audio, and video references. Audio and video references are only honored by providers that support them (including BytePlus Seedance generation 2 and newer); other providers use image references and ignore the rest.",
+  "provider_properties": [
+   "data_collection",
+   "ignore",
+   "only",
+   "options",
+   "order",
+   "zdr"
+  ],
+  "provider_options_note": "Provider-specific options keyed by provider slug. The provider segment is case-insensitive; an endpoint tag after `/` must match the endpoint slug exactly. Only options for the matched provider are forwarded; the rest are ignored. Unrecognized keys are silently dropped."
+ },
+ "input_reference_types": [
+  "audio_url",
+  "image_url",
+  "video_url"
+ ]
+}
