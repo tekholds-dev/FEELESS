@@ -376,6 +376,8 @@ def record_rows(f):
     s = (f or {}).get('studio') if isinstance((f or {}).get('studio'), dict) else None
     if not s:
         return []
+    if isinstance(s.get('clip'), dict):
+        return _clip_rows(f, s)
     tr = s.get('trend') or {}; ok_f, why_f = files_check(s.get('files')); posted = f.get('posted') if isinstance(f.get('posted'), dict) else None
     g = s.get('goal') or {}; reads = (f.get('reach') or {}).get('reads') or []
     self_posted = bool(posted) and not (posted.get('approvedBy') == 'owner' and posted.get('approvedAt'))
@@ -387,4 +389,26 @@ def record_rows(f):
          'why': (f"posted on {', '.join(sorted((posted.get('platforms') or {}).keys())) or 'no platform'} after the owner approved" if posted else 'waiting for the owner’s approve: nothing was posted') if not self_posted else 'posted without the owner’s approve'},
         {'key': 'reach', 'label': 'Reach read back at 24 h and 7 d, graded against the goal set at filing', 'ok': bool(g.get('type') and g.get('target')),
          'why': (f"goal: {int(g['target']):,} {GOAL_WORD.get(g['type'], '')} in 7 d" + (f"; read {', '.join(r.get('label', '') for r in reads)}" if reads else '; reads 24 h and 7 d after it posts')) if g.get('target') else 'no goal was set'},
+    ]
+
+
+def _clip_rows(f, s):
+    """✂ Slice 15: the record of a clip-farm PoC: the upload it came from, every candidate with each mind's blind score, the tracked reframe,
+    the files in 9:16 / 1:1 / 16:9, the owner's approve, the goal."""
+    import clip_farm as _cf
+    c = s['clip']; ok_f, why_f = _cf.files_check(s.get('files')); posted = f.get('posted') if isinstance(f.get('posted'), dict) else None
+    g = s.get('goal') or {}; tr = c.get('track') or {}; ms = c.get('minds') or []; scored = [m for m in ms if m.get('score') is not None]
+    self_posted = bool(posted) and not (posted.get('approvedBy') == 'owner' and posted.get('approvedAt'))
+    return [
+        {'key': 'source', 'label': 'Clipped from the upload (5 min at most)', 'ok': bool(c.get('from')) and float(c.get('secs') or 0) <= _cf.MAX_S + .5,
+         'why': f"{_cut(c.get('from'), 60)} · {float(c.get('secs') or 0):.0f} s · this clip {float(c.get('s') or 0):.1f}–{float(c.get('e') or 0):.1f} s"},
+        {'key': 'moments', 'label': 'Both minds scored the moments blind and said why', 'ok': len(scored) >= 2,
+         'why': '; '.join(f"Mind {'AB'[int(m['mind']) % 2]} {m['score']}/10{' (picked)' if m.get('picked') else ''}: {_cut(m.get('why'), 60)}" for m in scored) or 'no mind scored it: code’s own score stood in'},
+        {'key': 'reframe', 'label': 'Reframed on the speaker, never a fixed centre crop', 'ok': tr.get('how') in ('face', 'motion'),
+         'why': f"{tr.get('how')}: a face in {tr.get('faces', 0)} of {tr.get('frames', 0)} looks"},
+        {'key': 'files', 'label': 'The clip and its cover in 9:16, 1:1 and 16:9, captioned, no watermark', 'ok': ok_f and not (s.get('maker') or {}).get('watermark'), 'why': why_f},
+        {'key': 'approve', 'label': 'Nothing posts until the owner approves', 'ok': not self_posted,
+         'why': (f"posted on {', '.join(sorted((posted.get('platforms') or {}).keys())) or 'no platform'} after the owner approved" if posted else 'waiting for the owner’s approve: nothing was posted') if not self_posted else 'posted without the owner’s approve'},
+        {'key': 'reach', 'label': 'Reach read back at 24 h and 7 d, graded against the goal set at filing', 'ok': bool(g.get('type') and g.get('target')),
+         'why': f"goal: {int(g['target']):,} {GOAL_WORD.get(g['type'], '')} in 7 d" if g.get('target') else 'no goal was set'},
     ]

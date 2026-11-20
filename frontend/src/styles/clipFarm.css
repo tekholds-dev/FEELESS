@@ -1,0 +1,51 @@
+/* ✂ Clip farm (ClipFarm.jsx, Slice 15) — m-* tokens, one keyframe set cfm*. Its own width via lib/boxRef (data-w640), never a container query. */
+.cfm { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); }
+.cfm-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: end; justify-content: space-between; }
+.cfm-head span { display: grid; gap: 2px; } .cfm-head strong { font: 700 17px var(--f-display); color: var(--m-text); }
+.cfm-head > small { color: var(--m-dim); font: 500 11px var(--f-ui); max-width: 420px; }
+.cfm-drop { display: grid; justify-items: center; gap: 8px; padding: 18px 14px; border: 1.5px dashed var(--m-line-hi); border-radius: var(--m-r); text-align: center;
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--m-accent) 9%, transparent), transparent 70%); transition: border-color .15s, background .15s, transform .15s var(--m-ease); }
+.cfm-drop > svg { color: var(--m-accent); } .cfm-drop > b { font: 700 15px var(--f-display); color: var(--m-text); } .cfm-drop > small { color: var(--m-dim); font: 500 12px var(--f-ui); max-width: 520px; }
+.cfm-drop.is-drag { border-color: var(--m-accent); transform: scale(1.01); background: color-mix(in srgb, var(--m-accent) 12%, transparent); }
+.cfm-drop.is-busy > svg { animation: cfmPulse 1.2s var(--m-ease) infinite; }
+.cfm-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; width: 100%; }
+.cfm-row .m-input { flex: 1 1 220px; min-width: 0; } .cfm-row .m-btn { display: inline-flex; gap: 6px; align-items: center; }
+.cfm-rights { display: inline-flex; gap: 6px; align-items: center; color: var(--m-dim); font: 600 12px var(--f-ui); }
+.cfm-err { color: var(--m-danger); font: 500 12px var(--f-ui); }
+.cfm-run { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--m-line-hi); border-radius: var(--m-r-sm); background: var(--m-surface-2); }
+.cfm-run > header { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; } .cfm-run > header b { color: var(--m-text); font: 700 14px var(--f-ui); } .cfm-run > header small { color: var(--m-dim); font: 600 11px var(--f-mono); }
+.cfm-steps { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.cfm-steps li { display: grid; grid-template-columns: 20px minmax(150px, auto) minmax(0, 1fr); gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; animation: cfmIn .3s var(--m-ease) both; animation-delay: calc(var(--i) * 40ms); }
+.cfm-steps b { font: 600 12px var(--f-ui); color: var(--m-dim); } .cfm-steps small { color: var(--m-mute); font: 500 11px var(--f-mono); overflow-wrap: anywhere; }
+.cfm-dot { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--m-line-hi); border-radius: 50%; color: var(--m-accent-ink); }
+.cfm-steps li.is-done .cfm-dot { background: var(--m-accent); border-color: var(--m-accent); } .cfm-steps li.is-done b { color: var(--m-text); }
+.cfm-steps li.is-running { background: color-mix(in srgb, var(--m-accent) 9%, transparent); } .cfm-steps li.is-running .cfm-dot { color: var(--m-accent); border-color: var(--m-accent); } .cfm-steps li.is-running b { color: var(--m-text); }
+.cfm-steps li.is-failed .cfm-dot { background: var(--m-danger); border-color: var(--m-danger); } .cfm-steps li.is-failed small { color: var(--m-danger); }
+.cfm-spin { animation: cfmSpin 1s linear infinite; }
+.cfm-moments { overflow-x: auto; scrollbar-width: thin; }
+.cfm-moments table { width: 100%; border-collapse: collapse; font: 500 12px var(--f-ui); }
+.cfm-moments th { padding: 4px 6px; color: var(--m-mute); font: 700 9px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.cfm-moments th small { display: block; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.cfm-moments td { padding: 5px 6px; border-top: 1px solid var(--m-line); color: var(--m-dim); white-space: nowrap; }
+.cfm-moments td small { color: var(--m-mute); } .cfm-moments .cfm-first { white-space: normal; min-width: 180px; color: var(--m-text); }
+.cfm-moments tr.is-made td { color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 7%, transparent); } .cfm-moments tr.is-made svg { color: var(--m-accent); }
+.cfm-pick { margin-left: 3px; color: var(--m-accent); }
+.cfm-moments td.m-num { font: 600 12px var(--f-mono); } .cfm-moments td.m-num:first-child { color: var(--m-text); }
+.cfm-h { margin: 4px 0 0; color: var(--m-dim); font: 700 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+.cfm-none { margin: 0; color: var(--m-mute); font: 500 12px var(--f-ui); }
+.cfm-board { display: grid; gap: 12px; }
+.cfm-clip { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-bg); animation: cfmIn .35s var(--m-ease) both; animation-delay: calc(var(--i) * 70ms); transition: border-color .15s, transform .15s var(--m-ease); }
+.cfm-clip:hover { border-color: var(--m-line-hi); transform: translateY(-2px); }
+.cfm-clip > header { display: grid; gap: 2px; } .cfm-clip > header b { color: var(--m-text); font: 700 15px var(--f-display); } .cfm-clip > header small { color: var(--m-mute); font: 600 11px var(--f-mono); }
+.cfm-tiles { display: grid; grid-template-columns: 0.75fr 1fr 1.6fr; gap: 8px; align-items: end; }
+.cfm-tile { display: grid; gap: 4px; margin: 0; } .cfm-tile video { display: block; width: 100%; border-radius: 6px; background: #000; object-fit: cover; }
+.cfm-tile.is-story video { aspect-ratio: 9 / 16; } .cfm-tile.is-feed video { aspect-ratio: 1; } .cfm-tile.is-wide video { aspect-ratio: 16 / 9; }
+.cfm-tile small { color: var(--m-mute); font: 500 11px var(--f-ui); }
+.cfm-clip > footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.cfm-days { flex-wrap: wrap; } .cfm-days button { min-width: 40px; }
+.cfm[data-w640] .cfm-tiles { grid-template-columns: 0.75fr 1fr; } .cfm[data-w640] .cfm-tile.is-wide { grid-column: 1 / -1; }
+.cfm[data-w640] .cfm-steps li { grid-template-columns: 20px minmax(0, 1fr); } .cfm[data-w640] .cfm-steps small { grid-column: 2; }
+@keyframes cfmIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cfmSpin { to { transform: rotate(360deg); } }
+@keyframes cfmPulse { 50% { transform: scale(1.12); opacity: .7; } }
+body.fx-lite .cfm-clip, body.fx-lite .cfm-steps li { animation: none; }

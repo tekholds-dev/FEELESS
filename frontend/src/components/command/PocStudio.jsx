@@ -52,26 +52,30 @@ export default function PocStudio({ cat, f, work, onFolders }) {
   const made = files.filter(x => x.url && !x.error).length;
   return <section className="pst m-live" aria-label={`PoC #${f.n} content studio`} data-testid={`pst-${f.id}`}>
     <header className="pst-head">
-      <div className="pst-trend" data-tip="Trend first: what was moving today when it decided, and how big it was">
+      {s.clip ? <div className="pst-trend" data-tip="Clip farm: cut from your own upload, the moment both minds scored">
+        <span className="m-label">CLIPPED FROM YOUR UPLOAD</span>
+        <b className="pst-from" data-testid="pst-clip-from">{s.clip.from}</b>
+        <small><span className="m-chip">{Math.floor(s.clip.s / 60)}:{String(Math.floor(s.clip.s % 60)).padStart(2, '0')}–{Math.floor(s.clip.e / 60)}:{String(Math.floor(s.clip.e % 60)).padStart(2, '0')}</span> {Math.round(s.clip.dur)} s · {(s.clip.minds || []).map(m => `Mind ${'AB'[m.mind % 2]} ${m.score ?? '—'}/10`).join(' · ')} · {s.clip.track?.how === 'face' ? 'tracked on the face' : 'tracked on the motion'}{s.slot ? ` · planned ${s.slot}` : ''}</small>
+      </div> : <div className="pst-trend" data-tip="Trend first: what was moving today when it decided, and how big it was">
         <span className="m-label">RODE TODAY’S TREND</span>
         <a href={s.trend?.url} target="_blank" rel="noreferrer noopener" data-testid="pst-trend">{s.trend?.text}</a>
         <small><span className="m-chip">{s.trend?.source}</span> {s.trend?.rank ? s.trend.unit : `${fmt(s.trend?.signal)} ${s.trend?.unit || ''}`}{s.trends?.length ? ` · picked from ${s.trends.length} trends` : ''}</small>
-      </div>
+      </div>}
       <Meter value={posted ? (goal.type === 'reach' ? last?.views : goal.type === 'buzz' ? last?.engagement : goal.type === 'clicks' ? last?.clicks : null) ?? null : null} target={goal.target} label={GOAL_WORD[goal.type] || 'views'} verdict={(f.grade || last?.grade)?.verdict} />
       <dl className="pst-facts">
         <div data-tip="What the minds and the media cost. The free maker on this machine is $0"><dt>COST</dt><dd className="m-num">${(Number(f.cost || 0) + Number(s.maker?.usd || 0)).toFixed(2)}</dd></div>
         <div data-tip="Dollars per 1,000 views, from the last read"><dt>PER 1K VIEWS</dt><dd className="m-num" data-testid="pst-cpm">{last?.grade?.cpm == null ? '—' : `$${last.grade.cpm.toFixed(2)}`}</dd></div>
-        <div data-tip="Every piece in every format"><dt>FILES</dt><dd className="m-num">{made}/12</dd></div>
+        <div data-tip="Every piece in every format"><dt>FILES</dt><dd className="m-num">{made}/{s.clip ? 9 : 12}</dd></div>
       </dl>
     </header>
     <p className="pst-angle"><b>{s.hook}</b> {s.angle ? <span>· {s.angle}</span> : null}{f.test ? <span className="m-chip pst-test">TEST</span> : null}</p>
 
     <div className="m-seg pst-formats" role="tablist" aria-label="Format">{FORMATS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={fmtKey === k} className={fmtKey === k ? 'active' : ''} onClick={() => setFmt(k)} data-tip={tip} data-testid={`pst-fmt-${k}`}>{l}</button>)}</div>
-    <div className={`pst-files is-${fmtKey}`}>
-      <figure style={{ '--i': 0 }}><span className="m-label">IMAGE</span>{img ? <a href={apiUrl(img.url)} target="_blank" rel="noreferrer noopener" data-tip="Open the full-size file"><img src={apiUrl(img.url)} alt={s.hook} loading="lazy" data-testid={`pst-img-${fmtKey}`} /></a> : <small>Not made</small>}</figure>
-      <figure style={{ '--i': 1 }}><span className="m-label">SHORT VIDEO</span>{vid ? <video src={apiUrl(vid.url)} controls muted playsInline preload="metadata" data-testid={`pst-vid-${fmtKey}`} /> : <small>Not made</small>}</figure>
+    <div className={`pst-files is-${fmtKey}${s.clip ? ' is-clip' : ''}`}>
+      <figure style={{ '--i': 0 }}><span className="m-label">{s.clip ? 'COVER' : 'IMAGE'}</span>{img ? <a href={apiUrl(img.url)} target="_blank" rel="noreferrer noopener" data-tip="Open the full-size file"><img src={apiUrl(img.url)} alt={s.hook} loading="lazy" data-testid={`pst-img-${fmtKey}`} /></a> : <small>Not made</small>}</figure>
+      <figure style={{ '--i': 1 }}><span className="m-label">{s.clip ? `CLIP · ${{ story: '9:16', feed: '1:1', wide: '16:9' }[fmtKey]}` : 'SHORT VIDEO'}</span>{vid ? <video src={apiUrl(vid.url)} controls muted playsInline preload="metadata" data-testid={`pst-vid-${fmtKey}`} /> : <small>Not made</small>}</figure>
       <figure style={{ '--i': 2 }} className="pst-text"><span className="m-label">POST</span>{post ? <><p data-testid={`pst-post-${fmtKey}`}>{post.text}</p><a className="m-btn" href={apiUrl(post.url)} download data-tip="The post as a text file">Download</a></> : <small>Not made</small>}</figure>
-      <figure style={{ '--i': 3 }} className="pst-text"><span className="m-label">THREAD · {thr?.parts || 0} PARTS</span>{thr ? <><div className="pst-cards">{(thr.cards || []).map((u, i) => <img key={u} src={apiUrl(u)} alt={`Part ${i + 1}`} loading="lazy" />)}</div><a className="m-btn" href={apiUrl(thr.url)} download data-tip="The thread as a text file">Download</a></> : <small>Not made</small>}</figure>
+      {s.clip ? null : <figure style={{ '--i': 3 }} className="pst-text"><span className="m-label">THREAD · {thr?.parts || 0} PARTS</span>{thr ? <><div className="pst-cards">{(thr.cards || []).map((u, i) => <img key={u} src={apiUrl(u)} alt={`Part ${i + 1}`} loading="lazy" />)}</div><a className="m-btn" href={apiUrl(thr.url)} download data-tip="The thread as a text file">Download</a></> : <small>Not made</small>}</figure>}
     </div>
 
     {posted ? <section className="pst-posted" aria-label="Posted" data-testid="pst-posted">

@@ -82,3 +82,38 @@ def test_every_service_mounts_the_armor():
     root = pathlib.Path(__file__).resolve().parent.parent
     for f in ('server.py', 'reputation_service.py', 'feecat_service.py', 'candles_service.py'):
         assert 'HttpArmor' in (root / f).read_text(), f
+
+
+def test_a_clip_farm_video_streams_past_the_upload_cap_never_buffered_and_is_still_capped(monkeypatch):
+    """✂ Slice 15: a 5-min video (up to 600 MB) flows through to the route chunk by chunk; past MAX_VIDEO the route hears the client left."""
+    from starlette.requests import ClientDisconnect
+    app = FastAPI(); seen = []
+
+    @app.post('/api/cats/c1/clipfarm/upload')
+    async def up(request: Request):
+        n = 0
+        try:
+            async for ch in request.stream():
+                n += len(ch); seen.append(len(ch))
+        except ClientDisconnect:
+            return {'cut': n}
+        return {'n': n}
+    armor = ha.HttpArmor(app)
+
+    async def go(size, chunks=8):
+        async def body():
+            for _ in range(chunks):
+                yield b'x' * (size // chunks)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=armor), base_url='http://t') as c:
+            return await c.post('/api/cats/c1/clipfarm/upload', content=body())
+    r = _run(go(48 * 1024 * 1024))   # over the 40 MB upload cap, under the video cap
+    assert r.status_code == 200 and r.json() == {'n': 48 * 1024 * 1024} and len(seen) >= 8   # it arrived in pieces, not one buffered blob
+    monkeypatch.setattr(ha, 'MAX_VIDEO', 4 * 1024 * 1024)
+    assert ha.cap_for('/api/cats/c1/clipfarm/upload', True) == 4 * 1024 * 1024   # even our own services stay under the video cap
+    r = _run(go(8 * 1024 * 1024))
+    assert r.json()['cut'] <= 4 * 1024 * 1024
+    async def declared():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=armor), base_url='http://t') as c:
+            return await c.post('/api/cats/c1/clipfarm/upload', content=b'x' * (5 * 1024 * 1024))
+    assert _run(declared()).status_code == 413
+    assert ha.cap_for('/api/x/echo', False) == ha.MAX_BODY and not ha.is_stream('/api/cats/c1/media/upload')   # every other route is unchanged

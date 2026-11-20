@@ -50,3 +50,6 @@ body.fx-lite .pst-files figure, body.fx-lite .pst-plat, body.fx-lite .pst-confir
 @media (prefers-reduced-motion: reduce) { .pst-files figure, .pst-plat, .pst-confirm { animation: none; } .pst-meter-bar i { transition: none; } }
 body.theme-day .pst-files img, body.theme-day .pst-files video { background: var(--m-surface-2); }
 body.theme-day .pst-meter-bar i { box-shadow: none; }
+/* ✂ Slice 15: a clip-farm PoC — its square feed, its upload's name, three pieces a row */
+.pst-from { color: var(--m-text); font: 700 16px var(--f-display); line-height: 1.2; overflow-wrap: anywhere; }
+.pst-files.is-clip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pst-files.is-clip.is-feed img, .pst-files.is-clip.is-feed video { aspect-ratio: 1; }

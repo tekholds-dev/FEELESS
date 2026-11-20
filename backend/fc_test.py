@@ -175,7 +175,7 @@ async def test_proof_state(request: Request, agent: str = ''):
     if last_:   # 🔍 Slice 9: the TEST PoStatic's inspect before / after
         f_ = next((x for x in cat.get('psFolders') or [] if isinstance(x, dict) and x.get('id') == last_.get('id')), {})
         last_['inspect'] = f_.get('inspect')
-    return {'agent': cat.get('name'), 'tests': tests}
+    return {'agent': cat.get('name'), 'id': cat.get('id'), 'tests': tests}
 
 
 def busy_with(cat, kind, poc_busy=False):

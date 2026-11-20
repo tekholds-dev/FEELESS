@@ -77,6 +77,7 @@ def main():
     ap.add_argument('--size', type=float, default=0, help='its size in metres, as the studio sets it')
     ap.add_argument('--turn', type=float, default=0, help='its turn in degrees')
     ap.add_argument('--spin', type=float, default=0)
+    ap.add_argument('--clip', default='', help='PoC only (Slice 15): a video file (≤ 5 min) uploaded to the clip farm, through the same upload door the owner uses')
     ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
     ap.add_argument('--dash', action='store_true', help='PoB only: file through the PoB dashboard door (op pob: a tap on What to file next), not the chat line')
     ap.add_argument('--slip', default='', help='PoB only, with --dash: his own slip as JSON, [{"ticker": "...", "side": "yes|no", "title": "..."}]')
@@ -89,6 +90,8 @@ def main():
         for k, v in (j.get('tests') or {}).items():
             print(f"{k}: {'RUNNING · ' if v.get('running') else ''}{summary(v.get('last'))}")
         return 0 if code == 200 else 1
+    if a.clip:
+        return clip_farm(a)
     code, j = call('GET'); before = (((j.get('tests') or {}).get(a.kind) or {}).get('last') or {}).get('id')
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
                             **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
@@ -108,6 +111,46 @@ def main():
             gone = gone or time.time()
             if a.kind not in ('pow', 'pob') or time.time() - gone > 600:
                 print('the TEST claim ended with no TEST folder filed (see the agent chat)'); return 1
+    print(f'still running after {a.mins} min'); return 2
+
+
+def clip_farm(a):
+    """✂ Slice 15: a TEST clip-farm run. The file goes up through the owner's own upload door (internal key = marked TEST), then every step's
+    progress line is printed until it is done, with every candidate, each mind's blind score and each filed clip PoC's record."""
+    from urllib.parse import quote
+    if a.kind != 'poc':
+        print('--clip is for --kind poc'); return 1
+    code, j = call('GET'); cid = j.get('id')
+    if code != 200 or not cid:
+        print(code, j); return 1
+    f = pathlib.Path(a.clip); key = (ROOT / 'backend' / 'data' / 'internal.key').read_text().strip()
+    base = f'http://127.0.0.1:5088/api/cats/{cid}/clipfarm'
+    req = urllib.request.Request(f'{base}/upload?rights=1&name={quote(f.name)}&note={quote(a.topic)}', method='POST', data=f.read_bytes(),
+                                 headers={'x-feeless-internal': key, 'Content-Type': 'video/mp4' if f.suffix.lower() != '.webm' else 'video/webm'})
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            run = json.loads(r.read())['run']
+    except urllib.error.HTTPError as e:
+        print(e.code, e.read()[:400].decode(errors='replace')); return 1
+    print(f"uploaded {f.stat().st_size / 1e6:.1f} MB in {time.time() - t0:.1f} s → run {run['id']} ({run['secs']} s, {run['w']}×{run['h']})"); seen = {}
+    while time.time() - t0 < a.mins * 60:
+        time.sleep(5)
+        with urllib.request.urlopen(urllib.request.Request(base, headers={'x-feeless-internal': key}), timeout=60) as r:
+            r_ = next((x for x in json.loads(r.read())['runs'] if x['id'] == run['id']), {})
+        for s in r_.get('steps') or []:
+            line = f"{s['state']:8} {s['label']}: {s.get('note', '')}{' · ' + str(s['secs']) + ' s' if s.get('secs') is not None else ''}"
+            if seen.get(s['key']) != line:
+                seen[s['key']] = line; print(f'  [{time.time() - t0:5.0f} s] {line}', flush=True)
+        if r_.get('status') in ('done', 'failed'):
+            print(f"\n{r_['status'].upper()} · first clip filed at {r_.get('firstClipS')} s · all at {r_.get('doneS')} s · minds ${r_.get('cost')}" + (f" · {r_.get('err')}" if r_.get('err') else ''))
+            for c in r_.get('cands') or []:
+                print(f"  #{c['n']} {c['s']:.1f}-{c['e']:.1f} s local {c['local']} both {c.get('both')} · " + ' · '.join(f"{'AB'[m['mind'] % 2]} {m['score']}{'*' if m['picked'] else ''}" for m in c.get('minds') or []) + f" · \"{c['first2'][:50]}\"")
+            for m in r_.get('minds') or []:
+                print(f"  mind {'AB'[m['mind'] % 2]} {m['model']}: read={m['read']} scored {m['scored']} picked {m['picked']} {m.get('err') or ''}")
+            code, j = call('GET'); last = ((j.get('tests') or {}).get('poc') or {}).get('last')
+            print(f"  clips filed: {r_.get('clips')}\n  last TEST PoC: {summary(last)}")
+            return 0 if r_['status'] == 'done' else 1
     print(f'still running after {a.mins} min'); return 2
 
 

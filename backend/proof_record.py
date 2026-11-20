@@ -190,8 +190,8 @@ def checks(kind, f, pair):
     kits = [k for k in _rows(f.get('kits')) if k]
     rows = [
         {'key': 'minds', 'label': 'The minds that really ran, from the call log', 'ok': bool(m.get('ok')), 'why': m.get('why')},
-        {'key': 'sources', 'label': 'Every source it read is listed', 'ok': bool(rd.get('sites')) or kind == 'poe' and bool(rd.get('pages')),
-         'why': f"{len(rd.get('sites') or [])} sites, {len(rd.get('pages') or [])} pages" if rd.get('sites') or rd.get('pages') else 'no source was recorded'},
+        {'key': 'sources', 'label': 'Every source it read is listed', 'ok': bool(rd.get('sites')) or kind == 'poe' and bool(rd.get('pages')) or bool(((f.get('studio') or {}).get('clip') or {}).get('from')),
+         'why': f"{len(rd.get('sites') or [])} sites, {len(rd.get('pages') or [])} pages" if rd.get('sites') or rd.get('pages') else f"its only source: the upload \"{str(((f.get('studio') or {}).get('clip') or {}).get('from'))[:60]}\"" if ((f.get('studio') or {}).get('clip') or {}).get('from') else 'no source was recorded'},
         {'key': 'footprint', 'label': 'A new footprint (a repeat is sent back first)', 'ok': not ft.get('repeat'),
          'why': (f"{ft.get('pct')}% new" + (f" next to #{ft.get('nearest')}" if ft.get('nearest') else '') + (', after one send-back' if ft.get('sentBack') else ''))
          if not ft.get('repeat') else f"still {100 - int(ft.get('pct') or 0)}% like #{ft.get('nearest')} after one send-back"},

@@ -3,7 +3,7 @@ character with bishop"). Pure: no network, no files. The server fetches; this de
   · a Bluesky post link (bsky.app/profile/<handle>/post/<rkey>) → its video, read from Bluesky's public API; the stream must sit on Bluesky's
     own video hosts (checked live 2026-11-17: getPostThread gives embed.playlist on video.bsky.app, an HLS playlist ffmpeg reads in ~6 s)
   · a direct https link to an .mp4 / .webm / .mov file
-  · YouTube, TikTok, Instagram, X, Facebook links are refused with what to do instead: their terms forbid downloading, so the owner saves the
+  · YouTube, Twitch, TikTok, Instagram, X, Facebook links are refused with what to do instead: their terms forbid downloading, so the owner saves the
     clip from the app (he has the rights) and adds the file."""
 import re
 from urllib.parse import quote, urlparse
@@ -13,7 +13,7 @@ BSKY_VIDEO_HOSTS = ('video.bsky.app', 'video.cdn.bsky.app')
 BSKY_API = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread'
 DIRECT = re.compile(r'\.(mp4|webm|mov)$', re.I)
 NO_DOWNLOAD = {'youtube.com': 'YouTube', 'youtu.be': 'YouTube', 'tiktok.com': 'TikTok', 'instagram.com': 'Instagram',
-               'x.com': 'X', 'twitter.com': 'X', 'facebook.com': 'Facebook', 'fb.watch': 'Facebook'}
+               'twitch.tv': 'Twitch', 'x.com': 'X', 'twitter.com': 'X', 'facebook.com': 'Facebook', 'fb.watch': 'Facebook'}
 
 
 def classify(url):
@@ -27,7 +27,7 @@ def classify(url):
     host = (urlparse(u).hostname or '').lower()
     for dom, name in NO_DOWNLOAD.items():
         if host == dom or host.endswith('.' + dom):
-            raise ValueError(f"{name} doesn't allow downloading its videos. Save the clip from the {name} app (it has to be yours, or you need the rights), then press Add your clip.")
+            raise ValueError(f"{name} doesn't allow downloading its videos. Save the clip from the {name} app (it has to be yours, or you need the rights), then upload the file.")
     if not DIRECT.search(urlparse(u).path or ''):
         raise ValueError('That link is not a video file. Paste a Bluesky post, or a link that ends in .mp4, .webm or .mov.')
     return 'direct', u

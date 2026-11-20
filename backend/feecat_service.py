@@ -2167,6 +2167,8 @@ week_plans_internal = _fc_cats.week_plans_internal
 import fc_poc as _fc_poc   # noqa: E402  🎬 Slice 5: the PoC content studio (trend first, real files, owner approves, graded on reach)
 app.include_router(_fc_poc.router)
 _poc_file = _fc_poc.poc_file
+import fc_clips as _fc_clips   # noqa: E402  ✂ Slice 15: the PoC clip farm (upload ≤ 5 min → local transcript + peaks → both minds pick → 9:16 / 1:1 / 16:9 clips, each a PoC)
+app.include_router(_fc_clips.router)
 review_outside_internal = _fc_cats.review_outside_internal
 _review_loop = _fc_cats._review_loop
 _kit_fresh_loop = _fc_cats._kit_fresh_loop
