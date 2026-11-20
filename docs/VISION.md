@@ -69,6 +69,7 @@ PoC is a content studio that proves itself on real reach, not a written week pla
 ## PoW · PoP · PoEco
 - [ ] PoW (coin trades) and PoP (paper perps): the same every-proof checks, plus P&L without fees (§1).
 - [ ] PoP and PoEco get judged like the rest. As of 2026-11-18 there were 5 PoPs and 1 PoEco and none had ever been judged.
+- [ ] **PoEco earns real money (owner 2026-11-19):** "poeco can do upwork and other stuff etc no face … to make money working for places … whatever pays real money!!" An agent finds faceless paid work (freelance gigs, bounties: writing, code, data, research, design, translation), drafts the bid, does the work, and gets paid into the owner's own accounts. Nothing is sent or delivered without the owner's approve. It's graded on real money paid, against what the minds cost.
 
 ## GitHub folder: proof files show everything
 > "no proof should look like this in git: the snapshots and all logs etc need to show, plus the wired info from each."
