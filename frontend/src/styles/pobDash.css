@@ -1,6 +1,6 @@
 /* 🎲 PobDash.jsx (pdb-*): the PoB folder dashboard (Slice 13). Built from the meta.css tokens only; motion = opacity + transform, staggered by --i;
    still under body.fx-lite and prefers-reduced-motion; day theme + 640 px below. */
-.pdb { display: grid; gap: 10px; margin: 0 0 12px; min-width: 0; container-type: inline-size; container-name: pdb; }
+.pdb { display: grid; gap: 10px; margin: 0 0 12px; min-width: 0; }
 .pdb-none { margin: 4px 0; color: var(--m-dim); font: 500 12.5px/1.45 var(--f-ui); }
 
 /* the hero: four numbers, each with its meter */
@@ -103,13 +103,12 @@
 @keyframes pdbIn { to { opacity: 1; transform: none; } }
 @keyframes pdbPulse { 50% { opacity: .35; transform: scale(.8); } }
 
-@container pdb (max-width: 640px) {   /* the window's own width, not the screen's: the Bids folder is often a narrow window on a wide desk */
-  .pdb-tabs { flex-wrap: wrap; }
-  .pdb-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pdb-pnl { grid-column: 1 / -1; }
-  .pdb-next, .pdb-odds { grid-template-columns: minmax(0, 1fr); }
-  .pdb-row { grid-template-columns: 34px minmax(0, 1fr) auto; row-gap: 4px; } .pdb-row .pdb-j { grid-column: 2; grid-row: 2; grid-template-columns: 90px auto; justify-content: start; } .pdb-row .pdb-p { grid-column: 3; grid-row: 2; }
-  .pdb-slip { grid-template-columns: minmax(0, 1fr); } .pdb-ticket { position: static; }
-}
+/* the window's own width, not the screen's (lib/boxRef.js sets data-w640; no @container: it froze HQ): the Bids folder is often a narrow window on a wide desk */
+.pdb[data-w640] .pdb-tabs { flex-wrap: wrap; }
+.pdb[data-w640] .pdb-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pdb[data-w640] .pdb-pnl { grid-column: 1 / -1; }
+.pdb[data-w640] :is(.pdb-next, .pdb-odds) { grid-template-columns: minmax(0, 1fr); }
+.pdb[data-w640] .pdb-row { grid-template-columns: 34px minmax(0, 1fr) auto; row-gap: 4px; } .pdb[data-w640] .pdb-row .pdb-j { grid-column: 2; grid-row: 2; grid-template-columns: 90px auto; justify-content: start; } .pdb[data-w640] .pdb-row .pdb-p { grid-column: 3; grid-row: 2; }
+.pdb[data-w640] .pdb-slip { grid-template-columns: minmax(0, 1fr); } .pdb[data-w640] .pdb-ticket { position: static; }
 body.theme-day .pdb-row, body.theme-day .pdb-legs li { background: var(--m-surface); }
 body.theme-day .pdb-pnl b.m-num { text-shadow: none; }
 body.theme-day .pdb-duel-bar i { box-shadow: none; }

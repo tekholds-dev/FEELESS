@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { TeamMark } from './GameRoom';
 import { useLogos, logoFor } from '../../lib/teamLogos';
+import { boxRef } from '../../lib/boxRef';
 import '../../styles/pobDash.css';
 
 // 🎲 THE PoB FOLDER DASHBOARD (Slice 13, owner: "make PoB a sleek dashboard that views everything beautifully when I / a user opens the PoB
@@ -10,6 +11,7 @@ import '../../styles/pobDash.css';
 // the stash (COMP's reference per game, read every 20 min with no model), and "what to file next", each filed in one tap through the same
 // door as File a bid. YOUR SLIP: legs from Kalshi's own list; both minds must back every leg before anything is sent.
 const POLL_MS = 30000;
+const dashBox = boxRef([640]);   // 📐 its own width (data-w640), no @container
 const TABS = [['next', 'Next to file'], ['filings', 'Filings'], ['odds', 'Stash odds'], ['slip', 'Your slip']];
 const TAB_KEY = 'feeless.pobDashTab';
 const usd = v => (v == null ? '—' : `${v < 0 ? '−' : v > 0 ? '+' : ''}$${Math.abs(v).toFixed(2)}`);
@@ -148,7 +150,7 @@ export function PobDash({ catId, work, busy = false, onOpen, onFiled }) {
     ...(d?.odds || []).map(o => ({ key: o.id, label: o.teams.map(t => t.short).join(' vs '), start: o.start, topic: `${o.teams.map(t => t.short).join(' vs ')} parlay slip 3 legs`, sport: o.sport }))].filter(x => slipSport(x.sport) && !seen.has(x.key) && seen.add(x.key)); }, [d]);   // a slip needs player / spread / total legs: the four big leagues
   if (!d) return <section className="pdb m-glass" data-testid="pdb"><p className="pdb-none">{err || 'Reading its filings, the stash odds and tonight’s games…'}</p></section>;
   const counts = { next: d.next.length, filings: d.rows.length, odds: d.odds.length, slip: null };
-  return <section className="pdb" data-testid="pdb">
+  return <section ref={dashBox} className="pdb" data-testid="pdb">
     <Hero t={d.totals} curve={d.curve} live={d.live} upcoming={d.upcoming} />
     <LiveStrip rows={d.live} />
     <div className="m-seg pdb-tabs" role="tablist" aria-label="PoB dashboard">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => go(k)} data-testid={`pdb-tab-${k}`}>{l}{counts[k] ? <em className="m-num"> {counts[k]}</em> : null}</button>)}</div>
