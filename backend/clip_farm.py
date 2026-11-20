@@ -551,28 +551,29 @@ def cover(src, clip, info, fmt, pts, ffmpeg='ffmpeg', cap=None):
     buf = BytesIO(); im.convert('RGB').save(buf, 'JPEG', quality=88); return buf.getvalue()
 
 
-def make_clip(src, clip, words, info, cuts, save, ffmpeg='ffmpeg', on_step=None, look=None, keep=None, pts=None):
+def make_clip(src, clip, words, info, cuts, save, ffmpeg='ffmpeg', on_step=None, look=None, keep=None, pts=None, looks=None):
     """Track once, then every format (the phone story first: it is the one that posts to Shorts / Reels / TikTok) → (files, track facts).
-    `save(piece, ext, bytes)` keeps a file and gives back its url. A format that fails is listed with its error, never hidden."""
+    `save(piece, ext, bytes)` keeps a file and gives back its url. A format that fails is listed with its error, never hidden.
+    `looks` {format: look} gives a format its own look (a per-format template default); the rest use `look`."""
     files = []; tr = {'pts': pts, 'faces': 0, 'frames': len(pts), 'how': 'kept'} if pts else track(src, clip['s'], clip['e'], info, cuts, ffmpeg=ffmpeg)
     if keep:
         keep(tr['pts'])
     import clip_look
     with tempfile.TemporaryDirectory() as tmp:
         for fmt in FORMATS:
-            W, H, ratio = FORMATS[fmt]
+            W, H, ratio = FORMATS[fmt]; look_ = (looks or {}).get(fmt) or look
             try:
                 out = Path(tmp) / f'{fmt}.mp4'
-                secs = (clip_look.render(src, clip['s'], clip['e'], words, info, fmt, tr['pts'], look, clip.get('hook') or '', out, tmp, ffmpeg) if look   # Slice 29: its own look
+                secs = (clip_look.render(src, clip['s'], clip['e'], words, info, fmt, tr['pts'], look_, clip.get('hook') or '', out, tmp, ffmpeg) if look_   # Slice 29: its own look
                         else render(src, clip, words, info, fmt, tr['pts'], out, tmp, ffmpeg))
                 raw = out.read_bytes()
                 files.append({'piece': 'video', 'format': fmt, 'aspect': ratio, 'w': W, 'h': H, 'url': save('video', 'mp4', raw), 'bytes': len(raw),
-                              'sha': hashlib.sha256(raw).hexdigest()[:16], 'secs': secs, 'dur': round(clip_look.out_dur(clip_look.segments(look, clip['e'] - clip['s'])) if look else clip['e'] - clip['s'], 1),
+                              'sha': hashlib.sha256(raw).hexdigest()[:16], 'secs': secs, 'dur': round(clip_look.out_dur(clip_look.segments(look_, clip['e'] - clip['s'])) if look_ else clip['e'] - clip['s'], 1),
                               'reframe': 'tracked crop' if crop_box(info, fmt) else 'fitted on a blurred fill'})
             except Exception as e:   # noqa: BLE001
                 files.append({'piece': 'video', 'format': fmt, 'aspect': ratio, 'error': f'{type(e).__name__}: {str(e)[:160]}'})
             try:
-                jpg = cover(src, clip, info, fmt, tr['pts'], ffmpeg, clip_look.clean_look(look)['cap'] if look else None)
+                jpg = cover(src, clip, info, fmt, tr['pts'], ffmpeg, clip_look.clean_look(look_)['cap'] if look_ else None)
                 files.append({'piece': 'image', 'format': fmt, 'aspect': ratio, 'w': W, 'h': H, 'url': save('image', 'jpg', jpg), 'bytes': len(jpg), 'cover': True,
                               'sha': hashlib.sha256(jpg).hexdigest()[:16]})
             except Exception as e:   # noqa: BLE001

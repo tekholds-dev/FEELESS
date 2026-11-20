@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, ExternalLink, Film, Link2, Loader2, Scissors, Trash2, Upload, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, Film, LayoutTemplate, Link2, Loader2, Scissors, Trash2, Upload, X } from 'lucide-react';
 import { apiUrl, errorText } from '../../lib/api';
 import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { boxRef } from '../../lib/boxRef';
@@ -66,23 +66,25 @@ function Steps({ run }) {
     <span className="clf-dot" aria-hidden="true">{STATE_IC[s.state]}</span><b>{s.label}</b><small>{s.note || (s.state === 'todo' ? 'waiting' : '')}{s.secs != null ? ` · ${s.secs} s` : ''}</small></li>)}</ol>;
 }
 
-function Moments({ run }) {
+function Moments({ run, pocs = [] }) {
   const minds = run.minds || [];
   if (!(run.cands || []).length) return null;
   return <div className="clf-moments" data-testid="cfm-moments"><table><thead><tr><th>#</th><th>Where</th><th>First 2 s</th><th data-tip="Code's own score: hook, payoff, loudness, laughs, cuts">Code</th>
-    {minds.length ? minds.map(m => <th key={m.mind} data-tip={m.model}>Mind {'AB'[m.mind % 2]}<small>{m.name}</small></th>) : <><th>Mind A</th><th>Mind B</th></>}<th>Made</th></tr></thead>
+    {minds.length ? minds.map(m => <th key={m.mind} data-tip={m.model}>Mind {'AB'[m.mind % 2]}<small>{m.name}</small></th>) : <><th>Mind A</th><th>Mind B</th></>}<th>Made</th><th data-tip="The template its clip came out in, and why">Template</th></tr></thead>
     <tbody>{run.cands.map(c => { const made = (run.picks || []).some(p => p.n === c.n); return <tr key={c.n} className={made ? 'is-made' : ''}>
       <td className="m-num">{c.n}</td><td className="m-num">{clock(c.s)}–{clock(c.e)}<small> {Math.round(c.e - c.s)} s</small></td><td className="clf-first">“{c.first2}”</td><td className="m-num">{c.local}</td>
       {(c.minds || [{}, {}]).map((m, i) => <td key={i} className="m-num" data-tip={m.why || 'no score'}>{m.score == null ? '—' : m.score}{m.picked ? <span className="clf-pick" aria-label="picked">★</span> : null}</td>)}
-      <td>{made ? <Scissors size={14} aria-label="made" /> : null}</td></tr>; })}</tbody></table></div>;
+      <td>{made ? <Scissors size={14} aria-label="made" /> : null}</td>
+      <td className="clf-tpl" data-testid={`cfm-tpl-${c.n}`}>{(() => { const made_ = (run.tpls || []).find(x => x.n === c.n); const f = pocs.find(x => x.studio?.clip?.run === run.id && x.studio?.clip?.n === c.n); const now = f?.studio?.tpl;
+        const t = now ? { ...(made_ || {}), ...now, fmts: made_?.fmts, was: made_ && made_.tpl !== now.id ? made_.name : '' } : made_; return t ? <span data-tip={`${t.by === 'minds' ? 'Minds' : t.by === 'code' ? 'By mood (code)' : 'Your pick'}: ${t.why}`}><b>{t.name}{t.edited ? ' · edited' : ''}</b><small>{t.by === 'minds' ? 'minds' : t.by === 'code' ? 'by mood' : 'yours'}{Object.keys(t.fmts || {}).length ? ` · ${Object.entries(t.fmts).map(([k, n]) => `${{ story: '9:16', feed: '1:1', wide: '16:9' }[k]} ${n}`).join(', ')}` : ''}{t.was ? ` · was ${t.was}` : ''}</small></span> : null; })()}</td></tr>; })}</tbody></table></div>;
 }
 
 export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
   const [runs, setRuns] = useState([]); const [busy, setBusy] = useState(false); const [pct, setPct] = useState(null); const [err, setErr] = useState('');
-  const [plan, setPlan] = useState(null); const [kit, setKit] = useState(null); const [rendering, setRendering] = useState([]);
+  const [plan, setPlan] = useState(null); const [kit, setKit] = useState(null); const [rendering, setRendering] = useState([]); const [tpls, setTpls] = useState(null); const [runTpl, setRunTpl] = useState(null);
   const [rights, setRights] = useState(false); const [note, setNote] = useState(''); const [link, setLink] = useState(''); const [drag, setDrag] = useState(false); const [slotBusy, setSlotBusy] = useState(false); const [card, setCard] = useState('');
   const input = useRef(null); const base = `/api/cats/${cat.id}/clipfarm`;
-  const load = useCallback(() => fetch(apiUrl(`${base}?${agentAuthQuery()}`)).then(r => r.ok ? r.json() : null).then(j => { if (j) { setRuns(j.runs || []); setBusy(!!j.busy); if (j.plan) setPlan(j.plan); if (j.kit) setKit(j.kit); setRendering(j.rendering || []); } return j; }).catch(() => null), [base]);
+  const load = useCallback(() => fetch(apiUrl(`${base}?${agentAuthQuery()}`)).then(r => r.ok ? r.json() : null).then(j => { if (j) { setRuns(j.runs || []); setBusy(!!j.busy); if (j.plan) setPlan(j.plan); if (j.kit) setKit(j.kit); if (j.templates) setTpls(j.templates); setRendering(j.rendering || []); } return j; }).catch(() => null), [base]);
   const running = runs.some(r => r.status === 'running') || busy; const hot = running || rendering.length > 0;
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, hot ? 2500 : 15000); return () => clearInterval(t); }, [load, hot]);
   const wasRendering = useRef(0);
@@ -103,7 +105,7 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
     const secs = await new Promise(ok => { try { const v = document.createElement('video'); v.preload = 'metadata'; v.onloadedmetadata = () => { ok(v.duration); URL.revokeObjectURL(v.src); }; v.onerror = () => ok(null); v.src = URL.createObjectURL(f); setTimeout(() => ok(null), 4000); } catch { ok(null); } });
     const bad = fileProblem(f, secs); if (bad) { setErr(bad); return; }
     setPct(0);
-    const q = `${agentAuthQuery()}&rights=1&name=${encodeURIComponent(f.name)}&note=${encodeURIComponent(note)}${wsId ? `&ws=${encodeURIComponent(wsId)}` : ''}`;
+    const q = `${agentAuthQuery()}&rights=1&name=${encodeURIComponent(f.name)}&note=${encodeURIComponent(note)}${wsId ? `&ws=${encodeURIComponent(wsId)}` : ''}&tpl=${encodeURIComponent(look)}`;
     await new Promise(done => { const x = new XMLHttpRequest(); x.open('POST', apiUrl(`${base}/upload?${q}`)); x.setRequestHeader('Content-Type', f.type || 'video/mp4');
       x.upload.onprogress = e => e.lengthComputable && setPct(Math.round(e.loaded / e.total * 100));
       x.onload = () => { if (x.status >= 300) { let b = {}; try { b = JSON.parse(x.responseText); } catch { /* not JSON */ } setErr(errorText(b, x.status)); } done(); };
@@ -112,7 +114,7 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
   };
   const fromLink = async () => {
     setErr(''); setCard(''); const plat = platformOf(link); if (plat) { setCard(plat); return; } const bad = linkProblem(link); if (bad) { setErr(bad); return; } if (!rights) { setErr('Tick that the video is yours, or that you have the rights to use it.'); return; }
-    setPct(0); try { const r = await fetch(apiUrl(`${base}/link`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), url: link.trim(), rights: true, note, ws: wsId }) });
+    setPct(0); try { const r = await fetch(apiUrl(`${base}/link`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), url: link.trim(), rights: true, note, ws: wsId, tpl: look }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) setErr(errorText(j, r.status)); else setLink(''); } finally { setPct(null); load(); }
   };
   const unlink = async url => { setErr(''); const r = await fetch(apiUrl(`${base}/unlink`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), id: String(url).split('/').pop() }) }).catch(() => null);
@@ -121,6 +123,8 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
     const j = await r.json().catch(() => ({})); if (!r.ok) setErr(errorText(j, r.status)); else onPocs?.(j.pocFolders); } finally { setSlotBusy(false); } };
 
   const run = runs[0]; const rows = boardRows(pocs);
+  const look = runTpl ?? tpls?.defaults?.farm ?? 'minds';   // 🎨 the template this upload's clips come out in (the owner's farm default until he picks)
+  const lookOpts = (tpls?.list || []).filter(x => !x.legacy);
   return <section ref={box} className="clf m-live" aria-label="Clip farm" data-testid="clip-farm">
     <header className="clf-head"><span><small className="m-label">CLIP FARM · FREE ON THIS MACHINE</small><strong>Drop a video, get the moments back as clips</strong></span>
       <small>Up to 5:00 · any MP4, MOV, WebM, MKV or AVI (converted free on this machine) · captioned, reframed on the speaker, 9:16 · 1:1 · 16:9 · nothing posts without your approve</small></header>
@@ -134,6 +138,10 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
       <span className="clf-row"><input className="m-input" value={note} onChange={e => setNote(e.target.value)} placeholder="Note for the minds (optional): what to look for" aria-label="Note for the minds" data-testid="cfm-note" />
         <input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="https://bsky.app/… or https://…/video.mp4" aria-label="Video link" data-testid="cfm-link" />
         <button type="button" className="m-btn" disabled={!link.trim() || running || pct != null} onClick={fromLink} data-testid="cfm-link-go"><Link2 size={14} /> Use link</button></span>
+      <span className="clf-row clf-look"><LayoutTemplate size={14} aria-hidden="true" /><span className="m-label">CLIPS COME OUT IN</span>
+        <select className="m-input" value={look} onChange={e => setRunTpl(e.target.value)} aria-label="Template for this upload's clips" data-testid="cfm-tpl">
+          <option value="minds">Minds pick one per clip (all different, with a why)</option>{lookOpts.map(x => <option key={x.id} value={x.id}>{x.name}{x.builtin ? '' : ' (yours)'}</option>)}</select>
+        <small>{look === (tpls?.defaults?.farm || 'minds') ? 'your default' : 'this upload only'} · change it after in Templates, $0</small></span>
     </div>
     {card ? <div className="clf-card" role="note" data-testid="cfm-redirect"><b>{card} doesn't allow downloading its videos, so FEELESS never fetches them.</b>
       <span>Save it from the {card} app (it has to be yours, or you need the rights), then upload the file here:</span>
@@ -144,8 +152,8 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
     {run ? <div className="clf-run" data-testid="cfm-run"><header><span className="m-label">{run.status === 'running' ? 'RUNNING' : run.status === 'done' ? 'DONE' : 'STOPPED'}{run.test ? ' · TEST' : ''}</span>
       <b>{run.name}</b><small className="m-num">{clock(run.secs || 0)} · {run.w}×{run.h}{run.firstClipS ? ` · first clip ${Math.round(run.firstClipS)} s` : ''}{run.doneS ? ` · all ${Math.round(run.doneS)} s` : ''} · minds ${Number(run.cost || 0).toFixed(4)}</small></header>
       {run.converted?.url ? <span className="clf-links"><LinkChip url={(run.links || []).some(k => k.kind === 'upload' && !k.gone && !k.swept && k.exp * 1000 > Date.now()) ? run.converted.url : ''} label="Your upload, converted" onDelete={() => unlink(run.converted.url)} testid="cfm-uplink" /></span> : null}
-      <Steps run={run} />{run.err ? <small className="clf-err">{run.err}</small> : null}<Moments run={run} /></div> : null}
-    <ClipStudio cat={cat} clips={rows} plan={plan} kit={kit} rendering={rendering} runs={runs} api={api} onPocs={onPocs} onPlan={setPlan} onOpen={onOpen} busy={slotBusy}
+      <Steps run={run} />{run.err ? <small className="clf-err">{run.err}</small> : null}<Moments run={run} pocs={pocs} /></div> : null}
+    <ClipStudio cat={cat} clips={rows} plan={plan} kit={kit} templates={tpls} rendering={rendering} runs={runs} api={api} onPocs={onPocs} onPlan={setPlan} onTemplates={setTpls} onOpen={onOpen} busy={slotBusy}
       onSlot={slot} links={f => SHAPES.map(([k, r]) => <LinkChip key={k} url={f.studio.links?.[k]} label={r} testid={`cfm-link-${f.id}-${k}`} />)} />
   </section>;
 }

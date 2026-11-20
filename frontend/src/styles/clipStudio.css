@@ -169,6 +169,78 @@
 .cse-btns { display: flex; flex-wrap: wrap; gap: 6px; } .cse-btns .m-btn, .cse-mind .m-btn { display: inline-flex; gap: 5px; align-items: center; min-height: 34px; font-size: 12px; white-space: nowrap; }
 .cse-mind { display: flex; gap: 5px; } .cse-mind .m-input { flex: 1; min-width: 0; min-height: 34px; font-size: 12px; }
 
+/* 🔤 Slice 29 add-on: the modern captions (ClipCaption.jsx), drawn the way clip_look.cap_pic draws them in the file — a thin stroke and a soft
+   shadow, never a slab; ≤ 2 tight balanced lines; the spoken word pops (--sc) in the accent (--hot); sweep fills it; gradient keywords; emoji. */
+.cse-cap.is-m { left: 7%; right: 7%; gap: 0 .26em; font: var(--cap-w, 900) var(--cap-px, 20px)/1.08 var(--cap-font); letter-spacing: -.01em; text-wrap: balance;
+  -webkit-text-stroke: max(1px, calc(var(--cap-px, 20px) / 18)) rgb(10 12 14 / .92); text-shadow: 0 .07em .22em rgb(0 0 0 / .6), 0 0 .6em rgb(0 0 0 / .3); }
+.cse-cap.is-m span { color: var(--base, #fff); transform-origin: 50% 70%; transition: none; }
+.cse-cap.is-m span.is-hot { position: relative; color: var(--hot); transform: scale(var(--sc, 1)); z-index: 1; }
+.cse-cap.is-m.is-anim span.is-hot { animation: cstCapPop .16s var(--m-ease, ease-out) both; }
+.cse-cap.is-sweep span.is-said { color: var(--hot); }
+.cse-cap.is-sweep span.is-hot { color: transparent; background: linear-gradient(var(--hot), var(--hot)) left / 0% 100% no-repeat, linear-gradient(var(--base), var(--base)) left / 100% 100%;
+  -webkit-background-clip: text; background-clip: text; transform: none; }
+.cse-cap.is-sweep.is-anim span.is-hot { animation: cstSweep .6s linear both; }
+.cse-cap.is-lower { right: auto; max-width: 80%; justify-content: flex-start; text-align: left; font-size: calc(var(--cap-px, 20px) * .82); -webkit-text-stroke: 0; text-shadow: 0 .05em .3em rgb(0 0 0 / .75); }
+.cse-cap.is-lower span.is-hot { color: var(--base, #fff); transform: none; box-shadow: inset 0 -.12em 0 var(--hot); }
+.cse-cap.is-lower.is-anim span.is-hot { animation: cstUnder .25s ease-out both; }
+.cse-cap.is-outline { -webkit-text-stroke: max(2px, calc(var(--cap-px, 20px) / 9)) #0a0c0e; text-shadow: none; }
+.cse-cap.is-gradient span.is-kw, .cse-cap.is-gradient span.is-hot { color: transparent; background: linear-gradient(180deg, var(--g2), var(--hot)); -webkit-background-clip: text; background-clip: text; }
+.cse-cap.is-emoji span[data-emo]::after { content: attr(data-emo); position: absolute; right: -.35em; top: -.85em; font-size: 1.05em; -webkit-text-stroke: 0; text-shadow: none; transform: rotate(10deg); }
+.cse-hook.is-m { padding: 0; border-radius: 0; background: none; color: #fff; font-weight: var(--cap-w, 900); line-height: 1.08; text-wrap: balance;
+  -webkit-text-stroke: max(1px, .06em) rgb(10 12 14 / .9); paint-order: stroke fill; text-shadow: 0 .07em .24em rgb(0 0 0 / .6); }
+.cse-hook.is-m .is-key { color: var(--hot); }
+
+/* 🗂 the Templates tab (ClipTemplates.jsx) + the tile's template chip + the editor's "Save as template". */
+.cst-tpls { display: grid; gap: 10px; min-width: 0; }
+.cst-tpl-intro { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 9px 11px; border: 1px solid color-mix(in srgb, var(--pc) 28%, var(--m-line)); border-radius: 12px; background: var(--cst-glass); color: var(--m-dim); font: 500 12px/1.45 var(--f-ui); }
+.cst-tpl-intro svg { flex: none; margin-top: 2px; color: var(--pc); } .cst-tpl-intro b { color: var(--m-text); font-weight: 650; }
+.cst-defs { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--cst-glass); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 6%, transparent); }
+.cst-defs > header { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; } .cst-defs > header svg { color: var(--pc); } .cst-defs > header b { font: 700 12.5px var(--f-ui); }
+.cst-defs > header small { color: var(--m-mute); font: 500 11px var(--f-ui); }
+.cst-defs-g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .cst-defs-g.is-plats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cst[data-w980] .cst-defs-g { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cst[data-w640] .cst-defs-g { grid-template-columns: minmax(0, 1fr); }
+.cst-def { display: grid; gap: 3px; min-width: 0; } .cst-def .m-label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cst-def .m-input { min-height: 32px; font-size: 11.5px; width: 100%; }
+.cst-defs-now { color: var(--m-dim); font: 600 10.5px var(--f-mono); overflow-wrap: anywhere; }
+.cst-tpl-bar .cst-sel { flex: 1 1 180px; max-width: 360px; }
+.cst-tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.cst[data-w640] .cst-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cst-tpl { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; overflow: hidden; border: 1px solid var(--m-line); border-radius: 14px; background: var(--cst-glass);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 6%, transparent); transition: transform .15s var(--m-ease), border-color .15s; }
+.cst-tpl:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--pc) 45%, var(--m-line)); } .cst-tpl.is-mine { border-color: color-mix(in srgb, var(--pc) 35%, var(--m-line)); }
+.cst-tpl-sample { aspect-ratio: 9 / 12; width: 100%; max-height: none; border-radius: 0; }
+.cst-tpl-sample > img, .cst-tpl-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.cst-tpl-sample > img { object-position: 50% 100%; transform: scale(1.08); transform-origin: 50% 100%; }   /* the cover is 9:16 with its old hook baked in at the top: show its lower ¾ so only the template's own hook is seen */
+.cst-tpl-bg { background: radial-gradient(90% 70% at 40% 30%, #2c3a44, #0b1014 70%), #0b1014; }
+.cst-tpl-sample::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgb(0 0 0 / .18), transparent 30%, transparent 60%, rgb(0 0 0 / .3)); pointer-events: none; }
+.cst-tpl-sample .cse-cap, .cst-tpl-sample .cse-hook { z-index: 1; }
+.cst-tpl-b { display: grid; gap: 4px; min-width: 0; padding: 8px 10px 10px; }
+.cst-tpl-b header { display: flex; gap: 6px; align-items: center; justify-content: space-between; min-width: 0; } .cst-tpl-b header b { font: 700 12.5px/1.25 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cst-tpl-b header em { flex: none; padding: 0 6px; border-radius: 999px; font: 700 10px/16px var(--f-mono); font-style: normal; color: var(--pc); background: color-mix(in srgb, var(--pc) 14%, transparent); }
+.cst-tpl-by { color: var(--pc); font: 700 9.5px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cst-tpl-d { color: var(--m-dim); font: 500 10.5px/1.35 var(--f-ui); } .cst-tpl-why { color: var(--m-mute); font: italic 500 10.5px/1.35 var(--f-ui); }
+.cst-tpl-act { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 2px; } .cst-tpl-act .m-label { width: 100%; font-size: 9.5px; }
+.cst-tpl-act .m-btn { display: inline-flex; gap: 4px; align-items: center; min-height: 28px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
+.cst-ic { justify-content: center; min-width: 28px; padding: 0 !important; }
+.cst-tpl-older > summary, .cse-older > summary { cursor: pointer; color: var(--m-dim); font: 600 11px var(--f-ui); padding: 4px 0; } .cst-tpl-older[open] > .cst-tpl-grid { margin-top: 8px; } .cse-older[open] > .cse-presets { margin-top: 6px; }
+.cst-tpl-design { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 9px 10px; border: 1px dashed color-mix(in srgb, var(--pc) 35%, var(--m-line)); border-radius: 12px; }
+.cst-tpl-design > svg { color: var(--pc); } .cst-tpl-design .m-input { flex: 1 1 220px; min-width: 0; min-height: 32px; font-size: 12px; }
+.cst-tpl-design .m-btn { display: inline-flex; gap: 5px; align-items: center; min-height: 32px; font-size: 11.5px; white-space: nowrap; } .cst-tpl-design small { width: 100%; color: var(--m-mute); font: 500 10.5px var(--f-ui); }
+.cst-tplchip { display: inline-flex; gap: 4px; align-items: center; max-width: 100%; padding: 1px 6px; border-radius: 999px; color: var(--pc); background: color-mix(in srgb, var(--pc) 13%, transparent);
+  font: 700 9.5px/16px var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cst-tplchip.is-minds { color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 13%, transparent); } .cst-tplchip.is-code { color: var(--m-dim); background: color-mix(in srgb, var(--m-text) 8%, transparent); }
+.cse-pre b { font-weight: var(--pw, 800); } .cse-pre b em { font-style: normal; opacity: .75; } .cse-sec h5 small { margin-left: auto; color: var(--m-mute); font: 500 10px var(--f-ui); letter-spacing: 0; text-transform: none; }
+.cse-savetpl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 6px; border-top: 1px solid var(--m-line); }
+.cse-savetpl .m-input { flex: 1 1 140px; min-width: 0; min-height: 32px; font-size: 12px; } .cse-savetpl .m-btn { display: inline-flex; gap: 5px; align-items: center; min-height: 32px; font-size: 11.5px; white-space: nowrap; }
+.cse-savetpl > small { width: 100%; color: var(--m-dim); font: 500 10.5px var(--f-ui); }
+.cse-tfm { display: inline-flex; gap: 3px; } .cse-tfm button { min-height: 28px; padding: 0 8px; border: 1px solid var(--m-line); border-radius: 8px; background: transparent; color: var(--m-dim); font: 700 10.5px var(--f-mono); cursor: pointer; }
+.cse-tfm button.is-on { color: var(--pc); border-color: var(--pc); background: color-mix(in srgb, var(--pc) 12%, transparent); }
+@keyframes cstCapPop { from { transform: scale(1.16); } 50% { transform: scale(1.07); } to { transform: scale(1); } }
+@keyframes cstSweep { from { background-size: 0% 100%, 100% 100%; } to { background-size: 100% 100%, 100% 100%; } }
+@keyframes cstUnder { from { box-shadow: inset 0 0 0 var(--hot); } to { box-shadow: inset 0 -.12em 0 var(--hot); } }
+body.fx-lite .cse-cap.is-anim span.is-hot, body.fx-lite .cst-tpl { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .cse-cap.is-anim span.is-hot { animation: none; } .cst-tpl { transition: none; } }
+body.theme-day .cst-tpl, body.theme-day .cst-defs { box-shadow: inset 0 1px 0 rgb(255 255 255 / .7), 0 4px 14px -10px rgb(0 0 0 / .25); }
+
 @keyframes cstIn { from { transform: translateY(6px); } to { transform: none; } }
 @keyframes cstSpin { to { transform: rotate(360deg); } }
 @media (max-width: 640px) {

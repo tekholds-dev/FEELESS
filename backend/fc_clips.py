@@ -12,6 +12,7 @@ PoC goes out only through Slice 5's approve door (fc_poc.op 'poc_approve', the o
 The owner signs each call (ownerId + session); Claude's TESTs use the internal key and are marked TEST."""
 import asyncio
 import json
+import re
 import secrets
 import shutil
 import time
@@ -125,13 +126,13 @@ def _step(cat_id, run_id, key, state, note='', t0=None):
     _remember(cat_id, run=r); rs._save(store)
 
 
-def _new_run(cat_id, name, source, info, ws, note, test, ext='mp4'):
+def _new_run(cat_id, name, source, info, ws, note, test, ext='mp4', tpl='minds'):
     rs = _rs(); store = rs._load(); cat = store['cats'][cat_id]
     r = {'id': 'cr' + secrets.token_hex(5), 'at': round(time.time()), 'name': str(name or 'Your video')[:80], 'source': source, 'secs': info['secs'], 'w': info['w'], 'h': info['h'],
          'ws': ws or None, 'note': str(note or '')[:200], 'test': bool(test), 'status': 'running', 'cost': 0.0, 'clips': [], 'cands': [], 'picks': [],
          'steps': [{'key': k, 'label': l, 'state': 'todo'} for k, l in _cf.STEPS]}
     r['steps'][0].update(state='done', note=f"{int(info['secs'] // 60)}:{int(info['secs'] % 60):02d} · {info['w']}×{info['h']} · {info['fps']:g} fps · {info.get('box') or '?'} {info.get('vcodec')}/{info.get('acodec') or 'no sound'}", secs=0)
-    r['ext'] = ext; r['links'] = []
+    r['ext'] = ext; r['links'] = []; r['tpl'] = tpl or 'minds'   # 🎨 the look every clip of this run starts in: a template, or the minds pick one per clip
     cat['clipRuns'] = (list(cat.get('clipRuns') or []) + [r])[-KEEP_RUNS:]; _remember(cat_id, run=r); rs._save(store)
     return r
 
@@ -214,8 +215,10 @@ def _file_clip(cat_id, run, k, pick, files, tr, calls, cost_each, test_mark):
               'mind': pick['lead'], 'angle': f"clip {k + 1} of the upload, {pick['s']:.0f}–{pick['e']:.0f} s", 'hook': hook, 'sub': pick.get('payoff') or '',
               'post': {'story': cap, 'feed': cap, 'wide': cap}, 'links': {fl['format']: fl['link'] for fl in files if fl.get('piece') == 'video' and fl.get('link')}, 'thread': [], 'beats': [], 'goal': goal_, 'files': files, 'slot': '',
               'maker': {'name': 'FEELESS clip farm (faster-whisper + OpenCV + ffmpeg, on this machine)', 'usd': 0.0, 'watermark': False},
-              **({'look': pick['look'], 'looks': [{'v': 1, 'at': round(now), 'by': 'code', 'why': f"starting look: {pick['look'].get('preset') or 'classic'}, nudged so no other clip shares it",
-                                                  'look': pick['look'], 'files': files}]} if pick.get('look') else {}),
+              **({'look': pick['look'], 'fmtLooks': pick.get('fmtLooks') or {}, 'tpl': pick.get('tpl'),
+                  'looks': [{'v': 1, 'at': round(now), 'by': (pick.get('tpl') or {}).get('by') or 'code', 'why': (f"{pick['tpl']['name']}: {pick['tpl']['why']}" if pick.get('tpl') else
+                             f"starting look: {pick['look'].get('preset') or 'classic'}, nudged so no other clip shares it")[:200],
+                             'look': pick['look'], 'files': files, 'fmtLooks': pick.get('fmtLooks') or {}, 'tpl': pick.get('tpl')}]} if pick.get('look') else {}),
               'why': ' · '.join(f"Mind {'AB'[m['mind']]} {m['score']}: {m['why']}" for m in pick['minds'] if m['score'] is not None)[:400]}
     f_ = {'id': f"poc{int(now)}c{k}", **({'ws': run['ws']} if run.get('ws') else {}), 'n': rs._next_n(rows), 'kind': 'PoC', 'at': round(now), 'status': 'closed', 'paper': True,
           'topic': f"✂ {hook}"[:120], 'cost': round(cost_each, 5), 'studio': studio, 'calls': [{'mind': c['mind'], 'name': c['name'], 'angle': f"scored {c['scored']}, picked {c['picked']}",
@@ -293,12 +296,21 @@ async def farm(cat_id, run_id, src, note=''):
             await _converted(cat_id, run_id, run, conv, info, ext, f"{(info.get('box') or ext)} {info.get('vcodec')}/{info.get('acodec') or 'no sound'} → H.264/AAC .mp4, {conv.stat().st_size / 1e6:.0f} MB in {secs_} s, $0 (ran while the minds thought)", t_conv)
         src = conv; info = _cf.check(_cf.probe(src), src.stat().st_size)
         _step(cat_id, run_id, 'clips', 'running', f'0 of {len(picks)} clips'); t0 = time.time(); filed = []
-        used = _used_sigs(rs._load()['cats'].get(cat_id) or {}); n_have = len(used)
+        cat = rs._load()['cats'].get(cat_id) or {}; used = _used_sigs(cat)
+        rows_t, tcost, town, tmind = await _run_tpls(cat_id, cat, run, picks)   # 🎨 the add-on: each clip starts in a template (the run's, or the minds' pick per clip)
+        if tcost:
+            _charge(cat_id, cat, tcost, town); _set(cat_id, run_id, cost=round(cost + tcost, 5))
+        fd = fmt_defaults(cat); tl = []
         for k, p in enumerate(picks):
-            look = _cl.lucky(n_have + k, used); used.add(_cl.sig(look)); p['look'] = look   # 🎨 Slice 29: every clip starts on its own look
+            tp, why, by = rows_t[k]; look, note = _cl.unique(tpl_look(tp), used); used.add(_cl.sig(look)); p['look'] = look
+            p['tpl'] = {'id': tp['id'], 'name': tp['name'], 'by': by, 'why': (why + (f' · {note}' if note else ''))[:200], 'at': round(time.time()), **({'mind': tmind} if by == 'minds' else {})}
+            p['fmtLooks'] = {fm: tpl_look(ft) for fm, ft in fd.items() if ft['id'] != tp['id']}
+            tl.append({'n': p['n'], 'tpl': tp['id'], 'name': tp['name'], 'by': by, 'why': p['tpl']['why'], 'fmts': {fm: ft['name'] for fm, ft in fd.items() if ft['id'] != tp['id']}})
+        _set(cat_id, run_id, tpls=tl, tplBy={'mode': run.get('tpl') or 'minds', 'mind': tmind, 'cost': round(tcost, 5)})
+        for k, p in enumerate(picks):
             keep_ = (lambda pts, p=p: _keep_data(cat_id, run_id, p['n'], src.name, [w for w in words if w['e'] > p['s'] and w['s'] < p['e']], pts))
             files, tr = await asyncio.to_thread(_cf.make_clip, src, p, words, info, cuts, _saver(cat_id), 'ffmpeg',
-                                                lambda fmt, k=k: _step(cat_id, run_id, 'clips', 'running', f'clip {k + 1} of {len(picks)}: {_cf.FORMATS[fmt][2]} made'), look, keep_)
+                                                lambda fmt, k=k: _step(cat_id, run_id, 'clips', 'running', f'clip {k + 1} of {len(picks)}: {_cf.FORMATS[fmt][2]} made'), p['look'], keep_, None, p.get('fmtLooks'))
             for fl in files:   # 🔗 every finished clip format gets its own in-house link, pasted into its PoC
                 if fl.get('piece') == 'video' and fl.get('url'):
                     fl['link'] = _link(cat_id, run_id, fl['url'].rsplit('/', 1)[-1], 'clip', f"{p['hook']} · {_cf.FORMATS[fl['format']][2]}", fmt=fl['format'])['url']
@@ -342,7 +354,7 @@ async def farm(cat_id, run_id, src, note=''):
             pass
 
 
-def _start(cat_id, cat, who, path, name, source, ws, note):
+def _start(cat_id, cat, who, path, name, source, ws, note, tpl=''):
     """Probe → limits → a run → the farm in the background. Removes the file on any refusal."""
     rs = _rs()
     try:
@@ -353,7 +365,7 @@ def _start(cat_id, cat, who, path, name, source, ws, note):
     test = who == 'internal'
     if test:
         rs._TEST_ON[(cat_id, 'poc')] = {'at': time.time(), 'by': 'Claude', 'run': secrets.token_hex(5), 'topic': f'clip farm: {name}'[:120]}
-    r = _new_run(cat_id, name, source, info, ws, note, test, path.suffix.lstrip('.').lower())
+    r = _new_run(cat_id, name, source, info, ws, note, test, path.suffix.lstrip('.').lower(), run_tpl(cat, tpl))
     _FARMING.add(cat_id)
     asyncio.create_task(farm(cat_id, r['id'], path, note))
     return {'run': _run_view(r)}
@@ -387,7 +399,7 @@ def _tmp(cat_id, ext):
 
 
 @router.post('/api/cats/{cat_id}/clipfarm/upload')
-async def clip_upload(cat_id: str, request: Request, name: str = '', ws: str = '', note: str = '', rights: int = 0, ownerId: str = '', session: str = ''):
+async def clip_upload(cat_id: str, request: Request, name: str = '', ws: str = '', note: str = '', rights: int = 0, ownerId: str = '', session: str = '', tpl: str = ''):
     """📤 The video itself as the request body (no JSON, no base64): streamed to disk, stopped at the size cap, read by ffprobe before anything runs."""
     rs = _rs(); store, cat = _cat(cat_id); who = _who(request, store, cat, ownerId, session)
     if not rights:
@@ -413,7 +425,7 @@ async def clip_upload(cat_id: str, request: Request, name: str = '', ws: str = '
     if got < 1000:
         out.unlink(missing_ok=True)
         raise rs.HTTPException(400, 'The file did not come through. Try again.')
-    return _start(cat_id, cat, who, out, rs.re.sub(r'\.[A-Za-z0-9]+$', '', str(name or 'Your video'))[:80], 'upload', str(ws or '')[:40], note)
+    return _start(cat_id, cat, who, out, rs.re.sub(r'\.[A-Za-z0-9]+$', '', str(name or 'Your video'))[:80], 'upload', str(ws or '')[:40], note, tpl)
 
 
 @router.post('/api/cats/{cat_id}/clipfarm/link')
@@ -455,7 +467,7 @@ async def clip_link(cat_id: str, request: Request):
     except (ValueError, rs.httpx.HTTPError) as e:
         out.unlink(missing_ok=True)
         raise rs.HTTPException(400, str(e) if isinstance(e, ValueError) else 'That link did not answer. Try again, or upload the file.')
-    return _start(cat_id, cat, who, out, name, source, str(body.get('ws') or '')[:40], str(body.get('note') or ''))
+    return _start(cat_id, cat, who, out, name, source, str(body.get('ws') or '')[:40], str(body.get('note') or ''), str(body.get('tpl') or ''))
 
 
 @router.get('/api/cats/{cat_id}/clipfarm')
@@ -471,7 +483,7 @@ async def clip_runs(cat_id: str, request: Request, ownerId: str = '', session: s
     if twins:   # 🎨 clips made before the studio all share the first look: each gets its own (once, $0, local) and renders
         rs = _rs(); _keep_looks(cat); rs._save(store); _queue(cat_id, set(twins))
     return {'runs': [_run_view(r) for r in reversed(cat.get('clipRuns') or [])], 'busy': cat_id in _FARMING, 'plan': plan_view(cat), 'rendering': sorted(_QUEUE.get(cat_id) or []),
-            'kit': LOOK_KIT,
+            'kit': LOOK_KIT, 'templates': tpl_view(cat),
             'limits': {'secs': _cf.MAX_S, 'mb': _cf.MAX_BYTES // 1_000_000, 'types': sorted(_cf.EXTS), 'clip': [_cf.CLIP_MIN, _cf.CLIP_MAX]}}
 
 
@@ -582,7 +594,7 @@ _QUEUE = {}       # cat id → {job, …} waiting for or in a render
 _RENDERING = set()
 
 
-LOOK_KEYS = ('look', 'looks', 'files', 'links', 'render')
+LOOK_KEYS = ('look', 'looks', 'files', 'links', 'render', 'fmtLooks', 'tpl')
 
 
 def _keep_looks(cat):
@@ -646,10 +658,18 @@ def _seed(f):
         s_['look'] = s_['looks'][0]['look']
 
 
-def _add_look(f, look, by, why, files=None):
+_KEEP = object()
+
+
+def _add_look(f, look, by, why, files=None, fmt_looks=_KEEP, tpl=_KEEP):
+    """A new look version. `fmt_looks` {format: look} (a per-format template) and `tpl` (the template it came from) ride the version, so an
+    undo brings them back; an edit by hand keeps them and marks the template edited."""
     _seed(f); s_ = f['studio']; vs = list(s_.get('looks') or [])
-    v = {'v': (vs[-1]['v'] + 1) if vs else 1, 'at': round(time.time()), 'by': by, 'why': str(why or '')[:200], 'look': _cl.clean_look(look), 'files': files}
-    s_['looks'] = (vs + [v])[-20:]; s_['look'] = v['look']
+    fl = dict(s_.get('fmtLooks') or {}) if fmt_looks is _KEEP else {k: _cl.clean_look(x) for k, x in (fmt_looks or {}).items() if k in FMTS}
+    tp = ({**s_['tpl'], 'edited': True} if s_.get('tpl') else None) if tpl is _KEEP else tpl
+    v = {'v': (vs[-1]['v'] + 1) if vs else 1, 'at': round(time.time()), 'by': by, 'why': str(why or '')[:200], 'look': _cl.clean_look(look), 'files': files,
+         'fmtLooks': fl, 'tpl': tp}
+    s_['looks'] = (vs + [v])[-20:]; s_['look'] = v['look']; s_['fmtLooks'] = fl; s_['tpl'] = tp
     if files is not None:
         s_['files'] = files
     return v
@@ -687,7 +707,8 @@ async def _render_one(cat_id, job):
     f['studio']['render'] = {'state': 'running', 'at': round(t0), 'v': v}; _keep_looks(cat); rs._save(store)
     d = await asyncio.to_thread(_clip_data, cat, f); info = _cf.check(_cf.probe(d['path']), d['path'].stat().st_size)
     c = f['studio']['clip']; pick = {'s': c['s'], 'e': c['e'], 'hook': f['studio'].get('hook') or '', 'caption': (f['studio'].get('post') or {}).get('story') or f['studio'].get('hook') or ''}
-    files, _tr = await asyncio.to_thread(_cf.make_clip, d['path'], pick, d['words'], info, (), _saver(cat_id), 'ffmpeg', None, look, None, d['pts'])
+    fl = {k: _cl.clean_look({**x, 'edit': look['edit']}) for k, x in (f['studio'].get('fmtLooks') or {}).items()}   # a per-format template keeps the clip's word edits
+    files, _tr = await asyncio.to_thread(_cf.make_clip, d['path'], pick, d['words'], info, (), _saver(cat_id), 'ffmpeg', None, look, None, d['pts'], fl)
     for fl in files:
         if fl.get('piece') == 'video' and fl.get('url'):
             fl['link'] = _link(cat_id, c['run'], fl['url'].rsplit('/', 1)[-1], 'clip', f"{pick['hook']} · {_cf.FORMATS[fl['format']][2]} · look v{v}", fmt=fl['format'])['url']
@@ -734,7 +755,7 @@ def _gate(request, store, cat, body, what):
     return 'owner'
 
 
-def _set_look(cat, f, look, by, why, owner):
+def _set_look(cat, f, look, by, why, owner, tpl=_KEEP):
     """A new look version (unique among this agent's clips) → (version, note). The owner's exact copy of another clip is refused."""
     rs = _rs()
     if (f.get('posted') or {}).get('at'):
@@ -745,7 +766,7 @@ def _set_look(cat, f, look, by, why, owner):
         if owner:
             raise rs.HTTPException(409, f"PoC #{twin.get('n')} already has this exact look. Change one thing (a colour, the grade, the font…) so no two clips look the same.")
         look, note = _cl.unique(look, used)
-    return _add_look(f, look, by, (why + (f' · {note}' if note else '')).strip(' ·')), note
+    return _add_look(f, look, by, (why + (f' · {note}' if note else '')).strip(' ·'), None, _KEEP, tpl), note
 
 
 @router.post('/api/cats/{cat_id}/clipfarm/look')
@@ -757,7 +778,10 @@ async def clip_look(cat_id: str, request: Request):
             else _cl.clean_look(body.get('look')))
     if _cl.sig(look) == _cl.sig(cur) and look['edit'] == cur['edit']:
         raise rs.HTTPException(400, 'Nothing changed.')
-    v, _n = _set_look(cat, f, look, 'TEST' if who == 'internal' else 'owner', str(body.get('why') or 'your edit'), owner=who == 'owner')
+    tp = find_tpl(cat, body.get('tpl')) if body.get('tpl') else None   # picked from a template in the editor: the clip says which
+    tpl = ({'id': tp['id'], 'name': tp['name'], 'by': 'owner', 'why': f"your template: {tp['name']}", 'at': round(time.time()),
+            **({'edited': True} if _cl.sig(look) != _cl.sig(tpl_look(tp)) else {})} if tp else _KEEP)
+    v, _n = _set_look(cat, f, look, 'TEST' if who == 'internal' else 'owner', str(body.get('why') or 'your edit'), owner=who == 'owner', tpl=tpl)
     rs.keep_owned(cat); _keep_looks(cat); rs._save(store); _queue(cat_id, {f['id']})
     return {'pocFolders': rs._poc_view(cat), 'v': v['v']}
 
@@ -774,7 +798,7 @@ async def clip_look_undo(cat_id: str, request: Request):
         raise rs.HTTPException(404, 'No such look version.')
     if _cl.sig(old['look']) in _used_sigs(cat, but=f['id']):
         raise rs.HTTPException(409, 'Another clip has that look now. Change that clip first, so no two clips look the same.')
-    _add_look(f, old['look'], 'undo', f"back to look v{old['v']}", old.get('files'))
+    _add_look(f, old['look'], 'undo', f"back to look v{old['v']}", old.get('files'), old.get('fmtLooks') or {}, old.get('tpl'))
     if old.get('files'):
         f['studio']['links'] = {fl['format']: fl['link'] for fl in old['files'] if fl.get('piece') == 'video' and fl.get('link')}
         f['studio']['render'] = {'state': 'done', 'at': round(time.time()), 'v': f['studio']['looks'][-1]['v'], 'secs': 0}
@@ -793,7 +817,7 @@ async def clip_words(cat_id: str, request: Request, job: str = '', ownerId: str 
     except ValueError as e:
         raise rs.HTTPException(410, str(e))
     ws = [{'i': i, 'w': w['w'], 's': round(w['s'] - c['s'], 2), 'e': round(w['e'] - c['s'], 2)} for i, w in enumerate(x for x in d['words'] if x['e'] > c['s'] and x['s'] < c['e'])]
-    return {'words': ws, 'dur': round(c['e'] - c['s'], 2)}
+    return {'words': ws, 'dur': round(c['e'] - c['s'], 2), 'face': _cl.face_y(d.get('pts'))}   # where the speaker's face sits: the preview keeps captions off it too
 
 
 # ── the week plan ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -955,7 +979,8 @@ async def plan_agent(cat_id: str, request: Request):
 CHAT_SYS = ('You are the clip editor inside the owner\'s posting-week plan. He asks for changes in plain words ("move the best one to Friday, make Tuesday '
             'funnier"). You change the plan (moves) and the clips\' looks. A look patch may set: "preset" (' + ', '.join(_cl.PRESET_ORDER) + '), '
             '"cap" {font: ' + '/'.join(_cl.FONTS) + ', color: ' + '/'.join(_cl.BASE_COLORS) + ', hot: ' + '/'.join(_cl.HOT_COLORS) + ', size: S/M/L, pos: '
-            + '/'.join(_cl.POS) + ', mode: ' + '/'.join(_cl.MODES) + ', words: 1-3, case: upper/said}, "tr": ' + '/'.join(_cl.TRANS) + ', "fx" {punch: bool, shake: bool, '
+            + '/'.join(_cl.POS) + ', style: ' + '/'.join(_cl.STYLES) + ' (never a flat slab: prefer the modern ones), safe: face/ui/off, mode: ' + '/'.join(_cl.MODES)
+            + ' (classic style only), words: 1-6, case: upper/said}, "tr": ' + '/'.join(_cl.TRANS) + ', "fx" {punch: bool, shake: bool, '
             'grade: ' + '/'.join(_cl.GRADES) + ', speed: ' + '/'.join(_cl.SPEEDS) + ', pop: bool}. Funnier = faster speed, word pops, bouncy captions, zoom or glitch. '
             'Posted clips are locked. Answer ONLY with JSON: {"reply":"one or two short sentences to the owner","moves":[{"job":"<id>","day":"Fri","time":"19:00",'
             '"plats":["tiktok"],"why":"…"}],"looks":[{"job":"<id>","patch":{…},"why":"…"}],"remove":["<id taken off the week>"]}')
@@ -1025,7 +1050,7 @@ async def plan_undo(cat_id: str, request: Request):
         if want and want != now and not (f.get('posted') or {}).get('at'):
             row = next((x for x in f['studio'].get('looks') or [] if x.get('v') == want), None)
             if row:
-                _add_look(f, row['look'], 'undo', f"plan back to v{old['v']}", row.get('files'))
+                _add_look(f, row['look'], 'undo', f"plan back to v{old['v']}", row.get('files'), row.get('fmtLooks') or {}, row.get('tpl'))
                 if row.get('files'):
                     f['studio']['links'] = {fl['format']: fl['link'] for fl in row['files'] if fl.get('piece') == 'video' and fl.get('link')}
                 else:
@@ -1062,3 +1087,279 @@ async def clip_look_mind(cat_id: str, request: Request):
     v['cost'] = round(cost, 5)
     rs.keep_owned(cat); _keep_looks(cat); rs._save(store); _queue(cat_id, {f['id']})
     return {'pocFolders': rs._poc_view(cat), 'v': v['v'], 'note': note}
+
+
+# ── 🎨 Slice 29 add-on (owner 2026-11-20: "should be able to set edit formats and templates … cooler captions"; "i was speaking of the clip
+# farming too"): saved templates (a whole look: captions, transitions, effects, safe area, which formats), per-agent defaults per format,
+# per platform and for the farm, one tap to apply to a clip, a run or the week; the farm makes every clip in its template. Nothing posts.
+FMTS = ('story', 'feed', 'wide')
+PLAT_FMT = {'tiktok': 'story', 'instagram': 'story', 'youtube': 'story', 'x': 'wide'}   # the file each platform posts
+DEF_DEFAULTS = {'farm': 'minds', 'story': '', 'feed': '', 'wide': '', 'tiktok': '', 'instagram': '', 'youtube': '', 'x': ''}
+TPL_KEEP = 40
+
+
+def builtins():
+    """The six modern caption templates first, then the six Slice 29 presets (kept: nothing that worked is lost). Pure."""
+    return [{'id': f'b:{k}', 'name': _cl.TEMPLATE_NAMES[k], 'look': _cl.preset(k), 'fmts': list(FMTS), 'by': 'FEELESS', 'builtin': True, 'legacy': k in _cl.LEGACY}
+            for k in _cl.PRESET_ORDER + _cl.LEGACY]
+
+
+def tpl_store(cat):
+    t = cat.get('clipTpl') if isinstance(cat.get('clipTpl'), dict) else {}
+    return {'list': [x for x in t.get('list') or [] if isinstance(x, dict) and x.get('id')], 'defaults': {**DEF_DEFAULTS, **{k: v for k, v in (t.get('defaults') or {}).items() if k in DEF_DEFAULTS}}}
+
+
+def all_tpls(cat):
+    return builtins() + tpl_store(cat)['list']
+
+
+def find_tpl(cat, tid):
+    return next((x for x in all_tpls(cat) if x['id'] == str(tid or '')), None)
+
+
+def tpl_look(tp, edit=None):
+    """A template's look for one clip (the clip's own word edits kept). Pure."""
+    lk = _cl.clean_look(tp['look'])
+    if edit:
+        lk['edit'] = _cl.clean_look({'edit': edit})['edit']
+    return lk
+
+
+def run_tpl(cat, tpl):
+    """What a new run starts in: the tap on the upload card, else the owner's farm default, else the minds. → 'minds' | template id"""
+    want = str(tpl or '') or tpl_store(cat)['defaults']['farm'] or 'minds'
+    return want if want == 'minds' or find_tpl(cat, want) else 'minds'
+
+
+def fmt_defaults(cat):
+    """The per-format defaults in force: a format's own default, else the first platform default that posts that format. → {fmt: template}"""
+    d = tpl_store(cat)['defaults']; out = {}
+    for fm in FMTS:
+        tid = d.get(fm) or next((d[p] for p, f in PLAT_FMT.items() if f == fm and d.get(p)), '')
+        tp = find_tpl(cat, tid) if tid else None
+        if tp:
+            out[fm] = tp
+    return out
+
+
+def tpl_view(cat):
+    st = tpl_store(cat)
+    return {'list': [{**x, 'describe': _cl.describe(x['look'])} for x in all_tpls(cat)], 'defaults': st['defaults'], 'styles': _cl.STYLES, 'safes': _cl.SAFES,
+            'platFmt': PLAT_FMT, 'inForce': {fm: tp['id'] for fm, tp in fmt_defaults(cat).items()}}
+
+
+def code_tpl(c, free):
+    """The template that fits a clip's mood when no mind answers: numbers → gradient keyword, a question or a laugh → emoji accent, long and
+    calm → lower-third, a top score → bold outline, else pop highlight; the first free one when that is taken in this run. → (id, why) Pure."""
+    txt = f"{c.get('hook') or ''} {c.get('text') or ''}"
+    want, why = (('b:gradient', 'numbers in it: the key figure gets the gradient') if re.search(r'\d|\$', txt) else
+                 ('b:emoji', 'a question or a laugh: an emoji lands the feeling') if re.search(r'\?|haha|funny|laugh', txt.lower()) else
+                 ('b:lower', 'long and calm: a quiet lower-third keeps the face clear') if float(c.get('dur') or 0) >= 40 else
+                 ('b:outline', 'a top score: the loudest look') if float(c.get('both') or 0) >= 8 else ('b:pop', 'a talking moment: word-by-word pop keeps eyes on it'))
+    if want in free:
+        return want, why
+    return (free[0], f"{why.split(':')[0]}, but another clip in this run has that one") if free else (want, why)
+
+
+def _code_pairs(cat, items):
+    """Every clip its mood's template by code, all different. → [(template, why, 'code')]"""
+    free = [x['id'] for x in all_tpls(cat) if not x.get('legacy')]; out = []
+    for c in items:
+        tid, why = code_tpl(c, free); free = [x for x in free if x != tid] or free; out.append((find_tpl(cat, tid), why, 'code'))
+    return out
+
+
+TPL_SYS = ('You pick a caption TEMPLATE for each short vertical clip so its look fits the clip\'s mood and hook (calm → minimal, numbers → gradient '
+           'keyword, a joke → emoji, a big claim → bold outline …). Every clip gets a DIFFERENT template. Answer ONLY with JSON: '
+           '{"picks":[{"k":<clip k>,"tpl":"<template id>","why":"at most 14 words, about the clip"}]}')
+
+
+async def _pick_tpls(cat_id, cat, items, ask=''):
+    """The lead PoC mind picks a template per clip (all different), code fills any gap. items: [{k, hook, text, dur, both}] → ([(template, why, by)], cost, own, mind)"""
+    tps = [x for x in all_tpls(cat) if not x.get('legacy')]; ids = [x['id'] for x in tps]; got, cost, own, mind = {}, 0.0, False, ''
+    try:
+        user_ = ('TEMPLATES:\n' + '\n'.join(f"{x['id']}: {x['name']} — {_cl.describe(x['look'])}" for x in tps) + '\nCLIPS:\n'
+                 + '\n'.join(f"k={c['k']}: hook \"{c.get('hook')}\", {round(float(c.get('dur') or 0))} s, score {c.get('both')}, said \"{str(c.get('text') or '')[:260]}\"" for c in items)
+                 + (f"\nOWNER ASKS: {str(ask)[:200]}" if ask else ''))
+        raw, cost, own, mind = await _ask_lead(cat, TPL_SYS, user_, 900)
+        for r in (_cf._json(raw) or {}).get('picks') or []:
+            if isinstance(r, dict) and r.get('tpl') in ids and str(r.get('k')) not in got:
+                got[str(r.get('k'))] = (r['tpl'], ' '.join(str(r.get('why') or '').split())[:140])
+    except Exception as e:   # noqa: BLE001: no mind → the code's pick, said so on the clip
+        mind = f'code ({type(e).__name__})'
+    out, taken = [], set()
+    for c in items:
+        tid, why = got.get(str(c['k']), ('', ''))
+        by = 'minds' if tid else 'code'
+        if not tid or tid in taken:   # no answer for it, or a twin of another clip's: the code picks a free one by its mood
+            tid, why = code_tpl(c, [i for i in ids if i not in taken]); by = 'code'
+        taken.add(tid); out.append((find_tpl(cat, tid), why or 'its own template', by))
+    return out, cost, own, mind.split('/')[-1]
+
+
+async def _run_tpls(cat_id, cat, run, picks):
+    """The farm's templates for a run's picks: the run's chosen one for all, or the minds' pick per clip. → ([(template, why, by)], cost, own, mind)"""
+    want = run.get('tpl') or 'minds'
+    if want != 'minds':
+        tp = find_tpl(cat, want) or find_tpl(cat, 'b:pop')
+        return [(tp, f"your pick for this run: {tp['name']}", 'owner')] * len(picks), 0.0, False, ''
+    if run.get('test'):
+        try:
+            _test_caps(cat_id, cat)
+        except Exception:   # noqa: BLE001: past the TEST caps the code picks
+            return _code_pairs(cat, picks), 0.0, False, 'code'
+    return await _pick_tpls(cat_id, cat, [{'k': i, 'hook': p.get('hook'), 'text': p.get('text'), 'dur': p.get('dur'), 'both': p.get('both')} for i, p in enumerate(picks)])
+
+
+def _targets(cat, body):
+    """The clips a template goes onto: one clip (job), a whole run, or the planned week. Posted clips are locked."""
+    rs = _rs(); cs = [f for f in _clips(cat) if not (f.get('posted') or {}).get('at')]
+    if body.get('job'):
+        out = [f for f in cs if f['id'] == str(body['job'])]
+    elif body.get('run'):
+        out = [f for f in cs if f['studio']['clip'].get('run') == str(body['run'])]
+    elif body.get('week'):
+        out = [f for f in cs if f['studio'].get('slot')]
+    else:
+        raise rs.HTTPException(400, 'Say which clips: one clip, a run or the week.')
+    if not out:
+        raise rs.HTTPException(404, 'No clip to change there (posted clips are locked).')
+    live = [f for f in out if _src_of(cat, f) is not None]   # a clip whose upload is gone can't re-render: it keeps its look and nobody pays for it
+    if not live:
+        raise rs.HTTPException(409, 'The upload these clips came from is gone (it is kept 7 days). Upload the video again to restyle them.')
+    return live, [f"PoC #{f['n']}: its upload is gone, left as it was" for f in out if f not in live]
+
+
+def _apply(cat, f, tp, by, why, used, extra=None):
+    """One template onto one clip: a whole-format template becomes its look (per-format overrides cleared); a template for some formats only
+    becomes those formats' look. Nudged so no two clips share a look. → note"""
+    cur = _look_now(f); lk = tpl_look(tp, cur['edit']); fm = [x for x in tp.get('fmts') or FMTS if x in FMTS] or list(FMTS)
+    if set(fm) == set(FMTS):
+        base, fl = lk, {}
+    else:
+        base, fl = cur, {**(f['studio'].get('fmtLooks') or {}), **{x: lk for x in fm}}
+    base, note = _cl.unique(base, used)
+    _add_look(f, base, by, (why + (f' · {note}' if note else ''))[:200], None, fl, {'id': tp['id'], 'name': tp['name'], 'by': by, 'why': why[:200], 'at': round(time.time()), **(extra or {})})
+    used.add(_cl.sig(base))
+    return note
+
+
+def _apply_many(cat, fs, pairs, by_default):
+    used = _used_sigs(cat) - {_cl.sig(_look_now(f)) for f in fs}; notes = []
+    for f, (tp, why, by) in zip(fs, pairs):
+        n_ = _apply(cat, f, tp, by or by_default, why, used)
+        if n_:
+            notes.append(f"PoC #{f.get('n')}: {n_}")
+    return notes
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/save')
+async def tpl_save(cat_id: str, request: Request):
+    """💾 Save a look as a named template (new, or an update of one of this agent's): captions, transition, effects, safe area, its formats."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); who = _gate(request, store, cat, body, 'save clip templates')
+    name = ' '.join(str(body.get('name') or '').split())[:40]
+    if not name:
+        raise rs.HTTPException(400, 'Give the template a name.')
+    fm = [x for x in body.get('fmts') or FMTS if x in FMTS]
+    if not fm:
+        raise rs.HTTPException(400, 'Pick at least one format for it.')
+    look = _cl.clean_look(body.get('look')); look['edit'] = _cl.clean_look({})['edit']; look.pop('preset', None)   # word edits belong to a clip, not a template
+    st = tpl_store(cat); lst = st['list']; tid = str(body.get('id') or '')
+    if tid.startswith('b:'):
+        raise rs.HTTPException(400, "FEELESS's own templates can't be changed: save it under a new name.")
+    if any(_cl.sig(x['look']) == _cl.sig(look) and x['id'] != tid and set(x.get('fmts') or FMTS) == set(fm) for x in all_tpls(cat)):
+        twin = next(x for x in all_tpls(cat) if _cl.sig(x['look']) == _cl.sig(look) and x['id'] != tid)
+        raise rs.HTTPException(409, f"\"{twin['name']}\" is already this exact look. Change one thing first.")
+    row = next((x for x in lst if x['id'] == tid), None)
+    if tid and not row:
+        raise rs.HTTPException(404, 'No such template.')
+    if row:
+        row.update(name=name, look=look, fmts=fm, at=round(time.time()), why=str(body.get('why') or row.get('why') or '')[:160])
+    else:
+        row = {'id': 't' + secrets.token_hex(5), 'name': name, 'look': look, 'fmts': fm, 'by': 'TEST' if who == 'internal' else 'owner', 'at': round(time.time()), 'why': str(body.get('why') or '')[:160]}
+        lst.append(row)
+    cat['clipTpl'] = {'list': lst[-TPL_KEEP:], 'defaults': st['defaults']}; rs.keep_owned(cat); _keep_looks(cat); rs._save(store)
+    return {'templates': tpl_view(cat), 'id': row['id']}
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/delete')
+async def tpl_delete(cat_id: str, request: Request):
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); _gate(request, store, cat, body, 'delete clip templates')
+    tid = str(body.get('id') or ''); st = tpl_store(cat)
+    if tid.startswith('b:') or not any(x['id'] == tid for x in st['list']):
+        raise rs.HTTPException(400 if tid.startswith('b:') else 404, "FEELESS's own templates stay." if tid.startswith('b:') else 'No such template.')
+    d = {k: ('minds' if k == 'farm' else '') if v == tid else v for k, v in st['defaults'].items()}   # a default that pointed at it falls back
+    cat['clipTpl'] = {'list': [x for x in st['list'] if x['id'] != tid], 'defaults': d}; rs.keep_owned(cat); _keep_looks(cat); rs._save(store)
+    return {'templates': tpl_view(cat)}
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/default')
+async def tpl_default(cat_id: str, request: Request):
+    """⭐ A default: the farm's ('minds' or a template: every new run starts in it), a format's (9:16 / 1:1 / 16:9) or a platform's (its file's format)."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); _gate(request, store, cat, body, 'set clip template defaults')
+    key, val = str(body.get('key') or ''), str(body.get('tpl') or '')
+    if key not in DEF_DEFAULTS:
+        raise rs.HTTPException(400, 'No such default.')
+    if val and not (val == 'minds' and key == 'farm') and not find_tpl(cat, val):
+        raise rs.HTTPException(404, 'No such template.')
+    st = tpl_store(cat); st['defaults'][key] = val or ('minds' if key == 'farm' else '')
+    cat['clipTpl'] = st; rs.keep_owned(cat); _keep_looks(cat); rs._save(store)
+    return {'templates': tpl_view(cat)}
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/apply')
+async def tpl_apply(cat_id: str, request: Request):
+    """👆 One tap: a template onto one clip, a whole run or the week → new look versions (undo-able), re-rendered in the background ($0)."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); who = _gate(request, store, cat, body, 'edit its clips')
+    tp = find_tpl(cat, body.get('tpl'))
+    if not tp:
+        raise rs.HTTPException(404, 'No such template.')
+    fs, gone = _targets(cat, body); by = 'TEST' if who == 'internal' else 'owner'
+    notes = _apply_many(cat, fs, [(tp, f"your template: {tp['name']}", by)] * len(fs), by) + gone
+    rs.keep_owned(cat); _keep_looks(cat); rs._save(store); _queue(cat_id, {f['id'] for f in fs})
+    return {'pocFolders': rs._poc_view(cat), 'changed': [f['id'] for f in fs], 'notes': notes}
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/minds')
+async def tpl_minds(cat_id: str, request: Request):
+    """🧠 The minds pick a template per clip (one clip, a run or the week), each different, each with a why on its tile; re-rendered ($0)."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); who = _gate(request, store, cat, body, 'edit its clips')
+    if who == 'internal':
+        _test_caps(cat_id, cat)
+    fs, gone = _targets(cat, body)
+    items = [{'k': i, 'hook': f['studio'].get('hook'), 'text': f['studio']['clip'].get('text'), 'dur': f['studio']['clip'].get('dur'), 'both': f['studio']['clip'].get('both')} for i, f in enumerate(fs)]
+    pairs, cost, own, mind = await _pick_tpls(cat_id, cat, items, str(body.get('ask') or ''))
+    store, cat = _cat(cat_id); _charge(cat_id, cat, cost, own); fs = [_find_clip(cat, f['id']) for f in fs]
+    notes = _apply_many(cat, fs, [(tp, f"{mind}: {why}" if by == 'minds' else why, by) for tp, why, by in pairs], 'minds') + gone
+    for f in fs:
+        if cost:
+            f['studio']['looks'][-1]['cost'] = round(cost / len(fs), 5)
+    rs.keep_owned(cat); _keep_looks(cat); rs._save(store); _queue(cat_id, {f['id'] for f in fs})
+    return {'pocFolders': rs._poc_view(cat), 'changed': [f['id'] for f in fs], 'notes': notes, 'cost': round(cost, 5), 'mind': mind}
+
+
+@router.post('/api/cats/{cat_id}/clipfarm/template/mind')
+async def tpl_mind(cat_id: str, request: Request):
+    """🧠 The lead mind designs a NEW template (a different look from every saved one) and saves it under its own name, with a why."""
+    rs = _rs(); body = await request.json(); store, cat = _cat(cat_id); who = _gate(request, store, cat, body, 'save clip templates')
+    if who == 'internal':
+        _test_caps(cat_id, cat)
+    have = '\n'.join(f"{x['name']}: {_cl.describe(x['look'])}" for x in all_tpls(cat) if not x.get('legacy'))
+    sys_ = (CHAT_SYS.split('Posted clips are locked.')[0] + 'Design ONE new caption template, different from every one listed. Modern short-form: no flat slabs, '
+            'thin stroke or soft shadow, the accent on the spoken word. Answer ONLY with JSON: {"name":"2-4 words","base":"<one of: '
+            + ', '.join(_cl.PRESET_ORDER) + '>","patch":{…},"why":"at most 16 words"}')
+    try:
+        raw, cost, own, mind = await _ask_lead(cat, sys_, f"TEMPLATES NOW:\n{have}\nOWNER ASKS: {str(body.get('ask') or 'something new for this week')[:200]}", 900)
+    except Exception as e:   # noqa: BLE001
+        raise rs.HTTPException(502, f'The mind did not answer ({type(e).__name__}). Nothing changed.')
+    j = _cf._json(raw) or {}
+    store, cat = _cat(cat_id); _charge(cat_id, cat, cost, own)
+    look = _cl.merge(_cl.preset(j.get('base') if j.get('base') in _cl.PRESET_ORDER else 'pop'), j.get('patch') if isinstance(j.get('patch'), dict) else {})
+    look, note = _cl.unique(look, {_cl.sig(x['look']) for x in all_tpls(cat)}); look.pop('preset', None)
+    st = tpl_store(cat); name = ' '.join(str(j.get('name') or '').split())[:40] or 'Minds pick'
+    if any(x['name'].lower() == name.lower() for x in all_tpls(cat)):
+        name = f"{name} {len(st['list']) + 1}"
+    row = {'id': 't' + secrets.token_hex(5), 'name': name, 'look': look, 'fmts': list(FMTS), 'by': 'minds', 'mind': mind.split('/')[-1], 'at': round(time.time()),
+           'why': (' '.join(str(j.get('why') or '').split())[:140] + (f' · {note}' if note else '')), 'cost': round(cost, 5)}
+    st['list'].append(row); cat['clipTpl'] = {'list': st['list'][-TPL_KEEP:], 'defaults': st['defaults']}; rs.keep_owned(cat); _keep_looks(cat); rs._save(store)
+    return {'templates': tpl_view(cat), 'id': row['id'], 'cost': round(cost, 5)}

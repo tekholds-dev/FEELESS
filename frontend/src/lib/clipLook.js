@@ -2,11 +2,18 @@
 // editor shows what ffmpeg will make. Pure helpers only; the page never renders a file itself.
 export const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export const PLATS = [['tiktok', 'TikTok'], ['instagram', 'Reels'], ['youtube', 'Shorts'], ['x', 'X']];
-export const DEFAULT_LOOK = { cap: { font: 'bold', color: 'white', hot: 'green', size: 'M', pos: 'low', mode: 'word', words: 3, case: 'upper' }, tr: 'cut',
+export const DEFAULT_LOOK = { cap: { font: 'bold', color: 'white', hot: 'green', size: 'M', pos: 'low', mode: 'word', words: 3, case: 'upper', style: 'classic', safe: 'face' }, tr: 'cut',
   fx: { punch: false, shake: false, grade: 'none', speed: 'off', pop: false }, edit: { w: {}, off: 0 } };
 export const FONT_CSS = { bold: "'Liberation Sans', Arial, 'Helvetica Neue', sans-serif", impact: "Impact, 'Haettenschweiler', 'Arial Narrow Bold', sans-serif",
-  condensed: "'Avenir Next Condensed', 'Arial Narrow', sans-serif", rounded: "'Arial Rounded MT Bold', 'SF Pro Rounded', sans-serif", serif: "Georgia, 'Times New Roman', serif", chalk: "Chalkduster, 'Comic Sans MS', fantasy" };
-export const FONT_WEIGHT = { bold: 800, impact: 400, condensed: 900, rounded: 700, serif: 700, chalk: 400 };
+  condensed: "'Avenir Next Condensed', 'Arial Narrow', sans-serif", rounded: "'Arial Rounded MT Bold', 'SF Pro Rounded', sans-serif", serif: "Georgia, 'Times New Roman', serif", chalk: "Chalkduster, 'Comic Sans MS', fantasy",
+  sf: "'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", avenir: "'Avenir Next', Avenir, 'Helvetica Neue', sans-serif", demi: "'Avenir Next', Avenir, 'Helvetica Neue', sans-serif" };
+export const FONT_WEIGHT = { bold: 800, impact: 400, condensed: 900, rounded: 700, serif: 700, chalk: 400, sf: 900, avenir: 800, demi: 600 };
+// 🎨 Slice 29 add-on: the modern caption styles (backend clip_look.STYLES) and where a caption may sit (SAFES)
+export const STYLES = [['pop', 'Pop highlight'], ['sweep', 'Karaoke sweep'], ['lower', 'Minimal lower-third'], ['outline', 'Bold outline'], ['gradient', 'Gradient keyword'], ['emoji', 'Emoji accent'], ['classic', 'Classic']];
+export const STYLE_TIP = { pop: 'The word being said pops up in the accent', sweep: 'Each word fills with the accent as it is said', lower: 'Small, left, a thin accent line under the word: calm',
+  outline: 'Big words, a crisp outline, the word said in the accent', gradient: 'Numbers and big words get an accent gradient', emoji: 'An emoji lands on the big words', classic: 'The first Slice 29 captions' };
+export const SAFES = [['face', 'Off faces'], ['ui', 'Clear of buttons'], ['off', 'Where I put it']];
+export const GRAD2 = { green: '#28dcff', yellow: '#ff7828', cyan: '#19e68c', pink: '#ffaa3c', orange: '#ff46a0', white: '#19e68c' };   // backend GRAD2: the gradient's second colour
 export const COLOR = { white: '#ffffff', cream: '#fff4d6', yellow: '#ffd60a', green: '#19e68c', cyan: '#28dcff', pink: '#ff46a0', orange: '#ff8c1e' };   // the rendered file's colours (backend COLORS)
 export const GRADE_CSS = { none: 'none', warm: 'saturate(1.15) sepia(.12)', teal: 'hue-rotate(-10deg) saturate(1.1) contrast(1.04)', mono: 'grayscale(1) contrast(1.12)',
   punchy: 'contrast(1.12) saturate(1.3)', vintage: 'sepia(.35) contrast(.95) saturate(1.1)', cool: 'hue-rotate(8deg) saturate(1.05) brightness(1.02)' };
@@ -16,7 +23,7 @@ export const BASE_PX = { story: 88 / 1080, feed: 66 / 1080, wide: 60 / 1920 };  
 export const RATIO = { story: '9 / 16', feed: '1 / 1', wide: '16 / 9' };
 
 /** Pure: any look → a whole look (defaults filled in). */
-export function fullLook(l) {
+export function fullLook(l) {   // (a look from before the add-on has no style: it stays 'classic', as it was made)
   const a = l || {};
   return { cap: { ...DEFAULT_LOOK.cap, ...(a.cap || {}) }, tr: a.tr || 'cut', fx: { ...DEFAULT_LOOK.fx, ...(a.fx || {}) }, edit: { w: { ...((a.edit || {}).w || {}) }, off: Number((a.edit || {}).off || 0) }, ...(a.preset ? { preset: a.preset } : {}) };
 }
@@ -78,7 +85,8 @@ export function fxAt(look, t, bts, pps, dur) {
 /** Pure: a short line about a look — backend clip_look.describe. */
 export function describe(look, fonts = {}) {
   const a = fullLook(look); const on = ['punch', 'shake', 'pop'].filter(k => a.fx[k]).concat(a.fx.grade !== 'none' ? [`${a.fx.grade} grade`] : [], a.fx.speed !== 'off' ? [`speed ${a.fx.speed}`] : []);
-  return `${fonts[a.cap.font] || a.cap.font} · ${a.cap.mode} · ${a.tr}${on.length ? ` · ${on.join(', ')}` : ''}`;
+  const sty = a.cap.style === 'classic' ? a.cap.mode : (STYLES.find(([k]) => k === a.cap.style) || [0, a.cap.style])[1].toLowerCase();
+  return `${fonts[a.cap.font] || a.cap.font} · ${sty} · ${a.tr}${on.length ? ` · ${on.join(', ')}` : ''}`;
 }
 
 /** Pure: where a clip stands — posted, planned (it has a day) or waiting for the approve. */
@@ -99,3 +107,28 @@ export function moveSlot(slots, job, day, base = {}) {
   const next = day ? [...rest, { time: '19:00', plats: ['tiktok', 'instagram', 'youtube'], why: '', ...base, ...old, job, day }] : rest;
   return next.sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || String(a.time).localeCompare(String(b.time)));
 }
+
+// ── 🎨 Slice 29 add-on: the modern captions, as the renderer draws them ─────────────────────────────────────────────────────────────
+/** Pure: a word worth emphasis (a number, or a long uncommon word) — backend clip_look.keyword. */
+export function keyword(w) { const t = String(w).replace(/[^\w$%'-]/g, ''); return /\d/.test(t) || (t.length >= 6 && !STOP.has(t.toLowerCase())); }
+const EMOJI = [['💰', /money|cash|\$|dollar|paid|price|cost|rich|million/], ['🔥', /fire|hot|insane|crazy|wild|best|huge/], ['🤯', /wow|mind|unbeliev|shock|amaz/], ['😂', /funny|laugh|joke|lol/],
+  ['💖', /love|heart/], ['🌊', /ocean|sea|water|deep|dive|underwater|chimney/], ['🚀', /rocket|space|launch|fast|vehicle|sub|explor/], ['📈', /\d/], ['✨', /./]];
+/** Pure: the emoji a keyword gets — backend clip_look.emoji_for. */
+export function emojiFor(w) { const t = String(w).toLowerCase(); return (EMOJI.find(([, rx]) => rx.test(t)) || ['✨'])[0]; }
+const POPPERS = new Set(['pop', 'outline', 'gradient', 'emoji']);
+/** Pure: the spoken word's frame at second t (scale for the pop styles, fill fraction for the sweep) — backend clip_look.frames_for. */
+export function frameAt(style, t, s, e) {
+  const d = e - s; const x = t - s;
+  if (POPPERS.has(style) && d > 0.16) return { scale: x < 0.05 ? 1.16 : x < 0.1 ? 1.07 : 1, frac: 1 };
+  if (style === 'sweep' && d > 0.15) return { scale: 1, frac: x < d / 3 ? 0.34 : x < (2 * d) / 3 ? 0.68 : 1 };
+  return { scale: 1, frac: 1 };
+}
+/** Pure: the caption band's top as a share of the frame — backend clip_look.safe_y (bottom 20 % and top 8 % kept clear, off the face). */
+export function safeTop(cap, face, band) {
+  let y = POS[cap.pos] ?? POS.low; const safe = cap.safe || 'face'; const [lo, hi] = safe !== 'off' ? [0.08, 0.8] : [0, 0.97];
+  y = Math.max(lo, Math.min(y, hi - band));
+  if (safe === 'face' && face != null) { const half = 0.15; if (y < face + half && y + band > face - half) { const below = face + half + 0.01; const above = face - half - band - 0.01; y = below + band <= hi ? below : above >= lo ? above : Math.max(lo, Math.min(below, hi - band)); } }
+  return y;
+}
+/** Pure: the hook's key word (the longest uncommon one), drawn in the accent. */
+export function hookKey(hook) { return String(hook || '').split(/\s+/).filter(w => w && !STOP.has(w.toLowerCase().replace(/[.,!?]/g, ''))).sort((a, b) => b.replace(/[.,!?]/g, '').length - a.replace(/[.,!?]/g, '').length)[0] || ''; }

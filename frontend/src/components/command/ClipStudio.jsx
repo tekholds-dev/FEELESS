@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { AnimatePresence, motion } from 'motion/react';
-import { Brain, CalendarDays, Check, Grid3x3, Loader2, MessageSquare, Pencil, Play, RotateCcw, Send, Sparkles, Undo2, Wand2, X } from 'lucide-react';
+import { Brain, CalendarDays, Check, Grid3x3, LayoutTemplate, Loader2, MessageSquare, Pencil, Play, RotateCcw, Send, Sparkles, Undo2, Wand2, X } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import { boxRef } from '../../lib/boxRef';
 import { DAYS, PLATS, RATIO, bySource, clipStatus, describe, filterClips, fullLook, moveSlot, sig, twinOf } from '../../lib/clipLook';
 import ClipEdit from './ClipEdit';
+import ClipTemplates from './ClipTemplates';
 import '../../styles/clipStudio.css';
 
 // 🎨🗓 Slice 29 (owner 2026-11-20: "clip farming should show file folder with some cool smart way to show a grid and easy way for user to plan a
@@ -46,7 +47,9 @@ function Tile({ f, fmt, i, rendering, onEdit, onOpen, onSlot, links, busy: slotB
     <div className="cst-tile-b">
       <b title={s.hook}>{s.hook}</b>
       <small className="m-num">#{f.n} · {Math.round(s.clip.dur || 0)} s · {clock(s.clip.s)} in{f.testRun || f.test ? ' · TEST' : ''}</small>
-      <small className="cst-look" data-tip="Its look: font · highlight · transition · effects">{s.look?.preset ? <i>{s.look.preset}</i> : null}{describe(s.look)}</small>
+      {s.tpl ? <small className={`cst-tplchip is-${s.tpl.by}`} data-testid={`cst-tplchip-${f.id}`}><LayoutTemplate size={11} aria-hidden="true" /><b>{s.tpl.name}{s.tpl.edited ? ' · edited' : ''}</b>
+        <span>{s.tpl.by === 'minds' ? 'minds' : s.tpl.by === 'code' ? 'by mood' : s.tpl.by === 'owner' ? 'yours' : s.tpl.by}: {s.tpl.why}</span></small> : null}
+      <small className="cst-look" data-tip="Its look: font · caption style · transition · effects">{describe(s.look)}</small>
     </div>
     <div className="cst-tile-act">
       <button type="button" className="m-btn" onClick={() => onEdit(f.id)} disabled={!!f.posted} data-tip={f.posted ? 'Posted: its look is locked' : 'Captions, transition, effects'} data-testid={`cst-edit-${f.id}`}><Pencil size={12} /> Edit</button>
@@ -170,14 +173,15 @@ function Week({ clips, plan, busy, onSave, onAgent, onChat, onUndo }) {
   </div>;
 }
 
-export default function ClipStudio({ cat, clips, plan, kit, rendering = [], runs = [], api, onPocs, onPlan, onOpen, onSlot, links, busy: slotBusy }) {
-  const [view, setView] = useState(readView); const [edit, setEdit] = useState(null); const [busy, setBusy] = useState(''); const [msg, setMsg] = useState('');
-  const go = k => { setView(k); try { localStorage.setItem(VIEW_KEY, k); } catch { /* private window */ } };
-  const call = async (key, path, body) => { setBusy(key); setMsg(''); try { const j = await api(path, body); if (j.plan) onPlan?.(j.plan); if (j.pocFolders) onPocs?.(j.pocFolders); return j; } catch (e) { setMsg(e.message); return null; } finally { setBusy(''); } };
+export default function ClipStudio({ cat, clips, plan, kit, templates, rendering = [], runs = [], api, onPocs, onPlan, onTemplates, onOpen, onSlot, links, busy: slotBusy }) {
+  const [view, setView] = useState(readView); const [edit, setEdit] = useState(null); const [busy, setBusy] = useState(''); const [msg, setMsg] = useState(''); const [seed, setSeed] = useState(null);
+  const go = k => { setView(k); if (k !== 'edit') setSeed(null); try { localStorage.setItem(VIEW_KEY, k); } catch { /* private window */ } };
+  const call = async (key, path, body) => { setBusy(key); setMsg(''); try { const j = await api(path, body); if (j.plan) onPlan?.(j.plan); if (j.templates) onTemplates?.(j.templates); if (j.pocFolders) onPocs?.(j.pocFolders); return j; } catch (e) { setMsg(e.message); return null; } finally { setBusy(''); } };
   const f = clips.find(x => x.id === edit) || clips.find(x => !x.posted) || null;
   const uniq = useMemo(() => new Set(clips.filter(x => x.studio.look).map(x => sig(x.studio.look))).size, [clips]);
   const planned = clips.filter(x => x.studio.slot).length;
-  const TABS = [['grid', 'Clips', Grid3x3, clips.length], ['week', 'Week', CalendarDays, planned ? `${planned}/${clips.length}` : ''], ['edit', 'Edit', Wand2, '']];
+  const TABS = [['grid', 'Clips', Grid3x3, clips.length], ['week', 'Week', CalendarDays, planned ? `${planned}/${clips.length}` : ''], ['tpl', 'Templates', LayoutTemplate, (templates?.list || []).filter(x => !x.legacy).length || ''], ['edit', 'Edit', Wand2, '']];
+  const tplOf = look => ((templates?.list || []).some(x => x.id === look?.preset) ? { tpl: look.preset } : {});
   return <section ref={box} className="cst" data-testid="clip-studio">
     <div className="cst-top">
       <div className="m-seg cst-tabs" role="tablist" aria-label="Clip studio">{TABS.map(([k, l, Ic, n]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => go(k)} data-testid={`cst-tab-${k}`}><Ic size={13} /> {l}{n ? <em className="m-num">{n}</em> : null}</button>)}</div>
@@ -186,11 +190,13 @@ export default function ClipStudio({ cat, clips, plan, kit, rendering = [], runs
     {msg ? <small className="cst-err" role="alert" data-testid="cst-err">{msg}</small> : null}
     <motion.div key={view} className="cst-pane" initial={{ y: 4 }} animate={{ y: 0 }} transition={{ duration: 0.16 }}>
       {view === 'grid' ? <Grid clips={clips} rendering={rendering} onEdit={id => { setEdit(id); go('edit'); }} onOpen={onOpen} onSlot={onSlot} links={links} busy={slotBusy} />
+        : view === 'tpl' ? <ClipTemplates clips={clips} templates={templates} busy={busy} call={call} onEdit={x => { setSeed({ look: x.look, tpl: x, at: Date.now() }); go('edit'); }} />
         : view === 'week' ? <Week clips={clips} plan={plan} busy={busy} onSave={slots => call('save', '/plan', { slots })} onAgent={() => call('agent', '/plan/agent', {})}
           onChat={text => call('chat', '/plan/chat', { text })} onUndo={v => call('undo', '/plan/undo', { v })} />
           : f ? <ClipEdit key={f.id} cat={cat} f={f} clips={clips} kit={kit} run={runs.find(r => r.id === f.studio.clip.run)} api={api} busy={busy} rendering={rendering.includes(f.id)}
-            pick={<select className="m-input cst-sel" value={f.id} onChange={e => setEdit(e.target.value)} aria-label="Clip to edit" data-testid="cst-edit-pick">{clips.map(x => <option key={x.id} value={x.id} disabled={!!x.posted}>#{x.n} {x.studio.hook}</option>)}</select>}
-            onLook={(look, why) => call('look', '/look', { job: f.id, look, why })} onMind={ask => call('mind', '/look/mind', { job: f.id, ask })} onUndo={v => call('lundo', '/look/undo', { job: f.id, v })} twin={l => twinOf(l, clips, f.id)} />
+            pick={<select className="m-input cst-sel" value={f.id} onChange={e => { setEdit(e.target.value); setSeed(null); }} aria-label="Clip to edit" data-testid="cst-edit-pick">{clips.map(x => <option key={x.id} value={x.id} disabled={!!x.posted}>#{x.n} {x.studio.hook}</option>)}</select>}
+            templates={templates} seed={seed} onSaveTpl={body => call('tsave', '/template/save', body)}
+            onLook={(look, why) => call('look', '/look', { job: f.id, look, why, ...tplOf(look) })} onMind={ask => call('mind', '/look/mind', { job: f.id, ask })} onUndo={v => call('lundo', '/look/undo', { job: f.id, v })} twin={l => twinOf(l, clips, f.id)} />
             : <p className="cst-none">No clip to edit yet.</p>}
     </motion.div>
   </section>;

@@ -13,11 +13,27 @@ import '../styles/features.css';
 // feecats.json) so the studio is checked on real data. Its clicks are answered here too: a look is saved as a version in this page (no render),
 // the week saves in this page, the minds (agent plan, chat, minds pick) answer only in the TEST, never from this page.
 const REAL_FETCH = window.fetch; const HOOK = { setLog: () => {}, setPocs: () => {}, pocs: FIX.folders, real: null, plan: { versions: [], chat: [] } };
+// 🎨 Slice 29 add-on: templates are answered here too (save / delete / default / put on), in this page only, with no render; the minds' picks answer only in the TEST.
+const tplOps = (u, b) => {
+  const T = HOOK.real?.templates; if (!T) throw Object.assign(new Error('Harness only: templates need ?real.'), { status: 409 });
+  const view = () => ({ templates: { ...T, list: [...T.list], defaults: { ...T.defaults } } });
+  if (u.includes('/template/minds')) throw Object.assign(new Error('Harness only: the minds pick in the TEST run, not from this page.'), { status: 409 });
+  if (u.includes('/template/save')) { const row = { id: b.id || `t${Date.now() % 1e6}`, name: b.name, look: b.look, fmts: b.fmts || ['story', 'feed', 'wide'], by: 'owner', builtin: false, describe: `${b.look?.cap?.style || 'pop'} captions · ${b.look?.tr || 'cut'}`, at: Date.now() / 1000 };
+    T.list = b.id ? T.list.map(x => x.id === b.id ? row : x) : [...T.list, row]; return { ...view(), id: row.id }; }
+  if (u.includes('/template/delete')) { T.list = T.list.filter(x => x.id !== b.id); Object.keys(T.defaults).forEach(k => { if (T.defaults[k] === b.id) T.defaults[k] = k === 'farm' ? 'minds' : ''; }); return view(); }
+  if (u.includes('/template/default')) { T.defaults = { ...T.defaults, [b.key]: b.tpl }; return view(); }
+  if (u.includes('/template/apply')) { const tp = T.list.find(x => x.id === b.tpl); const runOf = f => f.studio.clip?.run;
+    const run = b.run; const hit = f => !f.posted && (b.job ? f.id === b.job : run ? runOf(f) === run : !!f.studio.slot);
+    HOOK.pocs = HOOK.pocs.map(f => hit(f) ? { ...f, studio: { ...f.studio, look: { ...tp.look, preset: tp.id }, tpl: { id: tp.id, name: tp.name, by: 'owner', why: 'put on in this page (no render)', at: Date.now() / 1000 } } } : f);
+    return { pocFolders: HOOK.pocs, changed: HOOK.pocs.filter(hit).map(f => f.id), notes: [] }; }
+  return null;
+};
 const clipOps = (u, b) => {
   const plan = HOOK.plan; const v = (plan.versions || []).slice(-1)[0]?.v || 0;
   if (u.includes('/words')) { const job = new URL(u, window.location.href).searchParams.get('job'); return { words: HOOK.real?.words?.[job] || [], dur: 30 }; }
   if (u.includes('/plan/undo')) { const old = plan.versions.find(x => x.v === b.v); HOOK.plan = { ...plan, versions: [...plan.versions, { ...old, v: v + 1, by: 'undo', why: `back to plan v${b.v}`, at: Date.now() / 1000 }], cur: v + 1 }; return { plan: HOOK.plan }; }
-  if (u.includes('/plan/agent') || u.includes('/plan/chat') || u.includes('/look/mind')) throw Object.assign(new Error('Harness only: the minds answer in the TEST run, not from this page.'), { status: 409 });
+  if (u.includes('/template/')) return tplOps(u, b);
+  if (u.includes('/plan/agent') || u.includes('/plan/chat') || u.includes('/look/mind') || u.includes('/template/mind')) throw Object.assign(new Error('Harness only: the minds answer in the TEST run, not from this page.'), { status: 409 });
   if (u.includes('/plan')) { HOOK.plan = { ...plan, versions: [...plan.versions, { v: v + 1, by: 'owner', why: 'your week (this page only)', slots: b.slots, at: Date.now() / 1000 }], cur: v + 1 };
     HOOK.pocs = HOOK.pocs.map(f => { const sl = b.slots.find(x => x.job === f.id); return { ...f, studio: { ...f.studio, slot: sl?.day || '', slotTime: sl?.time || '' } }; }); return { plan: HOOK.plan, pocFolders: HOOK.pocs }; }
   if (u.includes('/look/undo')) { HOOK.pocs = HOOK.pocs.map(f => { if (f.id !== b.job) return f; const o = f.studio.looks.find(x => x.v === b.v); const n = f.studio.looks.slice(-1)[0].v + 1;
@@ -37,7 +53,7 @@ window.fetch = async (url, opt = {}) => {   // installed before the first render
   if (u.includes('/unlink')) { const b = JSON.parse(opt.body || '{}'); FIX.run.links = (FIX.run.links || []).map(k => k.id === b.id ? { ...k, gone: true } : k); return ok({ ok: true }); }   // page only: the real link stays
   if (/empty/.test(q)) return ok({ runs: [], busy: false });
   const run = /running/.test(q) ? { ...FIX.run, status: 'running', clips: FIX.run.clips.slice(0, 1), doneS: null, steps: FIX.run.steps.map(s => s.key === 'clips' ? { ...s, state: 'running', note: 'clip 2 of 3: 9:16 made', secs: null } : s.key === 'file' ? { ...s, state: 'todo', note: '' } : s) } : FIX.run;
-  if (HOOK.real?.runs) return ok({ runs: HOOK.real.runs, busy: false, plan: HOOK.plan, kit: HOOK.real.kit, rendering: [] });
+  if (HOOK.real?.runs) return ok({ runs: HOOK.real.runs, busy: false, plan: HOOK.plan, kit: HOOK.real.kit, templates: HOOK.real.templates ? { ...HOOK.real.templates, list: [...HOOK.real.templates.list] } : undefined, rendering: [] });
   return ok({ runs: [run], busy: /running/.test(q), plan: HOOK.plan });
 };
 

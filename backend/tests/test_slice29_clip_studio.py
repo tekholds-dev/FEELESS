@@ -39,7 +39,7 @@ def test_a_caption_band_always_fits_the_frame_even_with_a_huge_word():
 # ── looks: valid, unique, versioned ─────────────────────────────────────────────────────────────────────────────────────────────────
 def test_a_look_is_cleaned_merged_and_made_unique_and_word_edits_never_change_its_design():
     a = cl.clean_look({'cap': {'font': 'comic-sans', 'words': 9, 'hot': 'pink'}, 'tr': 'spin', 'fx': {'grade': 'lol', 'punch': 1}, 'edit': {'w': {'3': 'kid!', 'x': 'no'}, 'off': 4}})
-    assert a['cap']['font'] == 'bold' and a['cap']['words'] == 3 and a['cap']['hot'] == 'pink' and a['tr'] == 'cut' and a['fx'] == {**cl.DEFAULT['fx'], 'punch': True}
+    assert a['cap']['font'] == 'bold' and a['cap']['words'] == 6 and a['cap']['hot'] == 'pink' and a['tr'] == 'cut' and a['fx'] == {**cl.DEFAULT['fx'], 'punch': True}
     assert a['edit'] == {'w': {'3': 'kid!'}, 'off': 1.0}
     assert cl.sig(a) == cl.sig({**a, 'edit': {'w': {}, 'off': 0}})
     b = cl.merge(a, {'fx': {'shake': True}, 'tr': 'glitch'}); assert b['fx']['shake'] and b['fx']['punch'] and b['tr'] == 'glitch' and b['edit']['w'] == {'3': 'kid!'}

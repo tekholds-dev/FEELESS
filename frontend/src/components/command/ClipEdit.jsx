@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Brain, Check, Clapperboard, Loader2, Pause, Play, RotateCcw, Undo2, Wand2 } from 'lucide-react';
+import { Bookmark, Brain, Check, Clapperboard, Loader2, Pause, Play, RotateCcw, Save, Undo2, Wand2 } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
-import { BASE_PX, COLOR, DEFAULT_LOOK, FONT_CSS, FONT_WEIGHT, GRADE_CSS, POS, RATIO, SIZE, beats, captionAt, describe, editedWords, fullLook, fxAt, groupWords, pops, sig, speedAt } from '../../lib/clipLook';
+import { BASE_PX, COLOR, DEFAULT_LOOK, FONT_CSS, FONT_WEIGHT, GRADE_CSS, RATIO, SAFES, SIZE, STYLES, STYLE_TIP, beats, captionAt, describe, editedWords, frameAt, fullLook, fxAt, groupWords, pops, safeTop, sig, speedAt } from '../../lib/clipLook';
+import { CapLayer, HookLayer, capVars } from './ClipCaption';
 
 // 🎬 Slice 29: one clip's editor. Captions (the words, their timing, font, colours, size, position, word-by-word highlight), a transition (cut,
 // fade, zoom, whip, glitch) and effects (punch-in, shake, colour grade, speed ramp, word pop), from a preset or by hand, by the owner or the minds.
@@ -13,6 +14,8 @@ const MODE_TIP = { word: 'The word being said lights up', box: 'The word being s
 const TR_TIP = { cut: 'Hard cuts', fade: 'Fade in, a dip at each new sentence, fade out', zoom: 'A zoom hit at each new sentence', whip: 'A whip blur at each new sentence', glitch: 'An RGB glitch at each new sentence' };
 const FX = [['punch', 'Punch-in', 'Every other sentence zoomed in, like a jump cut'], ['shake', 'Shake', 'A short camera shake on the big words'], ['pop', 'Word pop', 'Numbers and big words pop up as stickers']];
 const SPEED = [['off', '1×'], ['tight', '1.1×'], ['ramp', 'Ramp']];
+const HIGH = { story: 16 / 9, feed: 1, wide: 9 / 16 };   // frame height per unit of width
+const SAFE_TIP = { face: 'Never over the speaker\'s face, and clear of the app buttons', ui: 'Clear of the like / share buttons and the caption at the bottom', off: 'Exactly where you put it' };
 const ago = at => { const m = Math.max(0, Math.round((Date.now() / 1000 - (at || 0)) / 60)); return m < 1 ? 'now' : m < 60 ? `${m} m` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`; };
 
 function Seg({ label, value, opts, onPick, tips, testid }) {
@@ -24,32 +27,33 @@ function Swatches({ label, value, opts, onPick, testid }) {
 }
 
 /** The look drawn over the playing clip: captions, the hook bar, pops, punch-in / shake / transition hits, the grade. */
-function Preview({ look, ews, dur, t, fmt, w, hook, children }) {
+function Preview({ look, ews, dur, t, fmt, w, hook, face, children }) {
   const a = fullLook(look); const groups = useMemo(() => groupWords(ews, a.cap.words), [ews, a.cap.words]);
   const bts = useMemo(() => beats(ews, dur), [ews, dur]); const pps = useMemo(() => pops(ews, dur), [ews, dur]);
-  const cap = captionAt(groups, t); const fx = fxAt(a, t, bts, pps, dur); const px = BASE_PX[fmt] * SIZE[a.cap.size] * w;
-  const up = a.cap.case === 'upper'; const hot = COLOR[a.cap.hot]; const base = COLOR[a.cap.color];
+  const modern = a.cap.style !== 'classic'; const hot = COLOR[a.cap.hot];
+  const cap = captionAt(groups, t); const fx = fxAt(a, t, bts, pps, dur); const px = BASE_PX[fmt] * SIZE[a.cap.size] * w * (modern ? 0.86 : 1);
+  const top = safeTop(a.cap, face, (px * (modern ? 3.1 : 1.8)) / (w * HIGH[fmt]));
+  const fr = cap ? frameAt(a.cap.style, t, cap.g[cap.hot].s, cap.g[cap.hot + 1]?.s ?? Math.max(cap.g[cap.hot].e, cap.g[cap.hot].s + 0.25)) : { scale: 1, frac: 1 };
   const vstyle = { transform: `scale(${fx.zoom})${fx.shake ? ` translate(${Math.sin(t * 41) * 1.6}%, ${Math.cos(t * 37) * 1.1}%)` : ''}${fx.hit === 'whip' ? ` translateX(${Math.sin(t * 60) * 3}%)` : ''}`,
     filter: [GRADE_CSS[a.fx.grade], fx.hit === 'whip' ? 'blur(3px)' : '', fx.hit === 'glitch' ? 'drop-shadow(6px 0 0 rgb(255 0 80 / .55)) drop-shadow(-6px 0 0 rgb(0 220 255 / .55))' : ''].filter(x => x && x !== 'none').join(' ') || 'none', opacity: fx.fade };
-  return <div className="cse-stage" style={{ aspectRatio: RATIO[fmt], '--cap-font': FONT_CSS[a.cap.font], '--cap-w': FONT_WEIGHT[a.cap.font], '--cap-px': `${px}px`, '--hot': hot, '--base': base }} data-testid="cse-stage">
+  return <div className={`cse-stage is-${a.cap.style}`} style={{ aspectRatio: RATIO[fmt], ...capVars(a, px) }} data-testid="cse-stage">
     <div className="cse-vid" style={vstyle}>{children}</div>
-    {t < 2.5 && hook ? <div className="cse-hook" style={{ top: `${{ story: 12, feed: 7, wide: 6 }[fmt]}%`, background: a.cap.hot === 'white' ? COLOR.green : hot, fontSize: `${px * 0.72}px` }}>{hook}</div> : null}
-    {cap ? <div className={`cse-cap is-${a.cap.mode}`} style={{ top: `${POS[a.cap.pos] * 100}%` }} data-testid="cse-cap">{cap.g.map((x, i) => {
-      const on = i === cap.hot; const said = a.cap.mode === 'karaoke' && i <= cap.hot;
-      return <span key={`${x.i}-${i}`} className={on ? 'is-hot' : said ? 'is-said' : ''} style={{ color: (a.cap.mode === 'word' && on) || said ? hot : a.cap.mode === 'box' && on ? '#080c0a' : base }}>{up ? String(x.w).replace(/[^\w'’$%#@&!?.,-]/g, '').toUpperCase() || x.w : x.w}</span>;
-    })}</div> : null}
+    {t < 2.5 && hook ? <HookLayer hook={hook} cap={a.cap} top={{ story: 12, feed: 7, wide: 6 }[fmt]} px={px * 0.72} /> : null}
+    {cap ? <CapLayer cap={a.cap} g={cap.g} hot={cap.hot} scale={fr.scale} frac={fr.frac} top={top} /> : null}
     {fx.pop ? <motion.div key={fx.pop} className="cse-pop" initial={{ scale: 0.5, rotate: -7 }} animate={{ scale: 1, rotate: -5 }} transition={{ type: 'spring', stiffness: 520, damping: 14 }} style={{ background: a.cap.hot === 'white' ? COLOR.yellow : hot }}>{fx.pop}</motion.div> : null}
     {fx.hit === 'zoom' || fx.hit === 'glitch' ? <i className={`cse-flash is-${fx.hit}`} aria-hidden="true" /> : null}
   </div>;
 }
 
-export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLook, onMind, onUndo, twin }) {
+export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLook, onMind, onUndo, twin, templates, onSaveTpl, seed }) {
   const s = f.studio; const c = s.clip; const cur = useMemo(() => fullLook(s.look), [s.look]);
   const [draft, setDraft] = useState(cur); const [words, setWords] = useState(null); const [werr, setWerr] = useState(''); const [fmt, setFmt] = useState('story'); const [src, setSrc] = useState('live');
   const [t, setT] = useState(0); const [playing, setPlaying] = useState(false); const [w, setW] = useState(300); const [editI, setEditI] = useState(null); const [ask, setAsk] = useState('');
-  const vid = useRef(null); const stageBox = useRef(null);
+  const vid = useRef(null); const stageBox = useRef(null); const [face, setFace] = useState(null);
+  const [from, setFrom] = useState(null); const [tname, setTname] = useState(''); const [tfm, setTfm] = useState(['story', 'feed', 'wide']); const [tmsg, setTmsg] = useState('');
   useEffect(() => { setDraft(cur); }, [cur]);
-  useEffect(() => { let on = true; setWords(null); setWerr(''); api(`/words?job=${encodeURIComponent(f.id)}`).then(j => on && setWords(j.words || [])).catch(e => on && setWerr(e.message)); return () => { on = false; }; }, [f.id, api]);
+  useEffect(() => { if (seed?.look) { setDraft(d => ({ ...fullLook(seed.look), edit: d.edit, ...(seed.tpl ? { preset: seed.tpl.id } : {}) })); setFrom(seed.tpl || null); if (seed.tpl && !seed.tpl.builtin) { setTname(seed.tpl.name); setTfm(seed.tpl.fmts || ['story', 'feed', 'wide']); } } }, [seed]);
+  useEffect(() => { let on = true; setWords(null); setWerr(''); api(`/words?job=${encodeURIComponent(f.id)}`).then(j => { if (on) { setWords(j.words || []); setFace(j.face ?? null); } }).catch(e => on && setWerr(e.message)); return () => { on = false; }; }, [f.id, api]);
   useEffect(() => { const el = stageBox.current; if (!el || typeof ResizeObserver === 'undefined') return undefined; const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width))); ro.observe(el); return () => ro.disconnect(); }, []);
   const dur = c.dur || (c.e - c.s); const up = (run?.links || []).find(k => k.kind === 'upload' && !k.gone && !k.swept && (k.exp || 0) * 1000 > Date.now());
   const rendered = (s.files || []).find(x => x.piece === 'video' && x.format === fmt && x.url && !x.error);
@@ -67,7 +71,11 @@ export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLo
   const capSet = p => setDraft(d => ({ ...d, preset: undefined, cap: { ...d.cap, ...p } })); const fxSet = p => setDraft(d => ({ ...d, preset: undefined, fx: { ...d.fx, ...p } }));
   const dirty = sig(draft) !== sig(cur) || JSON.stringify(draft.edit) !== JSON.stringify(cur.edit); const same = twin(draft);
   const fonts = kit?.fonts || { bold: 'Bold sans', impact: 'Impact', condensed: 'Condensed', rounded: 'Rounded', serif: 'Serif', chalk: 'Chalk' };
-  const presets = kit?.presetLooks || {}; const locked = !!f.posted;
+  const tpls = templates?.list?.length ? templates.list.filter(x => !x.legacy) : Object.entries(kit?.presetLooks || {}).map(([k, look]) => ({ id: k, name: k, look, builtin: true }));
+  const older = (templates?.list || []).filter(x => x.legacy); const locked = !!f.posted; const pid = x => String(x.id).replace(/^b:/, '');
+  const pickTpl = x => { setDraft(d => ({ ...fullLook(x.look), edit: d.edit, preset: x.id })); setFrom(x); if (!x.builtin) { setTname(x.name); setTfm(x.fmts || ['story', 'feed', 'wide']); } };
+  const saveTpl = async upd => { setTmsg(''); const j = await onSaveTpl?.({ ...(upd && from && !from.builtin ? { id: from.id } : {}), name: tname.trim(), look: draft, fmts: tfm });
+    if (j?.id) { setTmsg(upd ? 'Template updated.' : 'Saved as a template: find it in Templates, set it as a default, or put it on a run.'); if (!upd) setFrom({ id: j.id, name: tname.trim(), fmts: tfm }); } };
   const toggle = () => { const el = vid.current; if (!el) return; if (el.paused) el.play().catch(() => {}); else el.pause(); };
   const setWord = (i, v) => setDraft(d => ({ ...d, edit: { ...d.edit, w: { ...d.edit.w, [String(i)]: v } } }));
   const vs = (s.looks || []).slice().reverse();
@@ -75,7 +83,7 @@ export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLo
     <div className="cse-left">
       <div className="cse-head">{pick}<div className="m-seg" role="group" aria-label="Preview format">{FMTS.map(([k, l]) => <button key={k} type="button" aria-pressed={fmt === k} className={fmt === k ? 'active' : ''} onClick={() => setFmt(k)} data-testid={`cse-fmt-${k}`}>{l}</button>)}</div></div>
       <div className="cse-frame" ref={stageBox}>
-        {src === 'live' && live ? <Preview look={draft} ews={ews} dur={dur} t={t} fmt={fmt} w={w} hook={s.hook}>
+        {src === 'live' && live ? <Preview look={draft} ews={ews} dur={dur} t={t} fmt={fmt} w={w} hook={s.hook} face={face}>
           <video ref={vid} key={url} src={url} muted playsInline preload="metadata" onClick={toggle} data-testid="cse-video" />
         </Preview> : <div className="cse-stage" style={{ aspectRatio: RATIO[fmt] }}>{rendered ? <video ref={vid} key={url} src={url} controls muted playsInline preload="metadata" data-testid="cse-rendered" /> : <span className="cst-nofile">not made</span>}</div>}
         <button type="button" className="cse-playbtn" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} data-testid="cse-play">{playing ? <Pause size={16} /> : <Play size={16} />}</button>
@@ -90,19 +98,23 @@ export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLo
     </div>
 
     <div className="cse-right">
-      <section className="cse-sec" aria-label="Presets"><h5><Wand2 size={12} /> Presets</h5>
-        <div className="cse-presets">{Object.entries(presets).map(([k, p], i) => { const a = fullLook(p); return <button key={k} type="button" className={`cse-pre${draft.preset === k ? ' is-on' : ''}`} style={{ '--i': i, '--sw': COLOR[a.cap.hot], '--pf': FONT_CSS[a.cap.font] }} disabled={locked}
-          onClick={() => setDraft(d => ({ ...fullLook(p), edit: d.edit, preset: k }))} data-tip={describe(p, fonts)} data-testid={`cse-pre-${k}`}><b>Aa</b><span>{k}</span><small>{a.tr}</small></button>; })}</div></section>
+      <section className="cse-sec" aria-label="Templates"><h5><Wand2 size={12} /> Templates<small>a whole look in one tap: captions, transition, effects</small></h5>
+        <div className="cse-presets">{tpls.map((x, i) => { const a = fullLook(x.look); return <button key={x.id} type="button" className={`cse-pre is-${a.cap.style}${draft.preset === x.id ? ' is-on' : ''}`} style={{ '--i': i, '--sw': a.cap.hot === 'white' ? COLOR.green : COLOR[a.cap.hot], '--pf': FONT_CSS[a.cap.font], '--pw': FONT_WEIGHT[a.cap.font] }} disabled={locked}
+          onClick={() => pickTpl(x)} data-tip={x.why || describe(x.look, fonts)} data-testid={`cse-pre-${pid(x)}`}><b>A<em>a</em></b><span>{x.name}</span><small>{x.builtin ? a.tr : `yours · ${a.tr}`}</small></button>; })}</div>
+        {older.length ? <details className="cse-older"><summary>Older looks ({older.length})</summary><div className="cse-presets">{older.map((x, i) => { const a = fullLook(x.look); return <button key={x.id} type="button" className={`cse-pre${draft.preset === x.id ? ' is-on' : ''}`} style={{ '--i': i, '--sw': COLOR[a.cap.hot], '--pf': FONT_CSS[a.cap.font] }} disabled={locked}
+          onClick={() => pickTpl(x)} data-testid={`cse-pre-${pid(x)}`}><b>Aa</b><span>{x.name}</span><small>{a.tr}</small></button>; })}</div></details> : null}</section>
 
       <section className="cse-sec" aria-label="Captions"><h5>Captions</h5>
+        <Seg label="STYLE" value={draft.cap.style} opts={STYLES} tips={STYLE_TIP} onPick={k => capSet({ style: k })} testid="cse-style" />
         <div className="cse-fonts" role="group" aria-label="Font">{Object.entries(fonts).map(([k, l]) => <button key={k} type="button" aria-pressed={draft.cap.font === k} className={draft.cap.font === k ? 'is-on' : ''} style={{ fontFamily: FONT_CSS[k], fontWeight: FONT_WEIGHT[k] }} disabled={locked} onClick={() => capSet({ font: k })} data-tip={l} data-testid={`cse-font-${k}`}>{l}</button>)}</div>
         <div className="cse-row">
           <Seg label="SIZE" value={draft.cap.size} opts={[['S', 'S'], ['M', 'M'], ['L', 'L']]} onPick={k => capSet({ size: k })} testid="cse-size" />
-          <Seg label="WORDS" value={draft.cap.words} opts={[[1, '1'], [2, '2'], [3, '3']]} onPick={k => capSet({ words: k })} />
+          <Seg label="WORDS" value={draft.cap.words} opts={[1, 2, 3, 4, 5, 6].map(n => [n, String(n)])} onPick={k => capSet({ words: k })} testid="cse-words-n" />
           <Seg label="CASE" value={draft.cap.case} opts={[['upper', 'AA'], ['said', 'Aa']]} onPick={k => capSet({ case: k })} />
         </div>
-        <Seg label="HIGHLIGHT" value={draft.cap.mode} opts={[['word', 'Word'], ['box', 'Box'], ['karaoke', 'Karaoke'], ['plain', 'Plain']]} tips={MODE_TIP} onPick={k => capSet({ mode: k })} testid="cse-mode" />
-        <Seg label="POSITION" value={draft.cap.pos} opts={[['top', 'Top'], ['mid', 'Middle'], ['low', 'Low'], ['bottom', 'Bottom']]} onPick={k => capSet({ pos: k })} testid="cse-pos" />
+        {draft.cap.style === 'classic' ? <Seg label="HIGHLIGHT" value={draft.cap.mode} opts={[['word', 'Word'], ['box', 'Box'], ['karaoke', 'Karaoke'], ['plain', 'Plain']]} tips={MODE_TIP} onPick={k => capSet({ mode: k })} testid="cse-mode" /> : null}
+        <div className="cse-row"><Seg label="POSITION" value={draft.cap.pos} opts={[['top', 'Top'], ['mid', 'Middle'], ['low', 'Low'], ['bottom', 'Bottom']]} onPick={k => capSet({ pos: k })} testid="cse-pos" />
+          <Seg label="SAFE AREA" value={draft.cap.safe} opts={SAFES} tips={SAFE_TIP} onPick={k => capSet({ safe: k })} testid="cse-safe" /></div>
         <div className="cse-row"><Swatches label="TEXT" value={draft.cap.color} opts={kit?.colors || ['white', 'cream', 'yellow']} onPick={k => capSet({ color: k })} />
           <Swatches label="HIGHLIGHT COLOUR" value={draft.cap.hot} opts={kit?.hot || ['green', 'yellow', 'cyan', 'pink', 'orange', 'white']} onPick={k => capSet({ hot: k })} testid="cse-hot" /></div>
         <label className="cse-off"><span className="m-label">TIMING</span><input type="range" min={-1} max={1} step={0.05} value={draft.edit.off} disabled={locked} onChange={e => setDraft(d => ({ ...d, edit: { ...d.edit, off: Number(e.target.value) } }))} aria-label="Caption timing" data-testid="cse-off" /><em className="m-num">{draft.edit.off > 0 ? '+' : ''}{draft.edit.off.toFixed(2)} s</em></label>
@@ -123,11 +135,19 @@ export default function ClipEdit({ f, kit, run, api, busy, rendering, pick, onLo
       <footer className="cse-go">
         <p className={`cse-uniq${same ? ' is-bad' : ''}`} data-testid="cse-uniq">{same ? `Same look as PoC #${same.n}: change one thing.` : <><Check size={12} /> No other clip looks like this.</>}</p>
         <div className="cse-btns">
-          <button type="button" className="m-btn m-go" disabled={locked || !dirty || !!same || !!busy || rendering} onClick={() => onLook(draft, draft.preset ? `preset ${draft.preset}` : 'your edit')} data-tip="ffmpeg makes the 9:16, 1:1 and 16:9 files with this look, on this machine, $0" data-testid="cse-render">
+          <button type="button" className="m-btn m-go" disabled={locked || !dirty || !!same || !!busy || rendering} onClick={() => onLook(draft, draft.preset ? `template ${(tpls.concat(older).find(x => x.id === draft.preset) || {}).name || draft.preset}${from && sig(fullLook(from.look || {})) !== sig(draft) ? ', changed' : ''}` : 'your edit')} data-tip="ffmpeg makes the 9:16, 1:1 and 16:9 files with this look, on this machine, $0" data-testid="cse-render">
             {busy === 'look' || rendering ? <><Loader2 size={13} className="cst-spin" /> Rendering…</> : <><Clapperboard size={13} /> Render</>}</button>
           <button type="button" className="m-btn" disabled={!dirty} onClick={() => setDraft(cur)}>Reset</button>
           <button type="button" className="m-btn" disabled={locked || !!busy || rendering} onClick={() => setDraft(d => ({ ...fullLook(DEFAULT_LOOK), edit: d.edit }))} data-tip="The plain look: white captions, green word, hard cuts">Plain</button>
         </div>
+        {onSaveTpl ? <form className="cse-savetpl" onSubmit={e => { e.preventDefault(); if (tname.trim()) saveTpl(false); }} aria-label="Save this look as a template">
+          <Bookmark size={13} aria-hidden="true" /><input className="m-input" value={tname} onChange={e => setTname(e.target.value)} placeholder="Name this look to reuse it…" maxLength={40} aria-label="Template name" data-testid="cse-tpl-name" />
+          <span className="cse-tfm" role="group" aria-label="Formats it is for">{[['story', '9:16'], ['feed', '1:1'], ['wide', '16:9']].map(([k, l]) => { const on = tfm.includes(k); return <button key={k} type="button" aria-pressed={on} className={on ? 'is-on' : ''}
+            onClick={() => setTfm(x => (on ? (x.length > 1 ? x.filter(y => y !== k) : x) : [...x, k]))} data-tip={`Use it on the ${l} file`} data-testid={`cse-tpl-fmt-${k}`}>{l}</button>; })}</span>
+          <button type="submit" className="m-btn" disabled={!tname.trim() || !!busy} data-testid="cse-tpl-save"><Save size={12} /> Save as template</button>
+          {from && !from.builtin ? <button type="button" className="m-btn" disabled={!tname.trim() || !!busy} onClick={() => saveTpl(true)} data-tip={`Change “${from.name}” to this look`} data-testid="cse-tpl-update">Update “{from.name}”</button> : null}
+          {tmsg ? <small className="cst-none" role="status">{tmsg}</small> : null}
+        </form> : null}
         <form className="cse-mind" onSubmit={e => { e.preventDefault(); onMind(ask); setAsk(''); }}>
           <input className="m-input" value={ask} onChange={e => setAsk(e.target.value)} placeholder="Ask the minds: funnier, calmer, more cinematic…" aria-label="What the minds should go for" disabled={locked} data-testid="cse-mind-ask" />
           <button type="submit" className="m-btn" disabled={locked || !!busy || rendering} data-tip="The lead PoC mind designs a look for this clip (never one another clip has), and it renders" data-testid="cse-mind">{busy === 'mind' ? <Loader2 size={13} className="cst-spin" /> : <Brain size={13} />} Minds pick</button>

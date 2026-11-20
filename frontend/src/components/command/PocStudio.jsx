@@ -52,7 +52,7 @@ function ClipView({ s, fmtKey, img, vid, post }) {
           <a href={apiUrl(post.url)} download aria-label="Download the post" data-tip="The post as a text file"><Download size={13} /></a></> : null}
           {vid ? <a href={apiUrl(vid.url)} download aria-label="Download the clip" data-tip="The clip file"><Download size={13} /><small>clip</small></a> : null}
           {s.links?.[fmtKey] ? <a className="pst-vlink" href={apiUrl(s.links[fmtKey])} target="_blank" rel="noreferrer noopener" data-tip="The in-house FEELESS link to this clip: plays in any browser for 7 days, paste it to your phone" data-testid={`pst-link-${fmtKey}`}><Link2 size={13} /><small>link</small></a> : null}</span></div>
-      {s.look ? <small className="pst-lookline" data-tip="Its look: edit it in the Clips tab › Edit">look · {s.look.preset || 'custom'} · {s.look.tr} · {s.look.fx?.grade || 'none'} grade{(s.looks || []).length > 1 ? ` · v${s.looks[s.looks.length - 1].v}` : ''}</small> : null}
+      {s.look ? <small className="pst-lookline" data-tip="Its look: edit it in the Clips tab › Edit">{s.tpl ? `template · ${s.tpl.name}${s.tpl.edited ? ' (edited)' : ''} · ` : 'look · '}{s.look.cap?.style && s.look.cap.style !== 'classic' ? `${s.look.cap.style} captions · ` : ''}{s.tpl ? '' : `${s.look.preset || 'custom'} · `}{s.look.tr} · {s.look.fx?.grade || 'none'} grade{(s.looks || []).length > 1 ? ` · v${s.looks[s.looks.length - 1].v}` : ''}</small> : null}
     </div>
   </div>;
 }

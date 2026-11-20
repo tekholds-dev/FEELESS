@@ -24,6 +24,10 @@ FONTS = {   # key → (label, file, ttc index). A font missing on this machine f
     'rounded': ('Rounded', SYS_FONTS / 'Supplemental' / 'Arial Rounded Bold.ttf', 0),
     'serif': ('Serif', SYS_FONTS / 'Supplemental' / 'Georgia Bold.ttf', 0),
     'chalk': ('Chalk', SYS_FONTS / 'Supplemental' / 'Chalkduster.ttf', 0),
+    # Slice 29 add-on (owner: "cooler captions … no dead colors or bulky styling"): the modern short-form faces
+    'sf': ('SF Pro Heavy', SYS_FONTS / 'SFNS.ttf', 0, 'Heavy'),
+    'avenir': ('Avenir Next Heavy', SYS_FONTS / 'Avenir Next.ttc', 8),
+    'demi': ('Avenir Next Demi', SYS_FONTS / 'Avenir Next.ttc', 2),
 }
 COLORS = {'white': (255, 255, 255, 255), 'cream': (255, 244, 214, 255), 'yellow': (255, 214, 10, 255), 'green': _cf.GREEN,
           'cyan': (40, 220, 255, 255), 'pink': (255, 70, 160, 255), 'orange': (255, 140, 30, 255)}
@@ -31,13 +35,19 @@ BASE_COLORS = ('white', 'cream', 'yellow')
 HOT_COLORS = ('green', 'yellow', 'cyan', 'pink', 'orange', 'white')
 SIZES = {'S': .8, 'M': 1.0, 'L': 1.2}
 POS = {'top': .22, 'mid': .44, 'low': .64, 'bottom': .76}          # the band's top, as a share of the frame height
-MODES = ('word', 'box', 'karaoke', 'plain')
+MODES = ('word', 'box', 'karaoke', 'plain')   # the classic style's highlight modes
+# Caption styles (the add-on). 'classic' = the Slice 29 bands above; the rest are the modern ones: thin stroke + soft shadow (never a slab),
+# tight lines, at most 2 lines, the spoken word popping in the accent.
+STYLES = {'classic': 'Classic', 'pop': 'Pop highlight', 'sweep': 'Karaoke sweep', 'lower': 'Minimal lower-third', 'outline': 'Bold outline',
+          'gradient': 'Gradient keyword', 'emoji': 'Emoji accent'}
+SAFES = {'face': 'Never over a face', 'ui': 'Clear of the app buttons', 'off': 'Where I put it'}
+GRAD2 = {'green': (40, 220, 255, 255), 'yellow': (255, 120, 40, 255), 'cyan': (25, 230, 140, 255), 'pink': (255, 170, 60, 255), 'orange': (255, 70, 160, 255), 'white': (25, 230, 140, 255)}
 TRANS = ('cut', 'fade', 'zoom', 'whip', 'glitch')
 GRADES = {'none': '', 'warm': 'eq=saturation=1.15:gamma_r=1.06:gamma_b=0.94', 'teal': 'curves=r=0/0 0.5/0.46 1/1:b=0/0.06 0.5/0.56 1/0.94,eq=saturation=1.1',
           'mono': 'hue=s=0,eq=contrast=1.12', 'punchy': 'eq=contrast=1.12:saturation=1.3', 'vintage': 'curves=preset=vintage,eq=saturation=1.1',
           'cool': 'eq=saturation=1.05:gamma_b=1.07:gamma_r=0.95'}
 SPEEDS = ('off', 'tight', 'ramp')
-DEFAULT = {'cap': {'font': 'bold', 'color': 'white', 'hot': 'green', 'size': 'M', 'pos': 'low', 'mode': 'word', 'words': 3, 'case': 'upper'},
+DEFAULT = {'cap': {'font': 'bold', 'color': 'white', 'hot': 'green', 'size': 'M', 'pos': 'low', 'mode': 'word', 'words': 3, 'case': 'upper', 'style': 'classic', 'safe': 'face'},
            'tr': 'cut', 'fx': {'punch': False, 'shake': False, 'grade': 'none', 'speed': 'off', 'pop': False}, 'edit': {'w': {}, 'off': 0.0}}
 # Named starting points (the owner or the minds start from one, then change anything). New clips get one each, nudged unique.
 PRESETS = {
@@ -47,8 +57,18 @@ PRESETS = {
     'cinema': {'cap': {'font': 'serif', 'color': 'cream', 'hot': 'orange', 'mode': 'plain', 'case': 'said', 'pos': 'bottom'}, 'tr': 'fade', 'fx': {'grade': 'teal', 'speed': 'ramp'}},
     'glitch': {'cap': {'font': 'condensed', 'hot': 'pink', 'mode': 'word', 'words': 1, 'size': 'L', 'pos': 'mid'}, 'tr': 'glitch', 'fx': {'punch': True, 'grade': 'mono', 'pop': True}},
     'story': {'cap': {'font': 'chalk', 'color': 'yellow', 'hot': 'white', 'mode': 'karaoke', 'words': 2}, 'tr': 'whip', 'fx': {'grade': 'vintage', 'punch': True}},
+    # ── the add-on's caption templates: what every new clip starts from (the farm, the minds, the owner's one-tap apply) ──
+    'pop': {'cap': {'style': 'pop', 'font': 'sf', 'hot': 'green', 'words': 4, 'pos': 'low'}, 'tr': 'zoom', 'fx': {'punch': True}},
+    'sweep': {'cap': {'style': 'sweep', 'font': 'avenir', 'hot': 'cyan', 'words': 5, 'case': 'said'}, 'tr': 'fade', 'fx': {'grade': 'cool'}},
+    'lower': {'cap': {'style': 'lower', 'font': 'demi', 'hot': 'green', 'words': 6, 'case': 'said', 'size': 'S', 'pos': 'bottom'}, 'tr': 'fade', 'fx': {'grade': 'teal'}},
+    'outline': {'cap': {'style': 'outline', 'font': 'sf', 'hot': 'yellow', 'words': 3, 'size': 'L', 'pos': 'mid'}, 'tr': 'whip', 'fx': {'punch': True, 'shake': True, 'grade': 'punchy', 'speed': 'tight'}},
+    'gradient': {'cap': {'style': 'gradient', 'font': 'avenir', 'hot': 'pink', 'words': 4}, 'tr': 'glitch', 'fx': {'grade': 'mono', 'pop': True}},
+    'emoji': {'cap': {'style': 'emoji', 'font': 'rounded', 'hot': 'orange', 'words': 4, 'case': 'said'}, 'tr': 'cut', 'fx': {'grade': 'warm', 'speed': 'ramp'}},
 }
-PRESET_ORDER = ('classic', 'hype', 'clean', 'cinema', 'glitch', 'story')
+PRESET_ORDER = ('pop', 'sweep', 'lower', 'outline', 'gradient', 'emoji')   # new clips start on these; the six Slice 29 presets above stay usable
+LEGACY = ('classic', 'hype', 'clean', 'cinema', 'glitch', 'story')
+TEMPLATE_NAMES = {'pop': 'Pop highlight', 'sweep': 'Karaoke sweep', 'lower': 'Minimal lower-third', 'outline': 'Bold outline', 'gradient': 'Gradient keyword',
+                  'emoji': 'Emoji accent', 'classic': 'Classic band', 'hype': 'Hype box', 'clean': 'Clean karaoke', 'cinema': 'Cinema', 'glitch': 'Glitch word', 'story': 'Chalk story'}
 STOP = set('the a an and or but so to of in on at for with from this that these those it its is are was were be been being i you he she we they me my your our their '
            'just like really very what when where which who how then than there here have has had do does did not no yes can could would should will about into out up down'.split())
 
@@ -75,7 +95,8 @@ def clean_look(d=None):
             words[str(int(k))] = ' '.join(str(v or '').split())[:40]   # '' drops the word from the captions
     return {'cap': {'font': _pick(c.get('font'), FONTS, dc['font']), 'color': _pick(c.get('color'), BASE_COLORS, dc['color']), 'hot': _pick(c.get('hot'), HOT_COLORS, dc['hot']),
                     'size': _pick(c.get('size'), SIZES, dc['size']), 'pos': _pick(c.get('pos'), POS, dc['pos']), 'mode': _pick(c.get('mode'), MODES, dc['mode']),
-                    'words': max(1, min(3, nw)), 'case': _pick(c.get('case'), ('upper', 'said'), dc['case'])},
+                    'words': max(1, min(6, nw)), 'case': _pick(c.get('case'), ('upper', 'said'), dc['case']),
+                    'style': _pick(c.get('style'), STYLES, dc['style']), 'safe': _pick(c.get('safe'), SAFES, dc['safe'])},
             'tr': _pick(d.get('tr'), TRANS, DEFAULT['tr']),
             'fx': {'punch': bool(fx.get('punch')), 'shake': bool(fx.get('shake')), 'grade': _pick(fx.get('grade'), GRADES, dfx['grade']),
                    'speed': _pick(fx.get('speed'), SPEEDS, dfx['speed']), 'pop': bool(fx.get('pop'))},
@@ -104,7 +125,8 @@ def sig(look):
     return json.dumps({'cap': a['cap'], 'tr': a['tr'], 'fx': a['fx']}, sort_keys=True)
 
 
-NUDGES = (('cap', 'hot', HOT_COLORS), ('fx', 'grade', tuple(GRADES)), ('cap', 'font', tuple(FONTS)), ('tr', None, TRANS), ('cap', 'pos', tuple(POS)), ('cap', 'mode', MODES))
+NUDGES = (('cap', 'hot', HOT_COLORS), ('fx', 'grade', tuple(GRADES)), ('cap', 'font', tuple(FONTS)), ('tr', None, TRANS), ('cap', 'pos', tuple(POS)), ('cap', 'mode', MODES),
+          ('cap', 'style', tuple(STYLES)))
 
 
 def unique(look, used):
@@ -128,7 +150,8 @@ def describe(look):
     """A short plain line about a look (shown on its tile and given to the minds). Pure."""
     a = clean_look(look); c, fx = a['cap'], a['fx']
     on = [k for k in ('punch', 'shake', 'pop') if fx[k]] + ([f"{fx['grade']} grade"] if fx['grade'] != 'none' else []) + ([f"speed {fx['speed']}"] if fx['speed'] != 'off' else [])
-    return f"{FONTS[c['font']][0]} {c['size']} {c['color']}/{c['hot']} {c['mode']} {c['words']}w {c['pos']} · {a['tr']}" + (f" · {', '.join(on)}" if on else '')
+    sty = c['mode'] if c['style'] == 'classic' else STYLES[c['style']].lower()
+    return f"{FONTS[c['font']][0]} {c['size']} {c['color']}/{c['hot']} {sty} {c['words']}w {c['pos']} · {a['tr']}" + (f" · {', '.join(on)}" if on else '')
 
 
 # ── time: speed, beats, where the effects land ──────────────────────────────────────────────────────────────────────────────────────
@@ -189,10 +212,13 @@ def pops(ws, dur, most=3):
 # ── pictures: caption bands, the hook title, word pops ──────────────────────────────────────────────────────────────────────────────
 def font(key, px):
     from PIL import ImageFont
-    _l, path, idx = FONTS.get(key) or FONTS['bold']
+    row = FONTS.get(key) or FONTS['bold']; path, idx = row[1], row[2]
     try:
-        return ImageFont.truetype(str(path), max(8, int(px)), index=idx)
-    except OSError:
+        f = ImageFont.truetype(str(path), max(8, int(px)), index=idx)
+        if len(row) > 3:
+            f.set_variation_by_name(row[3])
+        return f
+    except (OSError, ValueError):
         return _cf._font(px)
 
 
@@ -228,7 +254,7 @@ def band(W, words, hot, cap, px, done=()):
     return im
 
 
-def hook_lines(W, hook, px, key='bold'):
+def hook_lines(W, hook, px, key='bold', most=3):
     """The hook title's lines: EVERY word kept (the 9:16 cut-off bug, PoC #21: "…since I was a" lost "kid."), each line inside 84 % of the
     frame, at most 3 lines (the font shrinks until it fits). → (px, lines) Pure but for the font measure."""
     from PIL import Image, ImageDraw
@@ -243,26 +269,151 @@ def hook_lines(W, hook, px, key='bold'):
                 cur = t
         if cur:
             lines.append(cur)
-        if (len(lines) <= 3 and all(d0.textlength(x, font=f) <= W * .84 for x in lines)) or px <= 18:
+        if (len(lines) <= most and all(d0.textlength(x, font=f) <= W * .84 for x in lines)) or px <= 18:
             return px, lines
         px = int(px * .9)
 
 
 def hook_band(W, hook, px, cap=None):
-    """The hook title for the first 2 s: ink words on a bar of the look's hot colour (FEELESS green by default). Never cut off."""
-    from PIL import Image, ImageDraw
-    cap = cap or DEFAULT['cap']; key = cap.get('font', 'bold'); px, lines = hook_lines(W, hook, px, key); f = font(key, px)
-    d0 = ImageDraw.Draw(Image.new('RGBA', (8, 8))); lh = int(px * 1.22); H = lh * len(lines) + int(px * .9)
-    im = Image.new('RGBA', (W, max(1, H)), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    """The hook title for the first 2 s (the add-on: no flat slab). White words, a thin stroke and a soft shadow, its key word in the
+    accent, tight lines: 2 lines when it fits, 3 at most, EVERY word kept and inside the frame. → RGBA W wide"""
+    from PIL import Image, ImageDraw, ImageFilter
+    cap = cap or DEFAULT['cap']; key = cap.get('font', 'bold'); p2, lines = hook_lines(W, hook, px, key, most=2)
+    if len(lines) > 2:
+        p2, lines = hook_lines(W, hook, px, key, most=3)
+    px = p2; f = font(key, px); d0 = ImageDraw.Draw(Image.new('RGBA', (8, 8))); lh = int(px * 1.08); pad = int(px * .35)
+    H = lh * len(lines) + 2 * pad; im = Image.new('RGBA', (W, max(1, H)), (0, 0, 0, 0))
     if not lines:
         return im
-    bw = int(min(W * .94, max(d0.textlength(x, font=f) for x in lines) + px * 1.2)); col = COLORS.get(cap.get('hot'), _cf.GREEN)
-    if col == COLORS['white']:
-        col = _cf.GREEN
-    d.rounded_rectangle(((W - bw) // 2, 0, (W + bw) // 2, H), radius=int(px * .35), fill=col)
-    for i, x in enumerate(lines):
-        d.text(((W - d0.textlength(x, font=f)) // 2, int(px * .45) + i * lh), x, font=f, fill=_cf.INK)
-    return im
+    acc = COLORS.get(cap.get('hot'), _cf.GREEN)
+    acc = _cf.GREEN if acc == COLORS['white'] else acc
+    kw = max((w for w in str(hook).split() if w.lower().strip('.,!?') not in STOP), key=lambda w: len(w.strip('.,!?')), default='')
+    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); d, ds = ImageDraw.Draw(im), ImageDraw.Draw(sh); st = max(2, px // 16); gap = d0.textlength(' ', font=f)
+    for i, ln in enumerate(lines):
+        x = (W - d0.textlength(ln, font=f)) / 2; y = pad + i * lh
+        for w in ln.split(' '):
+            ds.text((x, y + px * .07), w, font=f, fill=(0, 0, 0, 190))
+            d.text((x, y), w, font=f, fill=acc if w == kw else (255, 255, 255, 255), stroke_width=st, stroke_fill=(10, 12, 14, 235))
+            x += d0.textlength(w, font=f) + gap
+    sh = sh.filter(ImageFilter.GaussianBlur(max(2, px * .12)))
+    sh.alpha_composite(im); return sh
+
+
+# ── the add-on's modern caption styles ─────────────────────────────────────────────────────────────────────────────────────────────
+EMOJI = (('💰', r'money|cash|\$|dollar|paid|price|cost|rich|million'), ('🔥', r'fire|hot|insane|crazy|wild|best|huge'), ('🤯', r'wow|mind|unbeliev|shock|amaz'),
+         ('😂', r'funny|laugh|joke|lol'), ('💖', r'love|heart'), ('🌊', r'ocean|sea|water|deep|dive|underwater|chimney'), ('🚀', r'rocket|space|launch|fast|vehicle|sub|explor'),
+         ('📈', r'\d'), ('✨', r'.'))
+
+
+def keyword(w):
+    """A word worth emphasis: a number or a long uncommon word. Pure."""
+    t = re.sub(r"[^\w$%'-]", '', str(w))
+    return bool(re.search(r'\d', t) or (len(t) >= 6 and t.lower() not in STOP))
+
+
+def emoji_for(w):
+    t = str(w).lower()
+    return next(e for e, rx in EMOJI if re.search(rx, t))
+
+
+def _emoji(ch, px):
+    from PIL import Image, ImageDraw, ImageFont
+    try:
+        f = ImageFont.truetype(str(SYS_FONTS / 'Apple Color Emoji.ttc'), 160)
+        im = Image.new('RGBA', (200, 200), (0, 0, 0, 0)); ImageDraw.Draw(im).text((10, 10), ch, font=f, embedded_color=True); bb = im.getbbox()
+        if bb:
+            im = im.crop(bb); s = max(8, int(px)) / max(im.size); return im.resize((max(1, int(im.width * s)), max(1, int(im.height * s))), Image.LANCZOS)
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def cap_layout(W, txt, key, px, scale=1.0):
+    """The group's words into at most 2 balanced lines, each inside 86 % of the frame (the font shrinks until it fits). → (px, font, widths, lines) Pure but for the measure."""
+    from PIL import Image, ImageDraw
+    d0 = ImageDraw.Draw(Image.new('RGBA', (8, 8)))
+    while True:
+        f = font(key, px); gap = px * .26; ws = [d0.textlength(x, font=f) for x in txt]; lim = W * .86 / scale
+        def width(a, b):
+            return sum(ws[a:b]) + gap * (b - a - 1)
+        if width(0, len(txt)) <= lim:
+            lines = [list(range(len(txt)))]
+        else:
+            best = min(range(1, len(txt)), key=lambda k: max(width(0, k), width(k, len(txt)))) if len(txt) > 1 else 1
+            lines = [list(range(best)), list(range(best, len(txt)))]
+        if all(width(ln[0], ln[-1] + 1) <= lim for ln in lines if ln) or px <= 16:
+            return px, f, ws, [ln for ln in lines if ln]
+        px = max(16, int(px * .92))
+
+
+def cap_pic(W, words, hot, cap, px, done=(), frac=1.0, scale=1.0):
+    """One frame of a modern caption: the group in ≤ 2 lines, thin stroke + soft shadow (no slab), the spoken word in the accent, popped by
+    `scale` (pop / outline / gradient / emoji), swept by `frac` (sweep). Always inside the frame. → RGBA W × 3.1 px"""
+    from PIL import Image, ImageDraw, ImageFilter
+    sty = cap['style']; up = cap['case'] == 'upper'
+    txt = [(re.sub(r"[^\w'’$%#@&!?.,-]", '', w['w']) or w['w']).upper() if up else w['w'] for w in words]
+    px, f, ws, lines = cap_layout(W, txt, cap['font'], px, 1.12 if scale > 1 else 1.0)
+    bh = int(px * 3.1); lh = px * 1.1; gap = px * .26
+    im = Image.new('RGBA', (W, bh), (0, 0, 0, 0)); sh = Image.new('RGBA', (W, bh), (0, 0, 0, 0)); d, ds = ImageDraw.Draw(im), ImageDraw.Draw(sh)
+    base, acc = COLORS[cap['color']], COLORS[cap['hot']]
+    acc = _cf.GREEN if acc == COLORS['white'] and sty != 'classic' else acc
+    ink = (10, 12, 14, 235); st = 0 if sty == 'lower' else max(3, px // 11) if sty == 'outline' else max(1, px // 18)
+    y0 = (bh - lh * len(lines)) / 2 - px * .08; extra = None
+    popper = sty in ('pop', 'outline', 'gradient', 'emoji')
+    for li, ln in enumerate(lines):
+        eff = {i: ws[i] * (scale if i == hot and popper else 1.0) for i in ln}   # the popped word takes its real width: it never runs into its neighbour
+        lw = sum(eff.values()) + gap * (len(ln) - 1)
+        x = W * .07 if sty == 'lower' else (W - lw) / 2; y = y0 + li * lh
+        for i in ln:
+            t_ = txt[i]; is_hot = i == hot; sc = scale if is_hot and popper else 1.0; w_ = eff[i]
+            fnt = font(cap['font'], px * sc) if sc != 1.0 else f
+            xx = x; yy = y - (px * sc - px) * .55
+            ds.text((xx, yy + px * .07), t_, font=fnt, fill=(0, 0, 0, 170 if sty != 'outline' else 0))
+            if sty == 'sweep':
+                spoken = i in done
+                d.text((xx, yy), t_, font=fnt, fill=base if spoken else (*base[:3], 150), stroke_width=st, stroke_fill=ink)
+                if is_hot:
+                    lay = Image.new('RGBA', im.size, (0, 0, 0, 0)); ImageDraw.Draw(lay).text((xx, yy), t_, font=fnt, fill=acc, stroke_width=st, stroke_fill=ink)
+                    cut = int(xx + (w_ + st * 2) * max(0.0, min(1.0, frac))); lay = lay.crop((0, 0, max(1, cut), bh)); im.alpha_composite(lay, (0, 0))
+            elif sty == 'gradient' and (keyword(t_) or is_hot):
+                mask = Image.new('L', im.size, 0); ImageDraw.Draw(mask).text((xx, yy), t_, font=fnt, fill=255, stroke_width=0)
+                d.text((xx, yy), t_, font=fnt, fill=ink, stroke_width=st, stroke_fill=ink)
+                g = Image.new('RGBA', im.size, acc); top = Image.new('RGBA', im.size, GRAD2.get(cap['hot'], acc)); band_ = Image.linear_gradient('L').resize(im.size)
+                g = Image.composite(top, g, band_); im.paste(g, (0, 0), mask)
+            else:
+                fill = acc if is_hot and sty != 'lower' else base
+                d.text((xx, yy), t_, font=fnt, fill=fill, stroke_width=st, stroke_fill=ink)
+                if sty == 'lower' and is_hot:
+                    d.rounded_rectangle((xx, yy + px * 1.02, xx + w_, yy + px * 1.02 + max(3, px // 11)), radius=2, fill=acc)
+                if sty == 'emoji' and is_hot and keyword(t_):
+                    extra = (emoji_for(t_), xx + w_ - px * .2, yy - px * .8)
+            x += w_ + gap
+    sh = sh.filter(ImageFilter.GaussianBlur(max(2, px * .1))); sh.alpha_composite(im)
+    if extra:
+        e = _emoji(extra[0], px * 1.05)
+        if e is not None:
+            sh.alpha_composite(e, (int(max(0, min(W - e.width, extra[1]))), int(max(0, extra[2]))))
+    return sh
+
+
+def face_y(pts):
+    """Where the tracked face sits (share of the frame height), or None when no face was found. Pure."""
+    ys = sorted(q[2] for q in pts or [] if len(q) > 3 and q[3])
+    return ys[len(ys) // 2] if ys else None
+
+
+def safe_y(H, bh, cap, face=None):
+    """The caption band's top: the look's position, kept clear of the app buttons (bottom 20 %, top 8 %) and, on 'face', off the speaker's
+    face (moved below it, else above it). Pure."""
+    y = H * POS[cap['pos']]; safe = cap.get('safe', 'face')
+    lo, hi = (H * .08, H * .80) if safe != 'off' else (0, H * .97)
+    y = max(lo, min(y, hi - bh))
+    if safe == 'face' and face is not None:
+        fy, half = face * H, H * .15
+        if y < fy + half and y + bh > fy - half:
+            below, above = fy + half + H * .01, fy - half - bh - H * .01
+            y = below if below + bh <= hi else above if above >= lo else max(lo, min(below, hi - bh))
+    return int(y)
 
 
 def pop_pic(W, word, cap, px, k, scale=1.0):
@@ -288,12 +439,23 @@ def _concat(rows, tmp, name):
     return lst
 
 
-def caption_track(ws, dur, W, H, tmp, fmt, look):
-    """The styled captions as one picture stream (output times) → (list path, band y, band count)."""
+def frames_for(style, d):
+    """How one spoken word is drawn over its d seconds: [(scale, sweep fraction, seconds)]. The pop styles scale in (1.16 → 1.07 → 1),
+    the sweep fills left to right in thirds. Pure."""
+    if style in ('pop', 'outline', 'gradient', 'emoji') and d > .16:
+        return [(1.16, 1.0, .05), (1.07, 1.0, .05), (1.0, 1.0, d - .1)]
+    if style == 'sweep' and d > .15:
+        return [(1.0, .34, d / 3), (1.0, .68, d / 3), (1.0, 1.0, d - 2 * (d / 3))]
+    return [(1.0, 1.0, d)]
+
+
+def caption_track(ws, dur, W, H, tmp, fmt, look, face=None):
+    """The styled captions as one picture stream (output times) → (list path, band y, picture count)."""
     from PIL import Image
-    a = clean_look(look); cap = a['cap']
-    px = {'story': 88, 'feed': 66, 'wide': 60}[fmt] * SIZES[cap['size']]; bh = int(px * 1.8)
-    y = int(min(H * POS[cap['pos']], H - bh - H * .04))
+    a = clean_look(look); cap = a['cap']; modern = cap['style'] != 'classic'
+    px = ({'story': 74, 'feed': 58, 'wide': 54} if modern else {'story': 88, 'feed': 66, 'wide': 60})[fmt] * SIZES[cap['size']]
+    bh = int(px * 3.1) if modern else int(px * 1.8)
+    y = safe_y(H, bh, cap, face)
     blank = Path(tmp) / f'{fmt}_cblank.png'; Image.new('RGBA', (W, bh), (0, 0, 0, 0)).save(blank)
     rows, t, k = [], 0.0, 0
     for g in _cf.groups([{'s': w['s'], 'e': w['e'], 'w': w['w']} for w in ws], 0.0, dur, most=cap['words']):
@@ -301,11 +463,15 @@ def caption_track(ws, dur, W, H, tmp, fmt, look):
             s_ = w['s']; e_ = g[i + 1]['s'] if i + 1 < len(g) else max(w['e'], s_ + .25)
             if s_ > t + .01:
                 rows.append((blank, s_ - t))
-            p = Path(tmp) / f'{fmt}_c{k}.png'; im = band(W, g, i, cap, px, done=range(i))
-            if im.height != bh:
-                im = im.crop((0, (im.height - bh) // 2, W, (im.height - bh) // 2 + bh)) if im.height > bh else _pad(im, W, bh)
-            im.save(p, compress_level=1); k += 1
-            rows.append((p, max(.04, e_ - max(s_, t)))); t = max(t, e_)
+            d_all = max(.04, e_ - max(s_, t))
+            for sc, fr, d_ in (frames_for(cap['style'], d_all) if modern else [(1.0, 1.0, d_all)]):
+                p = Path(tmp) / f'{fmt}_c{k}.png'
+                im = cap_pic(W, g, i, cap, px, done=range(i), frac=fr, scale=sc) if modern else band(W, g, i, cap, px, done=range(i))
+                if im.height != bh:
+                    im = im.crop((0, (im.height - bh) // 2, W, (im.height - bh) // 2 + bh)) if im.height > bh else _pad(im, W, bh)
+                im.save(p, compress_level=1); k += 1
+                rows.append((p, max(.04, d_)))
+            t = max(t, e_)
     if t < dur:
         rows.append((blank, dur - t))
     return _concat(rows, tmp, f'{fmt}_caps'), y, k
@@ -396,7 +562,7 @@ def render(src, s, e, words, info, fmt, pts, look, hook, out, tmp, ffmpeg='ffmpe
     """One clip in one format with its look. → seconds it took. Raises with ffmpeg's last line on a failure."""
     t0 = time.time(); a = clean_look(look); W, H, _ = _cf.FORMATS[fmt]; box = _cf.crop_box(info, fmt); segs = segments(a, e - s)
     ws = [{**w, 's': tmap(w['s'], segs), 'e': tmap(w['e'], segs)} for w in clip_words(words, s, e, a)]; dur = out_dur(segs)
-    lst, cy, _k = caption_track(ws, dur, W, H, tmp, fmt, a)
+    lst, cy, _k = caption_track(ws, dur, W, H, tmp, fmt, a, face_y(pts))
     hk = Path(tmp) / f'{fmt}_hook.png'; hook_band(W, hook, {'story': 64, 'feed': 52, 'wide': 50}[fmt], a['cap']).save(hk)
     hy = int(H * {'story': .12, 'feed': .07, 'wide': .06}[fmt])
     pop = pop_track(ws, dur, W, H, tmp, fmt, a)
