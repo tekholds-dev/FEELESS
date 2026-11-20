@@ -78,6 +78,8 @@ def main():
     ap.add_argument('--turn', type=float, default=0, help='its turn in degrees')
     ap.add_argument('--spin', type=float, default=0)
     ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
+    ap.add_argument('--dash', action='store_true', help='PoB only: file through the PoB dashboard door (op pob: a tap on What to file next), not the chat line')
+    ap.add_argument('--slip', default='', help='PoB only, with --dash: his own slip as JSON, [{"ticker": "...", "side": "yes|no", "title": "..."}]')
     ap.add_argument('--inspect', action='append', default=[], help='PoStatic + --ws: a CSS query for the element to click with inspect (repeatable); --topic is the fix')
     a = ap.parse_args()
     global AGENT
@@ -91,6 +93,7 @@ def main():
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
                             **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
                             **({'ws': a.ws} if a.ws and a.kind == 'pos' else {}),
+                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
                             **({'inspect': [{'click': q, 'note': a.topic} for q in a.inspect]} if a.inspect and a.ws and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:

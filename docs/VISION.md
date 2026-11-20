@@ -45,6 +45,7 @@ PoC is a content studio that proves itself on real reach, not a written week pla
 - [ ] **Owner approves, then it posts** on the owner's own connected accounts. Nothing posts by itself.
 - [ ] **Measured:** views and engagement read back at 24 h and 7 d. The grade is the real reach, against the goal set when it was filed.
 - [ ] **Worth it:** every PoC states its goal (reach, followers, clicks or coin buzz) and its cost. The folder shows cost per 1,000 views.
+- [ ] **Clip farming (owner 2026-11-19):** upload any video up to 5 min (YouTube / Twitch / Instagram links: save it from the app, then upload). The best brains find the moments, and it hands back captioned, reframed clips for Shorts, Reels and TikTok, fast. Each clip files as a PoC with its goal and is posted only after the owner approves.
 
 ## PoStatic — unique building
 > "all this was supposed to be the idea already!" · "I'm unable to have 3D pieces built to be used in the current static build." · "so many integrative tools missing from static."

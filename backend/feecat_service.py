@@ -101,6 +101,7 @@ import atlas as _atlas   # noqa: E402,F401  🗺 Slice 11: the Living Atlas (ato
 import comp_ahead as _cahead   # noqa: E402,F401  📡 Slice 11: COMP stays ahead (plain page reads on a schedule, no model) + its reference per game
 import comp_task as _ctask   # noqa: E402,F401  🛰 Slice 11: an owner agent's brain hands COMP one task per filing
 import pob_peers as _peers   # noqa: E402,F401  🤝 Slice 11: a new PoB beside every other agent's PoB on the same game
+import pob_dash as _pdash   # noqa: E402,F401  🎲 Slice 13: the PoB folder dashboard (filings, P&L without fees, judges, stash odds, what to file next, his own slip)
 import collective_stash as _stash
 import collective_kits as _kits   # noqa: F401  (read by fc_cats, fc_desk as rs._kits)
 import agent_topup as _topup   # noqa: F401  (read by fc_pow as rs._topup)

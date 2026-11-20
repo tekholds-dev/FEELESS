@@ -129,7 +129,7 @@ body.theme-day .gpv { background: var(--pk-tx3); border-color: var(--pk-bg3); } 
   :is(.dsk-body, .dfw-in) > .prf > .prf-rail { position: static; }
   :is(.dsk-body, .dfw-in) > .prf > .prf-main > .dsk-pow { overflow: visible; min-height: max-content; }   /* the main pane scrolls: an app inside it (Bids under its Live tools) was squeezed to 28px and its proofs never showed */
   :is(.dsk-body, .dfw-in) > .prf-bids { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
-  :is(.dsk-body, .dfw-in) > .prf-bids > .prf-main { grid-column: 1; } :is(.dsk-body, .dfw-in) > .prf-bids > .prf-rail { grid-column: 2; grid-row: 2; }
+  :is(.dsk-body, .dfw-in) > .prf-bids > .prf-main { grid-column: 1; } :is(.dsk-body, .dfw-in) > .prf-bids > .prf-rail { grid-column: 2; grid-row: 1; }
   :is(.dsk-body, .dfw-in) > .prf > :is(.prf-main, .prf-rail)::-webkit-scrollbar { width: 6px; }
   :is(.dsk-body, .dfw-in) > .prf > :is(.prf-main, .prf-rail)::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--pk, var(--m-accent)) 55%, transparent); border-radius: 6px; }
 }

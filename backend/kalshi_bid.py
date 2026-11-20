@@ -363,6 +363,8 @@ def outcome_line(k, has_key, closed=None):
         if k.get('orderId'):
             return f" 🧩 Real Kalshi parlay placed: {side}, {k.get('count'):g} × {float(k.get('price') or 0):.3f} = ${float(k.get('usd') or 0):.2f}. Open its game to watch every leg."
         if k.get('status') == 'waiting':
+            if k.get('offer') == 'you':   # 🧾 Slice 13: his own slip, checked by both minds
+                return f" 🧾 Your slip passed both minds: {side}. Tap Approve real bid in its folder to ask Kalshi for a quote (at most {float(k.get('maxPx') or 0):.3f} a contract)."
             return (f" 🙋 {k.get('offer')} built the stronger slip: {side}. Tap Approve real bid in its folder to ask Kalshi for a quote (at most {float(k.get('maxPx') or 0):.3f} a contract)."
                     if k.get('offer') else f" 🧩 Both minds built {side}: tap Approve real bid in its folder to place it.")
         return f" Parlay not bought: {k.get('why') or k.get('status')}."

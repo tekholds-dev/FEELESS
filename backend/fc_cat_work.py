@@ -236,10 +236,42 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if (room_ := rs._proof_room(cat, cat_id, 'PoB')):
             raise rs.HTTPException(409, room_)
         cat.pop('proofSite', None)
+        slip_ = (p.tools or {}).get('slip') if isinstance(p.tools, dict) else None
+        if slip_ is not None:   # 🧾 Slice 13: his own slip, built on the PoB dashboard: the minds check it with the same guards as their own
+            legs_, why_ = rs._pdash.slip_clean(slip_)
+            if why_:
+                raise rs.HTTPException(400, why_)
+            if not str(p.text or '').strip():
+                raise rs.HTTPException(400, 'Which game is the slip on?')
+            topic_ = rs.re.sub(r'\s*\b(team to win|parlay slip|parlay|slip|\d+\s*legs?)\b', '', str(p.text).strip(), flags=rs.re.I).strip()[:120] + f' parlay slip {len(legs_)} legs'
+            cat['pobSlip'] = {'topic': topic_, 'legs': legs_, 'at': round(rs.time.time())}; p.text = topic_
+        else:
+            cat.pop('pobSlip', None)
         if str(p.text or '').strip():
-            cat['pobAsk'] = str(p.text).strip()[:160]; rs.keep_owned(cat); rs._save(store)
+            cat['pobAsk'] = str(p.text).strip()[:160]
+            cat['pobBy'] = 'test' if rs._test_live(cat, 'pob') else 'auto' if p.auto else 'you'   # 🧪 Slice 13: the dashboard door marks a TEST the same way the chat door does (a TEST never bids)
+        rs.keep_owned(cat); rs._save(store)
         rs._POB_WANT[cat_id] = 'start'; rs._POW_WAKE.set()
-        return {'ok': True}
+        return {'ok': True, **({'slip': cat['pobSlip']['legs'], 'topic': cat['pobSlip']['topic']} if cat.get('pobSlip') else {})}
+    if p.op == 'pob_dash':   # 🎲 Slice 13: the Bids home's one read — filings, results, P&L without fees, judges, stash odds, live games, what to file next
+        try:
+            async with rs.httpx.AsyncClient(timeout=12) as http_d:
+                board_ = (await rs._tools.board_all(http_d)).get('games') or []
+        except Exception as e:   # noqa: BLE001 — the board down still shows the filings and the stash odds
+            print(f'[pob dash] board: {str(e)[:80]}'); board_ = []
+        refs_ = await rs.asyncio.to_thread(rs._cahead.load_refs, rs.DATA_DIR)
+        busy_ = bool(cat.get('pobRun') or cat.get('pobRead') or cat.get('pobAsk'))
+        return rs._pdash.build(rs._pob_view(cat), refs_, board_, rs.time.time(), busy_)
+    if p.op == 'pob_menu':   # 🧾 Slice 13: the legs Kalshi lists for one game (public reads, no key, no money): what his own slip is built from
+        topic_ = str(p.text or '').strip()[:120]
+        if not topic_:
+            raise rs.HTTPException(400, 'Which game?')
+        try:
+            async with rs.httpx.AsyncClient(timeout=15) as http_m:
+                rows_ = await rs._pdash.menu(http_m, topic_)
+        except Exception as e:   # noqa: BLE001
+            raise rs.HTTPException(502, f'Kalshi could not be read just now ({type(e).__name__}). Nothing was sent.')
+        return {'topic': topic_, 'legs': rows_, 'max': rs._kb.SLIP_MAX, 'min': rs._kb.SLIP_MIN}
     if p.op == 'pool':   # 🪙 its live count, its dated returns, what its boost does and the points it can spend
         now_ = rs.time.time(); st_ = rs._cpool.load(rs.POOL_PATH); pr_ = rs._print.build(cat, now_); str_ = rs._print.strength(cat, now_); pts_ = rs._cl.boost_total(cat); pv_ = rs._cpool.view(st_, cat_id, now_, await rs._pool_px())
         top_w_ = rs._stake.rung(st_, await rs._pool_px())['top']; saved_w_ = rs._weights.load(rs.DATA_DIR)

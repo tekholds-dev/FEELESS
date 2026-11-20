@@ -1,0 +1,121 @@
+/* 🎲 PobDash.jsx (pdb-*): the PoB folder dashboard (Slice 13). Built from the meta.css tokens only; motion = opacity + transform, staggered by --i;
+   still under body.fx-lite and prefers-reduced-motion; day theme + 640 px below. */
+.pdb { display: grid; gap: 10px; margin: 0 0 12px; min-width: 0; container-type: inline-size; container-name: pdb; }
+.pdb-none { margin: 4px 0; color: var(--m-dim); font: 500 12.5px/1.45 var(--f-ui); }
+
+/* the hero: four numbers, each with its meter */
+.pdb-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pdb-kpi { position: relative; display: grid; align-content: start; gap: 3px; padding: 11px 12px; border-radius: 14px; min-width: 0; overflow: hidden; opacity: 0; transform: translateY(6px); animation: pdbIn .32s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 55ms); }
+.pdb-kpi b.m-num { font-size: 24px; line-height: 1.05; white-space: nowrap; }
+.pdb-kpi b small { font-size: 12px; color: var(--m-mute); margin-left: 2px; font-weight: 600; }
+.pdb-kpi em { font: 500 11px var(--f-ui); font-style: normal; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdb-pnl b.m-num { font-size: 30px; text-shadow: 0 0 18px color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.pdb-pnl.is-dn b.m-num { text-shadow: 0 0 18px color-mix(in srgb, var(--m-danger) 40%, transparent); }
+.pdb-pnl.is-up { border-color: color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); }
+.pdb-spark { height: 46px; margin: 4px -4px -4px; }
+.pdb-meter { display: block; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--m-text) 9%, transparent); overflow: hidden; margin: 3px 0 1px; }
+.pdb-meter u { display: block; height: 100%; border-radius: inherit; background: var(--m-accent); transform-origin: left; transition: transform .5s var(--m-ease); box-shadow: 0 0 10px color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.pdb-meter.is-good u { background: var(--m-accent); }
+.pdb-meter.is-violet u { background: var(--m-warn); box-shadow: 0 0 10px color-mix(in srgb, var(--m-warn) 50%, transparent); }
+
+/* live now */
+.pdb-live { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.pdb-live::-webkit-scrollbar { display: none; }
+.pdb-live li { flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 6px 11px; border-radius: 999px; font: 600 11px var(--f-tech); opacity: 0; animation: pdbIn .3s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 45ms); }
+.pdb-live li span { display: inline-flex; gap: 4px; align-items: baseline; } .pdb-live li em { font-style: normal; color: var(--m-accent); }
+.pdb-live li small { color: var(--m-mute); font: 500 10px var(--f-mono); }
+.pdb-live li.is-mine { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); }
+.pdb-live .pdb-mine { color: var(--m-accent); letter-spacing: .12em; }
+.pdb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--m-danger); box-shadow: 0 0 8px var(--m-danger); animation: pdbPulse 1.4s ease-in-out infinite; }
+
+/* tabs + panes */
+.pdb-tabs { justify-self: start; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.pdb-tabs > button { min-height: 32px; white-space: nowrap; } .pdb-tabs em { font-style: normal; opacity: .75; }
+.pdb-pane { min-width: 0; animation: pdbIn .2s var(--m-ease) both; }
+
+/* two teams, one bar */
+.pdb-duel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 7px 10px; }
+.pdb-side { display: flex; align-items: center; gap: 7px; min-width: 0; } .pdb-side.is-r { justify-content: flex-end; }
+.pdb-side b { font: 700 13px var(--f-tech); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pdb-side em { font-size: 13px; font-style: normal; }
+.pdb-duel-bar { grid-column: 1 / -1; grid-row: 2; position: relative; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--m-warn) 55%, transparent); overflow: visible; }
+.pdb-duel-bar u { position: absolute; inset: 0; border-radius: inherit; background: var(--m-accent); transform-origin: left; transition: transform .5s var(--m-ease); }
+.pdb-duel-bar i { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; border-radius: 2px; background: var(--m-text); box-shadow: 0 0 6px var(--m-text); }
+
+/* next to file */
+.pdb-next, .pdb-odds { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.pdb-card, .pdb-odds li { display: grid; gap: 8px; padding: 11px 12px; border-radius: 14px; opacity: 0; transform: translateY(6px); animation: pdbIn .3s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 50ms); transition: border-color .15s; }
+.pdb-card:hover, .pdb-odds li:hover { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); }
+.pdb-card header, .pdb-odds header { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .pdb-odds header .m-num { font-size: 11px; color: var(--m-dim); }
+.pdb-when { font: 600 10.5px var(--f-mono); color: var(--m-dim); margin-right: auto; }
+.pdb-why { margin: 0; font: 500 12px/1.4 var(--f-ui); color: var(--m-text); } .pdb-why small { color: var(--m-mute); }
+.pdb-go { display: flex; flex-wrap: wrap; gap: 6px; } .pdb-go .m-btn { flex: 1 1 140px; min-height: 36px; }
+.pdb-go .m-btn.is-on { border-color: var(--m-accent); }
+.pdb-filed { display: flex; align-items: center; gap: 9px; margin: 0; padding: 9px 12px; border-radius: 12px; font: 500 12px var(--f-ui); }
+.pdb-filed i { width: 8px; height: 8px; border-radius: 50%; background: var(--m-accent); box-shadow: 0 0 10px var(--m-accent); animation: pdbPulse 1.2s ease-in-out infinite; }
+
+/* filings */
+.pdb-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pdb-rows li { opacity: 0; animation: pdbIn .28s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 40ms); }
+.pdb-row { width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 70px 96px; gap: 10px; align-items: center; min-height: 44px; padding: 6px 10px; border-radius: 11px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-text) 3%, transparent); color: var(--m-text); text-align: left; cursor: pointer; font: inherit; transition: border-color .15s, transform .1s; }
+.pdb-row:hover { border-color: var(--m-accent); } .pdb-row:active { transform: scale(.995); } .pdb-row:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.pdb-n { font-size: 12px; color: var(--m-mute); }
+.pdb-t { display: grid; min-width: 0; } .pdb-t b { font: 600 12.5px var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pdb-t small { font: 500 10.5px var(--f-mono); color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdb-res { font: 700 10px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--m-line); white-space: nowrap; color: var(--m-dim); }
+.pdb-res.is-good { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
+.pdb-res.is-bad { color: var(--m-danger); border-color: color-mix(in srgb, var(--m-danger) 50%, transparent); }
+.pdb-res.is-live { color: var(--m-warn); border-color: color-mix(in srgb, var(--m-warn) 50%, transparent); }
+.pdb-res.is-test { color: var(--m-text); border-style: dashed; } .pdb-res.is-none { color: var(--m-mute); }
+.pdb-p { font-size: 13px; text-align: right; }
+.pdb-j { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; } .pdb-j small { font-size: 10.5px; color: var(--m-mute); } .pdb-j .pdb-meter { margin: 0; }
+
+/* stash odds */
+.pdb-src { margin: 0 0 6px; font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); }
+
+/* your slip */
+.pdb-slip { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(260px, 1fr); gap: 10px; align-items: start; }
+.pdb-slip > .m-field, .pdb-slip > .pdb-none { grid-column: 1 / -1; }
+.pdb-legs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--m-line-hi) transparent; }
+.pdb-legs::-webkit-scrollbar { width: 6px; } .pdb-legs::-webkit-scrollbar-thumb { background: var(--m-line-hi); border-radius: 6px; }
+.pdb-legs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; border: 1px solid transparent; background: color-mix(in srgb, var(--m-text) 3%, transparent); opacity: 0; animation: pdbIn .25s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 30ms); }
+.pdb-legs li.is-on { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); }
+.pdb-legs li > span:first-child { display: grid; min-width: 0; } .pdb-legs b { font: 600 12px var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pdb-legs small { font: 500 10px var(--f-mono); color: var(--m-mute); }
+.pdb-legs .m-seg > button { min-height: 32px; padding: 0 10px; } .pdb-legs .m-seg em { font-size: 11.5px; font-style: normal; opacity: .85; margin-left: 4px; color: inherit; }
+.pdb-ticket { position: sticky; top: 0; display: grid; gap: 8px; padding: 12px; border-radius: 14px; }
+.pdb-ticket header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .pdb-ticket header b { font: 700 12px var(--f-tech); letter-spacing: .06em; } .pdb-ticket header em { font-size: 13px; font-style: normal; color: var(--m-accent); }
+.pdb-ticket ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pdb-ticket ol li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; font: 600 12px var(--f-ui); } .pdb-ticket ol .m-btn { min-height: 32px; min-width: 32px; padding: 0 8px; }
+.pdb-verdict { display: grid; gap: 8px; padding: 12px 14px; margin: 0 0 10px; border-left: 2px solid var(--m-accent); }
+.pdb-verdict.is-no { border-left-color: var(--m-warn); }
+.pdb-verdict header { display: flex; justify-content: space-between; gap: 10px; font: 600 12.5px/1.3 var(--f-ui); color: var(--m-text); }
+.pdb-verdict header em { font-style: normal; color: var(--m-accent); }
+.pdb-verdict.is-no header em { color: var(--m-warn); }
+.pdb-verdict ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.pdb-verdict li { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 500 12px/1.35 var(--f-ui); color: var(--m-text); }
+.pdb-verdict li small { color: var(--m-warn); }
+.pdb-verdict-minds { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pdb-verdict-minds i { font: 600 10.5px/1 var(--f-mono); font-style: normal; padding: 4px 7px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-dim); }
+.pdb-verdict-minds i.is-ok { color: var(--m-accent); border-color: var(--m-accent); }
+.pdb-verdict-minds i.is-no { color: var(--m-danger); }
+.pdb-verdict p { margin: 0; font: 500 11.5px/1.45 var(--f-ui); color: var(--m-dim); }
+.pdb-checks { margin: 0; padding: 0 0 0 16px; display: grid; gap: 3px; font: 500 10.5px/1.4 var(--f-ui); color: var(--m-dim); }
+.pdb-ticket > .m-go { min-height: 38px; }
+
+@keyframes pdbIn { to { opacity: 1; transform: none; } }
+@keyframes pdbPulse { 50% { opacity: .35; transform: scale(.8); } }
+
+@container pdb (max-width: 640px) {   /* the window's own width, not the screen's: the Bids folder is often a narrow window on a wide desk */
+  .pdb-tabs { flex-wrap: wrap; }
+  .pdb-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pdb-pnl { grid-column: 1 / -1; }
+  .pdb-next, .pdb-odds { grid-template-columns: minmax(0, 1fr); }
+  .pdb-row { grid-template-columns: 34px minmax(0, 1fr) auto; row-gap: 4px; } .pdb-row .pdb-j { grid-column: 2; grid-row: 2; grid-template-columns: 90px auto; justify-content: start; } .pdb-row .pdb-p { grid-column: 3; grid-row: 2; }
+  .pdb-slip { grid-template-columns: minmax(0, 1fr); } .pdb-ticket { position: static; }
+}
+body.theme-day .pdb-row, body.theme-day .pdb-legs li { background: var(--m-surface); }
+body.theme-day .pdb-pnl b.m-num { text-shadow: none; }
+body.theme-day .pdb-duel-bar i { box-shadow: none; }
+body.fx-lite :is(.pdb-kpi, .pdb-live li, .pdb-card, .pdb-odds li, .pdb-rows li, .pdb-legs li, .pdb-pane) { animation: none; opacity: 1; transform: none; }
+body.fx-lite :is(.pdb-dot, .pdb-filed i) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.pdb-kpi, .pdb-live li, .pdb-card, .pdb-odds li, .pdb-rows li, .pdb-legs li, .pdb-pane, .pdb-dot, .pdb-filed i) { animation: none; opacity: 1; transform: none; }
+  :is(.pdb-meter u, .pdb-duel-bar u) { transition: none; }
+}

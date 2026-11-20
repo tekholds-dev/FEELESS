@@ -132,7 +132,7 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 .pfc-teams.is-l .pfc-team { width: 54px; height: 54px; } .pfc-teams.is-l .pfc-team + .pfc-team { margin-left: -12px; } .pfc-teams.is-l .pfc-team b { font-size: 13px; }
 .prf-filing > .phd, .prf-filing > .prf-rail { display: none; } :is(.dsk-body, .dfw-in) > .prf-bids.prf-filing { grid-template-columns: minmax(0, 1fr); }
 /* owner 2026-11-15 IMG1 'so I don't scroll to the bottom to see filings': on Bids the 7-step how-to strip steps aside and the head is one tight row */
-.prf-bids > .phd .phd-steps { display: none; }
+.prf-bids .phd .phd-steps { display: none; }
 .pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
 .pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
 .pfl-title { display: grid; gap: 3px; min-width: 0; } .pfl-title b { font: 800 22px var(--f-display); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

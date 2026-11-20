@@ -82,6 +82,15 @@ const MODELS = { models: [{ id: 'local/ossy', name: 'OSSY', efforts: ['low', 'me
 const fetchBefore = window.fetch;
 window.fetch = (u, o) => (String(u).includes('/paths') ? jsonRes(PATHS) : /\/api\/cats\/models(\?|$)/.test(String(u)) ? jsonRes(MODELS) : fetchBefore(u, o));
 if (window.location.search.includes('realpob')) { try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pob.json', false); x.send(); WORK.pobFolders = JSON.parse(x.responseText); } catch { /* no file: the fixture */ } }   // ?realpob — the owner's real PoB folders (gitignored public/dev-pob.json)
+if (window.location.search.includes('realpob')) {   // 🎲 Slice 13: the PoB dashboard's three ops on a real snapshot (gitignored public/dev-pob-dash.json: pob_dash.build on real filings, stash refs, the live board, real Kalshi menus). A file tap only logs its words here
+  let dash = null; try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pob-dash.json', false); x.send(); dash = JSON.parse(x.responseText); } catch { /* no file: the fixture */ }
+  const before = window.fetch;
+  window.fetch = (u, o) => { let b = null; try { b = String(u).includes('/work') && o?.body ? JSON.parse(o.body) : null; } catch { /* not json */ }
+    if (dash && b?.op === 'pob_dash') return jsonRes(dash.dash);
+    if (dash && b?.op === 'pob_menu') return jsonRes(dash.menus[b.text] || { topic: b.text, legs: [], min: 2, max: 4 });
+    if (b?.op === 'pob') { console.info('[dev] PoB door ←', JSON.stringify(b)); return jsonRes({ ok: true, topic: b.text }); }
+    return before(u, o); };
+}
 export default function CatHarness() {
   const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');

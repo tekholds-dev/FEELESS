@@ -21,6 +21,8 @@ class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: 
     model: Optional[dict] = None
     ws: str = ''   # 🧪 Slice 3: PoStatic only, a TEST folder to change (a new version of it, to prove it keeps every part that worked)
     agent: str = ''   # 🧪 owner 2026-11-19: '' / 'sicarios' = Sicario's (free local minds) · 'happy' = Happy's (its paid minds, proposals and paper only, TEST_BUDGET_USD in all)
+    door: str = ''   # 🎲 Slice 13: PoB only, 'dash' = through the PoB dashboard's door (op pob: a tap on What to file next / his own slip), not the chat line
+    slip: Optional[list] = None   # 🧾 Slice 13: with door 'dash', his own slip [{ticker, side, title}]: the minds check it with the same guards
     inspect: Optional[list] = None   # 🔍 Slice 9: with ws, [{click: a CSS query, note}]: each element is clicked through the page's own inspect tool on a headless browser, then fixed through the same build door
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
@@ -231,6 +233,10 @@ async def test_proof_start(p: TestIn, request: Request):
                 await rs._cat_work(cid, rs.WorkPayload(op='play3d_model_to', tools={'to': row_['id'], 'obj': await _studio_piece(p.model)}, session=rs._AUTO_TOKEN, auto=True))
             out = await rs._cat_work(cid, rs.WorkPayload(op='ws_build', job=row_['id'], text=str(p.topic or TEST_ASK['pos'])[:2000], session=rs._AUTO_TOKEN, auto=True))
             out = {'ws': row_['id']}
+        elif kind == 'pob' and (p.door == 'dash' or p.slip):   # 🎲 Slice 13: the dashboard's one-tap door, exactly as a tap sends it (a TEST never bids)
+            if not str(p.topic or '').strip():
+                raise rs.HTTPException(400, 'The dashboard door files a game: pass its topic.')
+            out = await rs._cat_work(cid, rs.WorkPayload(op='pob', text=str(p.topic)[:120], tools={'slip': p.slip} if p.slip else None, session=rs._AUTO_TOKEN, auto=True))
         else:
             line = LINES[kind] + (f' {p.topic}' if p.topic and kind in ('pob', 'poc') else '')
             out = await rs._cat_work(cid, rs.WorkPayload(op='ask', text=line, session=rs._AUTO_TOKEN, auto=True))
