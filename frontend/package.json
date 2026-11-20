@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@dnd-kit/core": "6.3.1",
     "@ethersproject/sha2": "5.8.0",
     "@excalidraw/excalidraw": "0.18.1",
     "@heroui/react": "3.2.7",

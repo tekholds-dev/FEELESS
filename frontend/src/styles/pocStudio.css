@@ -1,18 +1,19 @@
 /* 🎬 PoC content studio (PocStudio.jsx, Slice 5) — m-* tokens, one keyframe set pst*. */
-.pst { position: relative; display: grid; gap: 12px; padding: 14px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); overflow: hidden; }
+.pst { position: relative; display: grid; gap: 10px; padding: 12px; border: 1px solid var(--m-line); border-radius: var(--m-r); overflow: hidden; font: 500 12.5px/1.4 var(--f-ui);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--pk, var(--m-accent)) 6%, var(--m-surface)), var(--m-surface) 55%); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 7%, transparent); }
 .pst-head { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(170px, 1fr) auto; gap: 14px; align-items: center; }
 .pst-trend { display: grid; gap: 4px; min-width: 0; }
-.pst-trend a { color: var(--m-text); font: 700 16px var(--f-display); line-height: 1.2; text-decoration: none; overflow-wrap: anywhere; }
+.pst-trend a { color: var(--m-text); font: 700 14px var(--f-ui); line-height: 1.2; text-decoration: none; overflow-wrap: anywhere; }
 .pst-trend a:hover, .pst-trend a:focus-visible { color: var(--m-accent); outline: none; }
-.pst-trend small { color: var(--m-dim); font: 600 11px var(--f-mono); }
+.pst-trend small { color: var(--m-dim); font: 600 10.5px var(--f-mono); }
 .pst-meter { display: grid; gap: 6px; }
 .pst-meter-bar { height: 8px; border-radius: 8px; background: var(--m-line); overflow: hidden; }
 .pst-meter-bar i { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 50%, transparent), var(--m-accent)); box-shadow: 0 0 12px var(--m-accent); transform-origin: left; transition: transform .8s var(--m-ease); }
 .pst-meter span { display: flex; gap: 6px; align-items: baseline; } .pst-meter small { color: var(--m-mute); font: 600 10px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
 .pst .is-up { color: var(--m-accent); } .pst .is-dn { color: var(--m-danger); }
 .pst-facts { display: flex; gap: 14px; margin: 0; }
-.pst-facts div { display: grid; gap: 2px; } .pst-facts dt { color: var(--m-mute); font: 700 9px var(--f-mono); letter-spacing: .12em; } .pst-facts dd { margin: 0; font-size: 16px; }
-.pst-angle { margin: 0; color: var(--m-dim); font: 500 13px var(--f-ui); } .pst-angle b { color: var(--m-text); }
+.pst-facts div { display: grid; gap: 2px; } .pst-facts dt { color: var(--m-mute); font: 700 9px var(--f-mono); letter-spacing: .12em; } .pst-facts dd { margin: 0; font: 700 13px var(--f-mono); }
+.pst-angle { margin: 0; color: var(--m-dim); font: 500 12.5px var(--f-ui); } .pst-angle b { color: var(--m-text); }
 .pst-test { margin-left: 8px; color: var(--m-warn); border-color: var(--m-warn); }
 .pst-formats { justify-self: start; }
 .pst-files { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: start; }
@@ -30,12 +31,12 @@
 .pst-accts { display: flex; flex-wrap: wrap; gap: 6px; }
 .pst-plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .pst-plat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 6px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); animation: pstIn .3s var(--m-ease) both; animation-delay: calc(var(--i) * 45ms); transition: border-color .15s, background .15s; }
-.pst-plat .m-btn { min-height: 32px; } .pst-plat select.m-input { width: auto; min-height: 32px; } .pst-plat small { color: var(--m-mute); font: 600 10px var(--f-mono); text-transform: uppercase; }
+.pst-plat .m-btn { min-height: 32px; font-size: 11.5px; } .pst-plat select.m-input { width: auto; min-height: 32px; } .pst-plat small { color: var(--m-mute); font: 600 10px var(--f-mono); text-transform: uppercase; }
 .pst-plat.is-on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); }
 .pst-plat.is-on .m-btn { background: var(--m-accent); color: var(--m-accent-ink); border-color: var(--m-accent); }
 .pst-real { display: flex; gap: 8px; align-items: center; color: var(--m-warn); font: 600 12px var(--f-ui); }
 .pst-confirm { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--m-accent); border-radius: var(--m-r-sm); animation: pstIn .2s var(--m-ease) both; }
-.pst-confirm p { margin: 0; font: 500 13px var(--f-ui); } .pst-confirm .m-btn { justify-self: start; }
+.pst-confirm p { margin: 0; font: 500 12.5px var(--f-ui); } .pst-confirm .m-btn { justify-self: start; }
 .pst-posted ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .pst-posted li { padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 999px; font: 600 11px var(--f-mono); } .pst-posted li a { color: var(--m-accent); }
 .pst-posted li.is-bad { border-color: var(--m-danger); color: var(--m-danger); }
@@ -51,6 +52,29 @@ body.fx-lite .pst-files figure, body.fx-lite .pst-plat, body.fx-lite .pst-confir
 body.theme-day .pst-files img, body.theme-day .pst-files video { background: var(--m-surface-2); }
 body.theme-day .pst-meter-bar i { box-shadow: none; }
 /* ✂ Slice 15: a clip-farm PoC — its square feed, its upload's name, three pieces a row */
-.pst-from { color: var(--m-text); font: 700 16px var(--f-display); line-height: 1.2; overflow-wrap: anywhere; }
-.pst-files.is-clip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pst-files.is-clip.is-feed img, .pst-files.is-clip.is-feed video { aspect-ratio: 1; }
-.pst-vlink { justify-self: start; color: var(--m-accent); font: 700 11px var(--f-mono); text-decoration: none; } .pst-vlink:hover, .pst-vlink:focus-visible { color: var(--m-text); outline: none; }
+.pst-from { color: var(--m-text); font: 700 14px var(--f-ui); line-height: 1.2; overflow-wrap: anywhere; }
+.pst-vlink { color: var(--m-accent); text-decoration: none; } .pst-vlink:hover, .pst-vlink:focus-visible { color: var(--m-text); outline: none; }
+/* 🎬 Slice 29: a clip PoC = ONE player at its format's shape + a slim rail (cover, numbers, the post with copy / download, its link, its look) */
+.pst-clipview { display: grid; grid-template-columns: minmax(0, auto) minmax(220px, 1fr); gap: 12px; align-items: start; min-width: 0; }
+.pst-player { margin: 0; display: grid; place-items: center; padding: 8px; border-radius: 14px; background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--pk, var(--m-accent)) 14%, #07090b), #050607);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .06), 0 14px 30px -18px rgb(0 0 0 / .9); animation: pstIn .3s var(--m-ease) both; }
+.pst-player video { display: block; border-radius: 9px; background: #000; max-height: 460px; width: auto; max-width: 100%; }
+.pst-clipview.is-story .pst-player video { aspect-ratio: 9 / 16; height: 460px; } .pst-clipview.is-feed .pst-player video { aspect-ratio: 1; height: 360px; }
+.pst-clipview.is-wide { grid-template-columns: minmax(0, 1fr); } .pst-clipview.is-wide .pst-player video { aspect-ratio: 16 / 9; width: 100%; height: auto; }
+.pst-rail { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.pst-rail-top { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; }
+.pst-cover img { display: block; width: 64px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 7px; border: 1px solid var(--m-line); }
+.pst-mini { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.pst-mini div { display: grid; gap: 1px; padding: 5px 7px; border-radius: 8px; background: var(--m-surface-2); } .pst-mini dt { color: var(--m-mute); font: 700 9.5px var(--f-mono); letter-spacing: .1em; }
+.pst-mini dd { margin: 0; font: 700 12px var(--f-mono); }
+.pst-postcard { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); }
+.pst-postcard p { margin: 0; max-height: 140px; overflow: auto; font: 500 12.5px/1.45 var(--f-ui); white-space: pre-wrap; scrollbar-width: thin; }
+.pst-icons { display: flex; flex-wrap: wrap; gap: 4px; }
+.pst-icons > button, .pst-icons > a { display: inline-flex; gap: 4px; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; padding: 0 8px; border: 1px solid var(--m-line); border-radius: 8px;
+  background: var(--m-surface-2); color: var(--m-text); cursor: pointer; text-decoration: none; transition: border-color .15s, color .15s; }
+.pst-icons > button:hover, .pst-icons > a:hover, .pst-icons > button:focus-visible, .pst-icons > a:focus-visible { border-color: var(--m-accent); color: var(--m-accent); outline: none; }
+.pst-icons small { font: 600 10.5px var(--f-mono); }
+.pst-lookline { color: var(--m-mute); font: 600 10.5px var(--f-mono); }
+@media (max-width: 640px) { .pst-clipview { grid-template-columns: minmax(0, 1fr); } .pst-clipview.is-story .pst-player video { height: 400px; } }
+body.fx-lite .pst-player { animation: none; } @media (prefers-reduced-motion: reduce) { .pst-player { animation: none; } }
+body.theme-day .pst-player { background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--pk, var(--m-accent)) 20%, #1a1d20), #0d0f11); }

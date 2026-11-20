@@ -472,23 +472,10 @@ def _band(W, words, hot, px):
     return im
 
 
-def hook_band(W, hook, px):
-    """The hook title for the first 2 s: ink words on a FEELESS-green bar."""
-    from PIL import Image, ImageDraw
-    f = _font(px); d0 = ImageDraw.Draw(Image.new('RGBA', (8, 8))); lines, cur = [], ''
-    for w in str(hook or '').split():
-        t = (cur + ' ' + w).strip()
-        if d0.textlength(t, font=f) > W * .8 and cur:
-            lines.append(cur); cur = w
-        else:
-            cur = t
-    lines = (lines + [cur])[:2] if cur else lines[:2]
-    lh = int(px * 1.2); H = lh * len(lines) + int(px * .9); im = Image.new('RGBA', (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-    bw = int(max(d0.textlength(x, font=f) for x in lines) + px * 1.2) if lines else 0
-    d.rounded_rectangle(((W - bw) // 2, 0, (W + bw) // 2, H), radius=int(px * .35), fill=GREEN)
-    for i, x in enumerate(lines):
-        d.text(((W - d0.textlength(x, font=f)) // 2, int(px * .45) + i * lh), x, font=f, fill=INK)
-    return im
+def hook_band(W, hook, px, cap=None):
+    """The hook title for the first 2 s: ink words on a FEELESS-green bar (Slice 29: every word kept, wrapped and shrunk to fit; see clip_look)."""
+    import clip_look
+    return clip_look.hook_band(W, hook, px, cap)
 
 
 def caption_track(words, s, e, W, H, tmp, fmt):
@@ -541,7 +528,7 @@ def render(src, clip, words, info, fmt, pts, out, tmp, ffmpeg='ffmpeg', encoder=
     return round(time.time() - t0, 1)
 
 
-def cover(src, clip, info, fmt, pts, ffmpeg='ffmpeg'):
+def cover(src, clip, info, fmt, pts, ffmpeg='ffmpeg', cap=None):
     """The cover frame: a face moment a third of the way in (else its first second), framed like the clip, with the hook title. → JPEG bytes"""
     from io import BytesIO
     from PIL import Image
@@ -559,28 +546,33 @@ def cover(src, clip, info, fmt, pts, ffmpeg='ffmpeg'):
         from PIL import ImageFilter
         bg = im.copy(); r_ = max(W / bg.width, H / bg.height); bg = bg.resize((int(bg.width * r_) + 1, int(bg.height * r_) + 1)).crop((0, 0, W, H)).filter(ImageFilter.GaussianBlur(28))
         r2 = min(W / im.width, H / im.height); fg = im.resize((int(im.width * r2), int(im.height * r2)), Image.LANCZOS); bg.paste(fg, ((W - fg.width) // 2, (H - fg.height) // 2)); im = bg
-    hb = hook_band(W, clip.get('hook') or '', {'story': 72, 'feed': 60, 'wide': 58}[fmt]); im = im.convert('RGBA')
+    hb = hook_band(W, clip.get('hook') or '', {'story': 72, 'feed': 60, 'wide': 58}[fmt], cap); im = im.convert('RGBA')
     im.alpha_composite(hb, (0, int(H * {'story': .14, 'feed': .08, 'wide': .07}[fmt])))
     buf = BytesIO(); im.convert('RGB').save(buf, 'JPEG', quality=88); return buf.getvalue()
 
 
-def make_clip(src, clip, words, info, cuts, save, ffmpeg='ffmpeg', on_step=None):
+def make_clip(src, clip, words, info, cuts, save, ffmpeg='ffmpeg', on_step=None, look=None, keep=None, pts=None):
     """Track once, then every format (the phone story first: it is the one that posts to Shorts / Reels / TikTok) → (files, track facts).
     `save(piece, ext, bytes)` keeps a file and gives back its url. A format that fails is listed with its error, never hidden."""
-    files = []; tr = track(src, clip['s'], clip['e'], info, cuts, ffmpeg=ffmpeg)
+    files = []; tr = {'pts': pts, 'faces': 0, 'frames': len(pts), 'how': 'kept'} if pts else track(src, clip['s'], clip['e'], info, cuts, ffmpeg=ffmpeg)
+    if keep:
+        keep(tr['pts'])
+    import clip_look
     with tempfile.TemporaryDirectory() as tmp:
         for fmt in FORMATS:
             W, H, ratio = FORMATS[fmt]
             try:
-                out = Path(tmp) / f'{fmt}.mp4'; secs = render(src, clip, words, info, fmt, tr['pts'], out, tmp, ffmpeg)
+                out = Path(tmp) / f'{fmt}.mp4'
+                secs = (clip_look.render(src, clip['s'], clip['e'], words, info, fmt, tr['pts'], look, clip.get('hook') or '', out, tmp, ffmpeg) if look   # Slice 29: its own look
+                        else render(src, clip, words, info, fmt, tr['pts'], out, tmp, ffmpeg))
                 raw = out.read_bytes()
                 files.append({'piece': 'video', 'format': fmt, 'aspect': ratio, 'w': W, 'h': H, 'url': save('video', 'mp4', raw), 'bytes': len(raw),
-                              'sha': hashlib.sha256(raw).hexdigest()[:16], 'secs': secs, 'dur': round(clip['e'] - clip['s'], 1),
+                              'sha': hashlib.sha256(raw).hexdigest()[:16], 'secs': secs, 'dur': round(clip_look.out_dur(clip_look.segments(look, clip['e'] - clip['s'])) if look else clip['e'] - clip['s'], 1),
                               'reframe': 'tracked crop' if crop_box(info, fmt) else 'fitted on a blurred fill'})
             except Exception as e:   # noqa: BLE001
                 files.append({'piece': 'video', 'format': fmt, 'aspect': ratio, 'error': f'{type(e).__name__}: {str(e)[:160]}'})
             try:
-                jpg = cover(src, clip, info, fmt, tr['pts'], ffmpeg)
+                jpg = cover(src, clip, info, fmt, tr['pts'], ffmpeg, clip_look.clean_look(look)['cap'] if look else None)
                 files.append({'piece': 'image', 'format': fmt, 'aspect': ratio, 'w': W, 'h': H, 'url': save('image', 'jpg', jpg), 'bytes': len(jpg), 'cover': True,
                               'sha': hashlib.sha256(jpg).hexdigest()[:16]})
             except Exception as e:   # noqa: BLE001

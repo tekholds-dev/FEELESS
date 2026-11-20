@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Copy, Download, Link2 } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
 import '../../styles/pocStudio.css';
 
@@ -32,6 +33,27 @@ function Meter({ value, target, label, verdict }) {
   return <div className="pst-meter" data-tip={`${label}: ${value == null ? 'not given' : fmt(value)} of ${fmt(target)}`}>
     <div className="pst-meter-bar"><i style={{ transform: `scaleX(${pct})` }} /></div>
     <span><b className={`m-num ${VERDICT[verdict] || ''}`}>{value == null ? '—' : fmt(value)}</b><small>of {fmt(target)} · {label}</small></span>
+  </div>;
+}
+
+/** 🎬 Slice 29 (owner on PoC #21: "two giant side-by-side players with a lone Download button"): a clip PoC shows ONE player at its format's
+ * shape and a slim rail beside it: the cover, the post words with copy and download, its in-house link and its look. */
+function ClipView({ s, fmtKey, img, vid, post }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => { try { await navigator.clipboard.writeText(post?.text || ''); setDone(true); setTimeout(() => setDone(false), 1400); } catch { /* no clipboard here */ } };
+  return <div className={`pst-clipview is-${fmtKey}`} data-testid="pst-clipview">
+    <figure className="pst-player">{vid ? <video key={vid.url} src={apiUrl(vid.url)} poster={img ? apiUrl(img.url) : undefined} controls muted playsInline preload="metadata" data-testid={`pst-vid-${fmtKey}`} /> : <small>Not made</small>}</figure>
+    <div className="pst-rail">
+      <div className="pst-rail-top">{img ? <a className="pst-cover" href={apiUrl(img.url)} target="_blank" rel="noreferrer noopener" data-tip="The cover, full size"><img src={apiUrl(img.url)} alt={s.hook} loading="lazy" data-testid={`pst-img-${fmtKey}`} /></a> : null}
+        <dl className="pst-mini"><div><dt>LENGTH</dt><dd className="m-num">{Math.round(vid?.dur || s.clip.dur || 0)} s</dd></div><div><dt>FILE</dt><dd className="m-num">{vid?.bytes ? `${(vid.bytes / 1e6).toFixed(1)} MB` : '—'}</dd></div>
+          <div><dt>MADE IN</dt><dd className="m-num">{vid?.secs != null ? `${vid.secs} s` : '—'}</dd></div><div><dt>WATERMARK</dt><dd className="m-num">none</dd></div></dl></div>
+      <div className="pst-postcard"><span className="m-label">POST</span>{post ? <p data-testid={`pst-post-${fmtKey}`}>{post.text}</p> : <small>Not made</small>}
+        <span className="pst-icons">{post ? <><button type="button" onClick={copy} aria-label="Copy the post" data-tip="Copy the post words">{done ? <Check size={13} /> : <Copy size={13} />}</button>
+          <a href={apiUrl(post.url)} download aria-label="Download the post" data-tip="The post as a text file"><Download size={13} /></a></> : null}
+          {vid ? <a href={apiUrl(vid.url)} download aria-label="Download the clip" data-tip="The clip file"><Download size={13} /><small>clip</small></a> : null}
+          {s.links?.[fmtKey] ? <a className="pst-vlink" href={apiUrl(s.links[fmtKey])} target="_blank" rel="noreferrer noopener" data-tip="The in-house FEELESS link to this clip: plays in any browser for 7 days, paste it to your phone" data-testid={`pst-link-${fmtKey}`}><Link2 size={13} /><small>link</small></a> : null}</span></div>
+      {s.look ? <small className="pst-lookline" data-tip="Its look: edit it in the Clips tab › Edit">look · {s.look.preset || 'custom'} · {s.look.tr} · {s.look.fx?.grade || 'none'} grade{(s.looks || []).length > 1 ? ` · v${s.looks[s.looks.length - 1].v}` : ''}</small> : null}
+    </div>
   </div>;
 }
 
@@ -71,12 +93,12 @@ export default function PocStudio({ cat, f, work, onFolders }) {
     <p className="pst-angle"><b>{s.hook}</b> {s.angle ? <span>· {s.angle}</span> : null}{f.test ? <span className="m-chip pst-test">TEST</span> : null}</p>
 
     <div className="m-seg pst-formats" role="tablist" aria-label="Format">{FORMATS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={fmtKey === k} className={fmtKey === k ? 'active' : ''} onClick={() => setFmt(k)} data-tip={tip} data-testid={`pst-fmt-${k}`}>{l}</button>)}</div>
-    <div className={`pst-files is-${fmtKey}${s.clip ? ' is-clip' : ''}`}>
-      <figure style={{ '--i': 0 }}><span className="m-label">{s.clip ? 'COVER' : 'IMAGE'}</span>{img ? <a href={apiUrl(img.url)} target="_blank" rel="noreferrer noopener" data-tip="Open the full-size file"><img src={apiUrl(img.url)} alt={s.hook} loading="lazy" data-testid={`pst-img-${fmtKey}`} /></a> : <small>Not made</small>}</figure>
-      <figure style={{ '--i': 1 }}>{s.clip && s.links?.[fmtKey] ? <a className="pst-vlink" href={apiUrl(s.links[fmtKey])} target="_blank" rel="noreferrer noopener" data-tip="The in-house FEELESS link to this clip: plays in any browser for 7 days, paste it to your phone" data-testid={`pst-link-${fmtKey}`}>🔗 FEELESS link</a> : null}<span className="m-label">{s.clip ? `CLIP · ${{ story: '9:16', feed: '1:1', wide: '16:9' }[fmtKey]}` : 'SHORT VIDEO'}</span>{vid ? <video src={apiUrl(vid.url)} controls muted playsInline preload="metadata" data-testid={`pst-vid-${fmtKey}`} /> : <small>Not made</small>}</figure>
+    {s.clip ? <ClipView s={s} fmtKey={fmtKey} img={img} vid={vid} post={post} /> : <div className={`pst-files is-${fmtKey}`}>
+      <figure style={{ '--i': 0 }}><span className="m-label">IMAGE</span>{img ? <a href={apiUrl(img.url)} target="_blank" rel="noreferrer noopener" data-tip="Open the full-size file"><img src={apiUrl(img.url)} alt={s.hook} loading="lazy" data-testid={`pst-img-${fmtKey}`} /></a> : <small>Not made</small>}</figure>
+      <figure style={{ '--i': 1 }}><span className="m-label">SHORT VIDEO</span>{vid ? <video src={apiUrl(vid.url)} controls muted playsInline preload="metadata" data-testid={`pst-vid-${fmtKey}`} /> : <small>Not made</small>}</figure>
       <figure style={{ '--i': 2 }} className="pst-text"><span className="m-label">POST</span>{post ? <><p data-testid={`pst-post-${fmtKey}`}>{post.text}</p><a className="m-btn" href={apiUrl(post.url)} download data-tip="The post as a text file">Download</a></> : <small>Not made</small>}</figure>
-      {s.clip ? null : <figure style={{ '--i': 3 }} className="pst-text"><span className="m-label">THREAD · {thr?.parts || 0} PARTS</span>{thr ? <><div className="pst-cards">{(thr.cards || []).map((u, i) => <img key={u} src={apiUrl(u)} alt={`Part ${i + 1}`} loading="lazy" />)}</div><a className="m-btn" href={apiUrl(thr.url)} download data-tip="The thread as a text file">Download</a></> : <small>Not made</small>}</figure>}
-    </div>
+      <figure style={{ '--i': 3 }} className="pst-text"><span className="m-label">THREAD · {thr?.parts || 0} PARTS</span>{thr ? <><div className="pst-cards">{(thr.cards || []).map((u, i) => <img key={u} src={apiUrl(u)} alt={`Part ${i + 1}`} loading="lazy" />)}</div><a className="m-btn" href={apiUrl(thr.url)} download data-tip="The thread as a text file">Download</a></> : <small>Not made</small>}</figure>
+    </div>}
 
     {posted ? <section className="pst-posted" aria-label="Posted" data-testid="pst-posted">
       <span className="m-label">POSTED AFTER YOUR APPROVE · {(svcs || []).find(x => x.id === posted.svc)?.name || posted.svc}</span>

@@ -3,6 +3,7 @@ import { Check, Copy, ExternalLink, Film, Link2, Loader2, Scissors, Trash2, Uplo
 import { apiUrl, errorText } from '../../lib/api';
 import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { boxRef } from '../../lib/boxRef';
+import ClipStudio from './ClipStudio';
 import '../../styles/clipFarm.css';
 
 // ✂ Slice 15 (owner 2026-11-19: "clipfarming! yt, twitch, ig -> … users should be able to upload vids etc up to 5 mins and we provide best
@@ -58,7 +59,6 @@ function LinkChip({ url, label, onDelete, testid }) {
 export function boardRows(pocs) {
   return (pocs || []).filter(f => f?.studio?.clip).sort((a, b) => (b.at || 0) - (a.at || 0) || (a.studio.clip.rank || 0) - (b.studio.clip.rank || 0));
 }
-const file = (f, piece, fmt) => (f?.studio?.files || []).find(x => x.piece === piece && x.format === fmt && x.url && !x.error);
 const clock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function Steps({ run }) {
@@ -77,25 +77,24 @@ function Moments({ run }) {
       <td>{made ? <Scissors size={14} aria-label="made" /> : null}</td></tr>; })}</tbody></table></div>;
 }
 
-function Board({ rows, onSlot, onOpen, busy }) {
-  if (!rows.length) return <p className="clf-none">The clips land here as phone story, feed and wide tiles, each with a day of the week.</p>;
-  return <div className="clf-board" data-testid="cfm-board">{rows.map((f, i) => { const c = f.studio.clip; const slot = f.studio.slot || ''; return <article key={f.id} className="clf-clip" style={{ '--i': i }} data-testid={`cfm-clip-${f.id}`}>
-    <header><span className="m-label">PoC #{f.n}{f.test ? ' · TEST' : ''}</span><b>{f.studio.hook}</b><small>{clock(c.s)}–{clock(c.e)} of {c.from} · both minds {c.both ?? '—'}/10 · goal {Number(f.studio.goal?.target || 0).toLocaleString()} views · ${(Number(f.cost || 0)).toFixed(4)}</small></header>
-    <div className="clf-tiles">{SHAPES.map(([k, r, tip]) => { const v = file(f, 'video', k); const im = file(f, 'image', k); return <figure key={k} className={`clf-tile is-${k}`} data-tip={tip}>
-      <span className="m-label">{r}</span>{v ? <video src={apiUrl(v.url)} poster={im ? apiUrl(im.url) : undefined} controls muted playsInline preload="none" data-testid={`cfm-vid-${k}`} /> : <small>not made</small>}</figure>; })}</div>
-    <footer><div className="m-seg clf-days" role="group" aria-label="Day to post">{DAYS.map(d => <button key={d} type="button" aria-pressed={slot === d} className={slot === d ? 'active' : ''} disabled={busy || !!f.posted} onClick={() => onSlot(f.id, slot === d ? '' : d)} data-testid={`cfm-day-${f.id}-${d}`}>{d}</button>)}</div>
-      <span className="clf-links">{SHAPES.map(([k, r]) => <LinkChip key={k} url={f.studio.links?.[k]} label={r} testid={`cfm-link-${f.id}-${k}`} />)}</span>
-      <button type="button" className="m-btn" onClick={() => onOpen?.(f)} data-tip="Its PoCs: the goal, the platforms and the approve" data-testid={`cfm-open-${f.id}`}>{f.posted ? 'Posted · reach' : 'Approve and post…'}</button></footer>
-  </article>; })}</div>;
-}
-
 export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
   const [runs, setRuns] = useState([]); const [busy, setBusy] = useState(false); const [pct, setPct] = useState(null); const [err, setErr] = useState('');
+  const [plan, setPlan] = useState(null); const [kit, setKit] = useState(null); const [rendering, setRendering] = useState([]);
   const [rights, setRights] = useState(false); const [note, setNote] = useState(''); const [link, setLink] = useState(''); const [drag, setDrag] = useState(false); const [slotBusy, setSlotBusy] = useState(false); const [card, setCard] = useState('');
   const input = useRef(null); const base = `/api/cats/${cat.id}/clipfarm`;
-  const load = useCallback(() => fetch(apiUrl(`${base}?${agentAuthQuery()}`)).then(r => r.ok ? r.json() : null).then(j => { if (j) { setRuns(j.runs || []); setBusy(!!j.busy); } return j; }).catch(() => null), [base]);
-  const running = runs.some(r => r.status === 'running') || busy;
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, running ? 2500 : 15000); return () => clearInterval(t); }, [load, running]);
+  const load = useCallback(() => fetch(apiUrl(`${base}?${agentAuthQuery()}`)).then(r => r.ok ? r.json() : null).then(j => { if (j) { setRuns(j.runs || []); setBusy(!!j.busy); if (j.plan) setPlan(j.plan); if (j.kit) setKit(j.kit); setRendering(j.rendering || []); } return j; }).catch(() => null), [base]);
+  const running = runs.some(r => r.status === 'running') || busy; const hot = running || rendering.length > 0;
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, hot ? 2500 : 15000); return () => clearInterval(t); }, [load, hot]);
+  const wasRendering = useRef(0);
+  useEffect(() => { if (wasRendering.current && !rendering.length) onPocs?.(); wasRendering.current = rendering.length; }, [rendering.length]);   // eslint-disable-line react-hooks/exhaustive-deps
+  /** 🎨 Slice 29: the studio's calls, signed as the owner. GET when there is no body. */
+  const api = useCallback(async (path, body) => {
+    const r = body === undefined ? await fetch(apiUrl(`${base}${path}${path.includes('?') ? '&' : '?'}${agentAuthQuery()}`))
+      : await fetch(apiUrl(`${base}${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), ...body }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(errorText(j, r.status));
+    if (body !== undefined) load();
+    return j;
+  }, [base, load]);
   const lastClips = (runs.find(r => r.status === 'running') || runs[0])?.clips?.length || 0;
   useEffect(() => { if (lastClips) onPocs?.(); }, [lastClips]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -146,7 +145,7 @@ export default function ClipFarm({ cat, wsId, pocs, onPocs, onOpen }) {
       <b>{run.name}</b><small className="m-num">{clock(run.secs || 0)} · {run.w}×{run.h}{run.firstClipS ? ` · first clip ${Math.round(run.firstClipS)} s` : ''}{run.doneS ? ` · all ${Math.round(run.doneS)} s` : ''} · minds ${Number(run.cost || 0).toFixed(4)}</small></header>
       {run.converted?.url ? <span className="clf-links"><LinkChip url={(run.links || []).some(k => k.kind === 'upload' && !k.gone && !k.swept && k.exp * 1000 > Date.now()) ? run.converted.url : ''} label="Your upload, converted" onDelete={() => unlink(run.converted.url)} testid="cfm-uplink" /></span> : null}
       <Steps run={run} />{run.err ? <small className="clf-err">{run.err}</small> : null}<Moments run={run} /></div> : null}
-    <h4 className="clf-h">Clip board · story / feed / wide, a day each</h4>
-    <Board rows={rows} busy={slotBusy} onSlot={slot} onOpen={onOpen} />
+    <ClipStudio cat={cat} clips={rows} plan={plan} kit={kit} rendering={rendering} runs={runs} api={api} onPocs={onPocs} onPlan={setPlan} onOpen={onOpen} busy={slotBusy}
+      onSlot={slot} links={f => SHAPES.map(([k, r]) => <LinkChip key={k} url={f.studio.links?.[k]} label={r} testid={`cfm-link-${f.id}-${k}`} />)} />
   </section>;
 }

@@ -37,15 +37,18 @@ test('the run shows a progress line per step and every candidate with each mind�
   expect($(el, 'cfm-step-words').textContent).toContain('907 words'); expect($(el, 'cfm-step-minds').className).toContain('is-running');
   const rows = el.querySelectorAll('[data-testid="cfm-moments"] tbody tr');
   expect(rows).toHaveLength(2); expect(rows[0].className).toContain('is-made'); expect(rows[0].textContent).toContain('8★9★'); expect(rows[1].textContent).toContain('3—');
-  expect($(el, 'cfm-vid-story').getAttribute('src')).toContain('mvideostory');
+  expect($(el, 'cst-vid-poc1c0').getAttribute('src')).toContain('mvideostory');   // Slice 29: the board is a grid of playable tiles
   expect($(el, 'cfm-link-poc1c0-story').querySelector('a').getAttribute('href')).toContain('/api/cats/vid/v1');
   expect($(el, 'cfm-uplink').querySelector('a').getAttribute('href')).toContain('/api/cats/vid/v0');
   await act(async () => $(el, 'cfm-uplink-del').click());
-  expect(JSON.parse(calls.find(c => String(c[0]).includes('/unlink'))[1].body)).toMatchObject({ id: 'v0' }); expect($(el, 'cfm-vid-feed')).not.toBeNull(); expect($(el, 'cfm-vid-wide')).not.toBeNull();
-  await act(async () => $(el, 'cfm-day-poc1c0-Wed').click());
+  expect(JSON.parse(calls.find(c => String(c[0]).includes('/unlink'))[1].body)).toMatchObject({ id: 'v0' });
+  await act(async () => $(el, 'cst-fmt-feed').click()); expect($(el, 'cst-vid-poc1c0').getAttribute('src')).toContain('mvideofeed');
+  await act(async () => $(el, 'cst-fmt-wide').click()); expect($(el, 'cst-vid-poc1c0').getAttribute('src')).toContain('mvideowide');
+  const day = $(el, 'cfm-day-poc1c0'); const setSel = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+  await act(async () => { setSel.call(day, 'Wed'); day.dispatchEvent(new Event('change', { bubbles: true })); });
   const slot = calls.find(c => String(c[0]).includes('/slot'));
   expect(JSON.parse(slot[1].body)).toMatchObject({ job: 'poc1c0', day: 'Wed' }); expect(onPocs).toHaveBeenCalledWith([expect.objectContaining({ id: 'poc1c0' })]);
-  await act(async () => $(el, 'cfm-open-poc1c0').click()); expect(onOpen).toHaveBeenCalledWith(CLIP);
+  await act(async () => $(el, 'cst-open-poc1c0').click()); expect(onOpen).toHaveBeenCalledWith(CLIP);
   act(() => root.unmount()); el.remove();
 });
 
@@ -69,7 +72,7 @@ test('a clip PoC in the studio says the upload it came from, both minds’ score
   expect($(el, 'pst-clip-from').textContent).toBe('Astronaut talk');
   expect(el.textContent).toContain('Mind A 8/10 · Mind B 9/10'); expect(el.textContent).toContain('planned Fri'); expect(el.textContent).toContain('9/9');
   expect($(el, 'pst-link-story').getAttribute('href')).toContain('/api/cats/vid/v1');
-  expect(el.textContent).not.toContain('THREAD'); expect(el.querySelector('.pst-files').className).toContain('is-clip');
+  expect(el.textContent).not.toContain('THREAD'); expect($(el, 'pst-clipview')).not.toBeNull(); expect(el.querySelectorAll('video')).toHaveLength(1);   // Slice 29: one player, not two giant ones
   act(() => root.unmount()); el.remove();
 });
 
@@ -83,10 +86,10 @@ test('the clip farm keeps its own class names: no other sheet styles them, so a 
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => root.render(<ClipFarm cat={{ id: 'c' }} wsId="w1" pocs={[CLIP]} />));
   const classes = [...new Set([...el.querySelectorAll('[class]')].flatMap(n => [...n.classList]))].filter(c => !/^(m-|is-|active$|lucide)/.test(c));
-  expect(classes.length).toBeGreaterThan(10); expect(classes.every(c => c.startsWith('clf'))).toBe(true);
+  expect(classes.length).toBeGreaterThan(10); expect(classes.every(c => /^(clf|cst|cse)/.test(c))).toBe(true);   // + Slice 29's studio (clipStudio.css)
   for (const c of classes) {
     const owners = sheets.filter(([, css]) => new RegExp(`\\.${c.replace(/[-]/g, '\\-')}(?![\\w-])`).test(css)).map(([f]) => f);
-    expect([c, owners.filter(f => f !== 'clipFarm.css')]).toEqual([c, []]);
+    expect([c, owners.filter(f => f !== (c.startsWith('clf') ? 'clipFarm.css' : 'clipStudio.css'))]).toEqual([c, []]);
   }
   const css = sheets.find(([f]) => f === 'clipFarm.css')[1];
   expect(css).toMatch(/\.clf-steps li \{ display: flex; flex-wrap: wrap;/);                       // a row that wraps, needing no measured width

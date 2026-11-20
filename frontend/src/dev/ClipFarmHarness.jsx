@@ -9,27 +9,46 @@ import '../styles/features.css';
 // backend. The clip routes are answered here from the fixture (the page has no owner sign-in), so nothing reaches the server and nothing can
 // post: the day buttons save into this page only, and Delete on a link ends it in this page only. ?running shows the same run mid-way. ?day = day theme. ?empty = before any upload.
 
-const REAL_FETCH = window.fetch; const HOOK = { setLog: () => {}, setPocs: () => {}, pocs: FIX.folders };
+// 🎨🗓 Slice 29: `?real` reads the gitignored public/dev-clips.json (Happy's live clips, plan, chat and words after the TEST, exported from
+// feecats.json) so the studio is checked on real data. Its clicks are answered here too: a look is saved as a version in this page (no render),
+// the week saves in this page, the minds (agent plan, chat, minds pick) answer only in the TEST, never from this page.
+const REAL_FETCH = window.fetch; const HOOK = { setLog: () => {}, setPocs: () => {}, pocs: FIX.folders, real: null, plan: { versions: [], chat: [] } };
+const clipOps = (u, b) => {
+  const plan = HOOK.plan; const v = (plan.versions || []).slice(-1)[0]?.v || 0;
+  if (u.includes('/words')) { const job = new URL(u, window.location.href).searchParams.get('job'); return { words: HOOK.real?.words?.[job] || [], dur: 30 }; }
+  if (u.includes('/plan/undo')) { const old = plan.versions.find(x => x.v === b.v); HOOK.plan = { ...plan, versions: [...plan.versions, { ...old, v: v + 1, by: 'undo', why: `back to plan v${b.v}`, at: Date.now() / 1000 }], cur: v + 1 }; return { plan: HOOK.plan }; }
+  if (u.includes('/plan/agent') || u.includes('/plan/chat') || u.includes('/look/mind')) throw Object.assign(new Error('Harness only: the minds answer in the TEST run, not from this page.'), { status: 409 });
+  if (u.includes('/plan')) { HOOK.plan = { ...plan, versions: [...plan.versions, { v: v + 1, by: 'owner', why: 'your week (this page only)', slots: b.slots, at: Date.now() / 1000 }], cur: v + 1 };
+    HOOK.pocs = HOOK.pocs.map(f => { const sl = b.slots.find(x => x.job === f.id); return { ...f, studio: { ...f.studio, slot: sl?.day || '', slotTime: sl?.time || '' } }; }); return { plan: HOOK.plan, pocFolders: HOOK.pocs }; }
+  if (u.includes('/look/undo')) { HOOK.pocs = HOOK.pocs.map(f => { if (f.id !== b.job) return f; const o = f.studio.looks.find(x => x.v === b.v); const n = f.studio.looks.slice(-1)[0].v + 1;
+    return { ...f, studio: { ...f.studio, look: o.look, files: o.files || f.studio.files, looks: [...f.studio.looks, { ...o, v: n, by: 'undo', why: `back to look v${b.v}`, at: Date.now() / 1000 }] } }; }); return { pocFolders: HOOK.pocs }; }
+  if (u.includes('/look')) { HOOK.pocs = HOOK.pocs.map(f => { if (f.id !== b.job) return f; const ls = f.studio.looks?.length ? f.studio.looks : [{ v: 1, by: 'code', why: 'how it was first made', look: f.studio.look, files: f.studio.files, at: f.at }];
+    return { ...f, studio: { ...f.studio, look: b.look, looks: [...ls, { v: ls.slice(-1)[0].v + 1, by: 'owner', why: `${b.why} (this page only: no render)`, look: b.look, at: Date.now() / 1000 }] } }; }); return { pocFolders: HOOK.pocs }; }
+  return null;
+};
 window.fetch = async (url, opt = {}) => {   // installed before the first render: ClipFarm's first load is answered from the fixture too
   const u = String(url); const q = window.location.search;
   if (!u.includes('/clipfarm')) return REAL_FETCH(url, opt);
   HOOK.setLog(l => [...l, `${opt.method || 'GET'} ${u.replace(/\?.*/, '')} ${opt.body || ''}`].slice(-4));
   const ok = j => ({ ok: true, status: 200, json: async () => j });
+  if (/real/.test(q) && !HOOK.real) { try { HOOK.real = await (await REAL_FETCH('/dev-clips.json')).json(); HOOK.pocs = HOOK.real.folders; HOOK.plan = HOOK.real.plan || HOOK.plan; HOOK.setPocs(HOOK.pocs); } catch { HOOK.real = {}; } }
+  try { const j = clipOps(u, JSON.parse(opt.body || '{}')); if (j) return ok(j); } catch (e) { return { ok: false, status: e.status || 400, json: async () => ({ detail: e.message }) }; }
   if (u.includes('/slot')) { const b = JSON.parse(opt.body || '{}'); HOOK.pocs = HOOK.pocs.map(f => f.id === b.job ? { ...f, studio: { ...f.studio, slot: b.day } } : f); return ok({ pocFolders: HOOK.pocs }); }
   if (u.includes('/unlink')) { const b = JSON.parse(opt.body || '{}'); FIX.run.links = (FIX.run.links || []).map(k => k.id === b.id ? { ...k, gone: true } : k); return ok({ ok: true }); }   // page only: the real link stays
   if (/empty/.test(q)) return ok({ runs: [], busy: false });
   const run = /running/.test(q) ? { ...FIX.run, status: 'running', clips: FIX.run.clips.slice(0, 1), doneS: null, steps: FIX.run.steps.map(s => s.key === 'clips' ? { ...s, state: 'running', note: 'clip 2 of 3: 9:16 made', secs: null } : s.key === 'file' ? { ...s, state: 'todo', note: '' } : s) } : FIX.run;
-  return ok({ runs: [run], busy: /running/.test(q) });
+  if (HOOK.real?.runs) return ok({ runs: HOOK.real.runs, busy: false, plan: HOOK.plan, kit: HOOK.real.kit, rendering: [] });
+  return ok({ runs: [run], busy: /running/.test(q), plan: HOOK.plan });
 };
 
 export default function ClipFarmHarness() {
   const q = window.location.search; if (/day/.test(q)) document.body.classList.add('theme-day');
   const [pocs, setPocs] = useState(FIX.folders); const [focus, setFocus] = useState(FIX.folders[0]?.id); const [log, setLog] = useState([]);
-  HOOK.setLog = setLog;
+  HOOK.setLog = setLog; HOOK.setPocs = setPocs;
   const f = pocs.find(x => x.id === focus);
-  return <div style={{ padding: 16, maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 12 }} data-testid="clipfarm-harness">
+  return <div style={{ padding: 16, maxWidth: /w=(\d+)/.test(q) ? Number(q.match(/w=(\d+)/)[1]) : 1180, margin: '0 auto', display: 'grid', gap: 12 }} data-testid="clipfarm-harness">
     <small className="m-label">HARNESS · Happy’s real TEST clip run (iPhone HEVC .mov, converted) {FIX.run.id} · PoC #{FIX.folders.map(x => x.n).join(', #')} · nothing reaches the server here</small>
-    <ClipFarm cat={{ id: FIX.cat }} wsId="" pocs={/empty/.test(q) ? [] : pocs} onPocs={rows => rows && setPocs(rows)} onOpen={x => { setFocus(x.id); document.getElementById('cfh-studio')?.scrollIntoView({ behavior: 'smooth' }); }} />
+    <ClipFarm cat={{ id: HOOK.real?.cat || FIX.cat }} wsId="" pocs={/empty/.test(q) ? [] : pocs} onPocs={rows => rows && setPocs(rows)} onOpen={x => { setFocus(x.id); document.getElementById('cfh-studio')?.scrollIntoView({ behavior: 'smooth' }); }} />
     <div id="cfh-studio">{f ? <PocStudio cat={{ id: FIX.cat }} f={f} work={async (_id, b) => { if (b.op === 'poc_accounts') return { services: [] }; throw new Error('Harness only: nothing posts from this page.'); }} /> : null}</div>
     {f ? <TrueRecord kind="poc" folders={[f]} /> : null}
     <pre style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'pre-wrap' }} data-testid="harness-log">{log.join('\n')}</pre>

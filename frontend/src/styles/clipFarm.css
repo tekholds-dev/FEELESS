@@ -1,11 +1,11 @@
 /* ✂ Clip farm (ClipFarm.jsx, Slice 15; prefix clf- since Slice 24: hive.css owns .cfm / .cfm-steps / .cfm-h and its 5-column steps grid broke these rows one letter per line) — m-* tokens, one keyframe set clf*. Its own width via lib/boxRef (data-w640), never a container query. */
 .clf { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--m-line); border-radius: var(--m-r); background: var(--m-surface); }
 .clf-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: end; justify-content: space-between; }
-.clf-head span { display: grid; gap: 2px; } .clf-head strong { font: 700 17px var(--f-display); color: var(--m-text); }
+.clf-head span { display: grid; gap: 2px; } .clf-head strong { font: 700 14px var(--f-ui); color: var(--m-text); }
 .clf-head > small { color: var(--m-dim); font: 500 11px var(--f-ui); max-width: 420px; }
 .clf-drop { display: grid; justify-items: center; gap: 8px; padding: 18px 14px; border: 1.5px dashed var(--m-line-hi); border-radius: var(--m-r); text-align: center;
   background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--m-accent) 9%, transparent), transparent 70%); transition: border-color .15s, background .15s, transform .15s var(--m-ease); }
-.clf-drop > svg { color: var(--m-accent); } .clf-drop > b { font: 700 15px var(--f-display); color: var(--m-text); } .clf-drop > small { color: var(--m-dim); font: 500 12px var(--f-ui); max-width: 520px; }
+.clf-drop > svg { color: var(--m-accent); } .clf-drop > b { font: 700 13px var(--f-ui); color: var(--m-text); } .clf-drop > small { color: var(--m-dim); font: 500 12px var(--f-ui); max-width: 520px; }
 .clf-drop.is-drag { border-color: var(--m-accent); transform: scale(1.01); background: color-mix(in srgb, var(--m-accent) 12%, transparent); }
 .clf-drop.is-busy > svg { animation: clfPulse 1.2s var(--m-ease) infinite; }
 .clf-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; width: 100%; }
@@ -32,26 +32,13 @@
 .clf-moments tr.is-made td { color: var(--m-text); background: color-mix(in srgb, var(--m-accent) 7%, transparent); } .clf-moments tr.is-made svg { color: var(--m-accent); }
 .clf-pick { margin-left: 3px; color: var(--m-accent); }
 .clf-moments td.m-num { font: 600 12px var(--f-mono); } .clf-moments td.m-num:first-child { color: var(--m-text); }
-.clf-h { margin: 4px 0 0; color: var(--m-dim); font: 700 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
-.clf-none { margin: 0; color: var(--m-mute); font: 500 12px var(--f-ui); }
-.clf-board { display: grid; gap: 12px; }
-.clf-clip { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-bg); animation: clfIn .35s var(--m-ease) both; animation-delay: calc(var(--i) * 70ms); transition: border-color .15s, transform .15s var(--m-ease); }
-.clf-clip:hover { border-color: var(--m-line-hi); transform: translateY(-2px); }
-.clf-clip > header { display: grid; gap: 2px; } .clf-clip > header b { color: var(--m-text); font: 700 15px var(--f-display); } .clf-clip > header small { color: var(--m-mute); font: 600 11px var(--f-mono); }
-.clf-tiles { display: grid; grid-template-columns: 0.75fr 1fr 1.6fr; gap: 8px; align-items: end; }
-.clf-tile { display: grid; gap: 4px; margin: 0; } .clf-tile video { display: block; width: 100%; border-radius: 6px; background: #000; object-fit: cover; }
-.clf-tile.is-story video { aspect-ratio: 9 / 16; } .clf-tile.is-feed video { aspect-ratio: 1; } .clf-tile.is-wide video { aspect-ratio: 16 / 9; }
-.clf-tile small { color: var(--m-mute); font: 500 11px var(--f-ui); }
-.clf-clip > footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
-.clf-days { flex-wrap: wrap; } .clf-days button { min-width: 40px; }
-.clf[data-w640] .clf-tiles { grid-template-columns: 0.75fr 1fr; } .clf[data-w640] .clf-tile.is-wide { grid-column: 1 / -1; }
 .clf-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--m-warn); border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-warn) 7%, transparent); animation: clfIn .25s var(--m-ease) both; }
 .clf-card b { color: var(--m-text); font: 700 13px var(--f-ui); } .clf-card span, .clf-card li { color: var(--m-dim); font: 500 12px var(--f-ui); } .clf-card ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; } .clf-card .clf-row { justify-content: flex-start; }
 .clf-links { display: flex; flex-wrap: wrap; gap: 6px; }
 .clf-link { display: inline-flex; gap: 5px; align-items: center; padding: 3px 8px; border: 1px solid var(--m-line-hi); border-radius: 999px; color: var(--m-accent); }
 .clf-link small { color: var(--m-dim); font: 600 10px var(--f-mono); } .clf-link a, .clf-link button { display: inline-grid; place-items: center; padding: 2px; border: 0; background: none; color: var(--m-accent); cursor: pointer; }
 .clf-link a:hover, .clf-link button:hover, .clf-link a:focus-visible, .clf-link button:focus-visible { color: var(--m-text); outline: none; }
+body.fx-lite .clf-steps li { animation: none; }
 @keyframes clfIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes clfSpin { to { transform: rotate(360deg); } }
 @keyframes clfPulse { 50% { transform: scale(1.12); opacity: .7; } }
-body.fx-lite .clf-clip, body.fx-lite .clf-steps li { animation: none; }
