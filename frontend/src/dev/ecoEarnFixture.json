@@ -134,31 +134,31 @@
 ],
 "feeds": [
 {
-"url": "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112"
+"host": "dexscreener.com"
 },
 {
-"url": "https://superteam.fun/api/listings/?type=bounty&take=40"
+"host": "superteam.fun"
 },
 {
-"url": "https://superteam.fun/api/listings/?type=project&take=40"
+"host": "superteam.fun"
 },
 {
-"url": "https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated"
+"host": "freelancer.com"
 },
 {
-"url": "https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created"
+"host": "api.github.com"
 },
 {
-"url": "https://raw.githubusercontent.com/SecureBananaLabs/bug-bounty/HEAD/CONTRIBUTING.md"
+"host": "raw.githubusercontent.com"
 },
 {
-"url": "https://raw.githubusercontent.com/PG-AGI/toingg-jarvis/HEAD/CONTRIBUTING.md"
+"host": "raw.githubusercontent.com"
 },
 {
-"url": "https://raw.githubusercontent.com/BAWES-Universe/workadventure-universe/HEAD/CONTRIBUTING.md"
+"host": "raw.githubusercontent.com"
 },
 {
-"url": "https://raw.githubusercontent.com/UnsafeLabs/Bounty-Hunters/HEAD/CONTRIBUTING.md"
+"host": "raw.githubusercontent.com"
 }
 ]
 },
@@ -267,7 +267,6 @@
 ],
 "pages": [
 "https://www.freelancer.com/projects/3d-cad/Industrial-Stairs-Handrails-Design",
-"https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112",
 "https://superteam.fun/api/listings/?type=bounty&take=40",
 "https://superteam.fun/api/listings/?type=project&take=40",
 "https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated",
@@ -706,55 +705,46 @@
 "reads": [
 {
 "host": "dexscreener.com",
-"url": "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112",
 "ok": true,
 "code": 200
 },
 {
 "host": "superteam.fun",
-"url": "https://superteam.fun/api/listings/?type=bounty&take=40",
 "ok": true,
 "code": 200
 },
 {
 "host": "superteam.fun",
-"url": "https://superteam.fun/api/listings/?type=project&take=40",
 "ok": true,
 "code": 200
 },
 {
 "host": "freelancer.com",
-"url": "https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated",
 "ok": true,
 "code": 200
 },
 {
 "host": "api.github.com",
-"url": "https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created",
 "ok": true,
 "code": 200
 },
 {
 "host": "raw.githubusercontent.com",
-"url": "https://raw.githubusercontent.com/SecureBananaLabs/bug-bounty/HEAD/CONTRIBUTING.md",
 "ok": true,
 "code": 200
 },
 {
 "host": "raw.githubusercontent.com",
-"url": "https://raw.githubusercontent.com/PG-AGI/toingg-jarvis/HEAD/CONTRIBUTING.md",
 "ok": true,
 "code": 200
 },
 {
 "host": "raw.githubusercontent.com",
-"url": "https://raw.githubusercontent.com/BAWES-Universe/workadventure-universe/HEAD/CONTRIBUTING.md",
 "ok": true,
 "code": 200
 },
 {
 "host": "raw.githubusercontent.com",
-"url": "https://raw.githubusercontent.com/UnsafeLabs/Bounty-Hunters/HEAD/CONTRIBUTING.md",
 "ok": true,
 "code": 200
 }
