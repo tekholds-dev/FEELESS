@@ -96,7 +96,7 @@ USES = {
     'tabulator': ('Data', ['sort', 'filter', 'group'], 'Table every pick with sorting and filters'),
     'leaflet': ('Maps', ['markers', 'routes', 'heat'], "Map tonight's games by stadium"), 'mantine': ('Components', ['forms', 'tables', 'hooks'], 'Build a customer form with validation'),
 }
-KINDS = ('pow', 'pop', 'pob', 'poc', 'pos')
+KINDS = ('pow', 'pop', 'pob', 'poc', 'pos', 'poe')   # 💼 Slice 16: PoEco's earn filings read their own kits
 MAX_BYTES = 90_000
 MAX_PICKS = 3   # owner 2026-11-05: a user picks up to 3 kits, or lets the agent choose per request
 PROMPT_CHARS = 5_000   # what one build can carry of all its kits: a local or cheap model cannot read a whole guide

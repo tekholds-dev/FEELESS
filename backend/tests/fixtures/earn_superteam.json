@@ -1,0 +1,91 @@
+[
+{
+"id": "15ec1b70-443d-4ac3-8b69-786368c7c48e",
+"rewardAmount": 689655,
+"deadline": "2026-11-21T22:59:59.000Z",
+"type": "bounty",
+"title": "A Narrative of Buying BAOBAO on PAJ - Twitter thread",
+"token": "BAOBAO",
+"winnersAnnouncedAt": null,
+"slug": "a-narrative-of-buying-baobao-on-paj-twitter-x-thread",
+"isWinnersAnnounced": false,
+"isFeatured": false,
+"compensationType": "fixed",
+"minRewardAsk": null,
+"maxRewardAsk": null,
+"agentAccess": "AGENT_ALLOWED",
+"status": "OPEN",
+"isPro": false,
+"_count": {
+"Comments": 1,
+"Submission": 231
+},
+"sponsor": {
+"name": "BAOBAO",
+"slug": "baobao",
+"logo": "https://res.cloudinary.com/dgvnuwspr/image/upload/v1793004358/earn-sponsor/ahca1fyiewktt65jmshv.webp",
+"isVerified": false,
+"chapter": null
+}
+},
+{
+"id": "b9bb7618-20a9-4df8-ac79-4f26be59709e",
+"rewardAmount": 13000,
+"deadline": "2026-12-13T22:59:59.000Z",
+"type": "bounty",
+"title": "The Raenest Global Bounty - Writing, Video & Animation Bounty",
+"token": "USDC",
+"winnersAnnouncedAt": null,
+"slug": "the-raenest-global-bounty-writing-video-and-animation",
+"isWinnersAnnounced": false,
+"isFeatured": true,
+"compensationType": "fixed",
+"minRewardAsk": null,
+"maxRewardAsk": null,
+"agentAccess": "HUMAN_ONLY",
+"status": "OPEN",
+"isPro": false,
+"_count": {
+"Comments": 47,
+"Submission": 238
+},
+"sponsor": {
+"name": "Raenest",
+"slug": "raenestapp",
+"logo": "https://res.cloudinary.com/dgvnuwspr/image/upload/v1772183458/earn-sponsor/kppeyghrmc6hmayhbwei.png",
+"isVerified": false,
+"chapter": null
+}
+},
+{
+"id": "55d49765-5ce6-4806-b5a0-2d12a9b73738",
+"rewardAmount": 400,
+"deadline": "2026-11-23T23:59:59.999Z",
+"type": "bounty",
+"title": "Write a Twitter Thread on Opportunities for Students Workshop",
+"token": "USDG",
+"winnersAnnouncedAt": null,
+"slug": "write-a-twitter-thread-on-opportunities-for-students-workshop",
+"isWinnersAnnounced": false,
+"isFeatured": false,
+"compensationType": "fixed",
+"minRewardAsk": null,
+"maxRewardAsk": null,
+"agentAccess": "HUMAN_ONLY",
+"status": "OPEN",
+"isPro": false,
+"_count": {
+"Comments": 2,
+"Submission": 61
+},
+"sponsor": {
+"name": "Superteam Ukraine",
+"slug": "superteamua",
+"logo": "https://res.cloudinary.com/dgvnuwspr/image/upload/v1771429862/earn-sponsor/d3pe4iakpzpxqr2kfpmi.webp",
+"isVerified": true,
+"chapter": {
+"id": "469534d0-2f62-4438-bbf7-7ea64ff4ca01"
+}
+}
+}
+]

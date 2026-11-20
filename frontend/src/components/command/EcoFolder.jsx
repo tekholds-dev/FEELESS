@@ -3,6 +3,7 @@ import { Ic3 } from '../../lib/icon3d';
 import { ProofHead, ProofKit, ProofTile } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
 import { EcoLive } from './EcoLive';
+import { EarnBoard, EarnFiling, useEarn } from './EarnDesk';
 import '../../styles/ecoFolder.css';
 
 // 📊 PoEco REBUILT (owner 2026-11-13: "forget any ideas on PoEco and just build what you want that competes with the other proofs").
@@ -44,7 +45,7 @@ function Rail({ rows, busy, onCall, onOpen, onCommand }) {
     <p className="eco-say">It reads the deepest live pools, states its rule, calls it blind and seals the numbers. Reality grades it in 24h. No model, no mark, no money.</p>
     <button type="button" className="m-btn m-go" disabled={busy} onClick={onCall} data-tip="One sealed call on live DexScreener pools" data-testid="eco-call-go">{busy ? 'Reading the pools…' : 'File a market call'}</button></section>
     <section className="eco-filed" aria-label="Filed PoEco proofs"><h4 className="m-label">FILED <b className="m-num">{rows.length}</b></h4>
-      {rows.length ? <div className="eco-tiles" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'live'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={f.kind === 'market' ? (f.graded ? f.graded.toUpperCase() : left(f.due)) : usd(f.net)} tip={f.q || f.topic} onOpen={() => onOpen(f)} testid={`eco-${f.id}`} test={f.test} />)}</div> : <p className="eco-say">No call filed yet. The first one shows here.</p>}</section>
+      {rows.length ? <div className="eco-tiles" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic={f.kind === 'earn' ? '💼' : '📊'} tone={f.kind === 'earn' ? (f.graded?.result === 'paid' ? 'good' : f.graded ? 'bad' : 'live') : f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'live'} print={[f.id, mark(f.kind === 'earn' ? (f.graded?.result === 'paid' ? 'right' : f.graded ? 'wrong' : null) : f.graded)]} label={`PoEco #${f.n}`} sub={f.kind === 'earn' ? (f.graded ? f.graded.result.toUpperCase() : String(f.stage || '').replace('_', ' ')) : f.kind === 'market' ? (f.graded ? f.graded.toUpperCase() : left(f.due)) : usd(f.net)} tip={f.q || f.topic} onOpen={() => onOpen(f)} testid={`eco-${f.id}`} test={f.test} />)}</div> : <p className="eco-say">No call filed yet. The first one shows here.</p>}</section>
     <ProofKit kind="poe" folders={rows} onCommand={onCommand} /></>;
 }
 
@@ -60,11 +61,13 @@ export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse, focus
   useEffect(() => { const f = focus?.id && rows.find(x => x.id === focus.id); if (f) setOpen(f); }, [focus?.at, rows.length]);   // eslint-disable-line react-hooks/exhaustive-deps -- 🎯 AGX-1: the picker opens this very proof
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
+  const earn = useEarn(cat, work);   // 💼 Slice 16: the earn board + filings (its own calls; every filing lands in poeFolders too)
+  useEffect(() => { if (earn.v?.poeFolders) onRows(earn.v.poeFolders); }, [earn.v?.poeFolders]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); if (j.poeFolders) onRows(j.poeFolders); } catch (e) { setErr(e.message); } finally { setBusy(false); } }, [work, cat.id, onRows]);
   useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (rows.some(f => f.kind === 'market' && !f.graded && f.due * 1000 <= Date.now())) act({ op: 'eco_grade' }); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
-    <div className="prf-main">{open ? (open.kind === 'market' ? <MarketCall f={open} onBack={() => setOpen(null)} busy={busy} onGrade={() => act({ op: 'eco_grade' })} /> : <OldBook f={open} onBack={() => setOpen(null)} />) : <EcoLive />}
-      {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</div>
+    <div className="prf-main">{open?.kind === 'earn' ? <EarnFiling f={open} onBack={() => setOpen(null)} busy={earn.busy} act={earn.call} /> : open ? (open.kind === 'market' ? <MarketCall f={open} onBack={() => setOpen(null)} busy={busy} onGrade={() => act({ op: 'eco_grade' })} /> : <OldBook f={open} onBack={() => setOpen(null)} />) : <><EarnBoard v={earn.v} busy={earn.busy} onFind={() => earn.call({ op: 'earn_find' })} onBid={id => earn.call({ op: 'earn_bid', text: id })} /><EcoLive /></>}
+      {err || earn.err ? <p className="lct-err" role="alert">⚠ {err || earn.err}</p> : null}</div>
     <aside className="prf-rail"><Rail rows={rows} busy={busy} onCall={() => act({ op: 'eco_call' })} onOpen={setOpen} onCommand={onCommand} /></aside></div>;
 }

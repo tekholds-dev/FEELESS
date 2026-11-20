@@ -177,6 +177,11 @@ TRADE_KEYS = ('sym', 'name', 'sol', 'cashSpentSol', 'cashReturnedSol', 'poolSpen
 
 def deal_of(kind, f, bids):
     """💲 The bid or the trade, and its receipt. Order ids and transaction signatures stay off the file (they lead back to the owner); the file says one was kept."""
+    if kind == 'poe' and f.get('kind') == 'earn':   # 💼 Slice 16: the kept bid and, once paid, the receipt (fees on it, never in the profit)
+        b = f.get('bid') or {}; lst = f.get('listing') or {}
+        return {'type': 'bid', 'venue': (f.get('platform') or {}).get('name'), 'paper': f.get('stage') in ('bid', 'bid_approved'), 'rows': [{'listing': lst.get('title'), 'url': lst.get('url'), 'pay': lst.get('pay'),
+                'price': b.get('price'), 'days': b.get('days'), 'stage': f.get('stage'), 'bid': str(b.get('bid') or '')[:1200]}],
+                'receipt': f.get('receipt'), 'graded': f.get('graded'), 'say': 'FEELESS never sends it: the owner approves, then sends it from his own account.'}
     if kind == 'pob':
         mine = [b for b in bids or [] if isinstance(b, dict) and b.get('folder') == f.get('id')]
         rows = [{**{k: b.get(k) for k in BID_KEYS if b.get(k) not in (None, '')}, 'legs': [{k: x.get(k) for k in ('ticker', 'title', 'side', 'price') if isinstance(x, dict) and x.get(k) is not None} for x in _rows(b.get('legs'))][:12],
@@ -233,13 +238,13 @@ def record(key, f, cat_id=None, by_ref=None, bids=None, now=None):
     steps, judge_calls = steps_of(kind, f, by_ref or {})
     if not steps:
         at = _f(f.get('at'))
-        miss.append('The step log: PoEco makes no model call.' if kind == 'poe' else
+        miss.append('The step log: PoEco makes no model call.' if kind == 'poe' and not (kind == 'poe' and f.get('kind') == 'earn') else
                     'The step log: it was filed before the call log began.' if at and at < LOG_FROM else
                     'The step log: no model call was logged for this proof.')
     kits = [str(k)[:60] for k in _rows(f.get('kits')) + _rows(f.get('kitsUsed')) if isinstance(k, str)]
     did = [{'name': k.get('name'), 'did': str(k.get('did') or '')[:200]} for k in _rows(f.get('kitsDid')) if isinstance(k, dict)]
     if not kits and not did:
-        miss.append('Kits used: none were recorded.' if kind not in ('poe', 'pow') else 'Kits used: ' + ('PoEco is pure math.' if kind == 'poe' else 'PoW reads its own coin tools.'))
+        miss.append('Kits used: none were recorded.' if kind not in ('poe', 'pow') or (kind == 'poe' and f.get('kind') == 'earn') else 'Kits used: ' + ('PoEco is pure math.' if kind == 'poe' else 'PoW reads its own coin tools.'))
     rv = _review(f.get('review'))
     if not rv:
         miss.append('Judge reviews: this proof was never reviewed.')

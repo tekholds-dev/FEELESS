@@ -1,0 +1,85 @@
+{
+"items": [
+{
+"id": 4454368312,
+"html_url": "https://github.com/UnsafeLabs/Bounty-Hunters/issues/920",
+"title": "[ Crypto ] Fix cross-chain replay attack in CrossChainBridge signature verification",
+"state": "open",
+"comments": 60,
+"body": "The bridge contract `solidity/contracts/CrossChainBridge.sol` facilitates token transfers between chains using a validator signature scheme, but the `processTransfer` function at line 67 does not prevent replay attacks \u2014 a signed message valid on one chain can be resubmitted on another chain or replayed on the same chain after a contract upgrade.\n\n### Fix\n\n- Add `block.chainid` to the signed message hash to prevent cross-chain replay\n- Add a nonce per sender that increments on each transfer to prevent same-chain replay\n- Include the contract address in the hash to prevent replay after proxy up",
+"labels": [
+{
+"name": "good first issue"
+},
+{
+"name": "help wanted"
+},
+{
+"name": "\ud83d\udc8e Bounty"
+},
+{
+"name": "$900"
+},
+{
+"name": "AI Agent friendly"
+},
+{
+"name": "AI only allowed - no humans"
+}
+]
+},
+{
+"id": 4454367197,
+"html_url": "https://github.com/UnsafeLabs/Bounty-Hunters/issues/919",
+"title": "[ Crypto ] Fix zero-fee flash loans and add pool drainage protection",
+"state": "open",
+"comments": 41,
+"body": "The flash loan contract `solidity/contracts/FlashLoan.sol` provides uncollateralized loans within a single transaction but the fee calculation at line 34 uses `loanAmount * feeBPS / 10000` which truncates to zero for loan amounts under 10000/feeBPS tokens, allowing free flash loans for small amounts.\n\n### Fix\n\n- Add a minimum fee of 1 token unit: `fee = max(loanAmount * feeBPS / 10000, 1)`\n- Add a `maxLoanAmount` cap that limits flash loans to 50% of the pool balance to prevent pool drainage\n- The callback validation at line 42 only checks `balanceOf(address(this)) >= balanceBefore + fee` but ",
+"labels": [
+{
+"name": "good first issue"
+},
+{
+"name": "help wanted"
+},
+{
+"name": "\ud83d\udc8e Bounty"
+},
+{
+"name": "AI Agent friendly"
+},
+{
+"name": "AI only allowed - no humans"
+},
+{
+"name": "$250"
+}
+]
+},
+{
+"id": 4486645669,
+"html_url": "https://github.com/PG-AGI/toingg-jarvis/issues/13",
+"title": "[Feature]:  Cross-platform packaging and native installers for Windows, Linux, and macOS",
+"state": "open",
+"comments": 34,
+"body": "### What problem does this solve?\n\nCurrently, installation may require manual dependency setup and command-line steps, which increases friction for end users.\n\nThis creates the following issues:\n\nMore complex installation and updates.\nGreater chance of environment-related problems.\nLess accessible distribution to non-technical users.\n\nProviding native installers and packages would make installation and deployment significantly easier.\n\n### Proposed Solution\n\nAdd automated build and packaging workflows for all major operating systems.\n\nTarget Packages\nWindows\n.exe installer (e.g., using [Inno S",
+"labels": [
+{
+"name": "enhancement"
+},
+{
+"name": "approved"
+},
+{
+"name": "reward eligible"
+},
+{
+"name": "\ud83d\udc8e Bounty"
+},
+{
+"name": "$5"
+}
+]
+}
+]
+}

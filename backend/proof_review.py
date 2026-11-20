@@ -57,6 +57,11 @@ RUBRIC_PROPOSAL = {   # 🧑‍⚖️ Slice 6: a PoW proposal buys nothing (ever
             "2. The minds' reason is backed by that data, not by hype or one number", '3. The pick was better than the other shortlist coins it could have picked',
             "4. The proposed stop and take-profit fit the coin's risk and size", '5. The proposal is ready to run as it stands: coin, size, stop and take-profit set, the risk named'],
 }
+RUBRIC_EARN = [   # 💼 Slice 16: a PoEco earn filing (a real open listing, the kept bid; after a win, the deliverable)
+    '1. The listing is real and open, from a public feed, and faceless work the minds can do', "2. The platform's terms allow AI-made work (and the listing's own access flag, if any)",
+    '3. The bid (or the deliverable) answers THIS listing specifically, with no fluff and no claim to be a human or to join a call',
+    '4. The price and days fit the listed pay and deadline; the expected profit after the minds\' cost is positive',
+    '5. Nothing was sent or delivered without the owner\'s approve (the stages show who moved it)']
 RUBRIC_MARKET = {   # 🧑‍⚖️ Slice 6: a PoEco market call (pure math on live pools, graded by reality a day later), judged once it is sealed
     'poe': ['1. Both pools and their numbers come from a real live read (the pages read)', '2. The question is measurable and settles on a real number at the stated time',
             '3. The pick follows the stated rule from the baseline numbers (higher 24h volume / liquidity)', '4. Both pools are live and deep enough for the call to mean something',
@@ -82,6 +87,8 @@ def rubric_of(kind, f):
         return RUBRIC_SAT_OUT['pop']
     if kind == 'poe' and f.get('kind') == 'market':
         return RUBRIC_MARKET['poe']
+    if kind == 'poe' and f.get('kind') == 'earn':
+        return RUBRIC_EARN
     if kind == 'pow' and proposal(f):
         return RUBRIC_PROPOSAL['pow']
     return RUBRIC.get(kind, [])
@@ -113,6 +120,11 @@ def _evidence(kind, f):
                'pagesRead': list(((f.get('read') or {}).get('pages') or []))[:4], 'footprintNewPct': (f.get('foot') or {}).get('pct'),
                'graded': f.get('graded') or 'not yet: reality grades it at settlesAt; judge the call, not an outcome', 'after': f.get('after')}
         return {k: v for k, v in out.items() if v is not None}
+    if kind == 'poe' and f.get('kind') == 'earn':   # 💼 Slice 16: the listing, the platform's terms, the kept bid, the stages, the deliverable once made
+        b = f.get('bid') or {}; w = f.get('work') or {}
+        return {'listing': {k: v for k, v in (f.get('listing') or {}).items() if v not in (None, '')}, 'platform': {k: (f.get('platform') or {}).get(k) for k in ('name', 'terms', 'how')},
+                'bid': {k: b.get(k) for k in ('bid', 'plan', 'price', 'days', 'risks') if b.get(k)}, 'stages': [{k: s_.get(k) for k in ('stage', 'by')} for s_ in (f.get('stages') or [])[-8:]],
+                **({'deliverable': str(w.get('text') or '')[:2400]} if w.get('text') else {})}
     if kind == 'poe':
         out = {k: f.get(k) for k in ('topic', 'income', 'costs', 'net', 'margin', 'months', 'count', 'burnPerMonth', 'taxPct', 'taxSetAside') if f.get(k) is not None}
         out['fieldsMean'] = 'income / costs / net = totals of every month; margin = net / income %; count = ledger entries (not months); burnPerMonth = average monthly costs; taxSetAside = net x taxPct'
@@ -247,7 +259,7 @@ def builders_of(f, cfg, kind):
     own = [str(m) for m in f.get('minds') or [] if m] if isinstance(f.get('minds'), list) else []
     if ran_ or own:   # both kept: a call the log missed never lets its builder judge it
         return ran_ + [m for m in own if m not in ran_]
-    return [] if kind == 'poe' else launch_cat.minds_for(cfg or {}, kind)   # 📊 Slice 6: no model ever builds a PoEco (books and market calls are Python), so no judge sits one out
+    return [] if kind == 'poe' and (f or {}).get('kind') != 'earn' else launch_cat.minds_for(cfg or {}, kind)   # 💼 Slice 16: an earn filing's minds DID build it   # 📊 Slice 6: no model ever builds a PoEco (books and market calls are Python), so no judge sits one out
 
 
 def recused(builders):

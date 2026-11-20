@@ -86,6 +86,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/PocStudioHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/clipfarm') {   // ✂ Slice 15: the clip farm on Sicario's real TEST clip run (?running, ?empty, ?day) (src/dev/ClipFarmHarness.jsx)
   import('./dev/ClipFarmHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/ecoearn') {   // 💼 Slice 16: PoEco's earn board + filing on Happy's real TEST run (?filing, ?approved, ?day) (src/dev/EcoEarnHarness.jsx)
+  import('./dev/EcoEarnHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/legal') {   // 🧪 LEGAL-1: accept window, Your data, HQ Legal & regions on fixtures (src/dev/LegalHarness.jsx)
   import('./dev/LegalHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/swap') {   // 🧪 Slice 4: the PoC video swap panel + a filed swap (?day, ?empty, ?running) (src/dev/SwapHarness.jsx)

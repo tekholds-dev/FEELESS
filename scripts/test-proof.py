@@ -61,7 +61,9 @@ def summary(last):
             + ''.join(f"\n  inspect {r.get('sel')}: {'CHANGED' if r.get('changed') else 'GONE' if r.get('gone') else 'SAME'} · before {((r.get('before') or {}).get('text') or '')[:60]!r} → after {((r.get('after') or {}).get('text') or '')[:60]!r}" for r in ((last.get('inspect') or {}).get('run') or {}).get('rows') or [])
             + (lambda k: f"\n  progress: kept {k.get('kept')}/{k.get('had')} of page {k.get('from')}, lost {k.get('lost')}" if k and k.get('from') else '')(last.get('keep'))
             + (lambda s: f"\n  PoC trend: {(s.get('trend') or {}).get('text')} ({(s.get('trend') or {}).get('source')})\n  PoC files: {sum(1 for x in s.get('files') or [] if x.get('url'))}/{len(s.get('files') or []) or 12} · goal {(s.get('goal') or {}).get('target')} {(s.get('goal') or {}).get('type')} by {(s.get('goal') or {}).get('by')}"
-               if s else '')(last.get('studio') if isinstance(last.get('studio'), dict) else None))
+               if s else '')(last.get('studio') if isinstance(last.get('studio'), dict) else None)
+            + (lambda l: f"\n  earn: {l.get('title')} ({l.get('src')}) · {l.get('pay')} · {l.get('cat')} · score {l.get('score')} · minds ${l.get('cost')} · expected profit ${l.get('expProfit')}\n  bids: {[(b.get('mind'), b.get('score')) for b in last.get('bids') or []]} kept {last.get('kept')} · stage {last.get('stage')} · kits {last.get('kits')}"
+               if l else '')(last.get('listing') if last.get('kind') == 'earn' else None))
 
 
 def main():
@@ -79,6 +81,7 @@ def main():
     ap.add_argument('--spin', type=float, default=0)
     ap.add_argument('--clip', default='', help='PoC only (Slice 15): a video file (≤ 5 min) uploaded to the clip farm, through the same upload door the owner uses')
     ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
+    ap.add_argument('--earn', action='store_true', help="PoEco only (Slice 16): an earn filing: a real open listing from the public feeds, both minds bid blind, nothing sent (--topic = a listing id from the board; '' = its best)")
     ap.add_argument('--dash', action='store_true', help='PoB only: file through the PoB dashboard door (op pob: a tap on What to file next), not the chat line')
     ap.add_argument('--slip', default='', help='PoB only, with --dash: his own slip as JSON, [{"ticker": "...", "side": "yes|no", "title": "..."}]')
     ap.add_argument('--inspect', action='append', default=[], help='PoStatic + --ws: a CSS query for the element to click with inspect (repeatable); --topic is the fix')
@@ -96,7 +99,7 @@ def main():
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
                             **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
                             **({'ws': a.ws} if a.ws and a.kind == 'pos' else {}),
-                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
+                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'door': 'earn'} if a.earn and a.kind == 'poe' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
                             **({'inspect': [{'click': q, 'note': a.topic} for q in a.inspect]} if a.inspect and a.ws and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:

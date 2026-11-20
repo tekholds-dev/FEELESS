@@ -83,17 +83,22 @@ def last_ran(kind, folders, calls, pair):
     live = ran(calls, kind, refs_of(f), 0.0, _f(f.get('closedAt') or f.get('at')) or None)
     seen = live or _rows(f.get('ran'))
     then = [str(m) for m in (f.get('mindsCheck') or {}).get('set') or [] if m]   # the pair it was filed under (the record), else what ran
-    chk = match(seen, then or pair, kind)
+    chk = match(seen, then or pair, kind, f)
     did = [r['asked'] for r in seen if r.get('ok')]
     pair = [str(m) for m in pair or [] if m]
     return {'id': f['id'], 'n': f.get('n'), 'test': bool(f.get('test')), 'at': _f(f.get('closedAt') or f.get('at')), 'ran': seen, 'check': chk,
-            'pairNow': pair, 'changed': bool(did) and kind not in NO_MINDS and sorted(then or did) != sorted(pair), 'fromLog': bool(live)}
+            'pairNow': pair, 'changed': bool(did) and not no_minds(kind, f) and sorted(then or did) != sorted(pair), 'fromLog': bool(live)}
 
 
-def match(ran_, pair, kind=None):
+def no_minds(kind, f=None):
+    """A kind whose proof makes no model call (a PoEco market call). 💼 Slice 16: a PoEco EARN filing does: its minds draft the bid."""
+    return kind in NO_MINDS and (f or {}).get('kind') != 'earn'
+
+
+def match(ran_, pair, kind=None, f=None):
     """Do the minds that really answered match the pair set for this kind? → {ok, set, ran, missing, extra, why}"""
     pair = [str(m) for m in pair or [] if m]; did = [r['asked'] for r in ran_ or [] if r.get('ok')]
-    if kind in NO_MINDS:
+    if no_minds(kind, f):
         return {'ok': not did, 'set': pair, 'ran': did, 'missing': [], 'extra': did, 'why': NO_MINDS[kind]}
     missing = [m for m in pair if m not in did]; extra = [m for m in did if m not in pair]; stood = [r['asked'] for r in ran_ or [] if r.get('standIn')]
     if not did:
@@ -192,7 +197,7 @@ def _clip_from(f):
 
 def checks(kind, f, pair):
     """The VISION checks for every proof, on this one folder. → [{key, label, ok, why}]"""
-    m = f.get('mindsCheck') or match(f.get('ran'), pair, kind); rd = f.get('read') or sources(kind, f); ft = f.get('foot') or {}
+    m = f.get('mindsCheck') or match(f.get('ran'), pair, kind, f); rd = f.get('read') or sources(kind, f); ft = f.get('foot') or {}
     kits = [k for k in _rows(f.get('kits')) if k]
     rows = [
         {'key': 'minds', 'label': 'The minds that really ran, from the call log', 'ok': bool(m.get('ok')), 'why': m.get('why')},
@@ -201,7 +206,7 @@ def checks(kind, f, pair):
         {'key': 'footprint', 'label': 'A new footprint (a repeat is sent back first)', 'ok': not ft.get('repeat'),
          'why': (f"{ft.get('pct')}% new" + (f" next to #{ft.get('nearest')}" if ft.get('nearest') else '') + (', after one send-back' if ft.get('sentBack') else ''))
          if not ft.get('repeat') else f"still {100 - int(ft.get('pct') or 0)}% like #{ft.get('nearest')} after one send-back"},
-        {'key': 'kits', 'label': "Its kind's own kits, and which it used", 'ok': bool(kits) or kind in ('poe', 'pow'),
+        {'key': 'kits', 'label': "Its kind's own kits, and which it used", 'ok': bool(kits) or kind == 'pow' or no_minds(kind, f),
          'why': ', '.join(map(str, kits[:6])) if kits else ('PoEco uses no kit: pure math' if kind == 'poe' else 'PoW reads its own coin tools' if kind == 'pow' else 'no kit was recorded')},
     ]
     kd = [k for k in _rows(f.get('kitsDid')) if isinstance(k, dict)]
@@ -253,6 +258,9 @@ def checks(kind, f, pair):
         rows.append({'key': 'comp', 'label': 'Handed COMP one task: the ask and the answer (one per filing, owner agents only)', 'ok': t.get('status') == 'done',
                      'why': (f"asked \"{str(t.get('ask'))[:90]}\"; {len(t.get('facts') or [])} facts back" + (f", read fresh: {', '.join(t.get('read') or [])}" if t.get('read') else '')
                              + (f"; {len(ct.get('refused') or [])} more asks refused" if ct.get('refused') else '')) if t else 'refused: ' + str(((ct.get('refused') or [{}])[0]).get('why'))[:160]})
+    if kind == 'poe' and f.get('kind') == 'earn':   # 💼 Slice 16: terms, finder, both bids, the approve door, graded on real money
+        import eco_earn as _earn
+        rows += _earn.record_rows(f)
     if kind == 'poc':   # 🎬 Slice 5: trend first, the real files, the owner's approve, reach graded against the goal set at filing
         rows += _studio.record_rows(f)
     return rows
@@ -265,7 +273,7 @@ def stamp(kind, f, calls, pair, earlier, since=0.0, back=None, test=None, now=No
     did = [r['asked'] for r in f['ran'] if r.get('ok')]
     if did and not isinstance(f.get('minds'), (int, float)):   # PoW keeps its own count of minds; every other kind keeps the ids
         f['minds'] = did
-    f['mindsCheck'] = match(f['ran'], pair, kind)
+    f['mindsCheck'] = match(f['ran'], pair, kind, f)
     f['read'] = sources(kind, f)
     g = gate(kind, f, earlier)
     f['foot'] = {'pct': round((1 - g['like']) * 100), 'nearest': g['nearest'], 'shared': g['shared'], 'repeat': g['repeat'],

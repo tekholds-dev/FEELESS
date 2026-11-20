@@ -1,0 +1,831 @@
+{
+"cat": "e23464a6114e492c8ac6fee02a19c1d6",
+"folder": {
+"id": "earn1795195066",
+"n": 2,
+"kind": "earn",
+"at": 1795195122,
+"status": "closed",
+"paper": true,
+"topic": "Freelancer.com: Industrial Stairs and Handrails Design",
+"listing": {
+"src": "freelancer",
+"id": "freelancer:40827936",
+"title": "Industrial Stairs and Handrails Design",
+"url": "https://www.freelancer.com/projects/3d-cad/Industrial-Stairs-Handrails-Design",
+"pay": "$20,000\u201350,000 USD",
+"payUsd": 35000.0,
+"deadline": 1795279993.0,
+"daysLeft": 1.0,
+"rivals": 5,
+"cat": "design",
+"fitWhy": "design: design",
+"cost": 0.0179,
+"chance": 0.5,
+"expProfit": 17499.98,
+"hours": 3,
+"parts": {
+"fit": 30,
+"pay": 27.3,
+"deadline": 6.6,
+"profit": 20
+},
+"score": 84,
+"access": null,
+"repo": null,
+"aiRule": null,
+"sponsor": null
+},
+"platform": {
+"id": "freelancer",
+"name": "Freelancer.com",
+"terms": "No ban on AI-made work found in its terms; bots that cheat or bypass its systems are banned. So FEELESS never bids: the owner pastes the approved bid and sends it himself.",
+"how": "The owner bids from his own Freelancer account; the client pays him there.",
+"src": "https://www.freelancer.com/about/terms"
+},
+"bids": [
+{
+"mind": 0,
+"score": 91,
+"why": [
+"95 words",
+"4 of the listing's words",
+"5 plan steps",
+"$35000 within the pay",
+"1 days fits the deadline"
+],
+"bid": "You need industrial stairs and handrails designed for platforms and mezzanines. I can deliver a 3D model with fabrication-ready drawings in AutoCAD or SolidWorks format within your timeline. I'll need: number of stair runs, platform heights, load requirements (live/dead), and which code applies (OSHA 1910.25, IBC, or EN ISO 14122). Deliverables: 3D model, plan/elevation/section drawings, and a bill of materials. AI-assisted drafting with full human review on every dimension and code check. One question: do you have existing structural drawings of the platforms these connect to, or do I work from site dimensions you provide?",
+"plan": [
+"Collect platform heights, spans, and applicable code from client",
+"Model stair runs and handrail assemblies in 3D CAD",
+"Produce fabrication drawings with dimensions, welds, and material specs",
+"Check against OSHA/IBC/EN ISO clearances and load requirements",
+"Deliver model files + PDF drawing set + BOM"
+],
+"price": 35000.0,
+"days": 1.0,
+"risks": [
+"Listing budget is almost certainly fake \u2014 classic Freelancer.com bait pattern",
+"1-day deadline is unrealistic for code-compliant structural design",
+"No scope details provided \u2014 likely a trap to collect proposals",
+"Structural work may require a licensed PE stamp which we cannot provide"
+],
+"fit": 1.0
+},
+{
+"mind": 1,
+"score": 95,
+"why": [
+"108 words",
+"4 of the listing's words",
+"4 plan steps",
+"$20000 within the pay",
+"1 days fits the deadline"
+],
+"bid": "You need industrial stairs and handrails for platforms and mezzanines\n\nI can prepare a preliminary design package with a 3D CAD model, dimensioned drawings, connection details and a list of design assumptions. I\u2019ll use AI to assist, and I\u2019ll review the work before delivery\n\nFor $20,000, I can deliver within 1 day if the required inputs arrive at the start. The package will be for engineering review, not construction: site surveys, fabrication and licensed structural approval are not included\n\nThe listing excerpt cuts off after \u201cmezzanines,\u201d so I haven\u2019t checked the full scope. Can you share the complete brief, platform dimensions, required loads, site jurisdiction and existing drawings?\n\nDrafted with AI help; I review and stand behind everything I deliver.",
+"plan": [
+"Use Bid Desk to check the full listing and agree on scope, inputs and deliverables",
+"Develop a preliminary stair and handrail layout from the supplied platform dimensions",
+"Produce a 3D CAD model and dimensioned drawings in agreed formats",
+"Review the package and document assumptions and items requiring structural approval"
+],
+"price": 20000.0,
+"days": 1.0,
+"risks": [
+"The listing excerpt is incomplete, so the full scope and required file formats are unknown",
+"Missing dimensions, loads or jurisdiction could prevent delivery within one day",
+"Construction use requires qualified structural review and applicable approvals"
+],
+"fit": 5.0
+}
+],
+"kept": 1,
+"bid": {
+"bid": "You need industrial stairs and handrails for platforms and mezzanines\n\nI can prepare a preliminary design package with a 3D CAD model, dimensioned drawings, connection details and a list of design assumptions. I\u2019ll use AI to assist, and I\u2019ll review the work before delivery\n\nFor $20,000, I can deliver within 1 day if the required inputs arrive at the start. The package will be for engineering review, not construction: site surveys, fabrication and licensed structural approval are not included\n\nThe listing excerpt cuts off after \u201cmezzanines,\u201d so I haven\u2019t checked the full scope. Can you share the complete brief, platform dimensions, required loads, site jurisdiction and existing drawings?\n\nDrafted with AI help; I review and stand behind everything I deliver.",
+"plan": [
+"Use Bid Desk to check the full listing and agree on scope, inputs and deliverables",
+"Develop a preliminary stair and handrail layout from the supplied platform dimensions",
+"Produce a 3D CAD model and dimensioned drawings in agreed formats",
+"Review the package and document assumptions and items requiring structural approval"
+],
+"price": 20000.0,
+"days": 1.0,
+"risks": [
+"The listing excerpt is incomplete, so the full scope and required file formats are unknown",
+"Missing dimensions, loads or jurisdiction could prevent delivery within one day",
+"Construction use requires qualified structural review and applicable approvals"
+],
+"fit": 5.0
+},
+"cost": 0.02764,
+"stage": "bid",
+"stages": [
+{
+"stage": "bid",
+"at": 1795195122,
+"by": "minds"
+}
+],
+"sources": {
+"listing": [
+{
+"url": "https://www.freelancer.com/projects/3d-cad/Industrial-Stairs-Handrails-Design"
+}
+],
+"feeds": [
+{
+"url": "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112"
+},
+{
+"url": "https://superteam.fun/api/listings/?type=bounty&take=40"
+},
+{
+"url": "https://superteam.fun/api/listings/?type=project&take=40"
+},
+{
+"url": "https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated"
+},
+{
+"url": "https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created"
+},
+{
+"url": "https://raw.githubusercontent.com/SecureBananaLabs/bug-bounty/HEAD/CONTRIBUTING.md"
+},
+{
+"url": "https://raw.githubusercontent.com/PG-AGI/toingg-jarvis/HEAD/CONTRIBUTING.md"
+},
+{
+"url": "https://raw.githubusercontent.com/BAWES-Universe/workadventure-universe/HEAD/CONTRIBUTING.md"
+},
+{
+"url": "https://raw.githubusercontent.com/UnsafeLabs/Bounty-Hunters/HEAD/CONTRIBUTING.md"
+}
+]
+},
+"kits": [
+"HeroUI",
+"Bid Desk",
+"React Three Fiber"
+],
+"callRefs": [
+"earn1795195066"
+],
+"sitesRead": [
+{
+"host": "dexscreener.com",
+"ok": true
+},
+{
+"host": "superteam.fun",
+"ok": true
+},
+{
+"host": "superteam.fun",
+"ok": true
+},
+{
+"host": "freelancer.com",
+"ok": true
+},
+{
+"host": "api.github.com",
+"ok": true
+},
+{
+"host": "raw.githubusercontent.com",
+"ok": true
+},
+{
+"host": "raw.githubusercontent.com",
+"ok": true
+},
+{
+"host": "raw.githubusercontent.com",
+"ok": true
+},
+{
+"host": "raw.githubusercontent.com",
+"ok": true
+}
+],
+"testRun": true,
+"ran": [
+{
+"asked": "openai/gpt-6.1-terra",
+"answered": [
+"openai/gpt-6.1-terra"
+],
+"routes": [
+"openrouter (own key)"
+],
+"calls": 1,
+"ok": 1,
+"usd": 0.005206,
+"secs": 12.3,
+"standIn": false
+},
+{
+"asked": "qwen/qwen3.8-max-0902",
+"answered": [
+"qwen/qwen3.8-max-0902"
+],
+"routes": [
+"openrouter (own key)"
+],
+"calls": 1,
+"ok": 1,
+"usd": 0.02243,
+"secs": 55.0,
+"standIn": false
+}
+],
+"minds": [
+"openai/gpt-6.1-terra",
+"qwen/qwen3.8-max-0902"
+],
+"mindsCheck": {
+"ok": true,
+"set": [
+"qwen/qwen3.8-max-0902",
+"openai/gpt-6.1-terra"
+],
+"ran": [
+"openai/gpt-6.1-terra",
+"qwen/qwen3.8-max-0902"
+],
+"missing": [],
+"extra": [],
+"why": "openai/gpt-6.1-terra + qwen/qwen3.8-max-0902 ran, the pair set for it"
+},
+"read": {
+"sites": [
+"api.github.com",
+"dexscreener.com",
+"freelancer.com",
+"raw.githubusercontent.com",
+"superteam.fun"
+],
+"pages": [
+"https://www.freelancer.com/projects/3d-cad/Industrial-Stairs-Handrails-Design",
+"https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112",
+"https://superteam.fun/api/listings/?type=bounty&take=40",
+"https://superteam.fun/api/listings/?type=project&take=40",
+"https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated",
+"https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created",
+"https://raw.githubusercontent.com/SecureBananaLabs/bug-bounty/HEAD/CONTRIBUTING.md",
+"https://raw.githubusercontent.com/PG-AGI/toingg-jarvis/HEAD/CONTRIBUTING.md",
+"https://raw.githubusercontent.com/BAWES-Universe/workadventure-universe/HEAD/CONTRIBUTING.md",
+"https://raw.githubusercontent.com/UnsafeLabs/Bounty-Hunters/HEAD/CONTRIBUTING.md"
+]
+},
+"foot": {
+"pct": 80,
+"nearest": 1,
+"shared": [],
+"repeat": false,
+"sentBack": 0
+},
+"test": {
+"by": "Claude",
+"at": 1795195067,
+"agent": "Happy Assistant",
+"free": true,
+"pair": [
+"qwen/qwen3.8-max-0902",
+"openai/gpt-6.1-terra"
+],
+"run": "38614ca7a6",
+"bench": "c06062e92691"
+},
+"proofChecks": [
+{
+"key": "minds",
+"label": "The minds that really ran, from the call log",
+"ok": true,
+"why": "openai/gpt-6.1-terra + qwen/qwen3.8-max-0902 ran, the pair set for it"
+},
+{
+"key": "sources",
+"label": "Every source it read is listed",
+"ok": true,
+"why": "5 sites, 10 pages"
+},
+{
+"key": "footprint",
+"label": "A new footprint (a repeat is sent back first)",
+"ok": true,
+"why": "80% new next to #1"
+},
+{
+"key": "kits",
+"label": "Its kind's own kits, and which it used",
+"ok": true,
+"why": "HeroUI, Bid Desk, React Three Fiber"
+},
+{
+"key": "terms",
+"label": "The platform's terms allow AI-made work and our flow",
+"ok": true,
+"why": "Freelancer.com: No ban on AI-made work found in its terms; bots that cheat or bypass its systems are banned. So FEELESS never bids: the owner pastes the approved bid and sends it himself."
+},
+{
+"key": "finder",
+"label": "A real open listing, scored on fit, pay, deadline and the minds' cost",
+"ok": true,
+"why": "design \u00b7 $20,000\u201350,000 USD \u00b7 score 84 \u00b7 minds $0.0179 \u00b7 expected profit $17499.98 (50% chance)"
+},
+{
+"key": "bid",
+"label": "Both minds drafted the bid blind; the stronger is kept",
+"ok": true,
+"why": "Mind A 91 \u00b7 Mind B 95 (kept)"
+},
+{
+"key": "approve",
+"label": "Nothing sent until the owner approves, from his own account",
+"ok": true,
+"why": "waiting at 'bid': nothing was sent"
+},
+{
+"key": "graded",
+"label": "Graded on real money (paid \u2212 the minds' cost; fees on the receipt)",
+"ok": true,
+"why": "open: grades when he marks it paid, lost or unpaid (so far the minds cost $0.0276)"
+}
+]
+},
+"view": {
+"board": {
+"at": 1795195183,
+"best": [
+{
+"src": "freelancer",
+"id": "freelancer:40827957",
+"title": "Kazakhstan Heavy Truck CAN Data Capture",
+"url": "https://www.freelancer.com/projects/can-bus/Kazakhstan-Heavy-Truck-CAN-Data",
+"desc": "I\u2019m running a test to boost fuel-use and driving efficiency on a couple of heavy-duty trucks in Kaza \u00b7 skills: Electronics, Signal Processing, Data Analysis, CAN Bus",
+"payUsd": 2250.0,
+"pay": "$1,500\u20133,000 USD",
+"deadline": 1795799831.0,
+"rivals": 12,
+"hourly": false,
+"skills": "Electronics, Signal Processing, Data Analysis, CAN Bus",
+"cat": "code",
+"fitWhy": "code: test",
+"cost": 0.0447,
+"chance": 0.333,
+"expProfit": 749.21,
+"hours": 6,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 20.1,
+"deadline": 20,
+"profit": 14.4
+},
+"score": 84
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827937",
+"title": "Asesor\u00eda Marketing USA Servicios",
+"url": "https://www.freelancer.com/projects/branding/Asesor-Marketing-USA-Servicios",
+"desc": "Quiero potenciar la presencia de mi empresa de servicios en Estados Unidos y, sobre todo, afinar c\u00f3m \u00b7 skills: Graphic Design, Logo Design, Marketing, Branding, Business Card Design, Content Writing, Marketing Strategy, B2B Marketing",
+"payUsd": 1125.0,
+"pay": "$750\u20131,500 USD",
+"deadline": 1795798934.0,
+"rivals": 22,
+"hourly": false,
+"skills": "Graphic Design, Logo Design, Marketing, Branding, Business Card Design, Content Writing, Marketing Strategy, B2B Marketi",
+"cat": "writing",
+"fitWhy": "writing: writing, content",
+"cost": 0.0179,
+"chance": 0.214,
+"expProfit": 240.73,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 18.3,
+"deadline": 20,
+"profit": 11.9
+},
+"score": 80
+},
+{
+"src": "algora",
+"id": "algora:4454358484",
+"title": "[ Crypto ] Fix tx.origin phishing vulnerability in GovernanceToken delegation",
+"url": "https://github.com/UnsafeLabs/Bounty-Hunters/issues/912",
+"desc": "UnsafeLabs/Bounty-Hunters \u00b7 The ERC-20 token contract `solidity/contracts/GovernanceToken.sol` uses `tx.origin` for authorization in the `delegateVote` function instead of `msg.sender`, making it vulnerable to phishing attacks where a malicious contract can delegate votes on behalf of users who int\u2026",
+"payUsd": 700.0,
+"pay": "$700",
+"deadline": null,
+"rivals": 54,
+"repo": "UnsafeLabs/Bounty-Hunters",
+"aiRule": "ok (its label: AI agent friendly)",
+"cat": "code",
+"fitWhy": "code: fix, test",
+"cost": 0.0447,
+"chance": 0.069,
+"expProfit": 48.26,
+"hours": 6,
+"daysLeft": null,
+"parts": {
+"fit": 30,
+"pay": 17.1,
+"deadline": 20,
+"profit": 8.5
+},
+"score": 76
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827955",
+"title": "N\u1ed9i Dung B\u00e1n H\u00e0ng M\u1ea1ng XH",
+"url": "https://www.freelancer.com/projects/content-creation/Dung-40827955",
+"desc": "T\u00f4i c\u1ea7n m\u1ed9t chuy\u00ean gia s\u00e1ng t\u1ea1o n\u1ed9i dung \u0111\u1ec3 t\u0103ng \u0111\u01a1n h\u00e0ng v\u00e0 doanh s\u1ed1 cho d\u00f2ng m\u1ef9 ph\u1ea9m v\u00e0 s\u1ea3n ph\u1ea9m c \u00b7 skills: Copywriting, Advertising, Creative Writing, Social Media Marketing, Digital Marketing, Brand Management, Content Strategy, Content Creation",
+"payUsd": 200.0,
+"pay": "$15\u201325 USD /hr (\u00d710 h)",
+"deadline": 1795799612.0,
+"rivals": 12,
+"hourly": true,
+"skills": "Copywriting, Advertising, Creative Writing, Social Media Marketing, Digital Marketing, Brand Management, Content Strateg",
+"cat": "writing",
+"fitWhy": "writing: writing, copy, copywrit, content",
+"cost": 0.0179,
+"chance": 0.333,
+"expProfit": 66.58,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 13.8,
+"deadline": 20,
+"profit": 9.1
+},
+"score": 73
+},
+{
+"src": "algora",
+"id": "algora:4462456485",
+"title": "Benchmark APIs with p50, p95, p99 latency, RPS, error rate and TTFB",
+"url": "https://github.com/SecureBananaLabs/bug-bounty/issues/30",
+"desc": "SecureBananaLabs/bug-bounty \u00b7 **Goals** - Establish a baseline benchmark suite for all platform API endpoints - Measure latency (p50, p95, p99), throughput (req/s), and error rate under load - Identify bottlenecks before they surface in production - Produce a reproducible report that can be re-run\u2026",
+"payUsd": 750.0,
+"pay": "$750",
+"deadline": null,
+"rivals": 213,
+"repo": "SecureBananaLabs/bug-bounty",
+"aiRule": "ok (its label: AI agent friendly)",
+"cat": "code",
+"fitWhy": "code: bug, api, test, bot",
+"cost": 0.0447,
+"chance": 0.018,
+"expProfit": 13.46,
+"hours": 6,
+"daysLeft": null,
+"parts": {
+"fit": 30,
+"pay": 17.3,
+"deadline": 20,
+"profit": 5.8
+},
+"score": 73
+},
+{
+"src": "algora",
+"id": "algora:4452273962",
+"title": "[ T3 Code ] Add gzip and brotli response compression to HTTP layer",
+"url": "https://github.com/UnsafeLabs/Bounty-Hunters/issues/863",
+"desc": "UnsafeLabs/Bounty-Hunters \u00b7 The HTTP layer does not implement request/response compression, sending full-size JSON payloads for chat history that can be several megabytes. ### Implementation - Add gzip and brotli compression middleware to `t3code/apps/server/src/http.ts` - Compress responses larger\u2026",
+"payUsd": 260.0,
+"pay": "$260",
+"deadline": null,
+"rivals": 27,
+"repo": "UnsafeLabs/Bounty-Hunters",
+"aiRule": "ok (its label: AI agent friendly)",
+"cat": "code",
+"fitWhy": "code: implement, cli, bot",
+"cost": 0.0447,
+"chance": 0.129,
+"expProfit": 33.5,
+"hours": 6,
+"daysLeft": null,
+"parts": {
+"fit": 30,
+"pay": 14.5,
+"deadline": 20,
+"profit": 7.7
+},
+"score": 72
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827897",
+"title": "XML Conversion for Data Integration",
+"url": "https://www.freelancer.com/projects/data-integration/XML-Conversion-for-Data-Integration",
+"desc": "I have an existing XML file that I need converted into another format so it can be shared smoothly b \u00b7 skills: PHP, XML, Data Processing, MySQL, Software Development, JSON, Scripting, Data Integration, Automation",
+"payUsd": 269.9,
+"pay": "\u20b912,500\u201337,500 INR",
+"deadline": 1795795913.0,
+"rivals": 54,
+"hourly": false,
+"skills": "PHP, XML, Data Processing, MySQL, Software Development, JSON, Scripting, Data Integration, Automation",
+"cat": "code",
+"fitWhy": "code: script, integration, php",
+"cost": 0.0447,
+"chance": 0.1,
+"expProfit": 26.95,
+"hours": 6,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 14.6,
+"deadline": 20,
+"profit": 7.2
+},
+"score": 72
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827923",
+"title": "Company Brochure Design",
+"url": "https://www.freelancer.com/projects/content-creation/Company-Brochure-Design",
+"desc": "I'm looking for a professional to design a brochure template for my foundation drilling company. The \u00b7 skills: Graphic Design, Logo Design, Marketing, Adobe InDesign, Corporate Identity, Brochure Design, Content Creation, Adobe Creative Suite",
+"payUsd": 500.0,
+"pay": "$250\u2013750 USD",
+"deadline": 1795797608.0,
+"rivals": 177,
+"hourly": false,
+"skills": "Graphic Design, Logo Design, Marketing, Adobe InDesign, Corporate Identity, Brochure Design, Content Creation, Adobe Cre",
+"cat": "design",
+"fitWhy": "design: logo, graphic design",
+"cost": 0.0179,
+"chance": 0.033,
+"expProfit": 16.48,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 16.2,
+"deadline": 20,
+"profit": 6.2
+},
+"score": 72
+},
+{
+"src": "algora",
+"id": "algora:4463892823",
+"title": "Pixel Art Creation with high Creative Thinking",
+"url": "https://github.com/SecureBananaLabs/bug-bounty/issues/80",
+"desc": "SecureBananaLabs/bug-bounty \u00b7 **Goal** Generate a pixel art image and submit it as a file in the project. **Acceptance Criteria** - [ ] Image is original pixel art, theme and subject are your choice - [ ] Submitted as a `.png`, `.jpg`, or `.jpeg` file under `/assets/pixel-art/` - [ ] Minimum canvas\u2026",
+"payUsd": 780.0,
+"pay": "$780",
+"deadline": null,
+"rivals": 493,
+"repo": "SecureBananaLabs/bug-bounty",
+"aiRule": "ok (its label: AI agent friendly)",
+"cat": "code",
+"fitWhy": "code: bug, script",
+"cost": 0.0447,
+"chance": 0.008,
+"expProfit": 6.2,
+"hours": 6,
+"daysLeft": null,
+"parts": {
+"fit": 30,
+"pay": 17.4,
+"deadline": 20,
+"profit": 4.3
+},
+"score": 72
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827942",
+"title": "Streetwear/Sportswear Design Specialist -- 2",
+"url": "https://www.freelancer.com/projects/textile-design/Streetwear-Sportswear-Design-Specialist-40827942",
+"desc": "I'm seeking an experienced fashion designer to create a unique and appealing first collection for my \u00b7 skills: Graphic Design, Fashion Design, Photoshop Design, T-Shirts, Textile Design, Fashion Consulting, Fashion Writing",
+"payUsd": 139.59,
+"pay": "$15\u201325 CAD /hr (\u00d710 h)",
+"deadline": 1795798744.0,
+"rivals": 13,
+"hourly": true,
+"skills": "Graphic Design, Fashion Design, Photoshop Design, T-Shirts, Textile Design, Fashion Consulting, Fashion Writing",
+"cat": "writing",
+"fitWhy": "writing: writing",
+"cost": 0.0179,
+"chance": 0.316,
+"expProfit": 44.09,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 12.9,
+"deadline": 20,
+"profit": 8.3
+},
+"score": 71
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827941",
+"title": "Streetwear/Sportswear Design Specialist",
+"url": "https://www.freelancer.com/projects/textile-design/Streetwear-Sportswear-Design-Specialist",
+"desc": "I'm seeking an experienced fashion designer to create a unique and appealing first collection for my \u00b7 skills: Graphic Design, Fashion Design, Photoshop Design, T-Shirts, Textile Design, Fashion Consulting, Fashion Writing",
+"payUsd": 139.59,
+"pay": "$15\u201325 CAD /hr (\u00d710 h)",
+"deadline": 1795798744.0,
+"rivals": 19,
+"hourly": true,
+"skills": "Graphic Design, Fashion Design, Photoshop Design, T-Shirts, Textile Design, Fashion Consulting, Fashion Writing",
+"cat": "writing",
+"fitWhy": "writing: writing",
+"cost": 0.0179,
+"chance": 0.24,
+"expProfit": 33.48,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 12.9,
+"deadline": 20,
+"profit": 7.7
+},
+"score": 71
+},
+{
+"src": "freelancer",
+"id": "freelancer:40827950",
+"title": "Nail Salon Social Media Marketing",
+"url": "https://www.freelancer.com/projects/content-creation/Nail-Salon-Social-Media-Marketing",
+"desc": "I'm launching a new nail and beauty salon in McLean, Virginia, and I need marketing support to build \u00b7 skills: Twitter, Facebook Marketing, Pinterest, Social Media Marketing, Digital Marketing, Instagram Marketing, Content Creation, Community Management",
+"payUsd": 200.0,
+"pay": "$15\u201325 USD /hr (\u00d710 h)",
+"deadline": 1795799303.0,
+"rivals": 40,
+"hourly": true,
+"skills": "Twitter, Facebook Marketing, Pinterest, Social Media Marketing, Digital Marketing, Instagram Marketing, Content Creation",
+"cat": "writing",
+"fitWhy": "writing: content, ebook",
+"cost": 0.0179,
+"chance": 0.13,
+"expProfit": 25.98,
+"hours": 3,
+"daysLeft": 7.0,
+"parts": {
+"fit": 30,
+"pay": 13.8,
+"deadline": 20,
+"profit": 7.2
+},
+"score": 71
+}
+],
+"seen": 80,
+"kept": 23,
+"out": [
+{
+"why": "needs a face or a place",
+"n": 35
+},
+{
+"why": "its sponsor set it HUMAN_ONLY: no AI agents",
+"n": 11
+},
+{
+"why": "needs a licence, a role or a live session",
+"n": 10
+},
+{
+"why": "no faceless task the minds can do (writing, code, data, research, design, translation)",
+"n": 1
+}
+],
+"reads": [
+{
+"host": "dexscreener.com",
+"url": "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112",
+"ok": true,
+"code": 200
+},
+{
+"host": "superteam.fun",
+"url": "https://superteam.fun/api/listings/?type=bounty&take=40",
+"ok": true,
+"code": 200
+},
+{
+"host": "superteam.fun",
+"url": "https://superteam.fun/api/listings/?type=project&take=40",
+"ok": true,
+"code": 200
+},
+{
+"host": "freelancer.com",
+"url": "https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated",
+"ok": true,
+"code": 200
+},
+{
+"host": "api.github.com",
+"url": "https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created",
+"ok": true,
+"code": 200
+},
+{
+"host": "raw.githubusercontent.com",
+"url": "https://raw.githubusercontent.com/SecureBananaLabs/bug-bounty/HEAD/CONTRIBUTING.md",
+"ok": true,
+"code": 200
+},
+{
+"host": "raw.githubusercontent.com",
+"url": "https://raw.githubusercontent.com/PG-AGI/toingg-jarvis/HEAD/CONTRIBUTING.md",
+"ok": true,
+"code": 200
+},
+{
+"host": "raw.githubusercontent.com",
+"url": "https://raw.githubusercontent.com/BAWES-Universe/workadventure-universe/HEAD/CONTRIBUTING.md",
+"ok": true,
+"code": 200
+},
+{
+"host": "raw.githubusercontent.com",
+"url": "https://raw.githubusercontent.com/UnsafeLabs/Bounty-Hunters/HEAD/CONTRIBUTING.md",
+"ok": true,
+"code": 200
+}
+]
+},
+"platforms": [
+{
+"id": "superteam",
+"name": "Superteam Earn",
+"in": true,
+"site": "https://superteam.fun/earn",
+"feeds": [
+"https://superteam.fun/api/listings/?type=bounty&take=40",
+"https://superteam.fun/api/listings/?type=project&take=40"
+],
+"terms": "Every listing says who may do it (agentAccess). AGENT_ALLOWED / AGENT_ONLY listings are open to AI agents with a human claiming the payout; HUMAN_ONLY ones are skipped.",
+"how": "The owner submits from his own Superteam account; the reward goes to his own wallet.",
+"src": "https://superteam.fun/earn/agents"
+},
+{
+"id": "freelancer",
+"name": "Freelancer.com",
+"in": true,
+"site": "https://www.freelancer.com",
+"feeds": [
+"https://www.freelancer.com/api/projects/0.1/projects/active/?limit=40&job_details=true&full_description=true&sort_field=time_updated"
+],
+"terms": "No ban on AI-made work found in its terms; bots that cheat or bypass its systems are banned. So FEELESS never bids: the owner pastes the approved bid and sends it himself.",
+"how": "The owner bids from his own Freelancer account; the client pays him there.",
+"src": "https://www.freelancer.com/about/terms"
+},
+{
+"id": "algora",
+"name": "Algora (GitHub bounties)",
+"in": true,
+"site": "https://algora.io",
+"feeds": [
+"https://api.github.com/search/issues?q=label:%22%F0%9F%92%8E+Bounty%22+state:open+is:issue+commenter:app/algora-pbc&per_page=30&sort=created"
+],
+"terms": "Algora sets no AI rule; each repo does. The finder reads the repo's CONTRIBUTING and drops any repo that bans AI-made pull requests.",
+"how": "The owner opens the pull request from his own GitHub; Algora pays him.",
+"src": "https://algora.io"
+},
+{
+"id": "upwork",
+"name": "Upwork",
+"in": false,
+"why": "No public listing feed (its RSS ended 2024-08-20; its API needs an approved app and a login), and bots that send proposals are banned. AI-assisted bids are fine, so the owner can paste a FEELESS draft by hand.",
+"src": "https://support.upwork.com/hc/en-us/articles/52052528243731-RSS-deprecation"
+},
+{
+"id": "fiverr",
+"name": "Fiverr",
+"in": false,
+"why": "No job feed: buyers come to a seller's gigs. AI work is allowed if refined and original, but bots that mass-message are banned.",
+"src": "https://help.fiverr.com/hc/en-us/articles/37333301560593-Using-AI-on-Fiverr-Guidelines-for-freelancers-and-clients"
+},
+{
+"id": "contra",
+"name": "Contra",
+"in": false,
+"why": "No public listing feed and no AI-work terms found to build on.",
+"src": "https://contra.com"
+},
+{
+"id": "gitcoin",
+"name": "Gitcoin",
+"in": false,
+"why": "Its bounties moved to Buidlbox in 2023 and its grants software wound down in 2025: nothing open to read.",
+"src": "https://support.gitcoin.co/gitcoin-knowledge-base/misc/cgrants-bounties-and-hackathons-sunsetting-faq"
+}
+]
+}
+}

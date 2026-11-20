@@ -158,7 +158,7 @@ def _test_view(cat):
         last = next((f for f in reversed(cat.get(key) or []) if isinstance(f, dict) and f.get('test')), None)
         live = _test_live(cat, kind)
         out[kind] = {'running': bool(live), 'since': (live or {}).get('at'),
-                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief', 'stash')}
+                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief', 'stash', 'kind', 'listing', 'bids', 'kept', 'bid', 'stage', 'platform', 'kits')}
                              | ({'codeCheck': {k: (last.get('codeCheck') or {}).get(k) for k in ('passed', 'total', 'failed', 'notRun')}} if last.get('codeCheck') else {}) | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
     return out
 
@@ -217,7 +217,9 @@ async def test_proof_start(p: TestIn, request: Request):
         raise rs.HTTPException(409, f'{cat.get("name")} is working on a {other_}; a TEST {kind} starts once it files.')
     rs._TEST_ON[(cid, kind)] = {'at': now, 'by': 'Claude', 'run': rs.uuid.uuid4().hex[:10], 'topic': str(p.topic or '')[:120]}
     try:
-        if kind == 'poe':   # 📊 PoEco: one sealed market call on live pools, no model
+        if kind == 'poe' and p.door == 'earn':   # 💼 Slice 16: an earn filing through the same door the owner's tap takes: a real listing, both minds bid blind; nothing is sent
+            out = await rs._cat_work(cid, rs.WorkPayload(op='earn_bid', text=str(p.topic or '')[:200], session=rs._AUTO_TOKEN, auto=True))
+        elif kind == 'poe':   # 📊 PoEco: one sealed market call on live pools, no model
             out = await rs._cat_work(cid, rs.WorkPayload(op='eco_call', session=rs._AUTO_TOKEN, auto=True))
         elif kind == 'pos' and p.ws:   # ⏫ Slice 3: a change to a TEST folder Claude made: its next version, through the same build door
             doc_ = rs._ws_load(cid, p.ws) or {}

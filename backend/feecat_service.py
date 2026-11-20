@@ -651,7 +651,7 @@ SICARIO_QUESTS = ('pow', 'pop', 'pob', 'poc')
 # ↪ moved to fc_pow.py: _internal_key_read, _card_seat_send, _card_seat_fates, _sicario_free, _sicario_loop
 
 
-RECALL_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc', 'Code': 'pos'}
+RECALL_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc', 'Code': 'pos', 'Earn': 'poe'}
 
 
 _KIT_LAST = {}   # (cat, kind) → the kits the proof now being made read
@@ -2169,6 +2169,7 @@ app.include_router(_fc_poc.router)
 _poc_file = _fc_poc.poc_file
 import fc_clips as _fc_clips   # noqa: E402  ✂ Slice 15: the PoC clip farm (upload ≤ 5 min → local transcript + peaks → both minds pick → 9:16 / 1:1 / 16:9 clips, each a PoC)
 app.include_router(_fc_clips.router)
+import fc_earn as _fc_earn   # noqa: E402  💼 Slice 16: PoEco earns (public feeds → scored board → both minds bid blind → the owner's approve → graded on real money)
 review_outside_internal = _fc_cats.review_outside_internal
 _review_loop = _fc_cats._review_loop
 _kit_fresh_loop = _fc_cats._kit_fresh_loop

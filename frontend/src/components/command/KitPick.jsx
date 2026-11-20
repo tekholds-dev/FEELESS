@@ -5,7 +5,7 @@ import '../../styles/features.css';
 import '../../styles/kitGallery.css';
 
 // 🧰 Which kits this agent reads first: up to 3 from Discover, or it chooses for each request. Discover is a big categorized gallery, each kit moving through its own site.
-const KINDS = [['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic']];
+const KINDS = [['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic'], ['poe', 'PoEco']];   // 💼 Slice 16: PoEco's earn filings read their own kits
 // 🏆 What people really built with their agents and sent to the Collective. Look, and start from one.
 function PopularBuilds({ cat, work }) {
   const [rows, setRows] = useState(null); const [open, setOpen] = useState({}); const [said, setSaid] = useState(''); const [err, setErr] = useState('');

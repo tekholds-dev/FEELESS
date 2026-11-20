@@ -1,0 +1,391 @@
+{
+"status": "success",
+"result": {
+"projects": [
+{
+"id": 40824589,
+"title": "Commercial Property Photography and Floor Plan",
+"status": "active",
+"seo_url": "photography/Commercial-Property-Photography-Floor",
+"currency": {
+"id": 4,
+"code": "GBP",
+"sign": "\u00a3",
+"name": "British Pounds",
+"exchange_rate": 1.310132,
+"country": "UK",
+"is_external": false,
+"is_escrowcom_supported": false
+},
+"budget": {
+"minimum": 150.0,
+"maximum": 200.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "fixed",
+"bid_stats": {
+"bid_count": 1,
+"bid_avg": 895.0,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795014629,
+"bidperiod": 7,
+"preview_description": "I'm seeking a skilled photographer to capture commercial properties, such as offices and shops. The ",
+"jobs": [
+{
+"name": "Photography"
+},
+{
+"name": "3D Rendering"
+},
+{
+"name": "Photo Editing"
+},
+{
+"name": "Interior Design"
+},
+{
+"name": "3ds Max"
+},
+{
+"name": "3D Modelling"
+},
+{
+"name": "Real Estate"
+},
+{
+"name": "2D Drafting"
+}
+]
+},
+{
+"id": 40824728,
+"title": "Complete CLO 3D Garment Creation -- 2",
+"status": "active",
+"seo_url": "3d-design/Complete-CLO-Garment-Creation",
+"currency": {
+"id": 11,
+"code": "INR",
+"sign": "\u20b9",
+"name": "Indian Rupee",
+"exchange_rate": 0.010796,
+"country": "IN",
+"is_external": false,
+"is_escrowcom_supported": false
+},
+"budget": {
+"minimum": 600.0,
+"maximum": 1500.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "fixed",
+"bid_stats": {
+"bid_count": 2,
+"bid_avg": 1275.0,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795021396,
+"bidperiod": 7,
+"preview_description": "I need a skilled CLO 3D specialist who can take my concept from the very first stitch all the way to",
+"jobs": [
+{
+"name": "3D Rendering"
+},
+{
+"name": "3ds Max"
+},
+{
+"name": "3D Modelling"
+},
+{
+"name": "3D Animation"
+},
+{
+"name": "3D Design"
+},
+{
+"name": "3D Printing"
+},
+{
+"name": "3D Visualization"
+},
+{
+"name": "3D Graphic Design"
+}
+]
+},
+{
+"id": 40827954,
+"title": "Female Model Required for Clothe Brand Photoshoot",
+"status": "active",
+"seo_url": "photography/Female-Model-Required-for-Clothe",
+"currency": {
+"id": 11,
+"code": "INR",
+"sign": "\u20b9",
+"name": "Indian Rupee",
+"exchange_rate": 0.010796,
+"country": "IN",
+"is_external": false,
+"is_escrowcom_supported": false
+},
+"budget": {
+"minimum": 37500.0,
+"maximum": 75000.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "fixed",
+"bid_stats": {
+"bid_count": 0,
+"bid_avg": null,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795194648,
+"bidperiod": 7,
+"preview_description": "Budget: \u20b910,000 INR (Fixed)\n\nWe are looking for a beautiful, confident, glamorous and bold female fa",
+"jobs": [
+{
+"name": "Photography"
+},
+{
+"name": "Branding"
+},
+{
+"name": "Fashion Design"
+},
+{
+"name": "Event Planning"
+},
+{
+"name": "Fashion Modeling"
+},
+{
+"name": "Social Media Marketing"
+},
+{
+"name": "Visual Merchandising"
+},
+{
+"name": "Instagram Marketing"
+},
+{
+"name": "Product Photography"
+},
+{
+"name": "Content Creation"
+}
+]
+},
+{
+"id": 40827953,
+"title": "Videotutorial Profesional para Tallerix -- 3",
+"status": "active",
+"seo_url": "video-editing/Videotutorial-Profesional-para-Tallerix-40827953",
+"currency": {
+"id": 1,
+"code": "USD",
+"sign": "$",
+"name": "US Dollar",
+"exchange_rate": 1.0,
+"country": "US",
+"is_external": false,
+"is_escrowcom_supported": true
+},
+"budget": {
+"minimum": 2.0,
+"maximum": 8.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "hourly",
+"bid_stats": {
+"bid_count": 2,
+"bid_avg": 3.5,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795194639,
+"bidperiod": 7,
+"preview_description": "INSTRUCCIONES DE PRODUCCI\u00d3N \u2013 TALLERIX\n\nVideo 1: Recepci\u00f3n del veh\u00edculo\n\nPresupuesto para este prime",
+"jobs": [
+{
+"name": "Graphic Design"
+},
+{
+"name": "Video Production"
+},
+{
+"name": "Video Editing"
+},
+{
+"name": "Adobe Premiere Pro"
+},
+{
+"name": "Voice Over"
+},
+{
+"name": "Visual Effects"
+}
+]
+},
+{
+"id": 40827950,
+"title": "Nail Salon Social Media Marketing",
+"status": "active",
+"seo_url": "content-creation/Nail-Salon-Social-Media-Marketing",
+"currency": {
+"id": 1,
+"code": "USD",
+"sign": "$",
+"name": "US Dollar",
+"exchange_rate": 1.0,
+"country": "US",
+"is_external": false,
+"is_escrowcom_supported": true
+},
+"budget": {
+"minimum": 15.0,
+"maximum": 25.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "hourly",
+"bid_stats": {
+"bid_count": 34,
+"bid_avg": 17.323529411764707,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795194503,
+"bidperiod": 7,
+"preview_description": "I'm launching a new nail and beauty salon in McLean, Virginia, and I need marketing support to build",
+"jobs": [
+{
+"name": "Twitter"
+},
+{
+"name": "Facebook Marketing"
+},
+{
+"name": "Pinterest"
+},
+{
+"name": "Social Media Marketing"
+},
+{
+"name": "Digital Marketing"
+},
+{
+"name": "Instagram Marketing"
+},
+{
+"name": "Content Creation"
+},
+{
+"name": "Community Management"
+}
+]
+},
+{
+"id": 40827948,
+"title": "WhatsApp api display name change",
+"status": "active",
+"seo_url": "api/WhatsApp-api-display-name-change",
+"currency": {
+"id": 11,
+"code": "INR",
+"sign": "\u20b9",
+"name": "Indian Rupee",
+"exchange_rate": 0.010796,
+"country": "IN",
+"is_external": false,
+"is_escrowcom_supported": false
+},
+"budget": {
+"minimum": 600.0,
+"maximum": 1500.0,
+"name": null,
+"project_type": null,
+"currency_id": null
+},
+"type": "fixed",
+"bid_stats": {
+"bid_count": 16,
+"bid_avg": 989.6875,
+"min_amount": null,
+"max_amount": null,
+"min_period": null,
+"max_period": null,
+"bidder_count_per_country": null,
+"min_review_count": null,
+"max_review_count": null
+},
+"time_submitted": 1795194291,
+"bidperiod": 7,
+"preview_description": "I want to learn how to update whatsApp api display name",
+"jobs": [
+{
+"name": "PHP"
+},
+{
+"name": "JavaScript"
+},
+{
+"name": "C# Programming"
+},
+{
+"name": "Software Architecture"
+},
+{
+"name": "API"
+},
+{
+"name": "Mobile Development"
+},
+{
+"name": "App Development"
+},
+{
+"name": "API Development"
+}
+]
+}
+]
+}
+}
