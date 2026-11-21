@@ -369,6 +369,16 @@ FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
   - the chat column
 
   All of it on real data, with nothing faked: every number comes from the live service or says it is empty.
+- [ ] **Every tool and mechanic lives in the Desk look, cleaned up** (owner 2026-11-20: "all our tools and mechanics need to be in this new agent desk look, like the proof picker and all, with a new clean look"). That covers:
+  - the proof picker and every proof type (PoB, PoC, PoW, PoP, PoStatic, PoEco, COMP)
+  - Slice 33's start wizard and workspace
+  - the stash, The Collective, the terminal / trade tools, wallet, settings, keys
+
+  Each opens inside the desk (a monitor, a popout or the workspace), restyled to the preview's glass, type and icons. None are left in the old style.
+- [ ] **Proof status everywhere, workable from chat:**
+  - Every running or recent proof shows its live status (stage, minds, cost, next step, waiting-for-you) in the widgets row and the cabinet.
+  - The same proof can be worked from the chat. Proofs appear in chat as live cards (progress, approve / reject, open in workspace).
+  - Proofs can be started, steered, paused and approved by chat command ("/poc …", "approve bid 2"), each through the same wired path as the buttons. Tests must prove chat → saved → used by the engine → shown in the record.
 - [ ] **Nothing goes missing.** Every folder, app, widget and action on today's desks is listed first, and each gets a home in the new layout (the rail, the cabinet, a monitor, a widget, or a command menu). The audit list is in the report.
 - [ ] **Backgrounds:** Smoke (slow wisps + a still fine grain; never TV static), Aurora, Grid, Film and Plain, plus Black and White. They are saved per user, with transform / opacity only, and off under `body.fx-lite`.
 - [ ] **Real chat:**
