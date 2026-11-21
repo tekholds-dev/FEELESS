@@ -3,6 +3,29 @@
 **The bar for every slice:** `docs/VISION.md`. A slice is done only when its checks pass on a **real TEST run on Happy's agent**
 (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 for all TESTs; RULINGS 2026-11-19) filed into that proof type's own folder marked **TEST**, the gate is green and it's pushed.
 
+## ▶ MANAGER HANDOFF (2026-11-20 night, from the manager on the last account; read this first)
+**How the owner works with the manager:**
+- He talks only to the manager session. The manager never writes slice code. It files his asks into slices (SLICES + RULINGS + HANDOFF, committed by path, pushed from `.claude/worktrees/gate` in the foreground), starts ONE slice session at a time (`start_session` user_asked, fresh, Opus 5.5, the slice's prompt), and verifies each slice on origin/main (`git merge-base --is-ancestor`, Status ✅ / ⛔) before starting the next.
+- On an automated turn (a session's report) `user_asked` is refused, so propose the next slice as a card. On his own message, start it directly.
+- He sends screenshots with short, loud notes. Answer first, in plain words, and name every issue you see in his screenshot (he calls out "lazy" when a find is missed). Each issue goes into the right slice's checks.
+- **Visual work:** when he wants to SEE a look, the manager builds an HTML preview as a claude.ai Artifact in the chat (not a slice), iterates on his notes, then saves the approved file into `docs/design/` and points the slice at it.
+  - The approved previews: `docs/design/agent-desk-approved.html` (artifact 3pRYBxakKeUWa6FsCm7HwH) and `docs/design/trench-dash-preview.html` (artifact 5yAHJHkYCyGCCoy5oqY6EE, v3).
+  - He loves these. Keep to their look: dense small type, glass panels, smoke / aurora / grid backgrounds, Black / White, FEELESS green, duotone icons, flip cards, popouts, nothing bulky.
+- He hates: big headers, big fonts, basic text, bulky cards, scattered icons, TV-static grain, fake numbers, a lost feature.
+- **Usage:** keep the manager lean. When he says usage is low, write the handoff here before stopping.
+
+**State at handoff:**
+- Done and on main: 13, 15, 16, 24, 25, 26, 29, 33.
+- **Slice 34 (the Desk look everywhere + trench dash v2 + sizing fixes) was started on the last account; check its Status line.** If it isn't ✅ on origin/main, start a fresh session with Slice 34's prompt: it resumes from the Status line.
+- Then: 27 → 28 → 32 → 30 → 31 → 17–23 → 8.
+- Open: the owner hasn't given his final greenlight on trench dash v3. Ask once when he's back.
+- Named misses still open:
+  - Slice 15: a converted .mov's first clip is slow.
+  - Slice 29: a caption can cover a face on multi-shot clips.
+  - Slice 33: the PoStatic and PoC wizard paths are faked-only.
+  - ZED needs a Gemma in LM Studio.
+  - Aleph's paid swap is owner-tested only.
+
 ## ▶ NEXT ACCOUNT: START HERE (owner 2026-11-19: "only need one slice running at a time")
 **ONE slice at a time, each in its OWN session, started by a manager session (owner 2026-11-19, RULINGS).** The owner talks to one manager session, which never builds a slice itself. It starts a fresh session for the next slice (Claude desktop `start_session`: user_asked, fresh, Opus 5.5 medium, no worktree, the standard prompt below). It waits for that session's report and checks the Status line (✅ or ⛔) is on `origin/main` with nothing of that slice left uncommitted. Only then does it start the next slice. Never two slice sessions at once.
 **If you are the manager:** don't edit code. Start, wait, check, start the next. If a slice session stops at the usage limit, start a new session with the same prompt: it resumes from the Status line.
@@ -416,6 +439,10 @@ FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
     - has 60s / 5m / 15m windows
     - shows net per wallet as diverging bars
   - **The right card flips** between Quick trade (Market / Dip & rip) and Coin chat, with an unread badge.
+- [ ] **Nothing big, nothing clipped, in every proof type** (owner 2026-11-20 night screenshots: "issue scroll and sizing … everything in every proof type is big asf").
+  - **Opened filing (PoC #14 seen):** the workspace body doesn't scroll, so the clip card, stats and files are cut off at the bottom. The headings ("FILED PROOF OF CONTENT…", "Mind A", the verdict card) are oversized and run together with no spacing ("CONTENTPoC #14", "inModel calls"). The verdict card and the link / $ earned row are huge. Every workspace body scrolls inside itself, and the bottom of every filing is reachable.
+  - **PoEco folder:** the job rows, scores, titles and $ amounts are oversized. The page is one long column where the job list needs a dense table-like list (one row per job, ~44 px). The "Earn real money" lead sentence is a paragraph-sized headline.
+  - **Every proof folder and filing:** use the Desk look's scale (body 12.5–13 px, labels 10.5 px caps, numbers 15–17 px mono, titles ≤ 14 px), with no element over 19 px except a monitor's own content. A test checks the computed font sizes on each proof view.
 - [ ] **Charts are true, nothing faked.**
   - The chart, tape, Flow read and pump pulse all come from ONE trade stream (our index + DexScreener), so they always agree.
   - A test proves the chart's last candle matches the last tape trade.
