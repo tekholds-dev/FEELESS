@@ -14,7 +14,7 @@
   background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 9%, var(--m-surface)), var(--m-surface)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 7%, transparent);
   animation: pcdIn .3s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
 .pcd-kpi > small { font: 800 8.5px var(--f-mono); letter-spacing: .12em; color: var(--m-mute); }
-.pcd-kpi > b.m-num { font: 700 20px/1.1 var(--f-mono); white-space: nowrap; } .pcd-kpi > b small { font-size: 11px; color: var(--m-mute); margin-left: 1px; }
+.pcd-kpi > b.m-num { font: 700 17px/1.1 var(--f-mono); white-space: nowrap; } .pcd-kpi > b small { font-size: 11px; color: var(--m-mute); margin-left: 1px; }
 .pcd-kpi.is-reach > b.m-num { color: var(--pc); text-shadow: 0 0 14px color-mix(in srgb, var(--pc) 45%, transparent); }
 .pcd-kpi > em { font: 500 10.5px var(--f-ui); font-style: normal; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button.pcd-kpi { cursor: pointer; font: inherit; transition: border-color .15s, transform .15s var(--m-ease); }

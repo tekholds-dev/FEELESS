@@ -18,7 +18,7 @@
 .pfx-ring { position: relative; width: 170px; height: 170px; } .pfx-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .pfx-ring-bg { fill: none; stroke: var(--proofs-tx8); stroke-width: 12; }
 .pfx-seg { fill: none; stroke-width: 12; stroke-linecap: butt; stroke: var(--none); animation: pfxFade .5s ease-out calc(var(--i) * 120ms) both; } .pfx-seg.is-win { stroke: var(--win); } .pfx-seg.is-loss { stroke: var(--loss); }
-.pfx-ring > span { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; } .pfx-ring b { font-size: 30px; font-weight: 800; color: var(--proofs-tx9); } .pfx-ring small { font: 700 10px var(--f-mono); letter-spacing: .1em; color: var(--proofs-dm1); }
+.pfx-ring > span { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; } .pfx-ring b { font-size: 17px; font-weight: 800; color: var(--proofs-tx9); } .pfx-ring small { font: 700 10px var(--f-mono); letter-spacing: .1em; color: var(--proofs-dm1); }
 
 .pfx-stage { width: 100%; height: 170px; display: grid; place-items: center; perspective: 700px; overflow: hidden; }
 .pfx-floor { position: relative; width: 148px; height: 148px; transform: translateY(14px) rotateX(58deg) rotateZ(-42deg); transform-style: preserve-3d; border-radius: 8px; background: repeating-linear-gradient(0deg, var(--proofs-tx8) 0 1px, transparent 1px 37px), repeating-linear-gradient(90deg, var(--proofs-tx8) 0 1px, transparent 1px 37px), var(--proofs-tx10); }

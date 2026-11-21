@@ -293,6 +293,7 @@ body.fx-lite .dkl-wd, body.fx-lite .dkl-file, body.fx-lite .dkl-msg, body.fx-lit
 
 /* a classic folder popped out over the Desk look: its window floats on a light veil, the desk shows through */
 .dsk.is-over { background: color-mix(in srgb, black 34%, transparent); }
+body.dsk-over .app-content > :not(section), body.dsk-over #root > :not(.app-content) { content-visibility: visible; }   /* a popout over the Desk look: the desk shows through (deskShell.css hides the page under a full desktop) */
 .dkl-err { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; }
 /* img3 clean-up on the classic desktop: a readable wordmark, one-line folder labels */
 .dsk-wall b { color: color-mix(in srgb, var(--m-text) 30%, transparent); letter-spacing: .12em; }

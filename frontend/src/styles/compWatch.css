@@ -49,7 +49,7 @@
 .cw-tape em { font-style: normal; font-size: 11px; color: var(--m-mute); text-align: right; white-space: nowrap; }
 .cw-ring { display: flex; align-items: center; gap: 12px; }
 .cw-ring span { display: flex; flex-direction: column; }
-.cw-ring b { font-size: 26px; color: var(--m-text); }
+.cw-ring b { font-size: 17px; color: var(--m-text); }
 .cw-ring small { color: var(--m-dim); font-size: 11px; }
 .cw-legend { list-style: none; display: flex; gap: 12px; padding: 0; margin: 6px 0; font-size: 11px; color: var(--m-mute); }
 .cw-legend li { display: flex; align-items: center; gap: 4px; }

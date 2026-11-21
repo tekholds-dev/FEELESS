@@ -14,7 +14,7 @@
   animation: pwdIn .3s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
 .pwd-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: linear-gradient(var(--pw-ore), transparent); opacity: .7; }
 .pwd-kpi > small { font: 800 8.5px var(--f-mono); letter-spacing: .12em; color: var(--m-mute); }
-.pwd-kpi > b.m-num { font: 700 20px/1.1 var(--f-mono); white-space: nowrap; } .pwd-kpi > b small { font-size: 11px; color: var(--m-mute); margin-left: 1px; }
+.pwd-kpi > b.m-num { font: 700 17px/1.1 var(--f-mono); white-space: nowrap; } .pwd-kpi > b small { font-size: 11px; color: var(--m-mute); margin-left: 1px; }
 .pwd-kpi.is-pnl > b.m-num { color: var(--pw-ore); text-shadow: 0 0 14px color-mix(in srgb, var(--pw-ore) 40%, transparent); }
 .pwd-kpi.is-pnl.is-dn > b.m-num { color: var(--m-danger); text-shadow: 0 0 14px color-mix(in srgb, var(--m-danger) 35%, transparent); }
 .pwd-kpi > em { font: 500 10.5px var(--f-ui); font-style: normal; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

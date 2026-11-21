@@ -10,7 +10,7 @@
 /* the score */
 .c2-hero { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 8px 22px; align-items: center; }
 .c2-big { display: grid; gap: 4px; justify-items: start; padding-right: 18px; border-right: 1px solid var(--m-line); }
-.c2-pct b { color: var(--m-accent); font: 700 54px/1 var(--f-display); letter-spacing: -.03em; text-shadow: 0 0 24px color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.c2-pct b { color: var(--m-accent); font: 700 17px/1 var(--f-display); letter-spacing: -.03em; text-shadow: 0 0 24px color-mix(in srgb, var(--m-accent) 30%, transparent); }
 .c2-sub { color: var(--m-dim); font: 500 12px var(--f-ui); }
 .c2-rank { display: inline-flex; align-items: baseline; gap: 4px; margin-top: 4px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--m-line-hi); color: var(--m-text); font: 700 13px var(--f-mono); }
 .c2-rank.is-top { border-color: var(--m-accent); color: var(--m-bg); background: var(--m-accent); } .c2-rank small { font: 500 11px var(--f-ui); opacity: .8; }

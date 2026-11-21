@@ -6,10 +6,10 @@
 /* the hero: four numbers, each with its meter */
 .pdb-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
 .pdb-kpi { position: relative; display: grid; align-content: start; gap: 3px; padding: 11px 12px; border-radius: 14px; min-width: 0; overflow: hidden; opacity: 0; transform: translateY(6px); animation: pdbIn .32s var(--m-ease) forwards; animation-delay: calc(var(--i, 0) * 55ms); }
-.pdb-kpi b.m-num { font-size: 24px; line-height: 1.05; white-space: nowrap; }
+.pdb-kpi b.m-num { font-size: 17px; line-height: 1.05; white-space: nowrap; }
 .pdb-kpi b small { font-size: 12px; color: var(--m-mute); margin-left: 2px; font-weight: 600; }
 .pdb-kpi em { font: 500 11px var(--f-ui); font-style: normal; color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pdb-pnl b.m-num { font-size: 30px; text-shadow: 0 0 18px color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.pdb-pnl b.m-num { font-size: 17px; text-shadow: 0 0 18px color-mix(in srgb, var(--m-accent) 45%, transparent); }
 .pdb-pnl.is-dn b.m-num { text-shadow: 0 0 18px color-mix(in srgb, var(--m-danger) 40%, transparent); }
 .pdb-pnl.is-up { border-color: color-mix(in srgb, var(--m-accent) 40%, var(--m-line)); }
 .pdb-spark { height: 46px; margin: 4px -4px -4px; }

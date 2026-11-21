@@ -5,7 +5,7 @@
 .trec::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--trec); box-shadow: 0 0 10px var(--trec); }
 .trec::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 40%, color-mix(in srgb, var(--trec) 12%, transparent) 50%, transparent 60%); transform: translateX(-100%); animation: trecSweep 6s linear infinite; }
 .trec-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
-.trec-v { display: grid; line-height: 1; } .trec-v b { font: 700 22px var(--f-mono); color: var(--trec); text-shadow: 0 0 12px color-mix(in srgb, var(--trec) 55%, transparent); }
+.trec-v { display: grid; line-height: 1; } .trec-v b { font: 700 17px var(--f-mono); color: var(--trec); text-shadow: 0 0 12px color-mix(in srgb, var(--trec) 55%, transparent); }
 .trec-v small, .trec-t em:not(.trec-tag), .trec-m small, .trec-facts dt { font: 800 9px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); font-style: normal; }
 .trec-t { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .trec-tag { padding: 2px 8px; border-radius: 6px; font: 800 9.5px var(--f-mono); letter-spacing: .1em; font-style: normal; color: var(--m-accent-ink); background: var(--m-warn); box-shadow: 0 0 10px color-mix(in srgb, var(--m-warn) 60%, transparent); }
