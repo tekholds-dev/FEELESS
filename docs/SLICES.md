@@ -394,6 +394,11 @@ FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
   - a readable wordmark
   - no wrapping labels
   - the Dashboard widget says whose numbers it shows
+- [ ] **Phones, foldables and iPhone Duo get an official clean Desk look** (owner 2026-11-20: "so they can always work on the go … no battery burn or cell data burn").
+  - **Layout:** one monitor at a time with swipe between them, the chat as a bottom sheet, the cabinet as a drawer list, and the widgets as a swipe row.
+  - **iPhone Duo:** it inherits the Duo layout the trench dash already has (the owner loves it). The outer screen gets the chat + proof status; the open inner screen gets a monitor + chat side by side. It changes live on hinge posture, for agent desks and the desktop alike.
+  - **Battery and data:** `fx-lite` turns on by itself on phones, low battery, Save-Data or reduced motion. That means a static background (no smoke canvas), sparklines without animation, and polling slowed when the screen is hidden. There's no autoplay video, images are thumbnail-first, and charts load on demand.
+  - **Proven:** measured on the iOS Simulator and an Android-width browser (CPU idle, requests per minute) and shown in the report.
 - [ ] **Site-wide theme "Desk"** (a look in `lib/looks.js`, mirrored in `backend/looks.py`) that users can pick. It brings the same glass, type, backgrounds and motion to the whole site (terminal, proofs, profile, wallet), with the layout cleaned where needed and nothing missing.
   - Keep 3 of the old looks: **Obsidian** (the current default), **Pit** and **Carbon**. These are the manager's pick; the owner can swap one in his one batch of questions.
   - The other old looks are removed, and anyone wearing one falls back to Obsidian.
