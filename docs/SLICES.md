@@ -512,6 +512,26 @@ FEELESS, Slice 34. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 FEELESS, Slice 36. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("The point of it all" and "Brains"), then RULINGS 2026-11-21, then "Slice 36" in docs/SLICES.md, then open docs/design/agent-desktop-preview.html in the browser: it is the approved look. Do only Slice 36, fully, end to end. Research free/open libraries first (3D: three.js / OGL; charts: Lightweight Charts). Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 36 check passes on Happy's real desktop, seen in the browser on 51366 at full / half / phone width, Black and White, each folder theme and background, owner and visitor Proofprint, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Commit only your own files by path. Finish by updating Slice 36's Status line.
 ```
 
+## Slice 35 · Task chats: one mind, many live task conversations
+**Why:** owner 2026-11-20 night, watching the manager hand slices to sessions: "these convo slicing work so efficiently that it needs to be implemented into the agents' main desk chat and also proof chats … the same brain runs a separate convo window in that same original chat that redirects to the new chat that's doing that task live (want to see the live thinking and logs like you) … a dropdown for that thought before the mind processes something else … just like your chat!"
+**Area:** the desk chat (Slice 34's Desk look), every proof chat, `ProofWorkspace` (Slice 33), the agent runner / `feecat_service`, the stash.
+**Checks:**
+- [ ] **Split a task:** in the desk chat or any proof chat, the mind (or the owner, with "/task …" or a button on a message) can split a task into its own task chat. It uses the same mind and settings, and carries a short brief of what's needed, the files or proof, and what done looks like.
+- [ ] **The card in the original chat:** title, live state (starting / working / waiting for you / done / failed), current step, elapsed time, cost so far. One click opens the task chat (it docks beside the main chat, or pops out). When the task ends, the card shows a 2–3 line recap, and the main chat can continue from it.
+- [ ] **The task chat shows the work live:**
+  - a checklist at the top (done ✓, doing spinner, pending dashed), like the Claude desktop task list in the owner's screenshot
+  - each thought as a fold-open dropdown ("Thought for 12 s"), closed once the mind moves on
+  - tool calls and logs as tidy rows with timestamps
+  - the cost per step
+  - The owner can type into it to steer, pause or stop it.
+- [ ] **One at a time per mind by default,** with a queue. The owner can allow N parallel tasks per mind in settings, and each one counts against the spend caps (§1: no task may move money or sign).
+- [ ] **Wired, or it doesn't ship:** a test proves split → task saved → the runner works it → the card updates → the recap returns to the main chat → it's shown in the proof's record. A real TEST on Happy (proposals / paper only, inside the caps) runs one split task end to end.
+- [ ] **The Desk look's type and density;** works on phone and Duo (the task chat as a sheet).
+**Status:** not started.
+```
+FEELESS, Slice 35. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("Brains" and "The point of it all"), then RULINGS 2026-11-20/21, then "Slice 35" in docs/SLICES.md, then docs/design/agent-desk-approved.html. Do only Slice 35, fully, end to end. Before building anything, check main for what already exists, and never redo landed work. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 35 check passes on real data, seen in the browser on 51366 at full / half / phone width, Black and White, with screenshots; a TEST on Happy (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Update Slice 35's Status line after each push.
+```
+
 ## Slice 30 · The stash tooling: shared, selective, never copied
 **Why:** Owner 2026-11-20 (night, with 5 screenshots): "our stash's internal tooling needs to be robust and selective to assure every agent / new agent can always use another agent's version and ONLY use them uniquely, to assure the best new look plus the most efficient tooling … which wouldn't exploit the original agent's look or repeat design and layout, proving unique fingerprints every time … the stash, COMP and Sicario's will perfect the tooling as well, not just judging."
 **Area:** `collective_stash.py`, `proof_kits.py`, `ps_unique.py`, `proof_footprint.py`, `stash_brain.py`, COMP.
