@@ -12,6 +12,7 @@ BUDGET: every call's cost is added; a task stops at its cap ($ per task, the use
 signal (the wallet / their auto-sign settings) — nothing here can spend from a wallet."""
 import evidence_marks as _marks
 import asyncio
+import contextvars
 import json
 import re
 import time
@@ -107,6 +108,50 @@ def ended_note(w, page, why):
     kept = ' · '.join(str(x)[:120] for x in (w.get('scratch') or [])[-2:])
     where = str(getattr(page, 'title', '') or getattr(page, 'url', '') or '')[:80]
     return f"⏹ {why}" + (f" (last on {where})" if where else '') + (f". Kept: {kept}" if kept else '.')
+
+
+# 💬 Slice 34 streaming replies: while the plan call (its "fast" answer) or the merge writes, the provider's tokens land here as they come
+# (fc_core._or_call streams when this is set), and the chat shows the answer being written. Only the answer's own words, never thinking.
+STREAM = contextvars.ContextVar('ca_stream', default=None)
+_ANS_KEY = re.compile(r'"(fast|answer)"\s*:\s*"')
+
+
+def partial_answer(raw, plain=True):
+    """The answer text inside a reply still being written: the "fast" / "answer" string of a JSON reply, decoded as far as it got,
+    or the plain text when the model is not writing JSON. '' when there is no answer yet (e.g. a plan with an empty "fast")."""
+    s = str(raw or '')
+    if not s.lstrip().startswith(('{', '`')):
+        return '' if not plain or thinking_leak(s) else s.strip()[:6000]   # the plan call's plain text is its plan, never shown as the answer
+    m = _ANS_KEY.search(s)
+    if not m:
+        return ''
+    out, i, esc = [], m.end(), {'n': '\n', 't': '\t', '"': '"', '\\': '\\', '/': '/', 'r': '', 'b': '', 'f': ''}
+    while i < len(s):
+        c = s[i]
+        if c == '"':
+            break
+        if c == '\\':
+            if i + 1 >= len(s):
+                break
+            n = s[i + 1]
+            if n == 'u':
+                if i + 6 > len(s):
+                    break
+                try:
+                    out.append(chr(int(s[i + 2:i + 6], 16)))
+                except ValueError:
+                    pass
+                i += 6
+                continue
+            out.append(esc.get(n, n)); i += 2
+            continue
+        out.append(c); i += 1
+    return ''.join(out)[:6000]
+
+
+def _streaming(task, plain=True):
+    """Set the stream hook for the next call: each chunk rewrites task['partial'] (what the chat shows while it is being written)."""
+    return STREAM.set(lambda raw: task.__setitem__('partial', partial_answer(raw, plain)))
 
 
 def parse_json(text):
@@ -764,7 +809,11 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in on if w.get('answer') and not thinking_leak(w['answer'])][:KEEP_MAX]
             task['status'] = 'done'
             return _clean(task)
-        p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
+        tok_ = _streaming(task, plain=False)
+        try:
+            p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
+        finally:
+            STREAM.reset(tok_)
         if str(p.get('fast') or '').strip():
             task.update(answer=str(p['fast']).strip()[:4000], fast=True, status='done')
             for w in ws:
@@ -781,7 +830,11 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
         parts = [f"{names[w['i']]} ({w['goal']}):\n{w['answer'] or '(nothing)'}" + (f"\nscratch: {' | '.join(w['scratch'])}" if w.get('scratch') else '') for w in ws]
         task['status'] = 'merging'
         if len(ws) > 1:
-            raw = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()
+            tok_ = _streaming(task)
+            try:
+                raw = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()
+            finally:
+                STREAM.reset(tok_)
             m = parse_json(raw)
             task['answer'] = str(m.get('answer') or raw).strip()[:6000]
             task['keep'] = [str(x)[:240] for x in (m.get('keep') or []) if str(x).strip() and not thinking_leak(x)][:KEEP_MAX]

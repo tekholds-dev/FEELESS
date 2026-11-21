@@ -358,3 +358,8 @@ body.fx-lite .kd.is-dl .kd-hero, body.fx-lite .kd.is-dl .kd-card, body.fx-lite .
 .dkl-feed[data-theme="day"] { --dk-fg: color-mix(in srgb, black 92%, var(--m-accent)); --dk-fg2: color-mix(in srgb, black 62%, transparent); --dk-fg3: color-mix(in srgb, black 44%, transparent); --dk-line: color-mix(in srgb, black 11%, transparent); --dk-acc: var(--look-dark, var(--m-accent)); --dk-ink: white; --dk-soft: color-mix(in srgb, var(--look-dark, var(--m-accent)) 11%, transparent); background: color-mix(in srgb, white 94%, var(--m-accent)); border-radius: 8px; color: var(--dk-fg); }
 .dkl-feed[data-theme="night"] { --dk-fg: color-mix(in srgb, white 92%, var(--m-accent)); --dk-fg2: color-mix(in srgb, white 64%, transparent); --dk-fg3: color-mix(in srgb, white 40%, transparent); --dk-line: color-mix(in srgb, white 10%, transparent); --dk-acc: var(--m-accent); --dk-ink: black; --dk-soft: color-mix(in srgb, var(--m-accent) 13%, transparent); background: color-mix(in srgb, black 90%, var(--m-accent)); border-radius: 8px; color: var(--dk-fg); }
 .dkl-feed[data-motion="off"] .dkl-msg { animation: none; }
+/* 💬 streaming reply: the answer grows in place with a blinking caret (opacity only); still under fx-lite / reduced motion */
+.dkl-stream { font-size: 13px; overflow-wrap: anywhere; } .dkl-stream > :last-child { display: inline; }
+.dkl-caret { display: inline-block; width: 7px; height: 13px; margin-left: 2px; vertical-align: -2px; border-radius: 1px; background: var(--dk-acc); animation: dklCaret 1.1s ease-in-out infinite alternate; }
+@keyframes dklCaret { to { opacity: .15; } }
+body.fx-lite .dkl-caret { animation: none; } @media (prefers-reduced-motion: reduce) { .dkl-caret { animation: none; } }

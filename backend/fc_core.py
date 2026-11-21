@@ -1235,6 +1235,49 @@ async def _lm_call_one(model, messages, max_tokens):
         return '', 0.0
 
 
+class _Streamed:
+    """What a streamed OpenRouter call left: the same shape _or_call reads from a plain response (status_code + json())."""
+    def __init__(self, status_code, data):
+        self.status_code, self._d = status_code, data
+
+    def json(self):
+        return self._d
+
+
+async def _or_stream(h, auth, body, on_delta):
+    """💬 One OpenRouter call with stream=true (SSE). Every content chunk → on_delta(text so far); the reply, finish reason and the
+    provider's own usage + cost (usage.include) come back as one non-stream-shaped response, so billing, receipts and refusals are
+    unchanged. A non-200 is returned as-is (nothing was written, nothing billed)."""
+    parts, fin, usage, rid, rmodel = [], None, {}, None, None
+    async with h.stream('POST', 'https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, 'stream': True, 'usage': {'include': True}}) as r:
+        if r.status_code != 200:
+            await r.aread()
+            return _Streamed(r.status_code, {})
+        async for line in r.aiter_lines():
+            if not line.startswith('data:'):
+                continue   # ': OPENROUTER PROCESSING' keep-alives
+            data = line[5:].strip()
+            if data == '[DONE]':
+                break
+            try:
+                c = _rs().json.loads(data)
+            except ValueError:
+                continue
+            rid = rid or c.get('id'); rmodel = rmodel or c.get('model')
+            if c.get('usage'):
+                usage = c['usage']
+            ch = (c.get('choices') or [{}])[0]
+            piece = (ch.get('delta') or {}).get('content') or ''
+            if piece:
+                parts.append(piece)
+                try:
+                    on_delta(''.join(parts))
+                except Exception:
+                    pass   # the chat preview never breaks the call
+            fin = ch.get('finish_reason') or fin
+    return _Streamed(200, {'id': rid, 'model': rmodel, 'usage': usage, 'choices': [{'message': {'content': ''.join(parts)}, 'finish_reason': fin}]})
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None, backup=False):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
@@ -1254,7 +1297,11 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
                     body['max_tokens'] = min(int(kn_['max_tokens']), int(body['max_tokens'])) if not long_write else body['max_tokens']
             extra = {'plugins': plugins, **({'response_format': {'type': 'json_object'}} if any(x['id'] == 'response-healing' for x in plugins) else {})} if plugins else {}
             auth = {'Authorization': f"Bearer {key or rs.os.environ.get('OPENROUTER_API_KEY')}"}
-            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, **extra})
+            on_ = rs._ca.STREAM.get()
+            if on_ and not extra and not long_write:   # 💬 Slice 34: the chat shows the answer as it is written (same body, same bill: OpenRouter's usage rides the last chunk)
+                r = await _or_stream(h, auth, body, on_)
+            else:
+                r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, **extra})
             if extra and r.status_code == 400:   # a model that refuses a plugin still answers without it
                 r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json=body)
             if long_write and r.status_code == 400:   # a model that must think: ask again with its own default

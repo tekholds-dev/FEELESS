@@ -161,3 +161,11 @@ test('⚙ owner 2026-11-21: every control in the desk settings panel works — c
   await click('cwb-tool-browse'); expect(calls.at(-1)).toMatchObject({ op: 'tools', tools: { browse: false, forms: true } });   // the engine refuses a blocked tool (backend: test_desk_settings_engine)
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('💬 streaming replies: while a task is live, the answer shows as the model writes it (state.partial), then the finished message replaces it', async () => {
+  const { el, root } = mount({ task: { id: 't', text: 'q', status: 'planning', cap: 0.05, cost: 0 }, windows: [], partial: 'Four is **the** ans' });
+  await act(async () => { root.render(<CatWorkbench cat={CAT} />); });
+  const s = el.querySelector('[data-testid="cwb-stream"]'); expect(s).not.toBeNull();
+  expect(s.textContent).toContain('Four is the ans'); expect(s.querySelector('strong, b')).not.toBeNull(); expect(s.querySelector('.dkl-caret')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});

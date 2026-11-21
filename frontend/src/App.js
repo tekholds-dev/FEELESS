@@ -23,6 +23,7 @@ import { installOverflowTitles, installImageFallback, installChartDisposalGuard 
 installOverflowTitles();
 startEco();   // 🔋 phones start in eco (lib/eco.js) before the first frame
 if (process.env.NODE_ENV !== 'test') import('./lib/perfWatch').then(m => m.startPerfWatch()).catch(() => {});
+if (process.env.NODE_ENV !== 'test') import('./lib/saverMode').then(m => m.startSaver()).catch(() => {});   // 🔋 phones / Save-Data / low battery / reduced motion wear fx-lite by themselves (Slice 34)
 if (process.env.NODE_ENV !== 'test') import('./lib/fxPause').then(m => m.startFxPause()).catch(() => {});   // ⏸ off-screen cards run no animations
 installImageFallback();
 installChartDisposalGuard();
