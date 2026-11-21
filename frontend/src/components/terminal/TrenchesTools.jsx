@@ -7,6 +7,7 @@ import { AnimatedNumber } from './AnimatedNumber';
 import { formatUSD, thumb } from '../../lib/dexscreener';
 import { LivePrice, LiveChange24 } from './LiveCells';
 import { Ic3 } from '../../lib/icon3d';
+import { pollMs } from '../../lib/saverMode';
 
 const fmtX = v => (v == null ? '—' : `${v >= 100 ? v.toFixed(0) : v.toFixed(2)}×`);
 const ago = s => { const d = Date.now() / 1000 - s; return d < 60 ? `${Math.round(d)}s` : d < 3600 ? `${Math.round(d / 60)}m` : d < 86400 ? `${Math.round(d / 3600)}h` : `${Math.round(d / 86400)}d`; };
@@ -14,7 +15,7 @@ const ago = s => { const d = Date.now() / 1000 - s; return d < 60 ? `${Math.roun
 function usePoll(path, ms) {
   const [data, setData] = useState(null);
   const load = useCallback(() => fetch(apiUrl(path)).then(r => (r.ok ? r.json() : null)).then(d => d && setData(d)).catch(() => {}), [path]);
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, ms); return () => clearInterval(t); }, [load, ms]);
+  useEffect(() => { load(); let at = Date.now(); const t = setInterval(() => { if (!document.hidden && Date.now() - at >= pollMs(ms) - 100) { at = Date.now(); load(); } }, ms); return () => clearInterval(t); }, [load, ms]);   // 🔋 a phone in eco / the saver polls 3× slower
   return data;
 }
 

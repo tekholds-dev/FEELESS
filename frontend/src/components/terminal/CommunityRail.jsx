@@ -8,6 +8,7 @@ import { Radio, ArrowUpRight, Layers3 } from 'lucide-react';
 import { MessageCircle, Rocket, Compass, Star, BarChart3, CandlestickChart } from '../../lib/lucide3d';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
+import { pollMs } from '../../lib/saverMode';
 
 import { MarketAvailabilityNotice, TokenAvatar, Change } from './MarketPrimitives';
 import { ReputationBadge } from './ReputationBadge';
@@ -129,7 +130,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (!alive) return;
       const next = {}; (d.calls || []).forEach(call => { [...new Set([call.pairAddress, call.mint].filter(Boolean))].forEach(key => { next[key] = (next[key] || 0) + 1; }); }); setCallCounts(next);
     }).catch(() => {});
-    load(); const timer = setInterval(load, 8000); return () => { alive = false; clearInterval(timer); };
+    load(); let at = Date.now(); const timer = setInterval(() => { if (!document.hidden && Date.now() - at >= pollMs(8000) - 100) { at = Date.now(); load(); } }, 8000); return () => { alive = false; clearInterval(timer); };   // 🔋 paused hidden, 3× slower on a phone
   }, []);
   // Keep one local active coin. Route restoration may initialize/update it, but a card click updates
   // it synchronously so a stale route/global selection cannot reopen the previous coin.

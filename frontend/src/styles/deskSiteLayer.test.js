@@ -15,6 +15,6 @@ test('the Fuse arena: league bars never cover their labels, a % never wraps, the
   const p = css('primeLeague.css');
   expect(rule(p, '.pls-lane u')).toMatch(/overflow:\s*hidden/); expect(rule(p, '.pls-lane u')).toMatch(/text-overflow:\s*ellipsis/);
   expect(rule(p, '.pls-lane em')).toMatch(/white-space:\s*nowrap/);
-  expect(css('fuseRoom.css')).toMatch(/body:has\(\.frm-tab\) \.terminal-main \{ padding-right: 34px; \}/);
+  expect(css('fuseRoom.css')).toMatch(/body:has\(> \.frm-tab\) \.terminal-main \{ padding-right: 34px; \}/);
   const t = rule(css('firstTips.css'), '.ft-skip'); expect(t).toMatch(/right:\s*16px/); expect(t).not.toMatch(/left:/);   // not over the sidebar
 });

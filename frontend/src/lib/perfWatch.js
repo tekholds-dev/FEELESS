@@ -14,7 +14,7 @@ export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || '
 export const isAutoLite = m => String(m || '').startsWith('auto');
 export function setLite(mode) {
   try { if (mode) localStorage.setItem(LITE_KEY, mode); else localStorage.removeItem(LITE_KEY); } catch { /* private mode */ }
-  document.body.classList.toggle('fx-lite', !!mode);
+  document.body.classList.toggle('fx-lite', !!mode || document.body.classList.contains('fx-saver'));   // 🔋 the battery / data saver (saverMode.js) keeps lite on
 }
 
 // Pure: should this minute's numbers switch the device to lite effects?

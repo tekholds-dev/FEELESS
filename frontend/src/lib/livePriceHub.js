@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { sweepable } from './cacheSweep';
+import { pollMs } from './saverMode';
 
 // One shared Jupiter poller for every Solana price on screen: components register mints,
 // a single batched request every 2s refreshes them all, subscribers re-render on change.
@@ -8,8 +9,11 @@ const prices = sweepable('livePriceHub', new Map(), { max: 400, keep: k => count
 const listeners = new Set();
 let timer = null;
 
+let lastAt = 0;
 async function poll() {
   if (typeof document !== 'undefined' && document.hidden) return;
+  if (Date.now() - lastAt < pollMs(2000) - 100) return;   // 🔋 a phone in eco / the saver: every 6 s (cell data); a desktop: every 2 s
+  lastAt = Date.now();
   const mints = [...counts.keys()];
   for (let i = 0; i < mints.length; i += 50) {
     try {
