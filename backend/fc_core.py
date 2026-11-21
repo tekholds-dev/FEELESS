@@ -1040,7 +1040,11 @@ async def _singit_free(messages, max_tokens=None):
 async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=None):
     """🧠 The one door for an agent's model call. Inside a proof (COL-2) it also files who really answered: route, model, $, tokens, time."""
     rs = _rs()
-    ans = {}; tok = rs._ANSWER.set(ans); t0 = rs.time.perf_counter()
+    ctx = rs._CALL_CTX.get()
+    hold_ = rs._fc_test.cap_take(cat, ctx, model, messages, max_tokens) if ctx else None   # 💸 Slice 28: a TEST stops at its cap BEFORE the call that would pass it
+    if hold_:
+        max_tokens = hold_[1]
+    ans = {}; tok = rs._ANSWER.set(ans); t0 = rs.time.perf_counter(); usd = 0.0
     ktok_ = rs._OR_KNOBS.set((cat.get('brainsCfg') or {}).get('knobs') or None) if isinstance(cat, dict) else None
     try:
         text, usd, via = await rs._think_routes(cat, model, messages, own_key, effort, max_tokens)
@@ -1048,7 +1052,7 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
         if ktok_ is not None:
             rs._OR_KNOBS.reset(ktok_)
         rs._ANSWER.reset(tok)
-    ctx = rs._CALL_CTX.get()
+        rs._fc_test.cap_done(cat, ctx, hold_, usd)
     if ctx:
         rs._mind_call(cat, model, ctx, ans, text, usd, via, rs.time.perf_counter() - t0)
     return text, usd, via

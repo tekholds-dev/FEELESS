@@ -7,7 +7,7 @@ const path = require('path');
 const SHEETS = ['ecoFolder.css', 'eco.css', 'ecoDesk.css', 'pobDash.css', 'pocBoard.css', 'pocDash.css', 'pocEditor.css', 'pocStudio.css', 'pocWatch.css', 'popDash.css',
   'popDesk.css', 'powDash.css', 'proofDrawer.css', 'proofFile.css', 'proofKit.css', 'proofLive.css', 'proofRooms.css', 'proofTools.css', 'proofVisuals.css', 'proofWorkspace.css',
   'proofsFolder.css', 'psInspect.css', 'startWizard.css', 'stashBrain.css', 'trackRecord.css', 'trueRecord.css', 'clipFarm.css', 'proofPicker.css',
-  'earnDesk.css', 'earnStake.css', 'earnTicker.css', 'gitFolder.css', 'comp2.css', 'compDash.css', 'compExplain.css', 'compGrow.css', 'compVoice.css', 'compWatch.css'];
+  'earnDesk.css', 'earnDash.css', 'earnStake.css', 'earnTicker.css', 'gitFolder.css', 'comp2.css', 'compDash.css', 'compExplain.css', 'compGrow.css', 'compVoice.css', 'compWatch.css'];
 // a monitor's own content, not page type: the hub number is SVG text in viewBox units (it scales with its ring)
 const ALLOW = [/\.ppk-hub/];
 const MAX = 19;

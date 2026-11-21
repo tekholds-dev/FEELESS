@@ -85,21 +85,39 @@ def _earns(cat):
     return [f for f in cat.get('poeFolders') or [] if isinstance(f, dict) and f.get('kind') == 'earn']
 
 
+def _minds(cat):
+    """The PoEco pair that would bid and do the work, and each model's own median $ per call (the agent's call log)."""
+    rs = _rs(); rows = rs._calls_of(cat.get('id'), 4000)
+    return rs._lc.minds_for(cat.get('brainsCfg'), 'poe') or [], _ee.per_model(rows), _ee.per_call(rows)
+
+
 def _view(cat):
+    """The board read again with today's rules (a kept board never shows a job a newer rule drops), the dashboard, and every earn filing."""
     b = cat.get('earnBoard') or {}
-    return {'board': b, 'platforms': _ee.PLATFORMS, 'earns': _earns(cat)[::-1], 'busy': cat.get('id') in _BUSY, 'poeFolders': (cat.get('poeFolders') or [])[::-1]}
+    if b.get('best') or b.get('all'):
+        minds, models, per = _minds(cat)
+        b = _ee.rescore(b, b.get('perCall') or per, [(f.get('listing') or {}).get('id') for f in _earns(cat)], minds=minds, models=models)
+    b = {k: v for k, v in b.items() if k != 'all'}
+    markets = [f for f in cat.get('poeFolders') or [] if isinstance(f, dict) and f.get('kind') == 'market']
+    return {'board': b, 'platforms': _ee.PLATFORMS, 'earns': _earns(cat)[::-1], 'busy': cat.get('id') in _BUSY, 'poeFolders': (cat.get('poeFolders') or [])[::-1],
+            'dash': _ee.dash(_earns(cat), markets, b), 'skills': list(_ee.SKILLS), 'minds': [str(m).split('/')[-1] for m in _rs()._lc.minds_for(cat.get('brainsCfg'), 'poe') or []]}
 
 
-async def _find(cat_id):
+async def _find(cat_id, skill=''):
     rs = _rs()
     async with rs.httpx.AsyncClient() as http:
         kept, out, reads = await read_feeds(http)
     store = rs._load(); cat = store['cats'].get(cat_id) or {}
-    per = _ee.per_call(rs._calls_of(cat_id, 4000))
+    minds, models, per = _minds(cat)
     filed = [(f.get('listing') or {}).get('id') for f in _earns(cat)]
-    b = _ee.board(kept, out, per, filed)
+    b = _ee.board(kept, out, per, filed, skill=skill, minds=minds, models=models)
     b['reads'] = reads; b['perCall'] = per
     b['best'] = [{**r, 'desc': _ee._cut(r.get('desc'), 400)} for r in b['best']]
+    why_ = {}
+    for r in out:
+        why_[r['outWhy']] = why_.get(r['outWhy'], 0) + 1
+    b['outFeed'] = [{'why': k, 'n': v} for k, v in why_.items()]
+    b['all'] = [{**r, 'desc': _ee._cut(r.get('desc'), 300)} for r in kept if _ee.fit_of(f"{r.get('title')} {r.get('desc')}")[0]][:80]   # 🧮 Slice 28: kept so a later rule or a skill tap re-sorts it with no new read
     cat['earnBoard'] = b; rs.keep_owned(cat); rs._save(store)
     return b
 
@@ -142,7 +160,8 @@ async def _bid(cat_id, lid='', wiz=None):
         if not b.get('best') or rs.time.time() - float(b.get('at') or 0) > BOARD_FRESH_S:
             b = await _find(cat_id); store = rs._load(); cat = store['cats'].get(cat_id) or {}
         filed = {(f.get('listing') or {}).get('id') for f in _earns(cat)}
-        rows = sorted((s_ for s_ in (_ee.score(r, b.get('perCall') or 0.002) for r in b.get('best') or [] if r['id'] not in filed) if s_['score']),
+        minds_, models_, _per = _minds(cat)
+        rows = sorted((s_ for s_ in (_ee.score(r, b.get('perCall') or 0.002, minds=minds_, models=models_) for r in (b.get('all') or b.get('best') or []) if r['id'] not in filed) if s_['score'] and (lid or not b.get('skill') or s_['cat'] == b.get('skill'))),
                       key=lambda r: (-r['score'], -(r['expProfit'] or 0)))   # re-scored with today's rules: a board kept from before a rule change never picks for it (2026-11-20 TEST #2)
         row = next((r for r in rows if r['id'] == lid), None) if lid else (rows[0] if rows else None)
         if not row:
@@ -253,8 +272,15 @@ async def op(cat_id, cat, store, p, internal_):
     rs = _rs(); t_ = p.tools if isinstance(p.tools, dict) else {}
     if p.op == 'earn_view':
         return _view(cat)
-    if p.op == 'earn_find':
-        await _find(cat_id)
+    if p.op == 'earn_find':   # 🧭 Slice 28: one tap "find me work" by skill (tools.skill: writing · code · data · research · design · translation, '' = all)
+        skill = str(t_.get('skill') or '').lower()
+        if skill and skill not in _ee.SKILLS:
+            raise rs.HTTPException(400, 'Skill: ' + ', '.join(_ee.SKILLS) + ', or none for all.')
+        b = cat.get('earnBoard') or {}
+        if t_.get('fresh') is False and b.get('all') and rs.time.time() - float(b.get('at') or 0) < BOARD_FRESH_S:   # a skill tap on a fresh board re-sorts it, no new read
+            b['skill'] = skill; rs.keep_owned(cat); rs._save(store)
+        else:
+            await _find(cat_id, skill)
         return _view(rs._load()['cats'].get(cat_id) or cat)
     if p.op == 'earn_bid':
         if cat_id in _BUSY:

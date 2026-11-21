@@ -110,7 +110,8 @@ _LOOK = r"""() => {
     if (w * h / small > 0.35) out.push([els[i].tagName.toLowerCase() + ': ' + (els[i].innerText || '').trim().slice(0, 30), els[j].tagName.toLowerCase() + ': ' + (els[j].innerText || '').trim().slice(0, 30)]);
   }
   const words = (document.body && document.body.innerText || '').trim().length;
-  return {overlaps: out, scrollW: document.documentElement.scrollWidth, innerW: innerWidth, words};
+  const drawn = [...document.querySelectorAll('canvas,svg,img,video')].some(e => { const r = e.getBoundingClientRect(); return r.width > 40 && r.height > 40; });
+  return {overlaps: out, scrollW: document.documentElement.scrollWidth, innerW: innerWidth, words, drawn};
 }"""
 
 
@@ -154,6 +155,7 @@ async def browser(html, chromium=None, http=None, settle_ms=2500, timeout_ms=100
     out['fits'] = phone[2].get('scrollW', 0) <= PHONE['width'] + 2   # never innerWidth: a phone widens it to fit a page that is too wide
     out['overlaps'] = [{'on': n, 'a': a, 'b': b_} for n, _ok, g, _m in (phone, desk) for a, b_ in (g.get('overlaps') or [])][:8]
     out['errors'] = errs[:6]; out['phoneWidth'] = phone[2].get('scrollW')
+    out['words'] = int(phone[2].get('words') or 0); out['drawn'] = bool(phone[2].get('drawn') or desk[2].get('drawn'))   # 🕳 Slice 28: what a phone really saw
     out['deadLinks'] = await dead_links(outside_links(html), http) if http is not None else []
     out['ms'] = round((time.time() - t0) * 1000)
     return out

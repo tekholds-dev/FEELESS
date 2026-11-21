@@ -62,3 +62,16 @@ body.theme-day .ern-track li.is-now { color: var(--ef-wn5); border-color: var(--
 .ern-row:not(.is-head) { animation: ernIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 30ms); }   /* transform / opacity CSS: rows never wait on JS frames */
 .ern-verdict .m-num, .ern-out .m-num { font-size: 12.5px; }
 body.theme-day .ern-facts em { color: var(--ef-wn5); } body.theme-day .ern-facts { opacity: .85; }
+/* 💼 Slice 28: what it takes, one tap from every board row; the job in its own words on a filing; a bid that is not realistic says so */
+.ern-row { grid-template-columns: 30px minmax(0, 1fr) 96px 58px auto; } .ern-row.is-open { padding-bottom: 8px; background: var(--ef-tx4); }
+.ern-row .edb-win { margin-top: 2px; }
+.ern-acts-row { display: inline-flex; align-items: center; gap: 4px; }
+.ern-more { display: inline-grid; place-items: center; width: 32px; min-height: 32px; padding: 0; } .ern-more svg { transition: transform .15s; } .ern-more[aria-expanded='true'] svg { transform: rotate(180deg); }
+.ern-desc { position: relative; margin: 0; font: 500 12px/1.5 var(--f-ui); opacity: .85; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; padding-right: 44px; }
+.ern-desc.is-more { display: block; -webkit-line-clamp: unset; }
+.ern-desc-more { position: absolute; right: 0; bottom: 0; min-height: 22px; padding: 0 6px; border: 0; border-radius: 6px; background: var(--ef-wn3); color: var(--ef-wn7); font: 700 10.5px var(--f-mono); cursor: pointer; }
+.ern-desc-more:hover { background: var(--ef-wn6); } .ern-desc-more:focus-visible { outline: 2px solid var(--ef-wn1); }
+.ern-unreal { margin: 0; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--ef-dg2); color: var(--ef-dg1); font: 600 11px/1.4 var(--f-ui); }
+body.theme-day .ern-desc-more { color: var(--ef-wn5); } body.theme-day .ern-unreal { color: var(--ef-dg4); }
+@media (max-width: 640px) { .ern-row { grid-template-columns: 26px minmax(0, 1fr) auto auto; } .ern-more { width: 32px; } }
+@media (prefers-reduced-motion: reduce) { .ern-more svg { transition: none; } }

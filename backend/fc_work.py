@@ -279,12 +279,16 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 ctx_ = rs._CALL_CTX.get()
                 if not ctx_:
                     return await ask_raw(model, messages)
+                try:   # 💸 Slice 28: refused before it is sent when it could pass the TEST cap (the window stops, in plain words)
+                    hold_ = rs._fc_test.cap_take(cat_now, ctx_, model, orders + messages, reply_room(model, messages), shrink=False)
+                except rs._sg.OverCap as e:
+                    raise rs._ca.Stopped(str(e))
                 ans_ = {}; tok_ = rs._ANSWER.set(ans_); t0_ = rs.time.perf_counter(); out_ = ('', 0.0)
                 try:
                     out_ = await ask_raw(model, messages)
                     return out_
                 finally:
-                    rs._ANSWER.reset(tok_)
+                    rs._ANSWER.reset(tok_); rs._fc_test.cap_done(cat_now, ctx_, hold_, out_[1])
                     rs._mind_call(cat_now, model, ctx_, ans_, out_[0], out_[1], 'window', rs.time.perf_counter() - t0_)
 
             async def ask_raw(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)

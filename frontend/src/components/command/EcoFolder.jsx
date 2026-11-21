@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { ProofHead, ProofKit, ProofTile } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
-import { EcoLive } from './EcoLive';
+import { EarnDash } from './EarnDash';
 import { EarnBoard, EarnFiling, RecordRow, useEarn } from './EarnDesk';
 import { ProofWorkspace } from './ProofWorkspace';
 import { StartWizard } from './StartWizard';
@@ -80,7 +80,7 @@ export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse, focus
       {open.kind === 'earn' ? <EarnFiling bare f={open} onBack={back} busy={earn.busy} act={earn.call} /> : open.kind === 'market' ? <MarketCall bare f={open} onBack={back} busy={busy} onGrade={() => act({ op: 'eco_grade' })} /> : <OldBook bare f={open} onBack={back} />}{errs}</ProofWorkspace></div>;
   }
   return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead slim kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
-    <div className="prf-main"><EarnBoard v={earn.v} busy={earn.busy} onFind={() => earn.call({ op: 'earn_find' })} onBid={id => setWiz(id)} /><EcoLive />{errs}
+    <div className="prf-main"><EarnDash v={earn.v} rows={rows} busy={earn.busy} call={earn.call} onBid={id => setWiz(id)} onOpen={setOpen} board={<EarnBoard v={earn.v} busy={earn.busy} onFind={() => earn.call({ op: 'earn_find', tools: { skill: earn.v?.board?.skill || '' } })} onBid={id => setWiz(id)} />} />{errs}
       <StartWizard open={!!wiz} cat={cat} work={work} kind="poe" job={wiz} onGo={bidGo} onClose={() => setWiz('')} goLabel="Draft the bid" /></div>
     <aside className="prf-rail"><Rail rows={rows} busy={busy} onCall={() => act({ op: 'eco_call' })} onOpen={setOpen} onCommand={onCommand} /></aside></div>;
 }

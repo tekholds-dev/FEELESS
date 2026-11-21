@@ -93,6 +93,16 @@ if (window.location.search.includes('realpob')) {   // 🎲 Slice 13: the PoB da
     if (b?.op === 'pob') { console.info('[dev] PoB door ←', JSON.stringify(b)); return jsonRes({ ok: true, topic: b.text }); }
     return before(u, o); };
 }
+const REALPOE = window.location.search.includes('realpoe');   // 💼 Slice 28 (?realpoe): Happy's REAL PoEco filings + a real public feed read, as earn_view answers per skill (gitignored public/dev-poe.json). Taps only log here
+if (REALPOE) {
+  let poe = null; try { const x = new XMLHttpRequest(); x.open('GET', '/dev-poe.json', false); x.send(); poe = JSON.parse(x.responseText); } catch { /* no file: the fixture */ }
+  if (poe) { WORK.poeFolders = poe.views[''].poeFolders; let skill = ''; const before = window.fetch;
+    window.fetch = (u, o) => { let b = null; try { b = String(u).includes('/work') && o?.body ? JSON.parse(o.body) : null; } catch { /* not json */ }
+      if (b?.op === 'earn_find') { skill = b.tools?.skill || ''; return jsonRes(poe.views[skill] || poe.views['']); }
+      if (b?.op === 'earn_view') return jsonRes(poe.views[skill] || poe.views['']);
+      if (['earn_bid', 'earn_go', 'earn_work', 'eco_call', 'eco_grade'].includes(b?.op)) { console.info('[dev] PoEco door ←', JSON.stringify(b)); return jsonRes({ ...(poe.views[skill] || poe.views['']), said: 'harness: not sent' }); }
+      return before(u, o); }; }
+}
 export default function CatHarness() {
   const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');

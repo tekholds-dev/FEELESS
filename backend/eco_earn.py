@@ -49,12 +49,24 @@ FIT = {   # faceless work the minds can do from a keyboard, by the words a listi
     'design': ('logo', 'graphic design', 'figma', 'banner', ' ui ', 'ui design', 'ux', 'illustration', 'meme', 'infographic', 'slides', 'presentation', 'social media post', 'thumbnail', 'icon'),
     'translation': ('translat', 'locali', 'subtitle'),
 }
-FACE = ('video', 'voice', 'voiceover', 'call', 'on-site', 'onsite', 'photograph', 'in person', 'in-person', 'camera', 'podcast', 'phone', 'interview', 'tiktok',
-        'youtube', 'influencer', 'kyc', 'actor', 'presenter', 'ugc', 'animation', 'event', 'meetup', 'irl', 'filming', 'model ', 'live stream', 'livestream')
+FACE = ('video', 'voice', 'voiceover', 'on a call', 'quick call', 'video call', 'phone call', 'zoom call', 'google meet', 'calls with', 'on-site', 'onsite', 'photograph', 'in person', 'in-person', 'camera', 'podcast', 'phone', 'interview', 'tiktok',
+        'youtube', 'influencer', 'kyc', 'actor', 'presenter', 'ugc', 'animation', 'live event', 'in-person event', 'event host', 'meetup', 'irl', 'filming', 'fashion model', 'photo model', 'model needed', 'shoot', 'photoshoot', 'modeling', 'live stream', 'livestream')
 CREDENTIAL = (' pe ', 'licensed', 'license holder', 'stamp', 'professional engineer', 'engineer of record', 'architect', 'structural', 'renovation', 'autocad', 'cad drawing',
               'cpa', 'attorney', 'lawyer', 'legal advice', 'notary', 'certified', 'tutor', 'tutoring', 'teacher', 'coach', 'manager', 'full-time', 'full time', 'part-time',
-              'employee', 'hire for', 'long term', 'long-term', 'minecraft', 'in game', 'pci compliance', 'penetration test')   # a licence, a seat in a team or a live session: not a faceless one-off
+              'employee', 'hire for', 'long term', 'long-term', 'minecraft', 'in game', 'pci compliance', 'penetration test',
+              # 🏗 Slice 28 (the owner's screenshot: a stair + handrail CAD job under OSHA / IBC with stamped drawings read as "faceless fit"):
+              # licensed or regulated work a person must sign is never ours, whatever the listing calls it
+              'osha', ' ibc ', 'building code', 'stamped', 'sealed drawing', 'shop drawing', 'p.e.', 'engineering drawing', 'permit', 'code compliance',
+              'handrail', 'guardrail', 'load calculation', 'load bearing', 'surveyor', 'electrician', 'plumbing', 'hvac', 'medical', 'clinical', 'diagnos',
+              'tax return', 'bookkeep', 'financial advis', 'investment advice', 'immigration', 'pharmac', 'nurse', 'therapist', 'solidworks', 'revit')   # a licence, a seat in a team or a live session: not a faceless one-off
 HOURS = {'writing': 3, 'code': 6, 'data': 4, 'research': 4, 'design': 3, 'translation': 2}   # what a person would spend: the hours the minds save
+RATE = {'writing': 35, 'code': 60, 'data': 30, 'research': 40, 'design': 45, 'translation': 30}   # 💵 Slice 28: a typical freelance $/hour by kind (Upwork / Freelancer medians, rounded): the human rate a job is held against
+AI_SPEED = 3          # the minds draft fast, but the owner reviews and sends: about a third of a person's time, never under one day
+DAY_HOURS = 8
+TOO_BIG_H = 120       # past ~3 human weeks it is not a faceless one-off any more: out of the board, named
+FAST_H = 24           # 'fast turnaround' for the live feed
+FEW = {'superteam': 6, 'freelancer': 12, 'algora': 4}   # 'few bids' by platform (Freelancer jobs collect dozens; bounties few)
+SCOPE = ('deliver', 'deliverable', 'requirement', 'must', 'should', 'need', 'output', 'format', 'words', 'pages', 'fix', 'implement', 'endpoint', 'acceptance', 'spec')
 CALLS = {'writing': 4, 'code': 10, 'data': 6, 'research': 6, 'design': 4, 'translation': 3}   # mind calls to bid + do the work
 STABLE = {'USDC', 'USDG', 'USDT', 'PYUSD', 'USD', 'USDS', 'DAI'}
 AI_BAN = re.compile(r'(no|ban|banned|not accept|prohibit|forbid|reject|disallow)[^.\n]{0,60}\b(ai|llm|chatgpt|copilot|generated|vibe)|\b(ai|llm)[- ]generated[^.\n]{0,40}(not|ban|reject|close)', re.I)
@@ -83,13 +95,26 @@ def _iso(s):
         return None
 
 
+STEMS = {'diagnos', 'pharmac', 'bookkeep', 'financial advis', 'certified', 'licensed'}
+
+
+def _word(w):
+    """A whole word (Slice 28: 'call' was matching 'callback', 'stamp' 'timestamp', 'event' 'eventual', so real code bounties were dropped)."""
+    k = w.strip()
+    return re.compile(r'(?<![a-z0-9])' + re.escape(k) + ('' if k in STEMS else r'(?:s|es|ed|ing)?(?![a-z0-9])'))
+
+
+FACE_RE = [(w, _word(w)) for w in FACE]
+CRED_RE = [(w, _word(w)) for w in CREDENTIAL]
+
+
 def fit_of(text):
     """→ (category or '', why). Faceless work only: a listing that needs a face, a voice, a camera or a place is out with its word."""
     t = f' {str(text or "").lower()} '
-    face = next((w for w in FACE if w in t), None)
+    face = next((w for w, rx in FACE_RE if rx.search(t)), None)
     if face:
         return '', f'needs a face or a place ("{face.strip()}")'
-    cred = next((w for w in CREDENTIAL if w in t), None)
+    cred = next((w for w, rx in CRED_RE if rx.search(t)), None)
     if cred:
         return '', f'needs a licence, a role or a live session ("{cred.strip()}")'
     hits = {c: sum(1 for w in ws if w in t) for c, ws in FIT.items()}
@@ -135,7 +160,9 @@ def parse_freelancer(j):
         sub = _f(r.get('time_submitted')); dl = sub + _f(r.get('bidperiod'), 7) * DAY if sub else None
         kept.append(_row('freelancer', r.get('id'), r.get('title'), f"https://www.freelancer.com/projects/{r.get('seo_url')}", f"{r.get('preview_description') or r.get('description') or ''} · skills: {jobs}",
                          usd, f"{cur.get('sign') or ''}{lo:,.0f}–{hi:,.0f} {cur.get('code') or ''}" + (' /hr (×10 h)' if hourly else ''), dl, int(((r.get('bid_stats') or {}).get('bid_count')) or 0),
-                         {'hourly': hourly, 'skills': jobs[:120]}))
+                         {'hourly': hourly, 'skills': jobs[:120], 'payLo': round(lo * rate * (10 if hourly else 1), 2) if rate and lo else None,
+                          'payHi': round(hi * rate * (10 if hourly else 1), 2) if rate and hi else None,
+                          'avgBid': round(_f((r.get('bid_stats') or {}).get('bid_avg')) * rate * (10 if hourly else 1), 2) if rate and _f((r.get('bid_stats') or {}).get('bid_avg')) else None}))
     return kept, []
 
 
@@ -196,32 +223,125 @@ def chance(rivals, src):
     return round(min(0.35, 1 / (1 + n / (3 if src == 'superteam' else 6 if src == 'freelancer' else 4))), 3)
 
 
-def score(row, per_call_usd, now=None):
+def realism(row, cat):
+    """🧮 Slice 28: what the job really is, so a bid's price and time are realistic for the work (the owner saw $20,000–35,000 promised 'within 1 day').
+    The pay ÷ a person's rate for this kind = the hours a person would take; the minds take about a third, never under a day.
+    → {humanRate, humanHours, minDays, priceLo, priceHi, tooBig}. Pure."""
+    rate = RATE.get(cat, 40); pay = _f(row.get('payUsd')) or None
+    hh = round(max(1.0, pay / rate), 1) if pay else None
+    days = max(1, math.ceil((hh or DAY_HOURS) / (DAY_HOURS * AI_SPEED)))
+    lo = _f(row.get('payLo')) or (round(pay * 0.6, 2) if pay else None); hi = _f(row.get('payHi')) or pay
+    return {'humanRate': rate, 'humanHours': hh, 'minDays': days, 'priceLo': lo, 'priceHi': hi, 'tooBig': bool(hh and hh > TOO_BIG_H)}
+
+
+def competes(row, real):
+    """Where AI can really compete (Slice 28): few bids, a clear scope, a fast turnaround. → {ok, few, clear, fast, why}. Pure."""
+    n = int(row.get('rivals') or 0); few = n <= FEW.get(row.get('src'), 8)
+    d = str(row.get('desc') or '').lower(); clear = len(d) >= 80 and sum(1 for w in SCOPE if w in d) >= 2
+    fast = bool(real.get('humanHours')) and real['humanHours'] <= FAST_H
+    why = [f'{n} bid{"s" if n != 1 else ""} so far' + (' (few)' if few else ' (crowded)'), 'clear scope' if clear else 'vague scope',
+           f"≈{real['humanHours']:g} h for a person" + (' (fast)' if fast else '') if real.get('humanHours') else 'no pay to size it']
+    return {'ok': clear and few and not real.get('tooBig'),   # a vague or crowded job is never one AI wins; fast ranks first in the feed
+             'few': few, 'clear': clear, 'fast': fast, 'why': why}
+
+
+def needs(cat, minds, per_model, per_call_usd, real, rivals, avg_bid=None):
+    """🧠 What it takes to win, BEFORE the owner starts (owner: "show how much it would cost and the brains / models needed"): the minds and
+    models that would bid and do it, the calls, the expected model cost (each model's own median $ per call from this agent's call log),
+    the time, and the competition. Pure."""
+    calls = CALLS.get(cat, 6); ms = [m for m in (minds or []) if m][:2] or ['(no PoEco pair set)']
+    each = [{'model': m, 'name': str(m).split('/')[-1][:28], 'local': str(m).startswith('local/'), 'calls': math.ceil(calls / len(ms)),
+             'usd': round(0.0 if str(m).startswith('local/') else math.ceil(calls / len(ms)) * _f((per_model or {}).get(m), per_call_usd), 4)} for m in ms]
+    return {'minds': each, 'calls': calls, 'cost': round(sum(e['usd'] for e in each), 4), 'days': real['minDays'], 'ourHours': round((real.get('humanHours') or DAY_HOURS) / AI_SPEED, 1),
+            'humanHours': real.get('humanHours'), 'humanRate': real['humanRate'], 'rivals': int(rivals or 0), 'avgBid': avg_bid,
+            'kits': ['Bid Desk', 'Faceless Work Check'] + ([{'code': 'Code kit', 'design': 'Design kit', 'data': 'Data kit'}[cat]] if cat in ('code', 'design', 'data') else [])}
+
+
+def per_model(rows):
+    """Each model's median $ per answered paid call in this agent's call log. Pure."""
+    by = {}
+    for r in rows or []:
+        if isinstance(r, dict) and r.get('ok') and _f(r.get('usd')) > 0:
+            by.setdefault(r.get('asked') or r.get('model'), []).append(_f(r.get('usd')))
+    return {m: round(sorted(v)[len(v) // 2], 6) for m, v in by.items() if m}
+
+
+def score(row, per_call_usd, now=None, minds=None, models=None):
     """Fit, pay, deadline and the minds' cost → {cat, fitWhy, cost, chance, expProfit, hours, parts, score}. 0 when not faceless or past due."""
     now = now or time.time(); cat, why = fit_of(f"{row.get('title')} {row.get('desc')}")
-    cost = mind_cost(cat, per_call_usd); pay = row.get('payUsd'); ch = chance(row.get('rivals'), row.get('src'))
+    real = realism(row, cat); comp = competes(row, real)
+    need = needs(cat, minds, models, per_call_usd, real, row.get('rivals'), row.get('avgBid')) if cat else None
+    cost = need['cost'] if need and minds else mind_cost(cat, per_call_usd); pay = row.get('payUsd')
+    ch = round(chance(row.get('rivals'), row.get('src')) * (1.0 if comp['clear'] else 0.7), 3)   # a vague job is a worse bet for a bid nobody can talk through
     exp = round((pay or 0) * ch - cost, 2) if pay is not None else None
     left = (row['deadline'] - now) / DAY if row.get('deadline') else None
     parts = {'fit': 30 if cat else 0,
              'pay': round(min(30, 6 * math.log10(1 + pay)), 1) if pay else 0,
              'deadline': 0 if left is not None and left < 0.5 else 20 if left is None or left >= 3 else round(20 * left / 3, 1),
              'profit': 0 if not exp or exp <= 0 else round(min(20, 5 * math.log10(1 + exp)), 1)}
-    total = 0 if not cat or (left is not None and left < 0.5) else round(sum(parts.values()))
-    return {**row, 'cat': cat, 'fitWhy': why, 'cost': cost, 'chance': ch, 'expProfit': exp, 'hours': HOURS.get(cat, 0), 'daysLeft': round(left, 1) if left is not None else None,
-            'parts': parts, 'score': total}
+    late = left is not None and left >= 0.5 and real['minDays'] > left   # it could not be done well before it closes (under 12 h is its own reason)
+    total = 0 if not cat or (left is not None and left < 0.5) or real['tooBig'] or late else round(sum(parts.values()))
+    if cat and real['tooBig']:
+        why = f"too big for a faceless one-off (≈{real['humanHours']:g} human hours)"
+    elif cat and late:
+        why = f"closes before it can be done well ({real['minDays']} day{'s' if real['minDays'] > 1 else ''} needed, {round(left, 1)} left)"
+    return {**row, 'cat': cat, 'fitWhy': why, 'cost': cost, 'chance': ch, 'expProfit': exp, 'hours': real['humanHours'] or HOURS.get(cat, 0), 'daysLeft': round(left, 1) if left is not None else None,
+            'parts': parts, 'score': total, 'real': real, 'competes': comp, 'needs': need}
 
 
-def board(kept, out, per_call_usd, filed_ids=(), now=None, n=12):
-    """The folder's board: the best faceless listings by score (one already bid on is skipped: a new footprint), plus what was left out and why."""
-    rows = [score(r, per_call_usd, now) for r in kept]
+SKILLS = tuple(FIT)
+
+
+def board(kept, out, per_call_usd, filed_ids=(), now=None, n=12, skill='', minds=None, models=None):
+    """The folder's board: the best faceless listings by score (one already bid on is skipped: a new footprint), plus what was left out and why.
+    Slice 28: `skill` keeps one kind of work (the one-tap "find me work"); `feed` = the ones where AI can really compete (few bids, clear
+    scope, fast), best profit per hour first; every row carries what it takes to win (minds, models, cost, time, competition)."""
+    rows = [score(r, per_call_usd, now, minds, models) for r in kept]
+    skill = skill if skill in SKILLS else ''
     skipped = [r for r in rows if not r['score']]
-    best = sorted((r for r in rows if r['score'] and r['id'] not in set(filed_ids)), key=lambda r: (-r['score'], -(r['expProfit'] or 0)))
+    best = sorted((r for r in rows if r['score'] and r['id'] not in set(filed_ids) and (not skill or r['cat'] == skill)), key=lambda r: (-r['score'], -(r['expProfit'] or 0)))
+    feed = sorted((r for r in best if r['competes']['ok']), key=lambda r: (not r['competes']['fast'], -((r['expProfit'] or 0) / max(1.0, r['needs']['ourHours'] if r.get('needs') else 1))))
     why = {}
     for r in out + skipped:
-        k = r.get('outWhy') or ('due in under 12 hours' if r.get('cat') else re.sub(r' \(".*', '', str(r.get('fitWhy') or '')))
+        k = r.get('outWhy') or (('due in under 12 hours' if not str(r.get('fitWhy') or '').startswith(('too big', 'closes before')) else re.sub(r' \(.*', '', str(r['fitWhy'])))
+                                if r.get('cat') else re.sub(r' \(".*', '', str(r.get('fitWhy') or '')))
         why[k] = why.get(k, 0) + 1
-    return {'at': round(now or time.time()), 'best': best[:n], 'seen': len(kept) + len(out), 'kept': len(best),
+    skills = {c: sum(1 for r in rows if r['score'] and r['cat'] == c and r['id'] not in set(filed_ids)) for c in SKILLS}
+    return {'at': round(now or time.time()), 'best': best[:n], 'feed': [{**r, 'desc': _cut(r.get('desc'), 300)} for r in feed[:6]], 'seen': len(kept) + len(out), 'kept': len(best), 'skill': skill, 'skills': skills,
             'out': sorted(({'why': k, 'n': v} for k, v in why.items() if k), key=lambda x: -x['n'])[:8]}
+
+
+def rescore(b, per_call_usd, filed_ids=(), now=None, minds=None, models=None):
+    """A kept board read again with TODAY's rules (Slice 28: the stair-CAD job stayed on a board kept from before the licence filter). Pure."""
+    b = dict(b or {}); rows = b.get('all') or b.get('best') or []
+    if not rows:
+        return b
+    nb = board([{k: v for k, v in r.items() if k not in ('cat', 'fitWhy', 'cost', 'chance', 'expProfit', 'hours', 'daysLeft', 'parts', 'score', 'real', 'competes', 'needs')} for r in rows],
+               [], per_call_usd, filed_ids, now, skill=b.get('skill') or '', minds=minds, models=models)
+    merged = {}
+    for o in (nb['out'] + list(b.get('outFeed') or [])) if b.get('all') else (nb['out'] + list(b.get('out') or [])):   # skipped under today's rules + what the feeds themselves left out
+        merged[o['why']] = merged.get(o['why'], 0) + int(o.get('n') or 0)
+    out = sorted(({'why': k, 'n': v} for k, v in merged.items() if k), key=lambda x: -x['n'])
+    return {**b, 'best': nb['best'], 'feed': nb['feed'], 'kept': nb['kept'], 'skills': nb['skills'], 'out': out[:8], 'skill': nb['skill']}
+
+
+def dash(earns, markets, b, now=None):
+    """📊 Slice 28: the earning dashboard in one read: jobs found with their expected profit, bids waiting for his approve, work in progress,
+    money paid vs the minds' cost (fees on the receipt, never here), and the market calls. Pure."""
+    earns = [f for f in earns or [] if isinstance(f, dict)]; best = (b or {}).get('best') or []
+    paid = [f for f in earns if (f.get('graded') or {}).get('result') == 'paid']
+    cost = round(sum(_f(f.get('cost')) + _f((f.get('work') or {}).get('cost')) for f in earns), 4)
+    got = round(sum(_f((f.get('graded') or {}).get('paidUsd')) for f in paid), 2)
+    run, curve = 0.0, []
+    for f in sorted(earns, key=lambda x: _f(x.get('at'))):
+        run += _f((f.get('graded') or {}).get('paidUsd')) - (_f(f.get('cost')) + _f((f.get('work') or {}).get('cost'))); curve.append({'at': f.get('at'), 'net': round(run, 4)})
+    mk = [f for f in markets or [] if isinstance(f, dict)]
+    return {'found': len(best), 'feed': len((b or {}).get('feed') or []), 'expUsd': round(sum(max(0.0, _f(r.get('expProfit'))) for r in best), 2), 'boardAt': (b or {}).get('at'),
+            'waiting': len([f for f in earns if f.get('stage') == 'bid']), 'sentOut': len([f for f in earns if f.get('stage') in ('bid_approved', 'sent')]),
+            'inWork': len([f for f in earns if f.get('stage') in ('won', 'work', 'checked', 'delivery_approved')]),
+            'paidUsd': got, 'mindsUsd': cost, 'netUsd': round(got - cost, 4), 'paidN': len(paid), 'lost': len([f for f in earns if f.get('stage') in ('lost', 'unpaid')]), 'curve': curve[-40:],
+            'calls': {'n': len(mk), 'right': len([f for f in mk if f.get('graded') == 'right']), 'wrong': len([f for f in mk if f.get('graded') == 'wrong']),
+                      'open': len([f for f in mk if not f.get('graded')])}}
 
 
 SYS = ('You bid on one paid job for the owner, who will do it with AI help and no face (writing, code, data, research, design or translation). '
@@ -232,8 +352,30 @@ RETRY = 'Your last reply could not be read. Reply with the JSON object ONLY, no 
 
 
 def ask_text(row):
+    r = row.get('real') or realism(row, row.get('cat'))
+    band = (f"REALISTIC BID: price ${_f(r.get('priceLo')):,.0f}–${_f(r.get('priceHi')):,.0f}, at least {r['minDays']} day{'s' if r['minDays'] > 1 else ''} "
+            f"(a person would take ≈{r.get('humanHours') or '?'} h at ${r['humanRate']}/h; never promise faster than {r['minDays']} day{'s' if r['minDays'] > 1 else ''})\n") if r.get('priceHi') else ''
     return (f"LISTING ({PLAT.get(row['src'], {}).get('name', row['src'])}): {row['title']}\nURL: {row['url']}\nPAY: {row['pay']} (≈ ${row.get('payUsd') or '?'})\n"
-            f"DEADLINE: {row.get('daysLeft') if row.get('daysLeft') is not None else 'open'} days · ALREADY ENTERED: {row.get('rivals')}\nKIND OF WORK: {row.get('cat')}\nDETAILS: {row.get('desc')}")
+            f"DEADLINE: {row.get('daysLeft') if row.get('daysLeft') is not None else 'open'} days · ALREADY ENTERED: {row.get('rivals')}\nKIND OF WORK: {row.get('cat')}\n{band}DETAILS: {row.get('desc')}")
+
+
+FAST_SAY = re.compile(r'\b(within|in|under)\s+(24|12|48)\s*(hours|hrs|h)\b|\b(within|in)\s+(one|1|a)\s+day\b|\bsame[- ]day\b|\bovernight\b', re.I)
+
+
+def unreal(b, row):
+    """Why a bid's price or time is not realistic for the work ('' when it is). Pure."""
+    if not b:
+        return ''
+    r = row.get('real') or realism(row, row.get('cat')); out = []
+    if b.get('days') and b['days'] < r['minDays']:
+        out.append(f"promises {b['days']:g} day{'s' if b['days'] != 1 else ''}; realistic is at least {r['minDays']}")
+    if r['minDays'] > 2 and FAST_SAY.search(str(b.get('bid') or '')):
+        out.append(f"its text promises a day or less; realistic is at least {r['minDays']} days")
+    if b.get('price') and r.get('priceHi') and b['price'] > r['priceHi'] * 1.05:
+        out.append(f"asks ${b['price']:,.0f}, over the ${r['priceHi']:,.0f} the job pays")
+    if b.get('price') and r.get('humanHours') and b['price'] > r['humanRate'] * r['humanHours'] * 1.5:
+        out.append(f"${b['price']:,.0f} is far past a person's rate for it")
+    return '; '.join(out)
 
 
 def parse_bid(raw):
@@ -270,6 +412,9 @@ def bid_score(b, row):
     if b['days'] and (row.get('daysLeft') is None or b['days'] <= row['daysLeft']):
         s += 10; why.append(f"{b['days']:.0f} days fits the deadline")
     s += round(b['fit'])
+    bad = unreal(b, row)
+    if bad:   # 🧮 Slice 28: a bid that promises the impossible loses to one that does not
+        s -= 30; why.append(f'not realistic: {bad}')
     if FACE_SAY.search(b['bid']):
         s -= 40; why.append('claims a face, a call or to be human (not allowed)')
     return max(0, min(100, s)), why
@@ -282,6 +427,10 @@ def pick(bids, row):
     if k is None or not scored[k][0]:
         return None, scored
     b = scored[k][2]
+    bad = unreal(b, row); r = row.get('real') or realism(row, row.get('cat'))
+    b['realistic'] = {'ok': not bad, 'why': bad, 'minDays': r['minDays'], 'priceLo': r.get('priceLo'), 'priceHi': r.get('priceHi')}
+    if b.get('days') and b['days'] < r['minDays']:   # the kept bid's own numbers are set to what is realistic; the text is left to the owner
+        b['daysAsked'] = b['days']; b['days'] = r['minDays']
     if 'ai help' not in b['bid'].lower() and 'ai-assisted' not in b['bid'].lower():
         b['bid'] = b['bid'].rstrip() + '\n\n' + DISCLOSE
     return k, scored
@@ -291,7 +440,8 @@ def new_folder(n, row, kept, scored, calls, cost, now=None):
     """The earn filing: the listing as scored, both bids (the kept one marked), the cost so far. Status 'closed' (it files now; the stages carry on)."""
     now = round(now or time.time())
     return {'id': f'earn{now}', 'n': n, 'kind': 'earn', 'at': now, 'status': 'closed', 'paper': True, 'topic': _cut(f"{PLAT.get(row['src'], {}).get('name')}: {row['title']}", 120),
-            'listing': {k: row.get(k) for k in ('src', 'id', 'title', 'url', 'pay', 'payUsd', 'deadline', 'daysLeft', 'rivals', 'cat', 'fitWhy', 'cost', 'chance', 'expProfit', 'hours', 'parts', 'score', 'access', 'repo', 'aiRule', 'sponsor')},
+            'listing': {**{k: row.get(k) for k in ('src', 'id', 'title', 'url', 'pay', 'payUsd', 'payLo', 'payHi', 'avgBid', 'deadline', 'daysLeft', 'rivals', 'cat', 'fitWhy', 'cost', 'chance', 'expProfit', 'hours', 'parts', 'score',
+                                                'access', 'repo', 'aiRule', 'sponsor', 'real', 'competes', 'needs')}, 'desc': _cut(row.get('desc'), 900)},   # 📄 Slice 28: the job in its own words
             'platform': {k: PLAT.get(row['src'], {}).get(k) for k in ('id', 'name', 'terms', 'how', 'src')},
             'bids': [{'mind': i, 'score': s, 'why': w, **(b or {})} for i, (s, w, b) in enumerate(scored)], 'kept': kept,
             'bid': (scored[kept][2] if kept is not None else None), 'calls': calls, 'cost': round(cost, 5),
@@ -359,6 +509,8 @@ def record_rows(f):
          'why': f"{lst.get('cat')} · {lst.get('pay')} · score {lst.get('score')} · minds ${_f(lst.get('cost')):.4f} · expected profit ${_f(lst.get('expProfit')):.2f} ({round(_f(lst.get('chance')) * 100)}% chance)"},
         {'key': 'bid', 'label': 'Both minds drafted the bid blind; the stronger is kept', 'ok': kept_ok and len(bids) >= 2,
          'why': ' · '.join(f"Mind {'AB'[b['mind'] % 2]} {b.get('score')}" + (' (kept)' if b['mind'] == f.get('kept') else '') for b in bids) or 'no bid'},
+        {'key': 'realistic', 'label': 'The kept bid\'s price and time are realistic for the work', 'ok': bool((f.get('bid') or {}).get('realistic', {}).get('ok', True)) if f.get('bid') else False,
+         'why': ((f.get('bid') or {}).get('realistic') or {}).get('why') or (f"${_f((f.get('bid') or {}).get('price')):,.0f} in {_f((f.get('bid') or {}).get('days')):g} days (at least {((lst.get('real') or {}).get('minDays')) or '?'} needed)" if f.get('bid') else 'no bid')},
         {'key': 'approve', 'label': 'Nothing sent until the owner approves, from his own account', 'ok': not any(s.get('by') not in ('owner', 'minds', 'collective') for s in f.get('stages') or []),
          'why': (f"approved by the owner {time.strftime('%m-%d %H:%M', time.gmtime(appr['at']))} UTC; he sends it himself" if appr else f"waiting at '{st}': nothing was sent")},
         {'key': 'graded', 'label': 'Graded on real money (paid − the minds\' cost; fees on the receipt)', 'ok': True,

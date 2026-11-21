@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, Copy, Check } from 'lucide-react';
+import { ExternalLink, Copy, Check, ChevronDown } from 'lucide-react';
+import { WinPanel } from './EarnDash';
 import '../../styles/earnDesk.css';
 
 // 💼 Slice 16 (owner 2026-11-19: "poeco can do upwork and other stuff … no face … whatever pays real money!!"). PoEco earns:
@@ -19,25 +20,27 @@ function Parts({ r }) {
 
 // 📋 a job is ONE row of a dense table (~44 px, owner 2026-11-21 screenshot: "the job rows, scores, titles and $ are oversized"):
 // score · title + one fact line · the score parts · expected $ · Draft bid.
-function Listing({ r, i, busy, onBid }) {
-  return <li className="ern-row" style={{ '--i': Math.min(i, 8) }} data-testid={`ern-row-${i}`}>
+function Listing({ r, i, busy, onBid, open, onOpen }) {
+  return <li className={`ern-row${open ? ' is-open' : ''}`} style={{ '--i': Math.min(i, 8) }} data-testid={`ern-row-${i}`}>
     <span className="ern-score m-num" data-tip="Fit 30 + pay 30 + time 20 + profit 20">{r.score}</span>
     <span className="ern-main"><a href={r.url} target="_blank" rel="noopener noreferrer" className="ern-title" title={r.title}>{r.title}<ExternalLink size={10} aria-hidden="true" /></a>
       <span className="ern-facts"><em>{PLAT[r.src] || r.src}</em><em>{r.cat}</em><span>{r.pay}</span><span>{r.daysLeft == null ? 'no deadline' : `${r.daysLeft} d left`}</span><span>{r.rivals} entered</span></span></span>
     <Parts r={r} />
     <b className={`ern-exp m-num ${(r.expProfit || 0) > 0 ? 'is-up' : ''}`} data-tip={`Expected: ${Math.round((r.chance || 0) * 100)}% win chance × ${usd(r.payUsd)} − minds ${usd(r.cost)}`}>{usd(r.expProfit)}</b>
-    <button type="button" className="m-btn ern-go" disabled={busy} onClick={() => onBid(r.id)} data-tip="Both minds draft the bid blind. Nothing is sent" data-testid={`ern-bid-${i}`}>Draft bid</button>
+    <span className="ern-acts-row">{r.needs ? <button type="button" className="m-btn ern-more" aria-expanded={!!open} aria-label="What it takes to win" onClick={() => onOpen(open ? '' : r.id)} data-tip="What it takes to win: minds, models, cost, time, competition" data-testid={`ern-more-${i}`}><ChevronDown size={13} aria-hidden="true" /></button> : null}
+      <button type="button" className="m-btn ern-go" disabled={busy} onClick={() => onBid(r.id)} data-tip="Both minds draft the bid blind. Nothing is sent" data-testid={`ern-bid-${i}`}>Draft bid</button></span>
+    {open ? <WinPanel r={r} onBid={onBid} busy={busy} /> : null}
   </li>;
 }
 
 export function EarnBoard({ v, busy, onFind, onBid }) {
   const b = v?.board || {}; const best = b.best || []; const kept = (v?.platforms || []).filter(p => p.in); const out = (v?.platforms || []).filter(p => !p.in);
-  const top = best[0];
+  const top = best[0]; const [open, setOpen] = useState('');
   return <section className="ern m-card" data-testid="ern-board">
-    <header className="ern-h"><h4>EARN · FACELESS WORK</h4><button type="button" className="m-btn m-go" disabled={busy} onClick={onFind} data-tip="Reads every kept platform's public feed. No login" data-testid="ern-find">{busy ? 'Working…' : best.length ? 'Read the feeds again' : 'Find paid work'}</button></header>
+    <header className="ern-h"><h4>THE BOARD · {b.skill ? b.skill.toUpperCase() : 'EVERY FACELESS JOB'}</h4><button type="button" className="m-btn m-go" disabled={busy} onClick={onFind} data-tip="Reads every kept platform's public feed. No login" data-testid="ern-find">{busy ? 'Working…' : best.length ? 'Read the feeds again' : 'Find paid work'}</button></header>
     {best.length ? <p className="ern-verdict" data-testid="ern-verdict"><b>{top.title}</b> pays best for the minds: <span className="m-num">{usd(top.expProfit)}</span> expected after <span className="m-num">{usd(top.cost)}</span> of minds. {b.kept} open listings fit, from {b.seen} read.</p>
       : <p className="ern-say">{b.at ? 'No open faceless listing fits right now.' : 'It reads Superteam Earn, Freelancer.com and Algora bounties (public feeds only), keeps the faceless work its minds can do, and shows the best with the expected profit.'}</p>}
-    {best.length ? <ol className="ern-list"><li className="ern-row is-head" aria-hidden="true"><span>SCORE</span><span>JOB</span><span>FIT · PAY · TIME · PROFIT</span><span>EXPECTED</span><span /></li>{best.map((r, i) => <Listing key={r.id} r={r} i={i} busy={busy} onBid={onBid} />)}</ol> : null}
+    {best.length ? <ol className="ern-list"><li className="ern-row is-head" aria-hidden="true"><span>SCORE</span><span>JOB</span><span>FIT · PAY · TIME · PROFIT</span><span>EXPECTED</span><span /></li>{best.map((r, i) => <Listing key={r.id} r={r} i={i} busy={busy} onBid={onBid} open={open === r.id} onOpen={setOpen} />)}</ol> : null}
     {b.out?.length ? <p className="ern-out" data-testid="ern-out"><small>LEFT OUT</small>{b.out.slice(0, 3).map(o => <span key={o.why}><b className="m-num">{o.n}</b> {o.why}</span>)}</p> : null}
     <details className="ern-terms" data-testid="ern-terms"><summary>Terms first: {kept.length} platforms kept, {out.length} out</summary>
       <ul>{kept.map(p => <li key={p.id} className="is-in"><b>{p.name}</b> {p.terms} <i>{p.how}</i></li>)}{out.map(p => <li key={p.id}><b>{p.name}</b> out: {p.why}</li>)}</ul></details>
@@ -53,10 +56,18 @@ export function RecordRow({ f }) {
       {f.read?.sites?.length ? <li><b>Sources</b><span>{f.read.sites.join(', ')}</span></li> : null}{f.kits?.length ? <li><b>Kits</b><span>{f.kits.join(', ')}</span></li> : null}</ul></details>;
 }
 
+// 📄 the job in its own words (owner's screenshot: "work from site dimensions you provide?" was cut off under the header): 3 lines, then More
+function JobText({ text }) {
+  const [more, setMore] = useState(false);
+  return <p className={`ern-desc${more ? ' is-more' : ''}`} data-testid="ern-desc">{text}{String(text).length > 220 ? <button type="button" className="ern-desc-more" onClick={() => setMore(m => !m)} aria-expanded={more} data-testid="ern-desc-more">{more ? 'Less' : 'More'}</button> : null}</p>;
+}
+
 function Bid({ b, kept }) {
   return <article className={`ern-bid${kept ? ' is-kept' : ''}`} data-testid={`ern-bid-mind-${b.mind}`}><header><b>Mind {'AB'[b.mind % 2]}</b><em>{kept ? 'KEPT' : 'NOT KEPT'}</em><span className="m-num">{b.score}</span></header>
     {b.bid ? <p className="ern-text">{b.bid}</p> : <p className="ern-say">No readable bid came back.</p>}
     {b.plan?.length ? <ol className="ern-plan">{b.plan.map((s, i) => <li key={i}>{s}</li>)}</ol> : null}
+    {b.price || b.days ? <span className="ern-facts"><span>bid {b.price ? `$${Math.round(b.price).toLocaleString()}` : '—'}</span><span>{b.days || '—'} days{b.daysAsked ? ` (it said ${b.daysAsked})` : ''}</span></span> : null}
+    {b.realistic && !b.realistic.ok ? <p className="ern-unreal" data-testid={`ern-unreal-${b.mind}`}>Not realistic: {b.realistic.why}</p> : null}
     <small className="ern-why">{(b.why || []).join(' · ')}</small></article>;
 }
 
@@ -69,11 +80,12 @@ export function EarnFiling({ f, onBack, busy, act, bare = false }) {
   return <div className="ern-f" data-testid={`ern-f-${f.id}`}>
     {bare ? null : <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · earn</b>{test ? <em className="trec-tag">TEST</em> : null}</header>}
     <a className="ern-ft" href={l.url} target="_blank" rel="noopener noreferrer" data-testid="ern-listing">{l.title}<ExternalLink size={12} aria-hidden="true" /></a>
+    {l.desc ? <JobText text={l.desc} /> : null}
     <span className="ern-facts"><em className="m-chip">{f.platform?.name}</em><em className="m-chip ok">{l.cat}</em><span>{l.pay}</span><span>{l.daysLeft == null ? 'no deadline' : `${l.daysLeft} d left`}</span><span>{l.rivals} entered</span><span>score <b className="m-num">{l.score}</b></span></span>
     <p className="ern-kpis" data-testid="ern-kpis"><span><small>EXPECTED</small><b className="m-num is-up">{usd(l.expProfit)}</b></span><span><small>MINDS</small><b className="m-num">{usd(f.cost)}</b></span><span><small>HOURS SAVED</small><b className="m-num">{l.hours}</b></span><span><small>WIN CHANCE</small><b className="m-num">{Math.round((l.chance || 0) * 100)}%</b></span></p>
     <RecordRow f={f} />
     <ol className="ern-track" aria-label="Where it stands" data-testid="ern-track">{TRACK.map(([k, lab], i) => <li key={k} className={ended ? (i <= Math.max(0, at) ? 'is-done' : '') : i < at ? 'is-done' : i === at ? 'is-now' : ''}>{lab}</li>)}{ended ? <li className="is-bad">{f.stage === 'lost' ? 'Lost' : 'Unpaid'}</li> : null}</ol>
-    <div className="ern-bids">{(f.bids || []).map(b => <Bid key={b.mind} b={b} kept={b.mind === f.kept} />)}</div>
+    <div className="ern-bids">{(f.bids || []).map(b => <Bid key={b.mind} b={b.mind === f.kept && f.bid ? { ...b, ...f.bid, mind: b.mind, score: b.score, why: b.why } : b} kept={b.mind === f.kept} />)}</div>
     <section className="ern-door m-card" data-testid="ern-door">
       {f.stage === 'bid' ? <><p className="ern-say">Nothing has been sent. Approve the kept bid, then send it yourself from your own {f.platform?.name} account. {f.platform?.how}</p>
         {test ? <label className="ern-tick"><input type="checkbox" checked={real} onChange={e => setReal(e.target.checked)} data-testid="ern-real" /> This test is real: I mean to send it</label> : null}
@@ -96,7 +108,7 @@ export function EarnFiling({ f, onBack, busy, act, bare = false }) {
 
 export function useEarn(cat, work) {
   const [v, setV] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const call = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); setV(j); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(false); } }, [work, cat.id]);
+  const call = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); setV(prev => ({ ...(prev || {}), ...(j || {}) })); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(false); } }, [work, cat.id]);   // merged: an answer that leaves a part out never wipes the board on screen
   useEffect(() => { call({ op: 'earn_view' }); }, [cat.id]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!v?.busy) return undefined; const t = setInterval(() => work(cat.id, { op: 'earn_view' }).then(setV).catch(() => {}), 5000); return () => clearInterval(t); }, [v?.busy, cat.id, work]);
   return { v, busy: busy || !!v?.busy, err, call, set: setV };

@@ -4,6 +4,7 @@ repeat back once before it files. Claude starts a TEST proof of any kind on Sica
 minds only (`local/…`), nothing bought, nothing bid, nothing posted; it files into that kind's own folder marked TEST, plus a Test bench row.
 Same pattern as the other fc_ modules: every service name is looked up on feecat_service when it runs (as rs.<name>)."""
 import feecat_service as _RSM  # noqa: E402,F401  (body models; this module is imported at the END of the service)
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Request
@@ -52,6 +53,71 @@ def _sicario(store, agent=''):
 def spent_since(rows, since=BUDGET_SINCE, kind=None):
     """$ the agent's model calls cost since the budget started (call log rows), all kinds or one kind's. Pure."""
     return round(sum(float(r.get('usd') or 0) for r in rows or [] if float(r.get('at') or 0) >= since and (kind is None or r.get('kind') == kind)), 6)
+
+
+CAP_MIN_TOKENS = 400        # 💸 Slice 28 (Slice 27's #72 spent $0.54 of $0.25): a TEST call that cannot afford this much reply is refused before it is sent
+UNPRICED_USD = 0.15         # ... a model with no listed price is held at its dearest past call, or this
+
+
+def call_worst(row, messages, max_tokens):
+    """$ the most one call can cost: its prompt (~3 bytes a token + 256) and every reply token it may write, at the listed price. Pure.
+    row = the model's catalog row {inUsd, outUsd} ($ per 1M) or None (unpriced → None)."""
+    if not row:
+        return None
+    sent = len(json.dumps(messages or [], ensure_ascii=False).encode('utf-8')) / 3 + 256
+    return (sent * float(row.get('inUsd') or 0) + int(max_tokens or 0) * float(row.get('outUsd') or 0)) / 1e6
+
+
+def fit_tokens(row, messages, room_usd):
+    """The longest reply that still fits `room_usd` at the listed price. Pure."""
+    if not row or not float(row.get('outUsd') or 0):
+        return 10 ** 9
+    sent = len(json.dumps(messages or [], ensure_ascii=False).encode('utf-8')) / 3 + 256
+    return max(0, int((room_usd - sent * float(row.get('inUsd') or 0) / 1e6) / float(row['outUsd']) * 1e6))
+
+
+def room_left(claim, rows, kind, since=BUDGET_SINCE):
+    """$ this TEST may still spend: the lower of what is left of the all-TEST cap and of this kind's, less what its calls in flight hold.
+    The base is read from the call log once per claim, then each finished call adds its real $ (cap_done). Mutates claim. Pure otherwise."""
+    if 'base' not in claim:
+        claim['base'] = min(TEST_BUDGET_USD - spent_since(rows, since), KIND_BUDGET_USD - spent_since(rows, since, kind))
+        claim.setdefault('used', 0.0); claim.setdefault('held', {})
+    return claim['base'] - float(claim.get('used') or 0) - sum((claim.get('held') or {}).values())
+
+
+def cap_take(cat, ctx, model, messages, max_tokens, rows=None, shrink=True):
+    """💸 The TEST cap, checked on EVERY paid call inside a TEST on Happy's agent (not only at the door): the call's worst case is held
+    against what is left, its reply is shortened to fit, and when even a short reply would pass the cap it raises OverCap before anything
+    is sent. → (hold id, max_tokens) | None when no capped TEST is running for this call."""
+    rs = _rs(); cat = cat if isinstance(cat, dict) else {}; kind = (ctx or {}).get('kind')
+    if not kind or cat.get('handle') == SICARIO or str(model).startswith('local/'):
+        return None
+    claim = _test_live(cat, kind)
+    if not claim:
+        return None
+    rows = rows if rows is not None else rs._calls_of(cat.get('id'))
+    room = room_left(claim, rows, kind)
+    row = next((m for m in ((rs._MODELS.get('rows') or {}).get('models') or []) if m.get('id') == model), None)
+    want = int(max_tokens or rs._lc.OUT_TOK)
+    worst = call_worst(row, messages, want)
+    if worst is None:   # unpriced: held at its dearest call so far
+        worst = max([float(r.get('usd') or 0) for r in rows if r.get('asked') == model] or [UNPRICED_USD])
+    elif worst > room and shrink:
+        want = min(want, fit_tokens(row, messages, room)); worst = call_worst(row, messages, want)
+    if room <= 0 or worst > room + 1e-9 or (row and want < CAP_MIN_TOKENS):
+        raise rs._sg.OverCap(f"Stopped before it cost anything: the TEST cap (${TEST_BUDGET_USD:.2f} for all TESTs, ${KIND_BUDGET_USD:.2f} for {kind}). "
+                             f"${max(0.0, room):.3f} is left and this call could cost ${worst:.3f}.")
+    hid = rs.uuid.uuid4().hex[:8]; claim['held'][hid] = worst
+    return hid, want
+
+
+def cap_done(cat, ctx, hold, usd):
+    """The call finished: its hold is let go and its real $ counted."""
+    if not hold:
+        return
+    claim = _test_live(cat if isinstance(cat, dict) else {}, (ctx or {}).get('kind'))
+    if claim:
+        (claim.get('held') or {}).pop(hold[0], None); claim['used'] = float(claim.get('used') or 0) + float(usd or 0)
 
 
 def _test_live(cat, kind, now=None):

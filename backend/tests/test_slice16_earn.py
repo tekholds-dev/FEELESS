@@ -84,7 +84,7 @@ def test_the_score_and_board_show_the_best_with_expected_profit_and_what_was_lef
     b = ee.board(rows, [{'outWhy': "its sponsor set it HUMAN_ONLY: no AI agents"}], 0.003, filed_ids=[], now=NOW)
     assert [r['id'] for r in b['best']] == ['superteam:a', 'algora:c']
     a = b['best'][0]
-    assert a['cat'] == 'writing' and a['cost'] == round(ee.CALLS['writing'] * 0.003, 4) and a['expProfit'] == round(400 * a['chance'] - a['cost'], 2) and a['hours'] == 3
+    assert a['cat'] == 'writing' and a['cost'] == round(ee.CALLS['writing'] * 0.003, 4) and a['expProfit'] == round(400 * a['chance'] - a['cost'], 2) and a['hours'] == round(400 / ee.RATE['writing'], 1)   # Slice 28: a person's hours from the pay, not a flat 3
     assert set(a['parts']) == {'fit', 'pay', 'deadline', 'profit'} and a['score'] == round(sum(a['parts'].values()))
     whys = {o['why'] for o in b['out']}
     assert 'needs a face or a place' in whys and 'due in under 12 hours' in whys and any('HUMAN_ONLY' in w for w in whys)

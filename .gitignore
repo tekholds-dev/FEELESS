@@ -130,3 +130,4 @@ frontend/public/dev-grow*.json
 .claude-wip/
 frontend/public/dev-golive.json
 frontend/public/dev-postatic.json
+frontend/public/dev-poe.json

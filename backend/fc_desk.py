@@ -1282,6 +1282,9 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if html and not rs._feat.page_complete(html):
                     rs._feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', rs.time.time())
                     stop_why = 'Its answer was cut off before the page finished.'
+                elif html and not doc.get('models3d') and (blank_ := rs._feat.page_blank(html)):   # 🕳 Slice 28: a page that would show nothing is never kept (TEST #72); his 3D pieces are mounted next, and _ps_after checks that page
+                    rs._feat.add_msg(doc, name(i), f'That page would show nothing ({blank_}), so it was not kept.', rs.time.time())
+                    stop_why = f'Its page would show nothing: {blank_}.'
                 elif html:
                     faults_ = rs._feat.page_faults(html)
                     if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
@@ -1353,6 +1356,12 @@ async def _ps_after(cat_id, ws_id, doc, start_versions):
     its versions from this run are taken back), and the newest page gets the hidden code check on a real phone (never shown to the builders:
     it lands on the filed record only). Mutates doc."""
     rs = _rs(); html = ((doc.get('versions') or [{}])[-1] or {}).get('html') or ''
+    blank_ = rs._feat.page_blank(html)
+    if blank_:   # 🕳 Slice 28: whatever path built it, a page that shows nothing is taken back before it files (Slice 27's TEST #72 filed one)
+        doc['versions'] = (doc.get('versions') or [])[:start_versions]
+        rs._feat.add_msg(doc, 'FEELESS', f'Not kept. That page would show nothing ({blank_}). Nothing was filed, and the last page is safe.', rs.time.time())
+        doc.setdefault('refused', []).append({'at': round(rs.time.time()), 'blank': blank_[:120]}); doc['refused'] = doc['refused'][-12:]
+        return
     if not doc.get('unique') or (doc.get('print') or {}).get('hash') != (rs._psu.fingerprint(html) or {}).get('hash'):
         pr_ = rs._psu.fingerprint(html); g_ = rs._psu.gate(pr_, _ps_past(rs._load(), ws_id))
         if g_['copy']:
@@ -1367,6 +1376,11 @@ async def _ps_after(cat_id, ws_id, doc, start_versions):
             seen_ = await rs.asyncio.wait_for(rs._ps_hidden.browser(html, rs._fb.chromium_path(), h_), 150)
     except Exception as e:   # noqa: BLE001: the check says it did not run; the page still files
         seen_ = {'ran': False, 'why': type(e).__name__}
+    if seen_.get('ran') and 'words' in seen_ and int(seen_.get('words') or 0) == 0 and not seen_.get('drawn'):   # 🕳 Slice 28: a real phone saw an empty page
+        doc['versions'] = (doc.get('versions') or [])[:start_versions]
+        rs._feat.add_msg(doc, 'FEELESS', 'Not kept. On a real phone the page showed nothing. Nothing was filed, and the last page is safe.', rs.time.time())
+        doc.setdefault('refused', []).append({'at': round(rs.time.time()), 'blank': 'a real phone saw nothing'}); doc['refused'] = doc['refused'][-12:]
+        return
     doc['codeCheck'] = {**(rs._ps_hidden.run(html, rs._kit_pins(), seen_) or {}), 'version': len(doc.get('versions') or []), **({} if seen_.get('ran') else {'notRun': seen_.get('why')})}
 
 

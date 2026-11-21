@@ -452,6 +452,23 @@ def page_complete(html):
     return '</html>' in h or ('</body>' in h) or ('<body' in h and h.rstrip().endswith('>') and '<script' not in h and '<style' not in h)
 
 
+def page_blank(html):
+    """Why a page that ends properly would still show nothing, or '' when it shows something. Slice 27's TEST #72 filed one: a continuation
+    pasted the body INTO a `.hero{` rule, so `<style>` never closed and the browser read the whole page as CSS. Pure."""
+    h = str(html or ''); low = h.lower()
+    if not h.strip():
+        return 'it is empty'
+    for tag, word in (('style', 'its CSS'), ('script', 'a script')):
+        if max((m.start() for m in re.finditer(rf'<{tag}\b', low)), default=-1) > low.rfind(f'</{tag}'):
+            return f'{word} never closes, so the browser reads the rest of the page as {"CSS" if tag == "style" else "code"}'
+    body = re.sub(r'<(script|style|template|noscript)\b[^>]*>.*?</\1\s*>', ' ', h, flags=re.I | re.S)
+    body = re.sub(r'<head\b[^>]*>.*?</head\s*>', ' ', body, flags=re.I | re.S); body = re.sub(r'<title\b[^>]*>.*?</title\s*>', ' ', body, flags=re.I | re.S)
+    words = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', body)).strip()
+    if len(words) < 40 and not re.search(r'<(img|svg|canvas|video|iframe)\b', body, re.I) and 'createelement' not in low and 'createroot' not in low and 'three' not in low and 'data-feeless-model' not in low:
+        return 'it has no words or pictures on it'
+    return ''
+
+
 def cut_hint(raw):
     """Where a cut-off reply stopped, so the next call carries on there instead of skipping ahead. A real build stopped inside its CSS, then jumped to </style> and lost nearly all its styling. Pure."""
     low = str(raw or '').lower()
