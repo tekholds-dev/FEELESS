@@ -23,7 +23,7 @@ import { ProviderReady } from './ProviderReady';
 import { AdLab } from './ProofDoors';
 import { AgentDesktop, work } from './CatWorkbench';
 import { GitFolder } from './GitFolder';
-import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
+import { AgentsDiagram, AppDesktop, DeskExtras, PerfGlass, ShaderWall } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
 import { FolderArt } from '../../lib/folderArt';
 import { apiUrl } from '../../lib/api';
@@ -136,7 +136,7 @@ function OwnerDesk({ cat, trades, feeApps, agentApps, call }) {
     {monitor('fee', 'fee', 'FEE', 'her desktop', ['🧠', '🎭', '🎚', '👛', '⛏', '📉', '🎲', '🔐'], feeGlass)}
     {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['💎', '🏊', '💸', '🛟'], { ...agentsGlass(flow) })}
   </div>
-    {open === 'fee' ? <AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /> : null}
+    {open === 'fee' ? <DeskExtras.Provider value={[{ k: 'wallet', ic: '👛', label: 'Wallet', body: <FeeOwnerBar cat={cat} /> }]}><AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /></DeskExtras.Provider> : null}   {/* img3: Wallet and "Wallet + style" are one Wallet folder */}
     {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...groupApps(agentApps, ownerApps), { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
 }
 const FCH_KEY = 'feeless.fch.tab';
@@ -215,21 +215,19 @@ export function FeeCatDesk({ call }) {
     </header>
     <div ref={root}><SegTabs items={FCH_TABS} value={tab} onChange={pickTab} label="Fee's desk" className="fch-tabs" testid={k => `fch-tab-${k}`} /></div>
     {tab === 'owner' ? <OwnerDesk cat={c} trades={trades} feeApps={[
-      { k: 'lane', ic: '🎚', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
-      { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },
-      { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
-      { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
-      { k: 'rails', ic: '🛡', label: 'Guardrails', tip: 'Owner only: every limit COMP and the agents run under, a switch each. They only tighten; the hard limits are locked', body: <Guardrails call={call} /> },
-      { k: 'model', ic: '🧠', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
+      { k: 'lane', ic: '📍', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
+      { k: 'brain', ic: '🎚', label: 'Her rules', tip: 'Her style, her rules and what she learned (one folder: the old Brain)', body: brainPane() },
+      { k: 'prompts', ic: '✍', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
+      { k: 'rails', ic: '🔒', label: 'Guardrails', tip: 'Owner only: every limit COMP and the agents run under, a switch each. They only tighten; the hard limits are locked', body: <Guardrails call={call} /> },
+      { k: 'model', ic: '🧊', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
     ]} agentApps={[
-      { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div> },
-      { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },
+      { k: 'collective', ic: '💎', label: 'The Collective', tip: 'One folder (img3: it was two): where the money stands, every split and fee, the Pool wallet, then the living print, every agent and every winning proof', body: <><CollectiveOwner call={call} /><div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div></> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
       { k: 'allwork', ic: '🗂', label: 'All work', tip: 'Every proof and every job from every agent, with how each scored', body: <AllWork cat={c} work={work} /> },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
       { k: 'ideas', ic: '💡', label: 'Ideas', tip: 'OSSY and G4 pitch vitals, mechanics and money ideas from real counts. You mark them. Nothing changes until you say', body: <IdeasFolder cat={c} work={work} /> },
-      { k: 'git', ic: '🐙', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
-      { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
+      { k: 'git', ic: '🔗', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
+      { k: 'stash', ic: '🗃', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
       { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
       { k: 'adlab', ic: '🎬', label: 'Ad lab', tip: 'Every ad attempt your agents made: model, $, what failed and why, and its video. Kept so the next build learns', body: <AdLab cat={c} work={work} /> },
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },

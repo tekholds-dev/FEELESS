@@ -70,6 +70,8 @@ import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 import { twoTap } from '../ActBtn';
+import { DeskCabinet, DeskLook, GenCard, Md, Meter, stamp, useDeskLook } from '../desk/DeskLook';
+import { DESK_HINTS, STOP_OPS, clipQueue, collectiveOf, deskCommand, deskPct, deskUsd, ecoOf, paperOf, proofStatus, todayOf } from '../desk/deskData';
 const deskOver = () => document.body.classList.contains('dsk-open');
 const mergeIf = (x, patch) => (Object.keys(patch).every(k => patch[k] === x?.[k] || JSON.stringify(patch[k]) === JSON.stringify(x?.[k])) ? x : { ...x, ...patch });   // ⚡ a poll that changed nothing keeps the same state: no desk-wide re-render   // ⚡ an agent desktop covers the page: what is under it stops polling
 // ⏹ which running proofs the desk picker can stop (two taps). PoB and PoC end by themselves: a PoB waits on its games, and its real Kalshi order lives on Kalshi.
@@ -1518,7 +1520,7 @@ function LiveDeskWin({ live, s, top, set, onTop, onClose, onReopen, actions }) {
   </DeskWin>;
 }
 export const AGENT_COMMAND = 'feeless:agent-command';   // a folder's button puts words in this agent's chat box, wherever the desktop was opened from
-export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand: commandProp = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
+export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand: commandProp = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null, over = false }) {   // over: its windows pop out over the Desk look (Slice 34); start 'none' there = every folder
   useEffect(() => { prefetchDeskWindows(); }, []);
   const onCommand = commandProp || (t => { window.dispatchEvent(new CustomEvent(AGENT_COMMAND, { detail: { id: cat?.id, text: t } })); onClose?.(); });
   const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
@@ -1562,17 +1564,20 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const glass = useMemo(() => glassOf(series), [series]);
   const foregroundOpen = Object.values(w).some(x => x?.open && !x.min);
   const printLines = useMemo(() => linesOf(printOf(proofRows(d))), [d]);
-  return createPortal(<IconLook.Provider value><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><PrintDigests.Provider value={d?.prints || NO_PRINTS}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
-    {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
-    {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
-    <DeskCount d={pool} onOpen={() => openWin('boost')} />
-    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />
+  const bare = over && start !== 'none';   // a folder popped out over the Desk look: its window only, the desk shows through
+  const hadWin = useRef(false); const anyOpen = Object.values(w).some(x => x?.open) || picker || replay || inbox || ask;
+  useEffect(() => { if (anyOpen) hadWin.current = true; else if (bare && hadWin.current) onClose(); }, [anyOpen, bare, onClose]);   // its last popout closed: back to the desk
+  return createPortal(<IconLook.Provider value={prefs.folderLook === 'line' ? true : '3d'}><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><PrintDigests.Provider value={d?.prints || NO_PRINTS}><div className={`dsk${bare ? ' is-over' : ''}`} data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
+    {prefs.motion === 'off' || bare ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title && !bare ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
+    {pool && prefs.print && !bare ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
+    {bare ? null : <DeskCount d={pool} onOpen={() => openWin('boost')} />}
+    {bare ? null : <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />
       {shownApps.filter(([k]) => !folded(k)).map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} earn={EARNS.has(k)} earning={!!pool?.pool?.ratePerSecUsd} badge={k === 'manual' && setupLeft > 0 ? { lit: true, text: `${setupLeft}` } : k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#b48cff" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#9b6bff" /><circle cx="24" cy="24" r="7" fill="none" stroke="#b48cff" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#b48cff" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
-    </nav>
-    {prefs.widgets !== false && !live ? <DeskWidgets d={d} pool={pool} openWin={openWin} cat={cat} work={work} has={apps.map(a => a[0])} /> : null}
-    {prefs.glass ? <PerfGlass {...(glassOver || glass)} onOpen={() => { set('perf', { open: true, min: false }); setTop('perf'); }} /> : null}
+    </nav>}
+    {prefs.widgets !== false && !live && !bare ? <DeskWidgets d={d} pool={pool} openWin={openWin} cat={cat} work={work} has={apps.map(a => a[0])} /> : null}
+    {prefs.glass && !bare ? <PerfGlass {...(glassOver || glass)} onOpen={() => { set('perf', { open: true, min: false }); setTop('perf'); }} /> : null}
     {live && w.live.open && !w.live.min ? <LiveDeskWin live={live} s={w.live} top={top === 'live'} set={set} onTop={() => setTop('live')} onClose={onClose} onReopen={onReopen} actions={actions} /> : null}
     {appOpen && w.app?.open && !w.app.min ? <DeskWin k="app" title={`🎮 ${appOpen.name}`} s={w.app} top={top === 'app'} set={set} onTop={() => setTop('app')} onClose={() => set('app', { open: false })}>{appOpen.preview ? <iframe className="dsk-app" title={appOpen.name} sandbox="allow-scripts" srcDoc={appOpen.preview} referrerPolicy="no-referrer" data-testid="dsk-app" /> : <p className="dsk-app-none" data-testid="dsk-app-wait">{appOpen.preview === '' ? 'This build has no page yet.' : 'Opening…'}</p>}</DeskWin> : null}
     <ProofAlerts d={d} />
@@ -1754,6 +1759,158 @@ export function AttachChips({ files, store, onDrop }) {
       <em><Ic3 e="☁" /> STORAGE</em><u aria-hidden="true"><s style={{ transform: `scaleX(${pct})` }} /></u><small className="m-num">{fileMb(store.used)} / {fileMb(store.quota)}</small></span> : null}</div>;
 }
 
+// 🖥 THE DESK LOOK for a general agent (owner 2026-11-20, docs/design/agent-desk-approved.html): the same state, windows, chat and cabinet as the
+// classic desk, laid out as one screen. Every folder of the classic desktop opens over it as a popout (AgentDesktop `over`), so nothing is lost.
+function DeskMsg({ m, name, fresh, job, onOpen, onEdit, onRetry, onChip, status = [], onDecide, approvals = [], gen = null, rate, onRate, duel, onDuel, onWatch }) {
+  const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]);
+  const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
+  const mind = !you ? (job?.minds || []).map(x => String(x.model || '').split('/').pop().split(':')[0]).filter(Boolean).join(' + ') || m.model || '' : '';
+  const card = !you && m.open ? status.find(r => r.win === m.open) : null;
+  const wait = card ? approvals.find(r => r.state === 'waiting' && (r.ref === card.id || r.proof === card.id)) : null;
+  return <li className={`dkl-msg ${you ? 'is-me' : 'is-ai'}`} data-testid="dkl-msg">
+    <span className="dkl-who"><b>{you ? 'You' : name || 'Its minds'}</b>{mind ? <span>· {mind}</span> : null}{parts.tags.map(t => <span key={t} className="dkl-chip">{t}</span>)}{m.cost != null && !you ? <span className="m-num">· {shortCost(m.cost)}</span> : null}
+      <time className="m-num" dateTime={m.at ? new Date(m.at * 1000).toISOString() : undefined} data-tip={m.at ? `${ago(m.at)} ago` : ''} data-testid="dkl-msg-time">{stamp(m.at)}</time>{m.n > 1 ? <span className="m-num">×{m.n}</span> : null}</span>
+    <Md text={text} />
+    {(job?.minds || []).flatMap(x => (x.steps || []).slice(-2).map((s, k) => <span key={`${x.model}-${k}`} className="dkl-step"><Ic3 e={STEP_MARK[s.action] || '✅'} size="13px" /><span>{s.action}{s.detail ? ` · ${s.detail}` : s.thought ? ` · ${s.thought}` : ''}</span><small>{String(x.model || '').split('/').pop().slice(0, 14)}</small></span>))}
+    {!you && (job?.minds || []).length === 2 && job.minds.every(x => String(x.answer || '').trim()) ? <Duel job={job} pick={duel} onPick={onDuel} /> : null}
+    {m.img ? <img className="ast-chat-img" src={apiUrl(m.img)} alt={text} loading="lazy" data-testid="cwb-img" /> : null}
+    {you ? null : <PreviewButton text={m.text} url={m.page} />}
+    {gen}
+    {card ? <ProofChatCard r={card} wait={wait} onOpen={() => onOpen(m.open)} onDecide={onDecide} /> : null}
+    {m.open && !card && onOpen ? <span className="dkl-pcard-act"><button type="button" onClick={() => onOpen(m.open)} data-testid={`cwb-open-${m.open === 'bids' ? 'bids' : m.open}`}>Open in its workspace</button></span> : null}
+    {m.approve && onOpen ? <span className="dkl-pcard-act"><button type="button" className="dkl-go" onClick={() => onOpen('approve')} data-testid="cwb-approve">Review the redo · Approve inbox</button></span> : null}
+    {m.ask?.chips?.length && fresh && onChip ? <span className="dkl-hints" data-testid="chat-chips">{m.ask.chips.map(c => <button key={c} type="button" onClick={() => onChip(c)} data-testid={`chat-chip-${c}`}>{c}</button>)}</span> : null}
+    {onWatch && (pobFiledLine(m) || (!you && (m.open === 'pow' || m.open === 'pop'))) ? <span className="dkl-pcard-act"><button type="button" className="dkl-go" onClick={() => onWatch(m.open)} data-tip="Pin it to the top of the chat: live price or plays, its P&L" data-testid={m.open === 'bids' ? 'cwb-watch' : `cwb-watch-${m.open}`}>Watch it live here</button></span> : null}
+    <span className="dkl-msg-act">{m.tid && onRate ? [['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
+        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} size="12px" /></button>) : null}{you ? <><button type="button" onClick={() => onEdit(m.text)} data-testid="dkl-msg-edit">Edit</button><button type="button" onClick={() => onRetry(m.text)} data-testid="dkl-msg-retry">Retry</button></> : <button type="button" onClick={() => { try { navigator.clipboard.writeText(parts.text); } catch { /* no clipboard */ } }} data-testid="dkl-msg-copy">Copy</button>}</span>
+  </li>;
+}
+/** A proof as a live card in the chat and the widgets row: stage, minds, cost, next step, waiting-for-you, open / approve. */
+export function ProofChatCard({ r, wait = null, onOpen, onDecide, onStop = null }) {
+  return <div className="dkl-pcard" data-testid={`dkl-pcard-${r.k}`}>
+    <span className="dkl-pcard-h"><Ic3 e={r.e} size="16px" /><b>{r.label}{r.n ? ` #${r.n}` : ''} · {r.title}</b><span className="dkl-sp" />{r.test ? <span className="dkl-chip is-warn">TEST</span> : null}<span className={`dkl-chip${r.running ? ' is-live' : ''}`}>{r.running ? r.stage : 'filed'}</span></span>
+    {r.of ? <span className="dkl-stages" aria-label={`Stage ${Math.min(r.at + 1, r.of)} of ${r.of}`}>{Array.from({ length: r.of }, (_, i) => <i key={i} className={i < r.at ? 'is-d' : i === r.at && r.running ? 'is-n' : ''} />)}</span> : null}
+    <span className="dkl-rows"><span><span>Minds</span><span className="m-num">{r.minds.length ? r.minds.join(' + ') : 'none yet'}</span></span><span><span>Cost</span><span className="m-num">{r.cost == null ? '—' : shortCost(r.cost)}</span></span><span><span>Next</span><span className={r.waiting ? 'is-warn' : ''}>{r.next}</span></span></span>
+    <span className="dkl-pcard-act"><button type="button" onClick={onOpen} data-testid={`dkl-pcard-open-${r.k}`}>Open in workspace</button>
+      {wait && onDecide ? <><button type="button" className="dkl-go" onClick={() => onDecide(wait.id, true)} data-testid={`dkl-pcard-yes-${r.k}`}>Approve</button><button type="button" onClick={() => onDecide(wait.id, false)} data-testid={`dkl-pcard-no-${r.k}`}>Reject</button></> : null}
+      {onStop ? <button type="button" onClick={onStop} data-testid={`dkl-pcard-stop-${r.k}`}>Stop</button> : null}</span>
+  </div>;
+}
+function GuardedDrawer({ children }) {
+  const [ok, setOk] = useState(() => safeOk()); const [ask, setAsk] = useState(false);
+  if (ok) return children;
+  return <>{ask ? <SafeGate label="Credentials" onYes={() => { setAsk(false); setOk(true); }} onNo={() => setAsk(false)} /> : null}<p className="dkl-empty">Sealed. <button type="button" className="dkl-go" onClick={() => setAsk(true)} data-testid="dkl-unlock">Unlock</button></p></>;
+}
+const LOG_DRAWERS = [['tasks', '📋', 'Tasks', 'calender'], ['thoughts', '💡', 'Thoughts', 'chat-text'], ['files', '📄', 'Files', 'file'], ['cloud', '☁', 'Cloud', 'folder-new'], ['guards', '🛡', 'Guards', 'shield']];
+const DRAWER_ICON = { creds: 'locker', api: 'key', made: 'color-palette', cmds: 'hash', earn: 'flash', treasury: 'money', pass: 'credit-card', media: 'picture' };   // every drawer its own real icon
+// 🧭 the rail: each item its own real 3D icon (no two share one), opening the same window its classic desktop folder opens
+export const AGENT_RAIL = [['desk', '🖥', 'Desk', 'computer'], ['proofs', '🏆', 'Proofs  (⌘K)', 'trophy'], ['approve', '✅', 'Approve inbox', 'tick'], ['pow', '⛏', 'PoW', 'axe'], ['pop', '📉', 'PoP', 'chart'], ['bids', '🎲', 'PoB', 'chess'], ['poc', '📣', 'PoC', 'megaphone'], ['postatic', '🎨', 'PoStatic', 'painting-kit'], ['poe', '💰', 'PoEco', 'money-bag'],
+  ['hr1'], ['debate', '🔮', 'The Collective', 'sphere'], ['stash', '🧠', 'Stash brain', 'bulb'], ['tests', '🧪', 'Test bench', 'lab'], ['browser', '🌐', 'Browser', 'explorer'], ['vault', '🔐', 'Vault', 'lock'], ['wallet', '👛', 'Wallet', 'wallet'], ['hr2'], ['folders', '📁', 'All folders', 'folder'], ['settings', '⚙', 'Settings', 'setting']];
+function WorkbenchDesk(x) {
+  const { cat, d, setD, act, busy, live, go, msgs, cut, old, setOld, wins, tick, aiCur, text, setText, files, setFiles, store, pick, upping, spent, cap, credit, orLeft, log, kinds, signIn, setSignIn, setDesk, setProofPick, chatRef, inRef, unseen, toBottom, to, queue, gearNode, approvals, decide, sol, chatTop = null, chatFoot = null, toNode = null, liveStage = null, onMsgExtras = () => ({}), queueAdd = false } = x;
+  const status = useMemo(() => proofStatus(d, approvals), [d, approvals]);
+  const coll = useMemo(() => collectiveOf(d), [d]); const paper = useMemo(() => paperOf(d), [d]); const clips = useMemo(() => clipQueue(d), [d]); const eco = useMemo(() => ecoOf(d, approvals), [d, approvals]);
+  const today = useMemo(() => todayOf(d), [d]); const series = useMemo(() => perfSeries(d), [d]);
+  const [said, setSaid] = useState(''); const [gens, setGens] = useState([]);   // 🎨 images / videos made from this chat: [{ ws, id, at }]
+  const wait = approvals.filter(r => r.state === 'waiting');
+  const openWin = k => { if (k === 'approve') { setDesk('approve'); return; } if (k === 'proofs') { setProofPick(true); return; } if (k === 'folders') { setDesk('none'); return; } setDesk(k); };
+  const openRow = r => (r?.id ? setDesk({ win: r.win, id: r.id }) : openWin(r.win));
+  // 🎨 media: a /image or /video makes it in its newest PoC folder through the same door as the PoC media studio (op media_make), then the card polls it
+  const pocWs = useMemo(() => [...(d?.pocFolders || [])].filter(f => f.ws).sort((a, b) => Number(b.at || 0) - Number(a.at || 0))[0]?.ws || null, [d?.pocFolders]);
+  const [docs, setDocs] = useState({});
+  useEffect(() => { const going = gens.filter(g => { const md = (docs[g.ws]?.messages || []).find(mm => mm.media?.id === g.id)?.media; return !md || md.status === 'queued' || md.status === 'running'; });
+    if (!going.length) return undefined; const t = setInterval(() => { if (document.hidden) return; [...new Set(going.map(g => g.ws))].forEach(ws => work(cat.id, { op: 'ws_open', job: ws }).then(j => j?.doc && setDocs(o => ({ ...o, [ws]: j.doc }))).catch(() => {})); }, 2500);
+    return () => clearInterval(t); }, [gens, docs, cat.id]);
+  const makeMedia = async (kind, prompt, ws = pocWs) => {
+    if (!ws) { setSaid('Images and video are made in a PoC folder: file a PoC first (/poc …), then ask again.'); return; }
+    try { const before = new Set((docs[ws]?.messages || []).map(mm => mm.media?.id)); const j = await work(cat.id, { op: 'media_make', job: ws, text: prompt, tools: { kind } });
+      if (j?.doc) { setDocs(o => ({ ...o, [ws]: j.doc })); const mine = (j.doc.messages || []).map(mm => mm.media).filter(md => md?.id && !before.has(md.id)).pop(); if (mine) setGens(g => [...g, { ws, id: mine.id, at: Date.now() / 1000, prompt, kind }]); } }
+    catch (e) { setSaid(e.message); }
+  };
+  const run = async raw => {
+    const t = String(raw || '').trim(); if (!t || busy) return; setSaid('');
+    const c = deskCommand(t, { approvals });
+    if (!c && live && !go) { setSaid('It is working: /stop it, or turn LET IT GO on to queue the next ask.'); return; }
+    if (!c) { const ids = files.map(f => f.id); setFiles([]); toBottom(); await act('ask', { text: t, to, ...(ids.length ? { files: ids } : {}) }); return; }
+    if (c.kind === 'say') { setSaid(c.text); return; }
+    if (c.kind === 'decide') { const r = await decide(c.id, c.yes); setSaid(r ? `${c.yes ? 'Approved' : 'Declined'}: ${c.what || 'it'}${r.say ? ` · ${r.say}` : ''}` : 'That did not go through.'); return; }
+    if (c.kind === 'ask') { toBottom(); await act('ask', { text: c.text, to: 'both' }); return; }
+    if (c.kind === 'op') { await act(c.op, c.extra || {}); return; }
+    if (c.kind === 'stop') { await act('stop'); return; }
+    if (c.kind === 'open') { openWin(c.win); return; }
+    if (c.kind === 'picker') { setProofPick(true); return; }
+    if (c.kind === 'media') await makeMedia(c.media, c.prompt);
+  };
+  const submit = e => { e?.preventDefault?.(); const t = text; setText(''); run(t); };
+  const genOf = g => (docs[g.ws]?.messages || []).find(mm => mm.media?.id === g.id)?.media || { id: g.id, kind: g.kind, status: 'queued', at: g.at, prompt: g.prompt };
+  const drawers = [
+    ...LOG_DRAWERS.map(([k, e, l, icon]) => { const rows = log.filter(r => r.f === k); return { k, e, icon, label: l, n: rows.length, files: rows.slice(0, 24).map(r => ({ tab: r.at ? stamp(r.at) : '', title: String(r.text).replace(/\*\*|`/g, '').slice(0, 90), sub: r.n > 1 ? `×${r.n}` : '', st: r.tone === 'warn' ? 'w' : r.tone === 'mute' ? 'o' : '' })), empty: `No ${l.toLowerCase()} yet.` }; }),
+    ...keyDrawers(cat, d, setD, signIn).map(([k, e, l, n, body, o]) => ({ k, e, label: l, n, lock: !!o?.guard, body: o?.guard ? <GuardedDrawer>{body}</GuardedDrawer> : body })),
+    { k: 'made', e: '🎨', label: 'Creations', n: (d?.storage?.files || []).length, body: <Creations files={d?.storage?.files || []} chat={msgs} /> },
+    { k: 'cmds', e: '⌘', label: 'Commands', n: (d?.commands || []).length, body: <CommandList rows={d?.commands} onPick={setText} /> },
+    { k: 'earn', e: '⚡', label: 'Earn', n: d?.lastMoney ? 1 : 0, body: <EarnCard cat={cat} /> },
+    { k: 'treasury', e: '🏦', label: 'Treasury', n: 0, body: <TreasuryDrawer cat={cat} /> },
+    { k: 'pass', e: '🎫', label: 'Agent Pass', n: cat?.pass?.asset ? 1 : 0, body: <PassDrawer cat={cat} /> },
+    ...((d?.media || []).length ? [{ k: 'media', e: '🖼', label: 'Media', n: d.media.length, body: <MediaDrawer items={d.media} /> }] : []),
+  ].map(x => ({ ...x, icon: x.icon || DRAWER_ICON[x.k] }));
+  const minds = wins.slice(0, 2);
+  const widgets = [
+    { k: 'proofs', title: 'Proofs', chip: kinds.length ? `${kinds.length} running` : status.length ? `${status.length} recent` : 'none yet', chipTone: kinds.length ? 'live' : '', hot: status.some(r => r.waiting), onOpen: () => setProofPick(true),
+      body: status.length ? <span className="dkl-rows">{status.slice(0, 3).map(r => <span key={`${r.k}-${r.id}`}><span>{r.label} · {r.title}</span><span className={`m-num${r.waiting ? ' is-warn' : r.running ? ' is-up' : ''}`}>{r.waiting ? 'you' : r.running ? `${Math.min(r.at + 1, r.of)}/${r.of}` : r.roe != null ? deskPct(r.roe) : 'filed'}</span></span>)}</span> : <p className="dkl-empty">Nothing filed yet. Try /poc or /pow.</p> },
+    { k: 'collective', title: 'The Collective', chip: coll ? (coll.agree ? 'agree' : 'split') : 'no review', chipTone: coll?.agree ? 'live' : 'warn', onOpen: () => openWin('debate'),
+      body: coll ? <><span className="dkl-agree">{coll.by.map(b => <span key={b.k}><span>{b.k}</span><Meter v={b.score == null ? null : b.score / 100} tone={b.pass ? '' : 'bad'} /><span className="m-num">{b.score ?? '—'}</span></span>)}</span><p className="dkl-line">Verdict <b>{String(coll.verdict).toUpperCase()}</b> · {coll.on}</p></> : <p className="dkl-empty">OSSY and G4 review each filed proof.</p> },
+    { k: 'paper', title: 'Paper positions', chip: `${paper.length} open`, onOpen: () => openWin(paper[0]?.k || 'pop'),
+      body: paper.length ? <span className="dkl-rows">{paper.map(p => <span key={p.k}><span>{p.name}</span><span className={`m-num ${p.roe >= 0 ? 'is-up' : 'is-dn'}`}>{deskPct(p.roe)}</span></span>)}</span> : <p className="dkl-empty">No paper trade open.</p> },
+    { k: 'clips', title: 'Clip farm', chip: `${clips.folders} folders`, onOpen: () => openWin('poc'),
+      body: <><span className="dkl-big"><b className="m-num">{clips.ready}</b><small>ready · {clips.making} making · {clips.posted} posted</small></span>{clips.ready + clips.making ? <span className="dkl-queue" aria-hidden="true">{[...Array(Math.min(8, clips.ready)).fill('d'), ...Array(Math.min(8, clips.making)).fill('r')].slice(0, 10).map((c, i) => <i key={i} className={`is-${c}`} />)}</span> : null}</> },
+    { k: 'eco', title: 'PoEco', chip: wait.length ? `${wait.length} to approve` : `${eco.open} open`, chipTone: wait.length ? 'warn' : '', hot: wait.length > 0, onOpen: () => (wait.length ? openWin('approve') : openWin('poe')),
+      body: <><span className="dkl-big"><b className="m-num">{deskUsd(eco.bidsUsd)}</b><small>bids out · {eco.n} filed</small></span>{eco.top ? <span className="dkl-rows"><span><span>{eco.top.title}</span><span className="m-num">{deskUsd(eco.top.pay)}</span></span></span> : null}</> },
+  ];
+  const monitors = minds.map((w, n) => ({ k: n ? 'b' : 'a', kind: `Mind ${'AB'[n]}`, title: String(w?.model || cat.brainsCfg?.brains?.[n] || 'not set').split('/').pop(), chips: [{ text: w?.status === 'working' ? 'working' : w?.status === 'human' ? 'needs you' : 'idle', tone: w?.status === 'working' ? 'live' : w?.status === 'human' ? 'warn' : '' }],
+    body: <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(deskProofs(d), n, minds.length, minds.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, t) => act(op, { i, ...(t ? { text: t } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} /> }));
+  if (liveStage) monitors.splice(Math.min(1, monitors.length), 1, { k: 'live', kind: 'Live', title: `${(status.find(r => r.running) || {}).label || 'Proof'} · ${(status.find(r => r.running) || {}).title || 'running'}`, chips: [{ text: 'live', tone: 'live' }], body: <div className="dkl-live" data-testid="dkl-live">{liveStage}</div> });   // 🎆 a running proof takes the second monitor (its Show chat button puts Mind B back)
+  const steps = n => (wins[n]?.steps || []).length;
+  const vitals = [
+    ...minds.map((w, n) => ({ k: `mind${n}`, label: `Mind ${'AB'[n]} · ${String(w?.model || cat.brainsCfg?.brains?.[n] || '—').split('/').pop().slice(0, 16)}`, value: steps(n), unit: 'steps', meter: w?.status === 'working' ? 1 : 0, tip: 'Steps its window took on this task' })),
+    { k: 'task', label: 'This task', value: usd(spent), unit: `/ ${usd(cap)}`, meter: cap ? spent / cap : null, tone: spent >= cap * 0.8 ? 'warn' : '', tip: 'It stops at the cap with what it has' },
+    orLeft != null ? { k: 'or', label: 'OpenRouter left', value: usd(orLeft), meter: Math.min(1, orLeft / 20), tip: 'Read live from the key it thinks on' } : { k: 'credit', label: 'Model credit', value: usd(credit), meter: Math.min(1, credit / 10) },
+    { k: 'today', label: 'Proofs today', value: today.n, unit: `${today.won} won · ${today.open} open`, spark: [...series.pow, ...series.pop, ...series.pob].sort((a, b) => a.at - b.at).slice(-30).map(r => r.v), tip: 'Its filings today; the line is the result of its last ones' },
+  ];
+  const pulse = [{ k: 'sol', label: 'SOL', value: sol ? `$${Number(sol).toFixed(2)}` : '—' }, ...(d?.pool && !d.pool.empty ? [{ k: 'pool', label: 'Pool', value: usd(d.pool.owedUsd ?? d.pool.vaultUsd) }] : []), { k: 'spend', label: 'Spend', value: usd(spent), of: usd(cap) }];
+  const rail = AGENT_RAIL.map(([k, e, l, icon]) => (e ? { k, e, icon, label: l, current: k === 'desk', onClick: () => (k === 'desk' ? null : k === 'settings' ? x.setGear(true) : openWin(k)), badge: k === 'approve' && wait.length ? wait.length : null } : { k, hr: true }));
+  const shown = old ? msgs : msgs.slice(cut);
+  const chat = <>
+    <header className="dkl-chat-h"><b>Chat</b><span className="dkl-sp" />
+      <button type="button" className={`dkl-chip${go ? ' is-live' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-tip="Let it go: long tasks and queued asks run back to back" data-testid="cwb-go">LET IT GO {go ? 'ON' : 'OFF'}</button>
+      <span className="dkl-model" data-tip="The minds this chat talks to"><span className={`dkl-dot${live ? '' : ' is-idle'}`} />{(cat.brainsCfg?.brains || []).slice(0, 2).map(m => String(m).split('/').pop().split(':')[0]).join(' + ') || 'no mind set'}</span>{gearNode}</header>
+    {chatTop}
+    <ol ref={chatRef} className="dkl-feed" aria-label="Chat with its minds" aria-live="polite" data-testid="cwb-chat">
+      {status.filter(r => r.running || r.waiting).slice(0, 2).map(r => <li key={`pc-${r.k}-${r.id}`} className="dkl-msg is-ai"><ProofChatCard r={r} wait={approvals.find(a => a.state === 'waiting' && (a.ref === r.id || a.proof === r.id))} onOpen={() => openRow(r)} onDecide={decide} onStop={STOP_OPS[r.k] && r.running ? () => twoTap(STOPPABLE[r.k]?.sure || 'Stop it?') && act(STOP_OPS[r.k][0], STOP_OPS[r.k][1]) : null} /></li>)}
+      {cut > 0 ? <li><button type="button" className="dkl-chip" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
+      {shown.map((m, i, a) => <DeskMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} status={status} approvals={approvals} onDecide={decide} {...onMsgExtras(m)}
+        onOpen={k => (k === 'approve' ? openWin('approve') : setDesk(chatProof(d, k, m.at)))} onEdit={t => { setText(t); inRef.current?.focus(); }} onRetry={t => run(t)} onChip={c => act('ask', { text: c, to })} />)}
+      {gens.map(g => <li key={g.id} className="dkl-msg is-ai"><span className="dkl-who"><b>{cat.name || 'Its minds'}</b><span>· {genOf(g).label || genOf(g).model || (g.kind === 'video' ? 'Video' : 'Image')}</span><time className="m-num">{stamp(g.at)}</time></span>
+        <GenCard md={genOf(g)} src={genOf(g).url ? apiUrl(genOf(g).url) : null} onRegen={() => makeMedia(g.kind, g.prompt, g.ws)} onVariations={() => makeMedia(g.kind, `${g.prompt} — a variation`, g.ws)} onUse={() => setDesk({ win: 'poc', id: (d?.pocFolders || []).find(f => f.ws === g.ws)?.id })} useLabel="Use in its PoC" /></li>)}
+      {live ? <li className="dkl-msg is-ai" data-testid="cwb-typing"><span className="dkl-who"><b>{cat.name || 'Its minds'}</b><span className="dkl-chip is-live">working</span></span><p><span className="dkl-typing" aria-hidden="true"><i /><i /><i /></span>{wins.find(w => w.status === 'working')?.bubble || 'working on it'}</p></li> : null}
+      {!msgs.length && !live ? <li className="dkl-msg is-ai" data-testid="cwb-empty"><p><b>What should it do?</b> Ask in plain words, or start a proof: /poc, /pow, /pob.</p></li> : null}
+    </ol>
+    <form className="dkl-composer" onSubmit={submit}>
+      {unseen ? <button type="button" className="dkl-chip" onClick={toBottom} data-testid="cwb-newmsg">↓ {unseen} new</button> : null}
+      {said ? <p className="dkl-empty" role="status" data-testid="dkl-said">{said}</p> : null}
+      {queue.length ? <span className="dkl-rows" data-testid="cwb-queue">{queue.map((q, i) => <span key={i}><span>{i + 1}. {q.text}</span><button type="button" className="dkl-ib" onClick={() => act('unqueue', { i })} aria-label="Drop this ask" data-testid={`cwb-unq-${i}`}>✕</button></span>)}</span> : null}
+      {chatFoot}
+      <AttachChips files={files} store={store} onDrop={id => setFiles(f => f.filter(z => z.id !== id))} />
+      <CmdPop text={text} rows={d?.commands} anchor={inRef} onPick={c => { setText(c); requestAnimationFrame(() => inRef.current?.focus()); }} />
+      <span className="dkl-box"><button type="button" className="dkl-ib" onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it" data-testid="cwb-plus"><Ic3 e="📎" size="16px" /></button>
+        <textarea ref={inRef} rows={1} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Tab' && text.startsWith('/')) { const q = text.slice(1).toLowerCase(); const hit = (d?.commands?.length ? d.commands : CMDS_FALLBACK).find(([c]) => c.toLowerCase().includes(q)); if (hit) { e.preventDefault(); setText(hit[0]); } return; } if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) submit(e); }} placeholder={live ? (go ? 'Working… type the next ask: it queues' : 'Working… /stop, or LET IT GO to queue') : `Ask ${cat.name || 'it'}, or /poc, /image, approve 1…`} aria-label="Message" data-testid="cwb-input" />
+        {live && !text.trim() ? <button type="button" className="dkl-send" onClick={() => act('stop')} disabled={busy} aria-label="Stop it" data-testid="cwb-stop">■</button>
+          : <button type="submit" className="dkl-send" disabled={busy || !text.trim()} aria-label={queueAdd ? 'Queue it' : 'Send'} data-testid={queueAdd ? 'cwb-queue-add' : 'cwb-send'}>→</button>}</span>
+      <span className="dkl-hints">{toNode}{DESK_HINTS.map(([h, l]) => <button key={h} type="button" onClick={() => { setText(h); inRef.current?.focus(); }} data-testid={`dkl-hint-${l.split(' ')[0].toLowerCase()}`}>{l}</button>)}</span>
+    </form></>;
+  return <DeskLook id={cat.id} name={cat.name || 'Agent'} crumb="Desk" pulse={pulse} rail={rail} widgets={widgets} monitors={monitors} vitals={vitals}
+    cabinet={<DeskCabinet who={cat.name} drawers={drawers} id={cat.id} open={signIn ? { key: 'creds', at: signIn.at } : null} />} chat={chat} testid="cwb-desk" />;
+}
+
 function WorkbenchLive({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   useEffect(() => { const take = e => { if (e.detail?.id === cat?.id && e.detail?.text) setText(e.detail.text); }; window.addEventListener(AGENT_COMMAND, take); return () => window.removeEventListener(AGENT_COMMAND, take); }, [cat?.id]);
@@ -1800,6 +1957,7 @@ function WorkbenchLive({ cat }) {
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
   const [proofPick, setProofPick] = useState(false);
+  const [deskLook, setDeskLook] = useDeskLook(); const [inbox, setInbox] = useState(false); const [apRows, apDecide, apErr] = useApprovals(cat?.id, work); const sol = useSolPrice();   // 🖥 Slice 34: the Desk look is the default; Settings › Classic desktop brings the old one back
   useEffect(() => { if (desk) return undefined; const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setProofPick(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [desk]);   // ⌘K on the main desk (the Desktop keeps its own)
   const pickProof = async ({ win, id }) => { setProofPick(false); if (win === 'poe') { setDesk({ win, id }); return; } await act('desk_focus', { job: win, text: id }); };
   const proofs = useMemo(() => deskProofs(d), [d]);   // 🎯 the proof on the desk leads the monitors, wherever it is in its files
@@ -1816,6 +1974,49 @@ function WorkbenchLive({ cat }) {
   const seen = useOnScreen(dash); seenRef.current = seen; const wasSeen = useRef(true); useEffect(() => { if (seen && !wasSeen.current) load(); wasSeen.current = seen; }, [seen, load]);   // back on screen: fresh at once
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
+  const settingsNode = <><ChatSettings open={gear} onOpen={setGear} testid="cwb-gear" panelTestid="cwb-settings" tip="Settings: how its minds work, its cursor, the $ cap, its job + tools">
+      <em>DESK</em>
+    <div className="m-seg" role="radiogroup" aria-label="Desk layout">{[[false, 'Desk look'], [true, 'Classic desktop']].map(([k, l]) => <button key={l} type="button" role="radio" aria-checked={!!deskLook.classic === k} className={!!deskLook.classic === k ? 'active' : ''} onClick={() => setDeskLook({ classic: k })} data-testid={`cwb-look-${k ? 'classic' : 'desk'}`}>{l}</button>)}</div>
+      <ChatStylePicker value={chatLook} set={setChatLook} />
+      {live ? <small className="m-note" data-testid="cwb-locked"><Ic3 e="🔒" /> Locked while it works — press ■ Stop to change these</small> : null}
+      <em>HOW ITS MINDS WORK</em>
+    <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
+      className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
+      <em>ITS CURSOR</em>
+    <div className="m-seg cwb-cur" role="radiogroup" aria-label="How its cursor looks in its window">{CURSORS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={aiCur === k}
+      className={aiCur === k ? 'active' : ''} onClick={() => { setAiCur(k); try { localStorage.setItem(CURSOR_KEY, k); } catch { /* private window: this visit only */ } }} data-tip="How the AI's cursor looks as it clicks in its window (this device)" data-testid={`cwb-cur-${k}`}>{l}</button>)}</div>
+      <em>MOST A TASK MAY SPEND</em>
+    <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
+      <em>JOB + TOOLS</em>
+    <div className="cwb-tools"><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this agent to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></div>
+        </ChatSettings></>;
+  // 🖥 the Desk look keeps every piece of the classic chat (Slice 34 "nothing goes missing"): live cards, auto runs, top-up, parked asks, the focus line, who it talks to
+  const deskTop = <>{wKind === 'bids' && watched?.games?.length ? <LiveBidCard f={watched} also={sameGameSlips(d, watched)} onClose={() => pin('')} /> : wKind !== 'bids' && watched ? <LiveProofCard kind={wKind} f={watched} onClose={() => pin('')} />
+      : autoBid && autoBid.id !== hidBid ? <LiveBidCard f={autoBid} also={sameGameSlips(d, autoBid)} onClose={() => setHidBid(autoBid.id)} /> : null}
+    <AutoRow rows={d?.autoRuns} busy={busy} onAsk={t => act('ask', { text: t, to: 'both' })} />
+    {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}</>;
+  const deskFoot = <>{BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="dkl-note is-warn" role="status" data-testid="cwb-topup"><b>Out of budget for that ask.</b> Its next step could pass the $ cap you set.
+      <button type="button" className="dkl-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
+    <TopupCard cat={cat} d={d} setD={setD} work={work} />
+    <SiteTradeCard cat={cat} d={d} setD={setD} work={work} />
+    {(d?.parked || []).length ? <span className="dkl-rows" aria-label="Filed to come back to" data-testid="cwb-parked">{d.parked.map((q, i) => <span key={`${q.at}-${i}`}><span data-tip={`Nobody answered for 5 min, so it moved on: ${q.why}`}>⏸ {q.text}</span>
+      <span><button type="button" className="dkl-ib" disabled={busy || live} onClick={async () => { await act('unpark', { i }); act('ask', { text: q.text, to: 'both' }); }} aria-label="Resume it now" data-testid={`cwb-resume-${i}`}>▶</button>
+      <button type="button" className="dkl-ib" onClick={() => act('unpark', { i })} aria-label="Drop it" data-testid={`cwb-unpark-${i}`}>✕</button></span></span>)}</span> : null}
+    {d?.deskProof ? <p className="dkl-note" data-testid="cwb-focus"><b>{d.deskProof.label} · {d.deskProof.name}</b> Your words go to it.<button type="button" disabled={busy} onClick={() => act('ask', { text: 'back to the desk', to: 'both' })} data-testid="cwb-focus-x">Back to the desk</button></p> : null}
+    {d && !d.live ? <p className="dkl-note" data-testid="cwb-off">Model calls are switched off on this server: asking sends and charges nothing until the owner turns them on.</p> : null}</>;
+  const deskTo = wins.length > 1 ? <span className="dkl-to" role="radiogroup" aria-label="Who this message goes to">{[...wins.slice(0, 2).map(w => [String(w.i), `${'AB'[w.i]}`]), ['both', 'Both']].map(([k, l]) =>
+    <button key={k} type="button" role="radio" aria-checked={to === k} disabled={live} onClick={() => setTo(k)} data-testid={`cwb-to-${k}`} data-tip={k === 'both' ? 'Both minds work it, each in its own window' : 'Only this mind works the whole ask'}>{l}</button>)}</span> : null;
+  const deskStage = liveKind ? <ProofLive d={d} wins={wins} spent={spent} name={cat.name} kind={liveKind} onShowChat={() => setPeek(true)} /> : null;
+  const msgExtras = m => ({ rate: d?.jobRates?.[m.tid], onRate: (tid, k) => act('rate', { text: tid, job: k }), duel: d?.duels?.[m.tid], onDuel: i => act('duel', { text: m.tid, job: String(i) }),
+    onWatch: k => { const lv = k === 'pow' ? d?.powFolder : k === 'pop' ? d?.popFolder : null; const c = lv?.id ? { id: lv.id } : chatProof(d, k, m.at); if (c?.id) pin(k === 'bids' ? c.id : `${k}:${c.id}`); } });
+  if (!deskLook.classic) return <><WorkbenchDesk chatTop={deskTop} chatFoot={deskFoot} toNode={deskTo} liveStage={peek ? null : deskStage} onMsgExtras={msgExtras} queueAdd={live && go && !!text.trim()} cat={cat} d={d} setD={setD} act={act} busy={busy} live={live} go={go} msgs={msgs} cut={cut} old={old} setOld={setOld} wins={wins} tick={tick} aiCur={aiCur} text={text} setText={setText}
+      files={files} setFiles={setFiles} store={store} pick={pick} upping={upping} spent={spent} cap={cap} credit={credit} orLeft={orLeft} log={log} kinds={kinds} signIn={signIn} setSignIn={setSignIn} setDesk={k => (k === 'approve' ? setInbox(true) : setDesk(k))} setProofPick={setProofPick}
+      chatRef={chatRef} inRef={inRef} unseen={unseen} toBottom={toBottom} to={to} queue={queue} gearNode={settingsNode} setGear={setGear} approvals={apRows} decide={apDecide} sol={sol} />
+    <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" multiple hidden onChange={attach} data-testid="cwb-file-input" />
+    {proofPick ? <MainPicker cat={cat} work={work} d={d} onPick={pickProof} onClose={() => setProofPick(false)} /> : null}
+    {inbox ? <ApproveInbox rows={apRows} onDecide={apDecide} err={apErr} onClose={() => setInbox(false)} /> : null}
+    {desk ? <AgentDesktop cat={cat} over start={typeof desk === 'string' || (desk && typeof desk === 'object') ? desk : null} onClose={() => setDesk(false)} onCommand={t => { setText(t); setDesk(false); }} /> : null}
+    {err ? <p className="kd-err dkl-err" role="alert">⚠ {err}</p> : null}</>;
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b><Ic3 e="🧠" />🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
@@ -1887,20 +2088,7 @@ function WorkbenchLive({ cat }) {
       tools={<>
         <ChatAttach busy={upping} onPress={() => pick.current?.click()} isDisabled={upping || files.length >= 4} aria-label="Attach images for it"
           data-tip="Attach images or GIFs (up to 4) — they go in its own storage and ride with your next ask; it can upload them to a site, e.g. a coin image" data-testid="cwb-plus" />
-        <ChatSettings open={gear} onOpen={setGear} testid="cwb-gear" panelTestid="cwb-settings" tip="Settings: how its minds work, its cursor, the $ cap, its job + tools">
-      <ChatStylePicker value={chatLook} set={setChatLook} />
-      {live ? <small className="m-note" data-testid="cwb-locked"><Ic3 e="🔒" /> Locked while it works — press ■ Stop to change these</small> : null}
-      <em>HOW ITS MINDS WORK</em>
-    <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
-      className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
-      <em>ITS CURSOR</em>
-    <div className="m-seg cwb-cur" role="radiogroup" aria-label="How its cursor looks in its window">{CURSORS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={aiCur === k}
-      className={aiCur === k ? 'active' : ''} onClick={() => { setAiCur(k); try { localStorage.setItem(CURSOR_KEY, k); } catch { /* private window: this visit only */ } }} data-tip="How the AI's cursor looks as it clicks in its window (this device)" data-testid={`cwb-cur-${k}`}>{l}</button>)}</div>
-      <em>MOST A TASK MAY SPEND</em>
-    <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
-      <em>JOB + TOOLS</em>
-    <div className="cwb-tools"><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this agent to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></div>
-        </ChatSettings>
+        {settingsNode}
         <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" multiple hidden onChange={attach} data-testid="cwb-file-input" />
       {wins.length > 1 ? <span className="m-seg cwb-to" role="radiogroup" aria-label="Who this message goes to">{[...wins.slice(0, 2).map(w => [String(w.i), <><b>{'AB'[w.i]}</b><span> · {String(w.model || '').split('/').pop().split(':')[0]}</span></>]), ['both', <b>Both</b>]].map(([k, l]) =>
         <button key={k} type="button" role="radio" aria-checked={to === k} className={to === k ? 'active' : ''} disabled={live} onClick={() => setTo(k)} data-testid={`cwb-to-${k}`}

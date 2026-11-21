@@ -27,7 +27,7 @@ const isElite = () => typeof document !== 'undefined' && document.documentElemen
 export const useElite = () => useSyncExternalStore(sub, isElite, () => false);
 // 📁 owner 2026-11-12: "the icons on those folders suck and should be options to folder icons" — inside a desk, icons follow Desktop settings › Folder look
 // (every look draws clean line icons in its accent; the 3D cartoon set stays outside the desks).
-export const IconLook = createContext(false);
+export const IconLook = createContext(false);   // true = line icons · '3d' = always the 3D set (the Desk look)
 
 // 📁 the line icon for a symbol (FolderArt draws every folder with these, in any edition)
 export const lineOf = e => { const c = clean(e); const n = MAP[c] || MAP[e]; return (n && LINE[n]) || EMO_LINE[c] || null; };
@@ -36,7 +36,7 @@ export const ic3Src = name => `/icons3d/${name}.webp`;
 
 export function Ic3({ e, name, social, size = '1.25em', className = '' }) {
   const n = social ? SOCIAL[social] && `social/${SOCIAL[social]}` : name || ic3Name(e);
-  const inDesk = useContext(IconLook); const elite = useElite() || !!inDesk;
+  const inDesk = useContext(IconLook); const siteElite = useElite(); const elite = inDesk === '3d' ? false : siteElite || !!inDesk;   // '3d' = the Desk look (Slice 34): real detailed icons, never the line set
   const Emo = !n && elite && e ? EMO_LINE[clean(e)] : null;
   if (Emo) return <><Emo className={`ic3 ic3-line ${className}`.trim()} aria-hidden="true" strokeWidth={1.75} style={{ width: size, height: size }} /><span hidden style={{ display: 'none' }}>{e}</span></>;
   if (!n && elite && e && /\p{Extended_Pictographic}/u.test(e)) return <><CircleDot className={`ic3 ic3-line ${className}`.trim()} aria-hidden="true" strokeWidth={1.75} style={{ width: size, height: size }} /><span hidden style={{ display: 'none' }}>{e}</span></>;   // 🎩 elite: an unmapped emoji becomes a quiet mark, never a cartoon

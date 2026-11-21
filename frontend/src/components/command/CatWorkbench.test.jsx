@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 jest.mock('./AtomPrint', () => ({ __esModule: true, default: () => null }));
 import { CatWorkbench, CommandList, Window, placeIcons } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+// 🖥 Slice 34: the Desk look is the default; these tests keep the classic desktop covered (Settings › Classic desktop). The Desk look has its own: DeskLookDesk.test.jsx
+beforeEach(() => { localStorage.setItem('feeless.deskLook', JSON.stringify({ classic: true })); });
 const signed = [];
 jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: async m => { signed.push(m); return 'SIG'; } }) }));
 

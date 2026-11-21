@@ -385,7 +385,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const tasks = apps.filter(a => w[a.k]?.open);
-  return createPortal(<IconLook.Provider value><div className="dsk dsk-app" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
+  return createPortal(<IconLook.Provider value={prefs.folderLook === 'line' ? true : '3d'}><div className="dsk dsk-app" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
     <ShaderWall mood={mood} />
     <div className="dsk-wall" aria-hidden="true"><b>{title}</b><small>{sub}</small></div>
     <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
