@@ -1,0 +1,335 @@
+{
+ "agent": "Happy Assistant",
+ "folder": {
+  "id": "pow1795113317",
+  "n": 17,
+  "sym": "AI",
+  "topic": null,
+  "phase": "done",
+  "talk": [
+   {
+    "by": "engine",
+    "text": "two-source fallback: both minds compare the same safe FEELESS and Pump coins, research each, then agree",
+    "at": 1795113352
+   },
+   {
+    "by": "engine",
+    "text": "replaced 18 unsafe: $DSP (no holder intel yet), $ANT (no holder intel yet), $GTASZN (10 snipers), $CATMARIO (no holder intel yet), $LDS (no holder intel yet), $SIM (7 bundled wallets), $JETSKI (11 sni",
+    "at": 1795113352
+   },
+   {
+    "by": "engine",
+    "text": "new folder: $AI (FEELESS intake), $PIPI (Pump)",
+    "at": 1795113352
+   },
+   {
+    "by": "plan",
+    "text": "1) one safe FEELESS intake coin and one safe Pump coin are the shared options \u2192 2) both minds compare them and agree on a research favorite \u2192 3) each coin is researched, then both minds decide the one",
+    "at": 1795113352
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "proposes: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 Pool $110.7K versus $56.8K; 24h gain 142% versus 634%. Rug risk unverified.",
+    "at": 1795113359
+   },
+   {
+    "by": "muse-spark-1.3",
+    "text": "answers: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 AI: pool $110.7K vs $56.8K, vol $349.8K, +142% vs +634% (overextended). Deeper liquidity, less rug risk.",
+    "at": 1795113401
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "final plan: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 $110.7K pool, $349.8K volume; +142% versus PIPI +634%. Rug risk unverified.",
+    "at": 1795113405
+   },
+   {
+    "by": "engine",
+    "text": "plan agreed \u2014 they research $AI, $PIPI in turns, then decide",
+    "at": 1795113405
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "$AI researched on coingecko.com, defined.fi, dexscreener.com, feeless.app: no vitals (solscan.io walled)",
+    "at": 1795113535
+   },
+   {
+    "by": "muse-spark-1.3",
+    "text": "$PIPI researched on coingecko.com, feeless.app, pump.fun, solscan.io: price $0.0003234 \u00b7 market cap $311.4K \u00b7 volume 24h $5.2M \u00b7 holders 4,302",
+    "at": 1795113535
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "on $PIPI: No\u2014its extreme youth and thin liquidity make manipulation, slippage, and rapid losses significant risks.",
+    "at": 1795113546
+   },
+   {
+    "by": "muse-spark-1.3",
+    "text": "on $AI: No data, no buy\u2014skip until real fundamentals surface.",
+    "at": 1795113546
+   },
+   {
+    "by": "engine",
+    "text": "every coin researched \u2014 they decide which ONE to buy",
+    "at": 1795113546
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "proposes: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 Pool $110.7K versus $56.8K; rug risk unverified, chart prices conflict with quotes, stops not guaranteed.",
+    "at": 1795113578
+   },
+   {
+    "by": "muse-spark-1.3",
+    "text": "answers: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 $AI pool $110.7K vs PIPI $56.8K, PIPI liq $27.7K/6h old; AI safer, agree.",
+    "at": 1795113601
+   },
+   {
+    "by": "gpt-6.1-terra",
+    "text": "final plan: $AI \u00b7 0.005 SOL \u00b7 TP +15% \u00b7 SL \u221210% \u2014 $110.7K pool versus $56.8K; chart down 5.3%. Rug risk unknown; stops can slip.",
+    "at": 1795113630
+   },
+   {
+    "by": "engine",
+    "text": "they set the trade: 0.005 SOL \u00b7 take profit +15% \u00b7 stop \u221210%",
+    "at": 1795113630
+   },
+   {
+    "by": "engine",
+    "text": "proposal: $AI (FEELESS intake) \u2014 nothing bought",
+    "at": 1795113630
+   }
+  ]
+ },
+ "done": {
+  "id": "tccacb76dbd4",
+  "title": "PoW #17 Review",
+  "state": "done",
+  "why": "",
+  "step": "",
+  "stepN": 3,
+  "steps": 3,
+  "secs": 24,
+  "cost": 0.012593,
+  "recap": "Reviewed the $AI PoW filing: entry was not sound because key safety checks and contract identity were unverified; the exit could not be assessed without execution details.\nRecommended verifying safety checks, setting an entry trigger and slippage limit, and accounting for exit costs while recording actual fills and net P&L.",
+  "scope": {
+   "kind": "pow",
+   "ref": "pow1795113317"
+  },
+  "by": "owner",
+  "test": true,
+  "brief": "Review this PoW filing: was the entry and exit sound? List three concrete things to do better on the next PoW.",
+  "model": "openai/gpt-6.1-terra",
+  "cap": 0.25,
+  "checklist": [
+   {
+    "text": "Before entry, verify holder concentration, token permissions, liquidity locks, and contract identity; pass if key checks are unavailable.",
+    "state": "done",
+    "cost": 0.004773,
+    "did": "**Pre-entry verdict: pass on $AI; do not enter.**\n- Holder concentration: unavailable; $AI research reported no vitals.\n- Token permissions: unavailable.\n- Liquidity lock or burn: unavailable; the reported $110.7K pool does not verify a lock.\n- Contract identity: unverified; the ticker alone is insufficient to identify the token.\n\nThese checks cannot be verified from the supplied filing.",
+    "at": 1795254249.0350442,
+    "secs": 4.0
+   },
+   {
+    "text": "Define an entry trigger and maximum acceptable slippage rather than relying only on relative liquidity and past gains.",
+    "state": "done",
+    "cost": 0.00355,
+    "did": "**2. Set an entry trigger and slippage limit.** Only after the safety checks pass, consider entry when a 5-minute candle closes above the highs of the previous three 5-minute candles, with volume above their average. Require a fresh quote within 1% of that close and cap adverse slippage at 1% from the quote using a minimum-output limit. If either limit fails, skip the entry rather than chase. Check fees separately, especially for a 0.005 SOL position.",
+    "at": 1795254253.065375,
+    "secs": 7.0
+   },
+   {
+    "text": "For exits, account for fees and stop slippage, then record actual fills, timing, and reasons to assess the result.",
+    "state": "done",
+    "cost": 0.003185,
+    "did": "**3. Account for exit costs and document execution.** Before entry, estimate round-trip fees and slippage against the +15% take-profit and \u221210% stop; skip if the net reward is inadequate. Treat the stop as a trigger, not a guaranteed fill. Record actual entry and exit prices, amounts, timestamps, fees, slippage and exit reason, then calculate net P&L.\n\n**Verdict:** The entry was not sound because key safety checks were unavailable. The exit had defined targets, but its execution and result cannot be assessed from the supplied filing; actual fills are not shown.",
+    "at": 1795254260.0296252,
+    "secs": 4.8
+   }
+  ],
+  "thoughts": [
+   {
+    "step": -1,
+    "text": "The entry rationale favored deeper liquidity, but holder and rug-risk checks were incomplete, so the entry was not fully substantiated. The planned +15% take-profit and \u221210% stop had a 1.5:1 payoff ratio before costs, but the filing provides no actual entry or exit prices, so execution cannot be judged.",
+    "s": 4.6
+   },
+   {
+    "step": 0,
+    "text": "The filing does not provide the key contract and ownership evidence needed to assess entry risk. Pool size alone does not establish that liquidity is locked.",
+    "s": 4.0
+   },
+   {
+    "step": 1,
+    "text": "Relative liquidity and past gains alone did not establish a timely entry or a tolerable execution price. The proposed trigger is a rule for the next PoW, not evidence that this filing met it.",
+    "s": 7.0
+   },
+   {
+    "step": 2,
+    "text": "The filing shows planned exit levels but no actual exit fills or timing. Fees and stop slippage could materially change the result, especially for a 0.005 SOL position.",
+    "s": 4.8
+   }
+  ],
+  "logs": [
+   {
+    "at": 1795254244.37,
+    "text": "Starting on gpt-6.1-terra."
+   },
+   {
+    "at": 1795254249.04,
+    "text": "Planned 3 steps."
+   },
+   {
+    "at": 1795254253.07,
+    "text": "Reviewed the supplied $AI research and entry rationale.",
+    "step": 0
+   },
+   {
+    "at": 1795254253.07,
+    "text": "Distinguished reported pool size from liquidity-lock evidence.",
+    "step": 0
+   },
+   {
+    "at": 1795254253.07,
+    "text": "No external verification was available in this step.",
+    "step": 0
+   },
+   {
+    "at": 1795254260.03,
+    "text": "The filing cites pool size, volume and past gains, but no precise entry trigger or slippage cap.",
+    "step": 1
+   },
+   {
+    "at": 1795254260.03,
+    "text": "The prior step found that key safety checks for $AI were unavailable.",
+    "step": 1
+   },
+   {
+    "at": 1795254264.87,
+    "text": "Checked the proposed +15% TP and \u221210% SL.",
+    "step": 2
+   },
+   {
+    "at": 1795254264.87,
+    "text": "No actual exit fill, timing or fees are visible in the supplied filing.",
+    "step": 2
+   },
+   {
+    "at": 1795254268.25,
+    "text": "Done."
+   }
+  ],
+  "msgs": [],
+  "created": 1795254244.3728352,
+  "started": 1795254244.4372458,
+  "ended": 1795254268.251094
+ },
+ "live": {
+  "id": "tccacb76dbd4",
+  "title": "PoW #17 Review",
+  "state": "working",
+  "why": "",
+  "step": "Define an entry trigger and maximum acceptable slippage rather than relying only on relative liquidity and past gains.",
+  "stepN": 2,
+  "steps": 3,
+  "secs": 12,
+  "cost": 0.004773,
+  "recap": "",
+  "scope": {
+   "kind": "pow",
+   "ref": "pow1795113317"
+  },
+  "by": "owner",
+  "test": true,
+  "brief": "Review this PoW filing: was the entry and exit sound? List three concrete things to do better on the next PoW.",
+  "model": "openai/gpt-6.1-terra",
+  "cap": 0.25,
+  "checklist": [
+   {
+    "text": "Before entry, verify holder concentration, token permissions, liquidity locks, and contract identity; pass if key checks are unavailable.",
+    "state": "done",
+    "cost": 0.004773,
+    "did": "**Pre-entry verdict: pass on $AI; do not enter.**\n- Holder concentration: unavailable; $AI research reported no vitals.\n- Token permissions: unavailable.\n- Liquidity lock or burn: unavailable; the reported $110.7K pool does not verify a lock.\n- Contract identity: unverified; the ticker alone is insufficient to identify the token.\n\nThese checks cannot be verified from the supplied filing.",
+    "at": 1795254249.0350442,
+    "secs": 4.0
+   },
+   {
+    "text": "Define an entry trigger and maximum acceptable slippage rather than relying only on relative liquidity and past gains.",
+    "state": "doing",
+    "cost": 0,
+    "did": null,
+    "at": 1795254253.065375,
+    "secs": 7.0
+   },
+   {
+    "text": "For exits, account for fees and stop slippage, then record actual fills, timing, and reasons to assess the result.",
+    "state": "pending",
+    "cost": 0,
+    "did": null,
+    "at": 1795254260.0296252,
+    "secs": 4.8
+   }
+  ],
+  "thoughts": [
+   {
+    "step": -1,
+    "text": "The entry rationale favored deeper liquidity, but holder and rug-risk checks were incomplete, so the entry was not fully substantiated. The planned +15% take-profit and \u221210% stop had a 1.5:1 payoff ratio before costs, but the filing provides no actual entry or exit prices, so execution cannot be judged.",
+    "s": 4.6
+   },
+   {
+    "step": 0,
+    "text": "The filing does not provide the key contract and ownership evidence needed to assess entry risk. Pool size alone does not establish that liquidity is locked.",
+    "s": 4.0
+   }
+  ],
+  "logs": [
+   {
+    "at": 1795254244.37,
+    "text": "Starting on gpt-6.1-terra."
+   },
+   {
+    "at": 1795254249.04,
+    "text": "Planned 3 steps."
+   },
+   {
+    "at": 1795254253.07,
+    "text": "Reviewed the supplied $AI research and entry rationale.",
+    "step": 0
+   },
+   {
+    "at": 1795254253.07,
+    "text": "Distinguished reported pool size from liquidity-lock evidence.",
+    "step": 0
+   },
+   {
+    "at": 1795254253.07,
+    "text": "No external verification was available in this step.",
+    "step": 0
+   }
+  ],
+  "msgs": [],
+  "created": 1795254244.3728352,
+  "started": 1795254244.4372458,
+  "ended": null
+ },
+ "chat": [
+  {
+   "by": "you",
+   "text": "/task Review this PoW filing: was the entry and exit sound? List three concrete things to do better on the next PoW.",
+   "at": 1795254244.372772,
+   "task": null,
+   "cost": null
+  },
+  {
+   "by": "cats",
+   "text": "\ud83e\uddf5 Split into a task chat: Review this PoW filing",
+   "at": 1795254244.372772,
+   "task": "tccacb76dbd4",
+   "cost": null
+  },
+  {
+   "by": "cats",
+   "text": "\u2705 Task done: PoW #17 Review\nReviewed the $AI PoW filing: entry was not sound because key safety checks and contract identity were unverified; the exit could not be assessed without execution details.\nRecommended verifying safety checks, setting an entry trigger and slippage limit, and accounting for exit costs while recording actual fills and net P&L.",
+   "at": 1795254268.403188,
+   "task": "tccacb76dbd4",
+   "cost": 0.012593
+  }
+ ]
+}

@@ -83,6 +83,7 @@ def main():
     ap.add_argument('--clip', default='', help='PoC only (Slice 15): a video file (≤ 5 min) uploaded to the clip farm, through the same upload door the owner uses')
     ap.add_argument('--ws', default='', help='PoStatic only: a TEST folder to change (its next version)')
     ap.add_argument('--earn', action='store_true', help="PoEco only (Slice 16): an earn filing: a real open listing from the public feeds, both minds bid blind, nothing sent (--topic = a listing id from the board; '' = its best)")
+    ap.add_argument('--task', action='store_true', help='Slice 35: split one TEST task chat off this kind\'s newest folder (text work only), --topic = the task')
     ap.add_argument('--dash', action='store_true', help='PoB only: file through the PoB dashboard door (op pob: a tap on What to file next), not the chat line')
     ap.add_argument('--slip', default='', help='PoB only, with --dash: his own slip as JSON, [{"ticker": "...", "side": "yes|no", "title": "..."}]')
     ap.add_argument('--wizard', default='', help='PoEco --earn (Slice 33): the start wizard\'s choices as JSON, {"direction": {"text": "", "approved": true}, "kits": [], "start": "fresh", "research": {"by": "comp"}}')
@@ -101,11 +102,20 @@ def main():
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
                             **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
                             **({'ws': a.ws} if a.ws and a.kind == 'pos' else {}),
-                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'door': 'earn'} if a.earn and a.kind == 'poe' else {}), **({'wizard': json.loads(a.wizard)} if a.wizard and a.earn and a.kind == 'poe' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
+                            **({'door': 'task'} if a.task else {}), **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'door': 'earn'} if a.earn and a.kind == 'poe' else {}), **({'wizard': json.loads(a.wizard)} if a.wizard and a.earn and a.kind == 'poe' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
                             **({'inspect': [{'click': q, 'note': a.topic} for q in a.inspect]} if a.inspect and a.ws and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:
         return 0 if code == 200 else 1
+    if a.task:   # 🧵 Slice 35: wait for the TEST task chat to end (or to wait for its owner), then print its whole record
+        tid = j.get('task'); t0 = time.time()
+        while time.time() - t0 < a.mins * 60:
+            time.sleep(10)
+            code, g = call('GET'); t = next((x for x in g.get('tasks') or [] if x.get('id') == tid), None) or {}
+            if t.get('state') in ('done', 'failed', 'stopped', 'waiting'):
+                print(json.dumps({k: t.get(k) for k in ('id', 'title', 'state', 'why', 'model', 'cost', 'cap', 'scope', 'recap', 'checklist', 'thoughts', 'logs')}, indent=1)[:6000])
+                return 0 if t['state'] == 'done' else 1
+        print(f'still running after {a.mins} min'); return 2
     t0 = time.time(); gone = None
     while time.time() - t0 < a.mins * 60:
         time.sleep(20)

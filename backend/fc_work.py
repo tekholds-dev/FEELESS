@@ -196,6 +196,8 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     rs._WORK[cat_id] = {'task': rs._ca.new_task(rs.uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ or read_ else cat.get('workMode') or 'plan', rs._read_caps(lim_, cap, len(models)) if read_ and len(models) > 1 else lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': rs.time.time()}
     rs._WORK[cat_id]['task']['alts'] = ['https://' + h for h in rs._src.best(rs._src_book(), n=6)]   # 🔀 where a repeating mind is moved
     rs._WORK[cat_id]['task']['knowhow'] = rs._pow.README + '\n' + rs._colony.KNOWHOW + (' ' + rs._colony.COLONIZED if rs._hive_on(cat) else '') + '\n' + rs._src.brief(rs._src_book())   # 🐝🧭 every mind knows the Colony + where to browse
+    if not pow_ and not read_:   # 🧵 Slice 35: a desk ask may hand a long job to its own task chat
+        rs._WORK[cat_id]['task']['knowhow'] += '\n' + rs._fc_taskchat._tc.TASK_HINT
     if pow_:
         rs._WORK[cat_id]['task']['pow'] = pow_
     if pows:   # each mind researches its own coin at once, on its own ceiling
@@ -507,7 +509,7 @@ def _work_settle(store):
             if t.get('siteTrade'):
                 rs._site_trade_filed(cat, t)
             cat['chat'] = list(cat.get('chat') or []) if t.get('pow') or t.get('proofRead') else (list(cat.get('chat') or []) + ([] if t.get('youSaid') else [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')}]) + [
-                           {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': rs.time.time(), 'cost': t.get('cost'), 'fast': t.get('fast'), 'tid': t.get('id')}])[-rs.CHAT_KEEP:]
+                           {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (rs._fc_taskchat.split_answer(cid, cat, t['answer']) if t.get('answer') else f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': rs.time.time(), 'cost': t.get('cost'), 'fast': t.get('fast'), 'tid': t.get('id')}])[-rs.CHAT_KEEP:]
             cat['jobs'] = (list(cat.get('jobs') or []) + [rs._job_tree(t)])[-rs.JOBS_KEEP:]   # 🗂 the exact log tree of every request (owner 2026-11-01), AGT-9: a proof's own research jobs too, tagged with its kind
         if cat and cat.get('brainsCfg'):
             rs._job_memory(cat)
@@ -581,7 +583,7 @@ async def _engine_loop():
             store = rs._load()
             hot_ = any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in store['cats'].values())
             if rs.time.time() - full_at < rs.TICK_SECONDS and hot_:   # ⛏ a folder holds a coin: a LIGHT pass every 5 s (its live checks + its wallet's sends), the market scan stays at 20 s
-                await rs._agent_pass(store); await rs._pow2_pass(store); rs._work_settle(store); rs._save(store)
+                await rs._agent_pass(store); await rs._pow2_pass(store); rs._work_settle(store); rs._fc_taskchat.taskchat_pass(store); rs._save(store)
                 await rs.asyncio.sleep(rs._pow.HOT_TICK_S); continue
             full_at = rs.time.time()
             rs._migrate(store)
@@ -597,6 +599,7 @@ async def _engine_loop():
             except Exception as e:   # noqa: BLE001 — the Collective never stops the engine
                 print(f'[collective] {str(e)[:160]}')
             rs._work_settle(store)
+            rs._fc_taskchat.taskchat_pass(store)   # 🧵 Slice 35: bill steps, post recaps, start what waits
             rs._review_apply(store)   # 🧑‍⚖️ OSSY and G4's verdicts land on their folders
             rs._db_grow(store)   # 🗄 every closed proof becomes a sealed row in its agent's own database
             rs._pot_alert_pass(store)   # ✅ AGX-10: a proof under 1x → one 'Fix first' line in its chat + a redo waiting for Approve (no model call)

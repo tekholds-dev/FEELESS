@@ -88,6 +88,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/DeskHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/posdesk') {   // 💻 Slice 27: the PoStatic desk on an agent's real folders (?day, ?w=700, ?open=<wsId>) (src/dev/PosDeskHarness.jsx)
   import('./dev/PosDeskHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/taskchat') {   // 🧵 Slice 35: a task chat on Happy's real TEST task (?live, ?day, ?w=700) (src/dev/TaskChatHarness.jsx)
+  import('./dev/TaskChatHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/pocdesk') {   // 📣 Slice 24: the PoC desk window on Happy's real folders (?day, ?w=700, ?clips) (src/dev/PocDeskHarness.jsx)
   import('./dev/PocDeskHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/clipfarm') {   // ✂ Slice 15: the clip farm on Sicario's real TEST clip run (?running, ?empty, ?day) (src/dev/ClipFarmHarness.jsx)

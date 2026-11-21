@@ -176,7 +176,8 @@ async def test_proof_state(request: Request, agent: str = ''):
     if last_:   # 🔍 Slice 9: the TEST PoStatic's inspect before / after
         f_ = next((x for x in cat.get('psFolders') or [] if isinstance(x, dict) and x.get('id') == last_.get('id')), {})
         last_['inspect'] = f_.get('inspect')
-    return {'agent': cat.get('name'), 'id': cat.get('id'), 'tests': tests}
+    tasks_ = [rs._fc_taskchat._tc.view(t) for t in rs._fc_taskchat.tasks_of(cat['id'], cat) if t.get('test')][-3:]   # 🧵 Slice 35: its TEST task chats
+    return {'agent': cat.get('name'), 'id': cat.get('id'), 'tests': tests, 'tasks': tasks_}
 
 
 def busy_with(cat, kind, poc_busy=False):
@@ -211,6 +212,11 @@ async def test_proof_start(p: TestIn, request: Request):
         if kind != 'pop':
             raise rs.HTTPException(400, 'Only an open paper PoP is stopped this way.')
         return await rs._cat_work(cid, rs.WorkPayload(op='ask', text='stop pop', session=rs._AUTO_TOKEN, auto=True))
+    if p.door == 'task':   # 🧵 Slice 35: one TEST task chat split off this kind's newest folder, through the owner's own op (text work only, no money)
+        f_ = next((f for f in reversed(cat.get(rs._prec.KEYS[kind]) or []) if isinstance(f, dict) and f.get('id')), None)
+        out = await rs._cat_work(cid, rs.WorkPayload(op='task_new', job=f"{kind}:{f_['id']}" if f_ else kind, text=str(p.topic or 'Check this filing and list three things to do better next time.')[:600],
+                                                    tools={'test': True}, session=rs._AUTO_TOKEN, auto=True))
+        return {'ok': True, 'kind': kind, 'door': 'task', 'task': (out.get('task') or {}).get('id'), 'scope': (out.get('task') or {}).get('scope')}
     if _test_live(cat, kind, now):
         raise rs.HTTPException(409, f'A TEST {kind} is still running on {cat.get("name")}.')
     other_ = busy_with(cat, kind, cid in getattr(rs, '_POC_BUSY', ()))

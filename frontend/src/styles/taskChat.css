@@ -1,0 +1,99 @@
+/* 🧵 Slice 35 · task chats: the card in the chat, the strip of a place's tasks, and the task chat itself (docked beside the chat, a sheet on a phone,
+   or its own window). The Desk look's density: ≤ 19 px type, meta tokens only, transform / opacity motion only, no motion under fx-lite. */
+.tch-card, .tch-strip, .tch-pane, .tch-dock { --tc-line: var(--m-line); --tc-soft: color-mix(in srgb, var(--m-accent) 13%, transparent); }
+.tch-sp { flex: 1; }
+.tch-glyph { width: 14px; height: 14px; flex: none; border-radius: 4px; border: 1.5px solid var(--m-accent); background: linear-gradient(var(--m-accent), var(--m-accent)) 3px 3px / 6px 1.5px no-repeat, linear-gradient(var(--m-accent), var(--m-accent)) 3px 7px / 4px 1.5px no-repeat; }
+.tch-btn { min-height: 26px; padding: 0 9px; border: 1px solid var(--tc-line); border-radius: 7px; background: transparent; color: var(--m-text); font: 600 11px var(--f-ui); cursor: pointer; transition: transform .12s var(--m-ease, ease); }
+.tch-btn:active { transform: scale(.96); } .tch-btn:disabled { opacity: .45; cursor: default; }
+.tch-btn.is-go { background: var(--tc-soft); border-color: color-mix(in srgb, var(--m-accent) 40%, transparent); color: var(--m-accent); }
+.tch-btn.is-bad { color: var(--m-danger); }
+.tch-btn:focus-visible, .tch-ic:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.tch-ic { width: 26px; height: 26px; display: inline-grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--m-mute); font-size: 13px; cursor: pointer; }
+.tch-ic:hover { color: var(--m-text); background: var(--tc-line); }
+.tch-st.is-warn { background: color-mix(in srgb, var(--m-warn) 16%, transparent); color: var(--m-warn); }
+.tch-st.is-bad { background: color-mix(in srgb, var(--m-danger) 14%, transparent); color: var(--m-danger); }
+.tch-st.is-ok { background: var(--tc-soft); color: var(--m-accent); }
+.tch-st.is-live { background: var(--tc-soft); color: var(--m-accent); }
+
+/* the card in the chat it came from */
+.tch-card { display: grid; gap: 6px; padding: 9px 10px; border: 1px solid var(--tc-line); border-left: 2px solid var(--m-accent); border-radius: 10px; background: var(--m-surface); font: 12.5px var(--f-ui); color: var(--m-text); animation: tchIn .18s ease both; }
+.tch-card.is-warn { border-left-color: var(--m-warn); } .tch-card.is-bad { border-left-color: var(--m-danger); } .tch-card.is-ok { border-left-color: color-mix(in srgb, var(--m-accent) 55%, transparent); }
+.tch-card-h { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tch-card-h b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.tch-now { display: flex; gap: 7px; align-items: baseline; color: var(--m-mute); font-size: 12px; min-width: 0; }
+.tch-now > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tch-bar { display: block; height: 3px; border-radius: 3px; background: var(--tc-line); overflow: hidden; }
+.tch-bar i { display: block; height: 100%; background: var(--m-accent); transform-origin: left; transition: transform .4s ease; }
+.tch-recap { margin: 0; color: var(--m-text); font-size: 12px; line-height: 1.45; white-space: pre-line; }
+.tch-card-f { display: flex; align-items: center; gap: 8px; color: var(--m-mute); font-size: 11px; }
+@keyframes tchIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* a place's strip (top of the desk chat, a proof's chat) */
+.tch-strip { display: grid; gap: 7px; padding: 8px; border: 1px solid var(--tc-line); border-radius: 12px; background: color-mix(in srgb, var(--m-surface) 70%, transparent); }
+.tch-strip > header { display: flex; align-items: center; gap: 7px; font: 600 11.5px var(--f-ui); color: var(--m-text); }
+.tch-strip > header small { color: var(--m-mute); font-size: 10.5px; }
+.tch-split { display: flex; gap: 6px; }
+.tch-split input, .tch-steer input, .tch-cap input { flex: 1; min-width: 0; min-height: 28px; padding: 0 9px; border: 1px solid var(--tc-line); border-radius: 7px; background: var(--m-bg); color: var(--m-text); font: 12px var(--f-ui); }
+.tch-split input:focus, .tch-steer input:focus, .tch-cap input:focus { outline: none; border-color: var(--m-accent); }
+.tch-err { margin: 0; color: var(--m-danger); font: 11.5px var(--f-ui); }
+
+/* the task chat: docked beside the chat (a right-side pane), a bottom sheet on a phone */
+.tch-dock { position: fixed; z-index: 70; top: 72px; right: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px)); display: flex; border: 1px solid var(--m-line-hi, var(--m-line)); border-radius: 14px;
+  background: var(--m-surface); box-shadow: 0 18px 48px color-mix(in srgb, black 34%, transparent); overflow: hidden; animation: tchDock .2s ease both; }
+@keyframes tchDock { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .tch-dock { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 82vh; border-radius: 16px 16px 0 0; animation-name: tchSheet; } }
+@keyframes tchSheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+body.is-duo .tch-dock { top: 8px; bottom: 8px; right: 8px; width: min(380px, 46vw); }
+.tch-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; color: var(--m-text); font: 12.5px var(--f-ui); background: var(--m-surface); }
+.pws-own .tch-pane { min-height: 100vh; }
+.tch-pane-h { display: flex; align-items: center; gap: 7px; padding: 9px 10px; border-bottom: 1px solid var(--tc-line); font-size: 11px; color: var(--m-mute); }
+.tch-pane-h b { color: var(--m-text); font: 600 13.5px var(--f-ui); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tch-brief { margin: 0; padding: 8px 12px; display: grid; gap: 2px; border-bottom: 1px solid var(--tc-line); font-size: 12px; line-height: 1.45; }
+.tch-brief small { color: var(--m-mute); font: 10.5px var(--f-mono); }
+.tch-empty { margin: 0; padding: 18px; color: var(--m-mute); }
+/* the checklist (Claude desktop's task list: done ✓, doing spinner, pending dashed) */
+.tch-list { list-style: none; margin: 0; padding: 8px 12px; display: grid; gap: 5px; border-bottom: 1px solid var(--tc-line); }
+.tch-list li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.tch-list li span { flex: 1; min-width: 0; }
+.tch-list li.is-done span { color: var(--m-mute); }
+.tch-list li small { color: var(--m-mute); font-size: 10.5px; }
+.tch-ck { flex: none; width: 15px; height: 15px; display: inline-grid; place-items: center; border-radius: 50%; font: 700 10px/1 var(--f-ui); font-style: normal; }
+.tch-ck.is-done { background: var(--m-accent); color: var(--m-accent-ink); }
+.tch-ck.is-doing { border: 2px solid var(--tc-soft); border-top-color: var(--m-accent); animation: tchSpin .8s linear infinite; }
+.tch-ck.is-pending { border: 1.5px dashed var(--m-dim, var(--m-mute)); }
+@keyframes tchSpin { to { transform: rotate(360deg); } }
+/* the live work: thoughts (fold-open), logs with times, what each step did */
+.tch-flow { flex: 1; overflow: auto; padding: 8px 12px 12px; display: grid; align-content: start; gap: 8px; scrollbar-width: thin; }
+.tch-stepblock { display: grid; gap: 5px; padding-top: 6px; border-top: 1px dashed var(--tc-line); }
+.tch-stepblock h5 { margin: 0; display: flex; align-items: center; gap: 7px; font: 600 12.5px var(--f-ui); }
+.tch-stepblock h5 small { margin-left: auto; color: var(--m-mute); font-weight: 400; font-size: 10.5px; }
+.tch-thought { border-radius: 8px; background: color-mix(in srgb, var(--m-text) 4%, transparent); }
+.tch-thought summary { cursor: pointer; padding: 5px 8px; color: var(--m-mute); font: 500 11.5px var(--f-ui); list-style: none; display: flex; align-items: center; gap: 6px; }
+.tch-thought summary::-webkit-details-marker { display: none; }
+.tch-thought summary::before { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s ease; }
+.tch-thought[open] summary::before { transform: rotate(45deg); }
+.tch-thought p { margin: 0; padding: 0 8px 7px 20px; color: var(--m-mute); font-size: 12px; line-height: 1.5; font-style: italic; }
+.tch-log { margin: 0; display: flex; gap: 8px; font: 11.5px var(--f-mono); color: var(--m-mute); }
+.tch-log time { flex: none; color: var(--m-dim, var(--m-mute)); }
+.tch-did { font-size: 12.5px; line-height: 1.5; }
+.tch-did p { margin: 0 0 4px; }
+.tch-thinking { margin: 0; color: var(--m-mute); font-size: 12px; }
+.tch-recapbox { padding: 8px 10px; border-radius: 9px; background: var(--tc-soft); font-size: 12.5px; }
+.tch-recapbox b { display: block; color: var(--m-accent); font-size: 11px; margin-bottom: 2px; }
+.tch-ask { margin: 0; padding: 8px 10px; border-radius: 9px; background: color-mix(in srgb, var(--m-warn) 13%, transparent); color: var(--m-text); font-size: 12.5px; }
+.tch-steer { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--tc-line); }
+.tch-cap { display: flex; gap: 6px; flex-basis: 100%; }
+body.fx-lite .tch-card, body.fx-lite .tch-dock, body.fx-lite .tch-ck.is-doing { animation: none; }
+body.fx-lite .tch-ck.is-doing { border-style: dotted; }
+/* numbers + times keep the pane's small mono size (a page's own .m-num / time rules never blow them up) */
+.tch-pane .m-num, .tch-card .m-num, .tch-strip .m-num, .tch-log time { font: 500 11px/1.4 var(--f-mono); letter-spacing: 0; }
+.tch-log time { font-size: 10.5px; }
+.tch-pane-h .m-num { white-space: nowrap; }
+.tch-ck.is-doing { border-color: color-mix(in srgb, var(--m-accent) 28%, transparent); border-top-color: var(--m-accent); }
+/* the open task chat sits above popped-out panes (they are 9000) and is never see-through: a glass look's surface rides over the page colour */
+.tch-dock { z-index: 9050; background: linear-gradient(var(--m-surface), var(--m-surface)), var(--m-bg); }
+.tch-pane { background: transparent; }
+.pws-own .tch-pane { background: linear-gradient(var(--m-surface), var(--m-surface)), var(--m-bg); }
+.tch-pane-h { flex-wrap: wrap; row-gap: 2px; }
+.tch-pane-h b { flex: 1 1 150px; }
+.tch-pane-h .tch-sp { display: none; }

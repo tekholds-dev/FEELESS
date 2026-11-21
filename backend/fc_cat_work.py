@@ -96,6 +96,8 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         raise rs.HTTPException(409, "Sicario's only works when you ask it, so it never loads your machines by itself. This one stays off.")
     b = cat.get('brainsCfg') or {}
     w = rs._WORK.get(cat_id)
+    if str(p.op).startswith('task_'):   # 🧵 Slice 35: task chats (text work only: none of these ops can move money)
+        return await rs._fc_taskchat.op(cat_id, cat, store, p)
     if p.op == 'tools':
         if w and not w.get('done'):
             raise rs.HTTPException(409, 'Stop the current task before changing its tools.')

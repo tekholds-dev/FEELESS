@@ -200,7 +200,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('approvals', 'potAlerted', 'potAlertSince', 'siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'duels', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions', 'clipPlan', 'clipTpl')
+OWNER_KEYS = ('taskParallel', 'approvals', 'potAlerted', 'potAlertSince', 'siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'duels', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions', 'clipPlan', 'clipTpl')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -2146,6 +2146,7 @@ app.include_router(_fc_cats.router)
 import fc_test as _fc_test   # noqa: E402  🧪 Slice 0: TEST proofs on Sicario's agent + the true record on every filing
 app.include_router(_fc_test.router)
 import fc_stash as _fc_stash   # noqa: E402  🧠 Slice 10: the stash panel (counts only, never contents)
+import fc_taskchat as _fc_taskchat   # noqa: E402  🧵 Slice 35: task chats (split → live checklist → recap)
 app.include_router(_fc_stash.router)
 import video_swap_run as _vswap   # noqa: E402  🎭 Slice 4: the PoC video swap on FEELESS's own HQ › Core keys (fal H3 Recast · OpenRouter Aleph 2)
 app.include_router(_vswap.router)

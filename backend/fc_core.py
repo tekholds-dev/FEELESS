@@ -73,6 +73,8 @@ def _save(store: dict):
         if path == path_key:
             store.setdefault('cats', {}).pop(cid, None)
     rs._kb_merge(store)   # 🔒 a real bid's ledger row survives any older copy's save
+    if getattr(rs, '_fc_taskchat', None):   # 🔒 Slice 35: a task chat's steps, pauses and new tasks survive an older copy's save
+        rs._fc_taskchat.merge(store)
     if getattr(rs, '_fc_clips', None):   # 🔒 Slice 15: a clip run's progress and its filed clip PoCs survive an older copy's save
         rs._fc_clips.merge(store)
     for cid, kept in rs._KEPT.items():

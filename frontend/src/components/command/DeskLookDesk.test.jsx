@@ -169,3 +169,26 @@ test('💬 streaming replies: while a task is live, the answer shows as the mode
   expect(s.textContent).toContain('Four is the ans'); expect(s.querySelector('strong, b')).not.toBeNull(); expect(s.querySelector('.dkl-caret')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🧵 Slice 35: /task and Split on a message open a live task chat (op task_new, desk scope); its card sits in the chat; Settings › Task chats at once → task_parallel', async () => {
+  const { el, root, calls } = mount({ chat: [{ by: 'you', text: 'research pools', at: NOW - 60 }, { by: 'cats', text: '🧵 Split into a task chat: Pools', at: NOW - 30, task: 'tcA' }] });
+  const base = global.fetch;
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body);
+    if (b.op === 'task_list') { calls.push(b); return { ok: true, json: async () => ({ tasks: [{ id: 'tcA', title: 'Pools', state: 'working', step: 'Read', stepN: 1, steps: 3, secs: 5, cost: 0.002, scope: { kind: 'desk', ref: '' } }], parallel: 1 }) }; }
+    if (b.op === 'task_new') { calls.push(b); return { ok: true, json: async () => ({ task: { id: 'tcB', title: b.text, state: 'starting', checklist: [], thoughts: [], logs: [], msgs: [] }, tasks: [] }) }; }
+    if (b.op === 'task_get' || b.op === 'task_parallel') { calls.push(b); return { ok: true, json: async () => (b.op === 'task_parallel' ? { parallel: b.cap } : { task: { id: b.job, title: 'x', state: 'working', checklist: [], thoughts: [], logs: [], msgs: [] } }) }; }
+    return base(u, o); };
+  await act(async () => { root.render(<CatWorkbench cat={CAT} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(el.querySelector('[data-testid="tch-card-tcA"]')).not.toBeNull();            // the card in the chat it came from
+  expect(el.querySelector('[data-testid="tch-strip-desk"]')).not.toBeNull();           // and the desk's strip of live tasks
+  await send(el, '/task compare 3 pools by depth');
+  expect(calls.find(c => c.op === 'task_new')).toMatchObject({ op: 'task_new', text: 'compare 3 pools by depth', job: 'desk' });
+  expect(calls.some(c => c.op === 'ask' && /compare 3 pools/.test(c.text || ''))).toBe(false);   // never sent as a plain ask
+  const split = [...el.querySelectorAll('[data-testid="dkl-msg-split"]')][0];
+  await act(async () => { split.click(); });
+  expect(calls.filter(c => c.op === 'task_new').at(-1)).toMatchObject({ text: 'research pools', job: 'desk' });
+  await act(async () => { el.querySelector('[data-testid="cwb-gear"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="cwb-tpar-2"]').click(); });
+  expect(calls.find(c => c.op === 'task_parallel')).toMatchObject({ cap: 2 });
+});

@@ -71,6 +71,8 @@ import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 import { twoTap } from '../ActBtn';
 import { DeskCabinet, DeskLook, GenCard, Md, Meter, readDeskLook, stamp, useDeskLook } from '../desk/DeskLook';
+import { TaskCard, TaskChatProvider, TaskStrip, useTaskChats } from '../desk/TaskChat';
+import { taskCommand } from '../../lib/taskChats';
 import { DESK_HINTS, STOP_OPS, clipQueue, collectiveOf, deskCommand, deskPct, deskUsd, ecoOf, paperOf, proofStatus, todayOf } from '../desk/deskData';
 const deskOver = () => document.body.classList.contains('dsk-open');
 const mergeIf = (x, patch) => (Object.keys(patch).every(k => patch[k] === x?.[k] || JSON.stringify(patch[k]) === JSON.stringify(x?.[k])) ? x : { ...x, ...patch });   // ⚡ a poll that changed nothing keeps the same state: no desk-wide re-render   // ⚡ an agent desktop covers the page: what is under it stops polling
@@ -734,7 +736,7 @@ export function genLog(d) {
 // 👀 a visitor (from the leaderboard) sees its minds + what both agreed on — its live windows and chat stay private to its owner
 export function CatWorkbench({ cat, readOnly = false }) {
   useEffect(() => { if (!readOnly && cat?.id && cat.id !== 'leader') { try { localStorage.setItem('feeless.lastAgent', cat.id); } catch { /* private window */ } } }, [cat?.id, readOnly]);   // 🎭 the FeeCat bar wears the agent you opened last
-  return readOnly ? <PublicMinds cat={cat} /> : <WorkbenchLive cat={cat} />;
+  return readOnly ? <PublicMinds cat={cat} /> : <TaskChatProvider call={b => work(cat.id, b)}><WorkbenchLive cat={cat} /></TaskChatProvider>;   // 🧵 Slice 35: one task-chat poll for the whole desk
 }
 // 🖥 fits a dash to the screen under whatever sits above it (a visitor's view never scrolls — owner 2026-10-30)
 function useFit(ref, below = 76) {
@@ -1093,7 +1095,7 @@ function PowExplorer({ cat, d, setD, focus = null, onCommand }) {
     {big && f ? <SnapStack f={f} shot={big} catId={cat.id} onClose={() => setBig(null)} onPick={setBig} /> : null}</>;
   if (!path.length) return <div className="dsk-pow" data-testid="dsk-pow">{crumbBar}{inner}</div>;
   const g = f ? gradeOf(f) : null;   // 🗂 Slice 33: an opened PoW folder lives on the shared workspace shell
-  return <div className="dsk-pow is-filing" data-testid="dsk-pow"><ProofWorkspace id="pow-filed" kind="pow" crumbs={crumbBar} name={f?.name || 'Older proofs'} status={f ? (f.live ? 'live' : g === 'good' ? 'good trade' : g === 'bad' ? 'bad trade' : f.status || f.phase) : `${rows?.length || 0} older`} tone={f?.live ? 'live' : g === 'good' ? 'good' : g === 'bad' ? 'bad' : 'none'} cost={foldCost(f)}
+  return <div className="dsk-pow is-filing" data-testid="dsk-pow"><ProofWorkspace id="pow-filed" kind="pow" taskRef={f?.id || ''} crumbs={crumbBar} name={f?.name || 'Older proofs'} status={f ? (f.live ? 'live' : g === 'good' ? 'good trade' : g === 'bad' ? 'bad trade' : f.status || f.phase) : `${rows?.length || 0} older`} tone={f?.live ? 'live' : g === 'good' ? 'good' : g === 'bad' ? 'bad' : 'none'} cost={foldCost(f)}
     chat={f ? <MindsThread rows={(f.talk || []).map(t => ({ by: t.by, text: t.text }))} empty="The minds' lines are filed as this folder works." /> : null} chatLabel="Discussion" tools={powSide} toolsLabel="Folder">{inner}</ProofWorkspace></div>;
 }
 // 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
@@ -1233,7 +1235,7 @@ function PopExplorer({ cat, d, setD, send, busy, children, focus = null }) {
   if (!path.length || !f) return <div className="dsk-pow pop-x" data-testid="dsk-pop">{inner}</div>;
   const crumbBar = <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button>{crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}<BackToDesk /></p>;
   const g = popResult(f);   // 🗂 Slice 33: an opened PoP folder lives on the shared workspace shell
-  return <div className="dsk-pow pop-x is-filing" data-testid="dsk-pop"><ProofWorkspace id="pop-filed" kind="pop" crumbs={crumbBar} name={name(f)} status={f.live ? (f.proposal ? 'proposal' : 'live') : f.noTrade ? 'no trade' : popPct(f.roePct)} tone={f.live ? 'live' : g === 'good' ? 'good' : g === 'bad' ? 'bad' : 'none'} cost={foldCost(f)}
+  return <div className="dsk-pow pop-x is-filing" data-testid="dsk-pop"><ProofWorkspace id="pop-filed" kind="pop" taskRef={f?.id || ''} crumbs={crumbBar} name={name(f)} status={f.live ? (f.proposal ? 'proposal' : 'live') : f.noTrade ? 'no trade' : popPct(f.roePct)} tone={f.live ? 'live' : g === 'good' ? 'good' : g === 'bad' ? 'bad' : 'none'} cost={foldCost(f)}
     chat={<MindsThread rows={(f.talk || []).length ? f.talk.map(t => ({ by: t.by, text: t.text })) : (f.calls || []).map((c, i) => ({ by: `Mind ${'AB'[(Number.isInteger(c.mind) ? c.mind : i) % 2]}`, title: [c.side, c.market].filter(Boolean).join(' '), text: c.why }))} empty="The minds' calls are filed as this folder works." />} chatLabel="Discussion" tools={popSide} toolsLabel="Folder">{inner}</ProofWorkspace></div>;
 }
 // 🎲 THE BIDS FOLDER (owner 2026-11-04): a starting dash like PoW, then the free-chip board and the USA real-money links, each its own folder.
@@ -1328,7 +1330,7 @@ function PobReading({ x, leaf, catId, onLeaf, onMark }) {
 function PobFile({ g, rid, leaf, catId, onMark, setPath, crumbs = null }) {
   const x = g.runs.find(r => r.id === rid) || (g.runs.length === 1 ? g.head : null); const money = filingMoney(x || g.head);
   const picks = picksOf(x || g.head);   // 🗂 Slice 33: the filing page lives on the shared shell; its old glass header is the slim bar
-  return <ProofWorkspace id="pob-filed" kind="pob" crumbs={crumbs} name={fileName(g.head)} status={`${sportLabel(sportOf(g.head))} · ${g.runs.length} reading${g.runs.length > 1 ? 's' : ''}${x ? ` · #${x.n || '…'}` : ''}`} tone={(x || g.head).status !== 'closed' ? 'live' : money.tone === 'good' ? 'good' : money.tone === 'bad' ? 'bad' : 'none'} cost={foldCost(x || g.head)}
+  return <ProofWorkspace id="pob-filed" kind="pob" taskRef={x?.id || ''} crumbs={crumbs} name={fileName(g.head)} status={`${sportLabel(sportOf(g.head))} · ${g.runs.length} reading${g.runs.length > 1 ? 's' : ''}${x ? ` · #${x.n || '…'}` : ''}`} tone={(x || g.head).status !== 'closed' ? 'live' : money.tone === 'good' ? 'good' : money.tone === 'bad' ? 'bad' : 'none'} cost={foldCost(x || g.head)}
     bar={<><TeamMarks x={g.head} /><span className={`pfl-money is-${money.tone}`} data-testid="pfl-money"><i aria-hidden="true" />{money.text}</span></>}
     chat={<MindsThread rows={picks.map(p => ({ by: `Mind ${p.mind}`, title: p.pick ? `${p.pick.pick || ''}${p.pick.confidence != null ? ` · ${p.pick.confidence}%` : ''}` : p.name, text: p.pick?.why || '', sub: p.name }))} empty="The minds' calls show here once they answer." />} chatLabel="Minds">
   <article className="pfl" data-testid="pob-file">
@@ -1765,7 +1767,7 @@ export function AttachChips({ files, store, onDrop }) {
 
 // 🖥 THE DESK LOOK for a general agent (owner 2026-11-20, docs/design/agent-desk-approved.html): the same state, windows, chat and cabinet as the
 // classic desk, laid out as one screen. Every folder of the classic desktop opens over it as a popout (AgentDesktop `over`), so nothing is lost.
-function DeskMsg({ m, name, fresh, job, onOpen, onEdit, onRetry, onChip, status = [], onDecide, approvals = [], gen = null, rate, onRate, duel, onDuel, onWatch }) {
+function DeskMsg({ m, name, fresh, job, onOpen, onEdit, onRetry, onChip, status = [], onDecide, approvals = [], gen = null, rate, onRate, duel, onDuel, onWatch, task = null, onSplit = null }) {
   const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]);
   const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   const mind = !you ? (job?.minds || []).map(x => String(x.model || '').split('/').pop().split(':')[0]).filter(Boolean).join(' + ') || m.model || '' : '';
@@ -1781,12 +1783,13 @@ function DeskMsg({ m, name, fresh, job, onOpen, onEdit, onRetry, onChip, status 
     {you ? null : <PreviewButton text={m.text} url={m.page} />}
     {gen}
     {card ? <ProofChatCard r={card} wait={wait} onOpen={() => onOpen(m.open)} onDecide={onDecide} /> : null}
+    {m.task && task ? <TaskCard c={task} /> : null}
     {m.open && !card && onOpen ? <span className="dkl-pcard-act"><button type="button" onClick={() => onOpen(m.open)} data-testid={`cwb-open-${m.open === 'bids' ? 'bids' : m.open}`}>Open in its workspace</button></span> : null}
     {m.approve && onOpen ? <span className="dkl-pcard-act"><button type="button" className="dkl-go" onClick={() => onOpen('approve')} data-testid="cwb-approve">Review the redo · Approve inbox</button></span> : null}
     {m.ask?.chips?.length && fresh && onChip ? <span className="dkl-hints" data-testid="chat-chips">{m.ask.chips.map(c => <button key={c} type="button" onClick={() => onChip(c)} data-testid={`chat-chip-${c}`}>{c}</button>)}</span> : null}
     {onWatch && (pobFiledLine(m) || (!you && (m.open === 'pow' || m.open === 'pop'))) ? <span className="dkl-pcard-act"><button type="button" className="dkl-go" onClick={() => onWatch(m.open)} data-tip="Pin it to the top of the chat: live price or plays, its P&L" data-testid={m.open === 'bids' ? 'cwb-watch' : `cwb-watch-${m.open}`}>Watch it live here</button></span> : null}
     <span className="dkl-msg-act">{m.tid && onRate ? [['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
-        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} size="12px" /></button>) : null}{you ? <><button type="button" onClick={() => onEdit(m.text)} data-testid="dkl-msg-edit">Edit</button><button type="button" onClick={() => onRetry(m.text)} data-testid="dkl-msg-retry">Retry</button></> : <button type="button" onClick={() => { try { navigator.clipboard.writeText(parts.text); } catch { /* no clipboard */ } }} data-testid="dkl-msg-copy">Copy</button>}</span>
+        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} size="12px" /></button>) : null}{onSplit && !m.task ? <button type="button" onClick={() => onSplit(m.text)} data-tip="Split this into its own live task chat (same mind, text work only)" data-testid="dkl-msg-split">Split</button> : null}{you ? <><button type="button" onClick={() => onEdit(m.text)} data-testid="dkl-msg-edit">Edit</button><button type="button" onClick={() => onRetry(m.text)} data-testid="dkl-msg-retry">Retry</button></> : <button type="button" onClick={() => { try { navigator.clipboard.writeText(parts.text); } catch { /* no clipboard */ } }} data-testid="dkl-msg-copy">Copy</button>}</span>
   </li>;
 }
 /** A proof as a live card in the chat and the widgets row: stage, minds, cost, next step, waiting-for-you, open / approve. */
@@ -1813,6 +1816,8 @@ export const AGENT_RAIL = [['desk', '🖥', 'Desk', 'computer'], ['proofs', '�
 function WorkbenchDesk(x) {
   const { cat, d, setD, act, busy, live, go, msgs, cut, old, setOld, wins, tick, aiCur, text, setText, files, setFiles, store, pick, upping, spent, cap, credit, orLeft, log, kinds, signIn, setSignIn, setDesk, setProofPick, chatRef, inRef, unseen, toBottom, to, queue, gearNode, approvals, decide, sol, chatTop = null, chatFoot = null, toNode = null, liveStage = null, onMsgExtras = () => ({}), queueAdd = false, chatLook = null } = x;
   const status = useMemo(() => proofStatus(d, approvals), [d, approvals]);
+  const tcx = useTaskChats();   // 🧵 Slice 35: its task chats (cards in the chat, /task, Split on a message)
+  useEffect(() => { if (!tcx) return undefined; tcx.onContinue(c => { setText(`Carry on from the task "${c.title}": ${String(c.recap || '').replace(/\n/g, ' ')}`); inRef.current?.focus(); }); return () => tcx.onContinue(null); }, [tcx, setText, inRef]);
   const coll = useMemo(() => collectiveOf(d), [d]); const paper = useMemo(() => paperOf(d), [d]); const clips = useMemo(() => clipQueue(d), [d]); const eco = useMemo(() => ecoOf(d, approvals), [d, approvals]);
   const today = useMemo(() => todayOf(d), [d]); const series = useMemo(() => perfSeries(d), [d]);
   const [said, setSaid] = useState(''); const [gens, setGens] = useState([]);   // 🎨 images / videos made from this chat: [{ ws, id, at }]
@@ -1833,6 +1838,7 @@ function WorkbenchDesk(x) {
   };
   const run = async raw => {
     const t = String(raw || '').trim(); if (!t || busy) return; setSaid('');
+    const tb = taskCommand(t); if (tb != null) { if (tcx) { const k = await tcx.split(tb, 'desk'); setSaid(k ? '' : 'It did not split: see the task strip.'); } return; }   // 🧵 /task … → its own live task chat
     const c = deskCommand(t, { approvals });
     if (!c && live && !go) { setSaid('It is working: /stop it, or turn LET IT GO on to queue the next ask.'); return; }
     if (!c) { const ids = files.map(f => f.id); setFiles([]); toBottom(); await act('ask', { text: t, to, ...(ids.length ? { files: ids } : {}) }); return; }
@@ -1887,12 +1893,14 @@ function WorkbenchDesk(x) {
     <header className="dkl-chat-h"><b>Chat</b><span className="dkl-sp" />
       <button type="button" className={`dkl-chip${go ? ' is-live' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-tip="Let it go: long tasks and queued asks run back to back" data-testid="cwb-go">LET IT GO {go ? 'ON' : 'OFF'}</button>
       <span className="dkl-model" data-tip="The minds this chat talks to"><span className={`dkl-dot${live ? '' : ' is-idle'}`} />{(cat.brainsCfg?.brains || []).slice(0, 2).map(m => String(m).split('/').pop().split(':')[0]).join(' + ') || 'no mind set'}</span>{gearNode}</header>
+    <TaskStrip scope="desk" hideEmpty />
     {chatTop}
     {chatLook?.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : null}
     <ol ref={chatRef} className="dkl-feed" hidden={chatLook?.style === 'agent'} data-style={chatLook?.style || 'clean'} data-theme={chatLook?.theme || 'auto'} data-motion={chatLook && !chatLook.motion ? 'off' : undefined} aria-label="Chat with its minds" aria-live="polite" data-testid="cwb-chat">
       {status.filter(r => r.running || r.waiting).slice(0, 2).map(r => <li key={`pc-${r.k}-${r.id}`} className="dkl-msg is-ai"><ProofChatCard r={r} wait={approvals.find(a => a.state === 'waiting' && (a.ref === r.id || a.proof === r.id))} onOpen={() => openRow(r)} onDecide={decide} onStop={STOP_OPS[r.k] && r.running ? () => twoTap(STOPPABLE[r.k]?.sure || 'Stop it?') && act(STOP_OPS[r.k][0], STOP_OPS[r.k][1]) : null} /></li>)}
       {cut > 0 ? <li><button type="button" className="dkl-chip" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {shown.map((m, i, a) => <DeskMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} status={status} approvals={approvals} onDecide={decide} {...onMsgExtras(m)}
+        task={m.task ? (tcx?.cards || []).find(c => c.id === m.task) : null} onSplit={tcx ? b => tcx.split(b, 'desk') : null}
         onOpen={k => (k === 'approve' ? openWin('approve') : setDesk(chatProof(d, k, m.at)))} onEdit={t => { setText(t); inRef.current?.focus(); }} onRetry={t => run(t)} onChip={c => act('ask', { text: c, to })} />)}
       {gens.map(g => <li key={g.id} className="dkl-msg is-ai"><span className="dkl-who"><b>{cat.name || 'Its minds'}</b><span>· {genOf(g).label || genOf(g).model || (g.kind === 'video' ? 'Video' : 'Image')}</span><time className="m-num">{stamp(g.at)}</time></span>
         <GenCard md={genOf(g)} src={genOf(g).url ? apiUrl(genOf(g).url) : null} onRegen={() => makeMedia(g.kind, g.prompt, g.ws)} onVariations={() => makeMedia(g.kind, `${g.prompt} — a variation`, g.ws)} onUse={() => setDesk({ win: 'poc', id: (d?.pocFolders || []).find(f => f.ws === g.ws)?.id })} useLabel="Use in its PoC" /></li>)}
@@ -1918,6 +1926,7 @@ function WorkbenchDesk(x) {
 }
 
 function WorkbenchLive({ cat }) {
+  const tcx = useTaskChats();
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   useEffect(() => { const take = e => { if (e.detail?.id === cat?.id && e.detail?.text) setText(e.detail.text); }; window.addEventListener(AGENT_COMMAND, take); return () => window.removeEventListener(AGENT_COMMAND, take); }, [cat?.id]);
   const [files, setFiles] = useState([]); const [store, setStore] = useState(null); const [upping, setUpping] = useState(false); const pick = useRef(null);   // ☁ attached to the next ask
@@ -1993,6 +2002,8 @@ function WorkbenchLive({ cat }) {
       className={aiCur === k ? 'active' : ''} onClick={() => { setAiCur(k); try { localStorage.setItem(CURSOR_KEY, k); } catch { /* private window: this visit only */ } }} data-tip="How the AI's cursor looks as it clicks in its window (this device)" data-testid={`cwb-cur-${k}`}><i className={`cwb-cur-ic c-${k}`} aria-hidden="true" />{l}</button>)}</div>
       <em>MOST A TASK MAY SPEND</em>
     <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
+      <em>TASK CHATS AT ONCE</em>
+    <div className="m-seg cwb-tpar" role="radiogroup" aria-label="Task chats at once">{[1, 2, 3].map(n => <button key={n} type="button" role="radio" aria-checked={tcx?.parallel === n} className={tcx?.parallel === n ? 'active' : ''} onClick={() => tcx?.setParallel(n)} data-tip={n === 1 ? 'One task chat at a time; the rest queue (default)' : `Up to ${n} task chats at once; each counts against its $ caps`} data-testid={`cwb-tpar-${n}`}>{n}</button>)}</div>
       <em>JOB + TOOLS</em>
     <div className="cwb-tools"><div className="m-seg cwb-job" role="radiogroup" aria-label="Its job">{Object.keys(d?.toolkits || { agent: [] }).map(j => <button key={j} type="button" role="radio" aria-checked={(d?.job || 'agent') === j} className={(d?.job || 'agent') === j ? 'active' : ''} disabled={live || busy} onClick={() => act('tools', { job: j })} data-tip={`Its job: ${JOB_NAMES[j] || j}. Each job has its own tools`} data-testid={`cwb-job-${j}`}>{JOB_NAMES[j] || j}</button>)}</div>
       <div className="cwb-sw-row">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" role="switch" aria-checked={on} disabled={live || busy} className={`cwb-sw${on ? ' is-on' : ''}`} data-tip={on ? `${TOOL_NAMES[k] || k} is allowed: tap to block it (the engine refuses it)` : `${TOOL_NAMES[k] || k} is blocked: tap to allow it`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })} data-testid={`cwb-tool-${k}`}><span>{TOOL_NAMES[k] || k}</span><i aria-hidden="true" /></button>)}</div></div>

@@ -4,6 +4,8 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { AnimatePresence, motion, useDragControls, useMotionValue } from 'motion/react';
 import { boxRef } from '../../lib/boxRef';
 import '../../styles/proofWorkspace.css';
+import { TaskStrip, useTaskChats } from '../desk/TaskChat';
+import { scopeKey } from '../../lib/taskChats';
 
 // 🗂 THE FILING WORKSPACE (Slice 33, owner 2026-11-20 night: "in any proof type folder the ui/layout isnt robust and lit!! just bulky and annoying
 // … don't be afraid to use popouts"). ONE shell for every opened filing of every proof type: a slim top bar (back, kind, name, status, cost),
@@ -19,7 +21,7 @@ const wsBox = boxRef([640, 980]);
 const money = v => (v == null || Number.isNaN(Number(v)) ? null : Number(v) < 0.01 ? `$${Number(v).toFixed(4)}` : `$${Number(v).toFixed(2)}`);
 
 // 🪟 a pane in a browser window of its own: the page's own sheets are copied in, React renders into it through a portal (events still work)
-function OwnWindow({ title, onClose, children }) {
+export function OwnWindow({ title, onClose, children }) {
   const [box, setBox] = useState(null); const done = useRef(onClose); done.current = onClose;
   useEffect(() => {
     const w = window.open('', '', 'width=560,height=760');
@@ -65,7 +67,9 @@ export function MindsThread({ rows = [], empty = 'Its minds have not said anythi
  * <ProofWorkspace id kind name status tone cost onBack backLabel bar chat chatLabel tools toolsLabel testid>{the work}</ProofWorkspace>
  * id: what it remembers its sizes under (one per kind of view, e.g. "pos-build"); chat / tools: nodes, or null when that view has none.
  */
-export function ProofWorkspace({ id, kind, name, status = null, tone = 'none', cost = null, onBack = null, backLabel = '', backId = 'pws-back', crumbs = null, bar = null, chat = null, chatLabel = 'Chat', tools = null, toolsLabel = 'Tools', children, testid = 'pws' }) {
+export function ProofWorkspace({ id, kind, name, status = null, tone = 'none', cost = null, onBack = null, backLabel = '', backId = 'pws-back', crumbs = null, bar = null, chat: chatIn = null, chatLabel = 'Chat', tools = null, toolsLabel = 'Tools', children, testid = 'pws', taskRef = '' }) {
+  const tcx = useTaskChats();   // 🧵 Slice 35: every proof chat can split a task off this filing; its cards + recaps sit on top of the chat
+  const chat = chatIn && tcx && KIND[kind] ? <><TaskStrip scope={scopeKey(kind, taskRef)} title="Task chats from this filing" />{chatIn}</> : chatIn;
   const [pop, setPop] = useState(() => ({ chat: 'dock', tools: 'dock', ...readWs(id).pop }));   // dock | float | window
   const [fold, setFold] = useState(() => ({ chat: false, tools: false, ...readWs(id).fold }));
   const [tab, setTab] = useState(() => readWs(id).tab || 'work');   // the phone's one pane
