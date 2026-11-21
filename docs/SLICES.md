@@ -518,18 +518,32 @@ FEELESS, Slice 36. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 **Why:** owner 2026-11-20 night, watching the manager hand slices to sessions: "these convo slicing work so efficiently that it needs to be implemented into the agents' main desk chat and also proof chats … the same brain runs a separate convo window in that same original chat that redirects to the new chat that's doing that task live (want to see the live thinking and logs like you) … a dropdown for that thought before the mind processes something else … just like your chat!"
 **Area:** the desk chat (Slice 34's Desk look), every proof chat, `ProofWorkspace` (Slice 33), the agent runner / `feecat_service`, the stash.
 **Checks:**
-- [ ] **Split a task:** in the desk chat or any proof chat, the mind (or the owner, with "/task …" or a button on a message) can split a task into its own task chat. It uses the same mind and settings, and carries a short brief of what's needed, the files or proof, and what done looks like.
-- [ ] **The card in the original chat:** title, live state (starting / working / waiting for you / done / failed), current step, elapsed time, cost so far. One click opens the task chat (it docks beside the main chat, or pops out). When the task ends, the card shows a 2–3 line recap, and the main chat can continue from it.
-- [ ] **The task chat shows the work live:**
+- [x] **Split a task:** in the desk chat or any proof chat, the mind (or the owner, with "/task …" or a button on a message) can split a task into its own task chat. It uses the same mind and settings, and carries a short brief of what's needed, the files or proof, and what done looks like.
+- [x] **The card in the original chat:** title, live state (starting / working / waiting for you / done / failed), current step, elapsed time, cost so far. One click opens the task chat (it docks beside the main chat, or pops out). When the task ends, the card shows a 2–3 line recap, and the main chat can continue from it.
+- [x] **The task chat shows the work live:**
   - a checklist at the top (done ✓, doing spinner, pending dashed), like the Claude desktop task list in the owner's screenshot
   - each thought as a fold-open dropdown ("Thought for 12 s"), closed once the mind moves on
   - tool calls and logs as tidy rows with timestamps
   - the cost per step
   - The owner can type into it to steer, pause or stop it.
-- [ ] **One at a time per mind by default,** with a queue. The owner can allow N parallel tasks per mind in settings, and each one counts against the spend caps (§1: no task may move money or sign).
-- [ ] **Wired, or it doesn't ship:** a test proves split → task saved → the runner works it → the card updates → the recap returns to the main chat → it's shown in the proof's record. A real TEST on Happy (proposals / paper only, inside the caps) runs one split task end to end.
-- [ ] **The Desk look's type and density;** works on phone and Duo (the task chat as a sheet).
-**Status:** not started.
+- [x] **One at a time per mind by default,** with a queue. The owner can allow N parallel tasks per mind in settings, and each one counts against the spend caps (§1: no task may move money or sign).
+- [x] **Wired, or it doesn't ship:** a test proves split → task saved → the runner works it → the card updates → the recap returns to the main chat → it's shown in the proof's record. A real TEST on Happy (proposals / paper only, inside the caps) runs one split task end to end.
+- [x] **The Desk look's type and density;** works on phone and Duo (the task chat as a sheet).
+**Status:** ✅ 8da32032 (2026-11-21).
+- **Task chats are live:** split from the desk chat (/task, a Split button on a message, or the mind's own /task line) and from every proof chat (the strip above its Discussion).
+- **Each task chat has:** a card, a docked pane (a sheet on a phone, or its own window), a checklist, thoughts, logs, cost per step, steer / pause / resume / stop / cap, and a queue with 1–3 at once.
+- **Money:** each task is capped by its task cap, its credit minus the reserve, and today's $ limit, checked before every step. Text work only (§1).
+- **TEST on Happy:** task tccacb76dbd4, split off PoW #17 $AI on gpt-6.1-terra. It ran 3 steps and finished done for $0.0126. The recap is in the chat and on the folder's record.
+- **Tests:** 12 backend and 5 frontend tests. /code-review high found 9 issues, all fixed.
+- **Screenshots:** 12 (full / half / phone × Black / White × live / done) in the manager's side-session notes `slice35-shots`.
+- **Judgment calls:**
+  - A mind splits on the desk answer path; proof chats split through the owner.
+  - Text-only steps, no browsing tools.
+  - Context: the folder JSON, or the desk's last 6 lines.
+  - The plan's cost rides step 1.
+  - At most 3 at once.
+  - The browser check used `/dev/taskchat` on Happy's real task, because the real desk needs the owner's wallet session.
+- **⛔ Not seen on a real Duo:** CSS rules only, because the Simulator has no runtime on this Mac.
 ```
 FEELESS, Slice 35. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("Brains" and "The point of it all"), then RULINGS 2026-11-20/21, then "Slice 35" in docs/SLICES.md, then docs/design/agent-desk-approved.html. Do only Slice 35, fully, end to end. Before building anything, check main for what already exists, and never redo landed work. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 35 check passes on real data, seen in the browser on 51366 at full / half / phone width, Black and White, with screenshots; a TEST on Happy (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Update Slice 35's Status line after each push.
 ```
