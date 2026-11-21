@@ -1,4 +1,5 @@
 import { boxRef } from '../lib/boxRef';
+import { normSyms } from '../lib/symText';
 import { sharedJson } from '../lib/sharedJson';
 import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from './NumInput';
@@ -118,7 +119,7 @@ export function PrimeStandings({ cards, live }) {
 
 export function usePrime(ms = 60000) {
   const [d, setD] = useState(null);
-  useEffect(() => { let alive = true; const load = (first, fresh = false) => (first || !document.hidden) && sharedJson('/api/reputation/fuses/prime', { fresh }).then(x => alive && x && setD(x)).catch(() => {});
+  useEffect(() => { let alive = true; const load = (first, fresh = false) => (first || !document.hidden) && sharedJson('/api/reputation/fuses/prime', { fresh }).then(x => alive && x && setD(normSyms(x))).catch(() => {});
     load(true); const t = setInterval(() => load(false), ms); const now = () => load(true, true); window.addEventListener('feeless:prime', now);
     return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:prime', now); }; }, [ms]);
   return d;

@@ -37,9 +37,9 @@ body.theme-day .dk-more, body.theme-day .dk-board li b, body.theme-day .dk-q li.
 
 /* 🖥 Slice 34 · the DESK LOOK site-wide (owner 2026-11-20: "a theme built for site wide as an option"): the agent desk's background behind the page,
    its glass on every panel, its small dense type, press + ripple clicks. Transform / opacity only; fx-lite and reduced motion go flat and still. */
-.dk-site-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.dk-site-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--m-bg); }   /* owner 2026-11-21 (smoke drew OVER pages): a negative layer paints under ALL content, positioned or not; it carries the page colour, so body stays clear */
 .dk-site-bg .dkl-bg { --dk-acc: var(--m-accent); --dk-fg: var(--m-text); }
-html[data-layout="desk"] body:not(.theme-day) { background: var(--m-bg); }
+html[data-layout="desk"] body { background: transparent !important; }
 html[data-layout="desk"] :is(.terminal-app, .command-terminal, .terminal-body, .terminal-main) { background: transparent !important; }
 html[data-layout="desk"] .terminal-app { position: relative; z-index: 1; }
 html[data-layout="desk"] :is(.m-glass, .m-card, .kd-card, .dk-top, .dk-w, .dk-dock, .terminal-sidebar) {
