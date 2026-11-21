@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, Bot, Home, MessagesSquare, Radar, Settings, Trophy, Atom } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { useQuests } from './QuestBoard';
 import { sharedJson } from '../lib/sharedJson';
+import { DESK_BGS, DeskBackdrop, useDeskLook, useRipple } from './desk/DeskLook';
 import '../styles/deskLayout.css';
 
 // 🖥 DESK (owner's pick 2026-11-12: "Desk" layout in Feeless Green): the terminal as a desktop — a menu bar with a live clock, a window bar over
@@ -19,11 +21,26 @@ function Clock() {
   return <time className="dk-clock" dateTime={t.toISOString()} data-testid="desk-clock">{t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>;
 }
 
-/** Menu bar + window bar: sits at the top of the terminal page. */
+/** Night or day, as the site wears it (body.theme-day), live. */
+function useDay() {
+  const [day, setDay] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
+  useEffect(() => { const b = document.body; const o = new MutationObserver(() => setDay(b.classList.contains('theme-day'))); o.observe(b, { attributes: true, attributeFilter: ['class'] }); return () => o.disconnect(); }, []);
+  return day;
+}
+/** 🖥 Slice 34: the Desk look site-wide — the agent desk's background (Smoke / Aurora / Grid / Film / Plain, the same saved pick as every desk) behind the page,
+ *  its glass and small type on every panel (deskLayout.css), and the press + ripple click effects. White follows the site's own day mode. */
+export function SiteDeskLook() {
+  const [look] = useDeskLook(); const day = useDay(); const ref = useRef(typeof document !== 'undefined' ? document.body : null); useRipple(ref);
+  return createPortal(<div className="dk-site-bg" aria-hidden="true" data-testid="desk-site-bg"><DeskBackdrop bg={look.bg} light={day} /></div>, document.body);   // on <body>: a transformed page wrapper never pins it
+}
+
+/** Menu bar: sits at the top of the terminal page (slim glass, like the agent desk's bar), with the background picker. */
 export function DeskBar({ page }) {
+  const [look, setLook] = useDeskLook();
   return <div className="dk-top" data-testid="desk-bar">
-    <div className="dk-menu"><b>FEELESS</b><span>{NAMES[page] || page || 'Home'}</span><Link to="/terminal/settings" data-tip="Change the look or layout">Look</Link><Clock /></div>
-    <div className="dk-win" aria-hidden="true"><i /><i /><i /><span>{(NAMES[page] || page || 'home').toLowerCase()} — feeless</span></div>
+    <div className="dk-menu"><b>FEELESS</b><span>{NAMES[page] || page || 'Home'}</span><Link to="/terminal/settings" data-tip="Change the look or layout">Look</Link>
+      <span className="dk-bgs" role="group" aria-label="Background">{DESK_BGS.map(([k, l]) => <button key={k} type="button" aria-pressed={look.bg === k} onClick={() => setLook({ bg: k })} data-testid={`desk-bg-${k}`}>{l}</button>)}</span>
+      <Clock /></div>
   </div>;
 }
 

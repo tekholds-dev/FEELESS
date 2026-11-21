@@ -36,3 +36,36 @@ body.theme-day .dk-menu b, body.theme-day .dk-menu span, body.theme-day .dk-big,
 body.theme-day .dk-more, body.theme-day .dk-board li b, body.theme-day .dk-q li.is-done small { color: var(--dl-ac2); } body.theme-day .dk-dock button.is-on { background: var(--dl-ac2); color: var(--dl-tx3); }
 @media (max-width: 1100px) { html[data-layout="pit"] .page-trade .terminal-content-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .dk-widgets { grid-template-columns: 1fr; } .dk-menu > a { display: none; } .dk-dock { display: none; } html[data-layout="desk"] .terminal-main { padding-bottom: 0; } }   /* the phone's own bottom nav is the dock there */
+
+/* 🖥 Slice 34 · the DESK LOOK site-wide (owner 2026-11-20: "a theme built for site wide as an option"): the agent desk's background behind the page,
+   its glass on every panel, its small dense type, press + ripple clicks. Transform / opacity only; fx-lite and reduced motion go flat and still. */
+.dk-site-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.dk-site-bg .dkl-bg { --dk-acc: var(--m-accent); --dk-fg: var(--m-text); }
+html[data-layout="desk"] body:not(.theme-day) { background: var(--m-bg); }
+html[data-layout="desk"] :is(.terminal-app, .command-terminal, .terminal-body, .terminal-main) { background: transparent !important; }
+html[data-layout="desk"] .terminal-app { position: relative; z-index: 1; }
+html[data-layout="desk"] :is(.m-glass, .m-card, .kd-card, .dk-top, .dk-w, .dk-dock, .terminal-sidebar) {
+  background: color-mix(in srgb, var(--m-surface) 58%, transparent) !important; border: 1px solid color-mix(in srgb, var(--m-text) 8%, transparent) !important; border-radius: 10px;
+  backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); box-shadow: 0 10px 30px -18px rgb(0 0 0 / .6), inset 0 1px 0 color-mix(in srgb, var(--m-text) 5%, transparent);
+}
+html[data-layout="desk"] body.theme-day :is(.m-glass, .m-card, .kd-card, .dk-top, .dk-w, .dk-dock) { background: color-mix(in srgb, white 76%, transparent) !important; border-color: color-mix(in srgb, black 8%, transparent) !important; }
+/* small dense type (Desk scale: body 12.5–13, labels 10.5 caps, titles ≤ 14, nothing over 19 except a chart's own content) */
+html[data-layout="desk"] .terminal-main { font-size: 13px; }
+html[data-layout="desk"] .terminal-main :is(h1) { font-size: 19px !important; line-height: 1.2; letter-spacing: -.01em; }
+html[data-layout="desk"] .terminal-main :is(h2) { font-size: 15px !important; line-height: 1.25; }
+html[data-layout="desk"] .terminal-main :is(h3, h4) { font-size: 13.5px !important; }
+html[data-layout="desk"] .terminal-main .m-label { font-size: 10.5px; letter-spacing: .08em; }
+html[data-layout="desk"] .terminal-main :is(.fee-name b, .allocation-detail strong) { font-size: 17px !important; font-family: var(--f-mono); }   /* numbers 15–17 mono */
+html[data-layout="desk"] .dk-big { font: 600 17px/1 var(--f-mono); letter-spacing: 0; }
+html[data-layout="desk"] .dk-menu { min-height: 34px; font-size: 12px; }
+/* clicks: press-down on every button, a lift on cards you can open */
+html[data-layout="desk"] .terminal-app :is(button, .m-btn, a.m-chip):active:not(:disabled) { transform: scale(.96); }
+html[data-layout="desk"] .terminal-app :is(button, .m-btn) { transition: transform .12s var(--m-ease, ease), background-color .15s, color .15s, box-shadow .2s; }
+html[data-layout="desk"] .terminal-app .m-go:hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--m-accent) 14%, transparent), 0 6px 18px -8px var(--m-accent); }
+html[data-layout="desk"] .terminal-app button.m-card:hover, html[data-layout="desk"] .terminal-app a.m-card:hover { transform: translateY(-2px); }
+.dk-bgs { display: inline-flex; gap: 2px; padding: 2px; margin-left: 6px; border-radius: 8px; background: color-mix(in srgb, var(--m-text) 6%, transparent); }
+.dk-bgs button { font: 500 11px var(--f-ui); padding: 3px 8px; border-radius: 6px; color: var(--m-dim); }
+.dk-bgs button[aria-pressed="true"] { background: var(--m-surface-2); color: var(--m-text); }
+html[data-layout="desk"] body.fx-lite :is(.m-glass, .m-card, .kd-card, .dk-top, .dk-w, .dk-dock, .terminal-sidebar) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: var(--m-surface) !important; }
+@media (prefers-reduced-motion: reduce) { html[data-layout="desk"] .terminal-app :is(button, .m-btn, .m-card) { transition: none; transform: none !important; } }
+@media (max-width: 640px) { .dk-bgs { display: none; } }

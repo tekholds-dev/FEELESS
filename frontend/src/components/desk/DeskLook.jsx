@@ -88,7 +88,7 @@ export function Chip({ tone = '', children, tip, testid }) { return <span classN
 export function useRipple(ref) {
   useEffect(() => {
     const el = ref.current; if (!el) return undefined;
-    const on = e => { const b = e.target.closest?.('.dkl-go, .m-go, [data-ripple]'); if (!b || !el.contains(b) || calm()) return;
+    const on = e => { const b = e.target.closest?.('.dkl-go, .m-go, [data-ripple]'); if (!b || !el.contains(b) || calm() || e.dklRip) return; e.dklRip = true;   // one ripple even when a desk sits inside the site's Desk look
       const r = b.getBoundingClientRect(); const s = document.createElement('i'); s.className = 'dkl-ripple'; s.setAttribute('aria-hidden', 'true');
       const size = Math.max(r.width, r.height) * 2; s.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
       if (getComputedStyle(b).position === 'static') b.style.position = 'relative'; b.style.overflow = 'hidden'; b.appendChild(s); setTimeout(() => s.remove(), 560); };

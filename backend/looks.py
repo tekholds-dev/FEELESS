@@ -14,44 +14,16 @@ LOOKS = {
     # desk = menu bar + clock + window chrome + your rank / quests widgets + a dock, pit = the coin's room chat beside the chart on Trade.
     'obsidian': ('Obsidian', FEELESS, 'Near-black, hairlines, one giant number. Calm and expensive; the trade is the whole page.', 'obsidian',
                  {'bg': '#09090b', 's1': '#111114', 's2': '#18181c', 'line': '#1f1f23', 'lineHi': '#3a3a41', 'text': '#eeeef1', 'dim': '#86868f', **_GREEN, 'layout': 'obsidian'}),
-    'desk': ('Desk', FEELESS, 'Your HQ as the app: a menu bar with a live clock, the trade window, your rank and quests as widgets, a dock for every part of the site.', 'desk',
+    'desk': ('Desk', FEELESS, 'The agent desk look on the whole site: glass panels, small dense type, a smoke / aurora / grid / film background, the menu bar, your rank and quests as widgets and a dock.', 'desk',
              {'bg': '#07080c', 's1': '#12141b', 's2': '#191c25', 'line': '#1e2129', 'lineHi': '#3a3e4b', 'text': '#eceef4', 'dim': '#868b99', **_GREEN, 'layout': 'desk'}),
     'pit': ('Pit', FEELESS, "The trading floor: the coin's room chat runs beside the candles, with the room's live trades. Your crew is here.", 'pit',
             {'bg': '#08090b', 's1': '#101215', 's2': '#171a1e', 'line': '#1e2125', 'lineHi': '#3a3e45', 'text': '#ecedef', 'dim': '#858a92', **_GREEN, 'layout': 'pit'}),
-    'plasma': ('Plasma', FREE, 'Violet to hot pink plasma on deep space. Liquid gradients, glowing glass.', 'plasma',
-               {'bg': '#08051a', 's1': '#120b2c', 's2': '#1a1140', 'line': '#2a1f55', 'lineHi': '#4b3596', 'text': '#f2eeff', 'dim': '#aaa1c9',
-                'accent': '#9b6bff', 'hi': '#b48cff', 'deep': '#7c4dff', 'tail': '#ff6fbf', 'tint': '#c9a8ff', 'dark': '#5b33c9', 'ink': '#12081f', 'third': '#3ee7ff', 'logoHue': 145}),
-    'molten': ('Molten', FREE, 'Molten gold and ember orange on black metal. Rising sparks, heat glow.', 'molten',
-               {'bg': '#0b0704', 's1': '#170f08', 's2': '#22160c', 'line': '#3a2a12', 'lineHi': '#7a5418', 'text': '#fff4e2', 'dim': '#cdb393',
-                'accent': '#ffb020', 'hi': '#ffc95a', 'deep': '#e0780f', 'tail': '#ff5a1f', 'tint': '#ffe08a', 'dark': '#a8560a', 'ink': '#2a1400', 'third': '#ffe08a', 'logoHue': -60}),
-    'neon': ('Neon Grid', FREE, 'Cyber terminal: cyan and magenta on a moving grid, scanlines, glitch.', 'neon',
-             {'bg': '#02060b', 's1': '#061019', 's2': '#0a1826', 'line': '#0d3340', 'lineHi': '#00a8b8', 'text': '#e6fbff', 'dim': '#86aebd',
-              'accent': '#00f0ff', 'hi': '#6ff7ff', 'deep': '#00b8d4', 'tail': '#ff2bd6', 'tint': '#a8fbff', 'dark': '#00788a', 'ink': '#00141a', 'third': '#faff00', 'logoHue': 45}),
-    'holo': ('Holo Chrome', FREE, 'Iridescent ice chrome, frosted glass, slow holographic shimmer.', 'holo',
-             {'bg': '#06080d', 's1': '#0d121c', 's2': '#141b29', 'line': '#26324a', 'lineHi': '#5a6f99', 'text': '#f3f7ff', 'dim': '#a3b1c8',
-              'accent': '#8fd3ff', 'hi': '#b6e3ff', 'deep': '#6fb6f0', 'tail': '#c7a6ff', 'tint': '#ffc6ec', 'dark': '#4f86b8', 'ink': '#0d1020', 'third': '#ffc6ec', 'logoHue': 59}),
-    'aurora': ('Aurora', HOLDER, 'Northern lights: teal and violet curtains drifting over a polar night.', 'aurora',
-               {'bg': '#030d12', 's1': '#06181f', 's2': '#0a222b', 'line': '#12363f', 'lineHi': '#1f8a86', 'text': '#ecfffb', 'dim': '#9cc4c0',
-                'accent': '#3ef2c9', 'hi': '#7bffe0', 'deep': '#1fc9a6', 'tail': '#8b6bff', 'tint': '#b8fff0', 'dark': '#11806a', 'ink': '#02140f', 'third': '#c06bff', 'logoHue': 25}),
-    'bloodmoon': ('Blood Moon', HOLDER, 'Crimson moon over black silk, silver edges, a slow pulse of red light.', 'bloodmoon',
-                  {'bg': '#0c0405', 's1': '#1a080b', 's2': '#240c10', 'line': '#3d1419', 'lineHi': '#8a2230', 'text': '#fff0f0', 'dim': '#d1a7ab',
-                   'accent': '#ff2e4d', 'hi': '#ff6b7f', 'deep': '#c2102c', 'tail': '#ff8a3d', 'tint': '#ffc2ca', 'dark': '#8a0f22', 'ink': '#1a0306', 'third': '#e8e6f0', 'logoHue': -140}),
-    'vapor': ('Vapor Sunset', HOLDER, 'Retro sunset: pink sun, cyan horizon and a synth grid rolling in.', 'vapor',
-              {'bg': '#0d0618', 's1': '#1a0d2e', 's2': '#24123f', 'line': '#3d2366', 'lineHi': '#7a3fb8', 'text': '#fff0fb', 'dim': '#d6b3e0',
-               'accent': '#ff71ce', 'hi': '#ff9fe0', 'deep': '#b967ff', 'tail': '#01cdfe', 'tint': '#fffb96', 'dark': '#8a3fd0', 'ink': '#1a0626', 'third': '#05ffa1', 'logoHue': 180}),
-    'ghost': ('Ghost', HOLDER, 'Monochrome glass: white light on graphite, nothing but form and motion.', 'ghost',
-              {'bg': '#0a0a0c', 's1': '#141418', 's2': '#1c1c22', 'line': '#2c2c34', 'lineHi': '#5c5c6a', 'text': '#fafafa', 'dim': '#a6a6b0',
-               'accent': '#f5f5f7', 'hi': '#ffffff', 'deep': '#d0d0d8', 'tail': '#9a9aa8', 'tint': '#e8e8ee', 'dark': '#77777f', 'ink': '#0a0a0c', 'third': '#ffffff', 'logoHue': 0, 'logoSat': 0}),
-    'amber': ('Amber', ELITE, 'Terminal black, amber signal. The trading-desk look: dense, calm, every number first.', 'amber',
-               {'bg': '#0a0a0a', 's1': '#121212', 's2': '#1a1a1a', 'line': '#262626', 'lineHi': '#4a4a4a', 'text': '#ededed', 'dim': '#8f8f8f', 'accent': '#ffb000', 'hi': '#ffc640', 'deep': '#e09a00', 'tail': '#ff8a00', 'tint': '#ffd98a', 'dark': '#a87300', 'ink': '#0a0a0a', 'third': '#4aa3ff', 'logoHue': -95, 'edition': 'elite'}),
-    'carbon': ('Carbon', ELITE, 'Graphite and one indigo line. Quiet surfaces, sharp type, nothing that moves without a reason.', 'carbon',
+    'carbon': ('Carbon', FEELESS, 'Graphite and one indigo line. Quiet surfaces, sharp type, nothing that moves without a reason.', 'carbon',
                {'bg': '#0b0c0e', 's1': '#111216', 's2': '#17181d', 'line': '#23252b', 'lineHi': '#3d404a', 'text': '#f7f8f8', 'dim': '#8a8f98', 'accent': '#5e6ad2', 'hi': '#7c86e8', 'deep': '#4a55c0', 'tail': '#8b93ff', 'tint': '#b4baf5', 'dark': '#3a438f', 'ink': '#ffffff', 'third': '#26b5ce', 'logoHue': 75, 'edition': 'elite'}),
-    'titanium': ('Titanium', ELITE, 'Space grey and system blue. Pro hardware calm: frosted panels, clean edges, clear numbers.', 'titanium',
-               {'bg': '#0f0f11', 's1': '#1c1c1e', 's2': '#2c2c2e', 'line': '#38383a', 'lineHi': '#636366', 'text': '#f5f5f7', 'dim': '#98989d', 'accent': '#0a84ff', 'hi': '#409cff', 'deep': '#0071e3', 'tail': '#64d2ff', 'tint': '#a8d4ff', 'dark': '#0058b0', 'ink': '#ffffff', 'third': '#64d2ff', 'logoHue': 55, 'edition': 'elite'}),
-    'ledger': ('Ledger', ELITE, 'Private-bank navy and champagne gold. Old money on a new rail.', 'ledger',
-               {'bg': '#0b0f15', 's1': '#111823', 's2': '#18212f', 'line': '#243042', 'lineHi': '#3d4f6b', 'text': '#ebeef3', 'dim': '#8d98a9', 'accent': '#c9a86a', 'hi': '#dcc08a', 'deep': '#b08f52', 'tail': '#e3cf9f', 'tint': '#efe2c2', 'dark': '#8a6f3d', 'ink': '#0b0f15', 'third': '#7fa7d9', 'logoHue': -110, 'logoSat': 0.55, 'edition': 'elite'}),
 }
 DEFAULT = 'obsidian'
+# 🧹 Slice 34 (owner 2026-11-20): only Obsidian (default), Desk, Pit and Carbon stay. Anyone still wearing a retired look wears Obsidian.
+RETIRED = frozenset({'plasma', 'molten', 'neon', 'holo', 'aurora', 'bloodmoon', 'vapor', 'ghost', 'amber', 'titanium', 'ledger'})
 
 
 def allowed(look_id, eligible):
@@ -71,7 +43,9 @@ def catalog(eligible):
 
 
 def wear(look_id, eligible):
-    """→ (id, tokens, ambient) to apply, or None when the look is unknown or locked for this wallet."""
+    """→ (id, tokens, ambient) to apply, or None when the look is unknown or locked for this wallet. A retired look → Obsidian."""
+    if look_id in RETIRED:
+        look_id = DEFAULT
     if not allowed(look_id, eligible):
         return None
     name, tier, line, amb, t = LOOKS[look_id]

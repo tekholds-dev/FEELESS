@@ -32,7 +32,7 @@ import { ContextBar, MouseGlow, AmbientFlakes, AlphaTape, PulseGrid, ContractSca
 import { FeeBackCenter, FeeCatCenter, FeelessCats } from '../components/command/FeeBack';
 import { HolderThemePicker } from '../components/HolderTheme';
 import { LookPicker } from '../components/LookPicker';
-import { DeskBar, DeskDock, DeskWidgets } from '../components/DeskLayout';
+import { DeskBar, DeskDock, DeskWidgets, SiteDeskLook } from '../components/DeskLayout';
 import { useLayout } from '../lib/looks';
 import { CopyTrading } from '../components/CopyTrading';
 import { ShieldCommit } from '../components/Shield';
@@ -211,7 +211,7 @@ export default function Terminal() {
   return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><CoinDrawerHost /><WarRoomHost /><MiniChartHost /><MiniCardHost /><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar /><SeasonBanner />
     <CaseFileModal /><div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className={`terminal-main page-${(page.split("/")[0] || "home").replace(/[^a-z]/g, "")}`} data-testid={`terminal-page-${page || 'home'}`}><PanelBoundary name="This page" resetKey={`${page}${window.location.search}`}>
       {page === 'chat' ? <FirstTips id="trenches" tips={[['.chart-toolbar', 'The chart', 'True candles for this coin. Switch price, market cap and timeframe here.'], ['[data-testid="call-feed"]', 'Calls', 'Who called this coin, and how those calls did.'], ['.community-rail', 'The room', 'Chat with people in this coin. Your wallet is your name.']]} /> : null}
-      {layout === 'desk' ? <><DeskBar page={page} />{(isHome || page === 'trade') ? <DeskWidgets onConnect={() => setWalletOpen(true)} /> : null}<DeskDock page={page} /></> : null}
+      {layout === 'desk' ? <><SiteDeskLook /><DeskBar page={page} />{(isHome || page === 'trade') ? <DeskWidgets onConnect={() => setWalletOpen(true)} /> : null}<DeskDock page={page} /></> : null}
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
        <div className={`context-transition ${PAGE_CLASS[BACKDROP_OF(page)] || ''}`} key={ecosystem.id}><PageBackdrop kind={BACKDROP_OF(page)} />
        {pairRouteState === 'loading' && <p className="pair-route-status" role="status" data-testid="selected-pair-route-loading">Restoring {routeChain} coin {routePairAddress} from the market provider…</p>}

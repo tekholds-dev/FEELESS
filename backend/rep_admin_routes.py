@@ -3324,7 +3324,7 @@ async def theme_set(p: _RSM.ThemePayload):
     a = rs.primary_of(p.address)
     held = await rs._eco_holding_usd(a); ok = held >= rs.THEME_MIN_USD or rs._is_staff(a)
     if p.look is not None and p.accent is None:   # 🎨 a look: the four free ones for anyone signed in, the advanced ones once unlocked
-        worn = rs._looks.wear(p.look, ok)
+        worn = rs._looks.wear(p.look, ok) if p.look in rs._looks.LOOKS else None   # a retired look (Slice 34) is not picked anew
         if not worn:
             raise rs.HTTPException(403 if p.look in rs._looks.LOOKS else 400, f'That look unlocks at ${rs.THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).' if p.look in rs._looks.LOOKS else 'No such look.')
         row = {'look': p.look, 'at': rs.time.time()}; rs._themes().put(a, row)
