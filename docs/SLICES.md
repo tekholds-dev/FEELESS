@@ -35,7 +35,7 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 26 → 29 → 27 → 28 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 33 → 27 → 28 → 32 → 34 → 30 → 31 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
 6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
 **Order (2026-11-19):** everything up to 14 has a Status line on main; left: 26 (PoP desk) → 29 (clip studio) → 27 (PoStatic desk) → 28 (PoEco desk) → 17–23 (earn ideas) → 8 last.
@@ -299,6 +299,9 @@ FEELESS, Slice 29. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 **Area:** the PoStatic folder (`ProofDeskLazy kind="build"`, the page viewer, inspect, studio).
 **Checks:**
 - [ ] It opens on a builder's dashboard: the live page big, versions, inspect + studio one tap away, kits used, and its unique / clean / progress checks slim. Hours of building must feel like an editor, not a report.
+- [ ] **Inspect everything (owner 2026-11-20: "inspect needs to be able to hover over anything in static, even the 3D stuff"):** hover draws a box on EVERY coded component and every text node (not just spans), on canvas / chart regions, and on 3D objects (three.js raycast → the object's name, mesh and code), each editable in place or commentable so the minds fix exactly that. Inspect labels never sit on top of the page's own content (seen: the 1/2/3 badges covering the chart's legend).
+- [ ] **Built on Slice 33's shell (owner's screenshot of "The Collective Landing" v11):** a slim top bar instead of the big header; the 7 step chips folded into the bar; the 10-button toolbar grouped into one compact bar with overflow; the left inspect cards made compact; the "Also loads cdn…" warnings in a tidy issues tray; the chat beside a big live preview, so the page stays visible while chatting.
+- [ ] Every inspect fix uses the stash's tools first (Slice 30 later), so no mind wastes usage or build time.
 - [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
 **Status:** not started.
 ```
@@ -309,10 +312,94 @@ FEELESS, Slice 27. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 **Area:** the PoEco folder (`EcoFolder`), Slice 16's earn finder.
 **Checks:**
 - [ ] It opens on an earning dashboard: jobs found with expected profit, bids waiting for approve, work in progress, money paid vs the minds' cost, and its market calls.
+- [ ] **Fixes from the owner's screenshot (manager's finds):**
+  - The PoEco folder still opens on the big header and the full-width check bars, not `<ProofHead slim>`.
+  - A tooltip covers the "minds that ran" line.
+  - The job text is cut off under the header ("work from site dimensions you provide?").
+  - The finder picked a structural stair / handrail CAD job (OSHA / IBC, stamped drawings) as "faceless fit": it needs a licensed engineer. Licensed and regulated work is filtered out.
+  - The bids promise $20,000–$35,000 of work "within 1 day": a bid's price and time must be realistic for the work.
+- [ ] **Easy, dynamic job start:** one-tap "find me work" by skill, a live feed of jobs where AI can really compete (few bids, clear scope, fast turnaround), and starting a job through Slice 33's wizard.
+- [ ] **What it takes to win (owner: "PoEco needs to show how much it would cost and the brains / models needed to make it successful"):** each job shows the minds and models it needs, the expected model cost, the time, the competition (bid count, typical human rate) and our win chance, before the owner starts it.
 - [ ] **The desk bar (RULINGS 2026-11-20):** it opens on a compact dashboard for this type's work (its own look and layout, Slice 13's PoB dashboard is the reference); the true record and checks fold into one slim row that expands on tap (no full-width bars, no giant headings); the working area gets the room; no text breaks one letter per line; checked in the browser at a full window, a half window and a phone width, night and day, with a screenshot of every tab.
 **Status:** not started.
 ```
 FEELESS, Slice 28. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoW · PoP · PoEco"), then "Slice 28" in docs/SLICES.md. Do only Slice 28, fully, end to end. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 28 check passes, every tab seen in the browser on 51366 at full / half / phone width with screenshots, on real data; a TEST run on Happy only if backend changed (inside the caps); gate green; pushed. Finish by updating Slice 28's Status line.
+```
+
+## Slices 30–34 + the 27/28 add-ons · owner 2026-11-20 night ("think big and robust … be senior dev and mad computer scientist … investors are ready for the beta")
+Order: **33 → 27 → 28 → 32 → 34 → 30 → 31 → 17–23 → 8.** The shared workspace shell (33) goes first because every desk after it builds on it.
+
+## Slice 33 · The filing workspace + the start wizard (shared by every proof type)
+**Why:** Owner 2026-11-20 (night, with 5 screenshots): "in any proof type folder the ui/layout isnt robust and lit!! just bulky and annoying … don't be afraid to use popouts … before a PoC, PoEco or PoStatic job starts, instead of the drop of long text, it can pop out a 3-step window."
+**Area:** a new shared `ProofWorkspace` shell + `StartWizard` popout used by every proof folder and every opened filing (`PobFile`, PoC / PoStatic / PoEco filings), `CatWorkbench.jsx`.
+**Checks:**
+- [ ] **One workspace shell for an opened filing:** a slim top bar (name, status, cost, back; never a big header), a big work area (the preview, page, clip or job), a chat pane that docks or pops out, and a tools rail that collapses. Panels resize and remember their sizes, and any panel can pop out into its own window.
+- [ ] **The start wizard popout** (replaces the long confirm text before a PoC, PoEco or PoStatic job): step 1 is the direction (the brief, the goal, the minds' pitch, and the owner approves or edits); step 2 is kits, tooling and versions (which kits, which past versions or stash pieces to start from); step 3 is research (ask COMP, OSSY or G4 to search the web for better components, or let the minds search), with the cost and minds shown before Go. Every choice is saved into the filing's record (wired, tested).
+- [ ] **No bulky folder or file, ever:** no folder or file view opens with a big header or basic text. The audit lists every proof folder and filing view and moves each one onto the shell.
+- [ ] The desk bar and the type scale (RULINGS 2026-11-20) everywhere, with Motion transitions between steps and panels.
+**Status:** not started.
+```
+FEELESS, Slice 33. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md (every proof type), then RULINGS 2026-11-20, then "Slice 33" in docs/SLICES.md. Do only Slice 33, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 33 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 33's Status line.
+```
+
+## Slice 32 · PoC: one filing = a whole channel (series package)
+**Why:** Owner 2026-11-20 (night, with 5 screenshots): "all these need to be in 1 filing … this one filing of the nasa ppl and what they do can be a whole youtube page with narrative and all! meaning we would need logo and cover photo, intro video … and i can truly work!" (The PoC list showed 14 separate TEST filings, all cut from the same ohara_iphone upload.)
+**Area:** `fc_poc.py`, `fc_clips.py`, `PocDash.jsx`, `ClipFarm.jsx`, Slice 33's shell.
+**Checks:**
+- [ ] One source (an upload or a theme) = ONE filing: a series with its narrative arc (episode order, hooks, a through-line), and every clip inside it as an episode, never 14 loose filings. Old loose filings are grouped by source.
+- [ ] The channel package is made as real files: channel name, logo, cover / banner, profile image, an intro video (sting), an about text, per-episode thumbnails and titles, and a posting calendar. Free local tools first; any paid image or video step shows its price and is owner-pressed.
+- [ ] The filing opens as a channel page preview (like a YouTube / TikTok profile) with the package editable in place, plus the chat to change any part.
+- [ ] Graded on the series' reach as a whole and per episode. Nothing posts without the approve door.
+**Status:** not started.
+```
+FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoC"), then RULINGS 2026-11-20, then "Slice 32" in docs/SLICES.md. Do only Slice 32, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 32 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 32's Status line.
+```
+
+## Slice 34 · Main desk: a real chat + the clean desk look
+**Why:** Owner 2026-11-20 (night, with 5 screenshots): "main desk needs to be dynamic with true chat stuff and if I ask GPT SOL 6 to generate an img it actually shows a beautiful box referencing the loading state of the img" · "the OG agent main desk looks unprofessional". The look is set by the preview the manager built in chat (owner's pick of theme and background).
+**Area:** the agent main desk (`CatDesk`, the desktop, the chat), `media_gen.py` for image calls.
+**Checks:**
+- [ ] A real chat: streaming replies, markdown, code blocks, attachments, tool steps as tidy cards, the mind and cost per answer, retry and edit.
+- [ ] **Image generation in chat:** an image ask shows a polished generating card (shimmering dot-grid, % progress, the model's name, cancel), then the image with download, use-in-proof and variations. The same goes for video.
+- [ ] **Desktop clean-up (manager's finds on the owner's screenshot):**
+  - The icons are scattered with big gaps; they snap to a tidy grid with groups.
+  - Duplicates are merged: The Collective ×2, Brain + Brains, Wallet + "Wallet + style", Browser ×2.
+  - Prompts, Character and Features share one generic icon, so each gets its own.
+  - The "Fee" wordmark and "PRIVATE DESKTOP" are nearly invisible.
+  - "Wallet + style" wraps onto two lines.
+  - The DASHBOARD widget says Proofs 0 · Won/lost 0/0 · Jobs 0 on Fee's desk while the agent desks show 118: say whose numbers they are, or show the account total.
+  - The widgets column is a stack of plain boxes.
+- [ ] The clean look from the preview: black and white themes, 2 monitors, chat, vitals, and full-page backgrounds (real smoke grain + others), with transform / opacity animation only and heavy FX off under `body.fx-lite`.
+**Status:** not started.
+```
+FEELESS, Slice 34. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("The point of it all" and "Brains"), then RULINGS 2026-11-20, then "Slice 34" in docs/SLICES.md. Do only Slice 34, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 34 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 34's Status line.
+```
+
+## Slice 30 · The stash tooling: shared, selective, never copied
+**Why:** Owner 2026-11-20 (night, with 5 screenshots): "our stash's internal tooling needs to be robust and selective to assure every agent / new agent can always use another agent's version and ONLY use them uniquely, to assure the best new look plus the most efficient tooling … which wouldn't exploit the original agent's look or repeat design and layout, proving unique fingerprints every time … the stash, COMP and Sicario's will perfect the tooling as well, not just judging."
+**Area:** `collective_stash.py`, `proof_kits.py`, `ps_unique.py`, `proof_footprint.py`, `stash_brain.py`, COMP.
+**Checks:**
+- [ ] Every built piece (kits, components, sections, caption templates, effects, prompts) goes into the stash as a versioned tool with its source agent, what it does, its quality score and its fingerprint.
+- [ ] Any agent (new ones too) can pull another agent's tool version, but the result must pass the uniqueness gate against the source agent's look (palette, layout, structure, copy). A reuse that would copy the look is refused and remixed.
+- [ ] Selective: a mind asks the stash first and gets the best tool for the job ranked by score, freshness and cost saved. The record shows which stash tools it used, from whom, and the time and $ saved.
+- [ ] Tooling gets better, not just judged: COMP and Sicario's local minds run a loop that proposes improved versions of the most-used tools (faster, cheaper, cleaner), tests them, and promotes a version only when it beats the old one on real filings.
+- [ ] Opus-class minds work faster with the stash's approved tools: measured on a TEST (time and $ with vs without).
+**Status:** not started.
+```
+FEELESS, Slice 30. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("The stash brain" and "COMP"), then RULINGS 2026-11-20, then "Slice 30" in docs/SLICES.md. Do only Slice 30, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 30 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 30's Status line.
+```
+
+## Slice 31 · COMP: the owner's own unrestricted model (guardrails his alone)
+**Why:** Owner 2026-11-20 (night, with 5 screenshots): "sort through all COMP info and the AI model's build YOURSELF and assure this is an obliterated model that I can ask literally anything and he will find a way!! and ONLY I set the guardrails! … if the model ain't the one to start with, let me know so we don't waste time, usage and Mac space … that can potentially be better than GPT SOL 6.1 and Claude 5.5 med one day."
+**Area:** `comp_v2*.py`, `model_lab.py`, `comp_teacher.py`, LM Studio / MLX on this Mac (M3, 24 GB unified memory, ~350 GB free as of 2026-11-20). Today's base is Qwen3.5-9B MLX 4-bit + a LoRA (Slice 7: 11/22 vs the base's 13/22, not shipped).
+**Checks:**
+- [ ] **Base choice first, before any download:** research the 2026 open-weight models that fit 24 GB for inference AND for MLX LoRA training (dense ~8–14B vs MoE ~30B-A3B at 4-bit), with their benchmark scores, licences and refusal-ablated ("abliterated") variants. Recommend one with numbers and ask the owner once. If 9B stays, say why.
+- [ ] **Unrestricted, owner-only guardrails:** a refusal-ablated base (or abliteration done here with an open tool), plus an owner-only guardrail panel (COMP › Guardrails) where only the owner sets what it refuses. FEELESS §1 still applies in code around it: the model never moves money, signs or touches keys, whatever it's told.
+- [ ] **"Finds a way":** COMP runs as an agent with tools (the stash, the atlas, web reads, code run in a sandbox, the kits), retries with a plan, and says plainly when it can't, never a silent refusal.
+- [ ] **Measured:** the Slice 7 exam + a general set (reasoning, code, tool use) against the base, OSSY, G4 and a frontier reference via one paid call per item inside a cap the owner names. It ships only when it beats the base.
+**Status:** not started.
+```
+FEELESS, Slice 31. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("COMP"), then RULINGS 2026-11-20, then "Slice 31" in docs/SLICES.md. Do only Slice 31, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 31 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 31's Status line.
 ```
 
 ## Slices 17–23 · the owner's earn ideas (owner 2026-11-19: "loving the proposals!! … add these all + u suggested to slices"). Opus 5.5 medium each, in this order, after 24–28, before 8. Each one's UI meets the desk bar (RULINGS 2026-11-20).
