@@ -513,7 +513,8 @@ def preview(html):
     import collective_kits as _kits
     h = _kits.open_for_kits(strip_notes(html))   # a page's own kit files load, pages built before this fix too. Nothing else does
     h = re.sub(r'(<head[^>]*>(?:<meta[^>]+content-security-policy[^>]*>)?)', lambda m: m.group(1) + PAGE_ERR, h, count=1, flags=re.I)   # a script crash reaches the panel, so nobody stares at a dead page
-    return h.replace('</body>', NAV + PICKER + _insp.INSPECT + '</body>', 1) if '</body>' in h else h + NAV + PICKER + _insp.INSPECT   # 🔍 Slice 9: inspect, not mark
+    h = h.replace('</body>', NAV + PICKER + _insp.INSPECT + '</body>', 1) if '</body>' in h else h + NAV + PICKER + _insp.INSPECT   # 🔍 Slice 9: inspect, not mark
+    return _insp.with_hook(h)   # 🧊 Slice 27: a three.js page's 3D objects inspect too
 
 
 REGION_MAX = 12

@@ -1150,7 +1150,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     before_ = (((doc.get('versions') or [{}])[-1] or {}).get('html') or '') if kind == 'build' else ''
     if els_:
         region = _insp.prepare(before_, els_) + boxes_
-    fix_els_ = [t for t in els_ if t.get('mode') != 'comment' and t.get('found')] if before_ and not boxes_ else []
+    fix_els_ = [t for t in els_ if t.get('mode') != 'comment' and t.get('found') and t.get('node') not in ('three', 'canvas')] if before_ and not boxes_ else []   # 🧊 a 3D object / canvas region is changed in its script, by the page edit below
     said_ = _insp.note([], doc.get('comments')) if kind == 'build' else ''   # 💬 the owner's comments on elements reach every build of the folder
     try:
         if kind == 'build' and (rs._play.wants_game(text) or (doc.get('game') or {}).get('design')) and not doc.get('scene3d') and not doc.get('ad'):   # 🎮 a folder that holds a game: every ask ("Finish it.", "fix marked area") changes that game through the playtest, never as text patches that missed 6 times on 2026-11-17   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template (an ad's brief reads like a game: 'plays by itself in a loop'; it is a page)
@@ -1234,13 +1234,25 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             brief_ = doc.get('brief') if not cur else None
             kits_ += rs._psu.brief_line(brief_)
             retried_ = False
+            q_page_, q_said_, fix_left_ = _insp.quick_pass(cur, fix_els_, text) if cur and fix_els_ else (cur, [], fix_els_)   # 🧰 Slice 27: the $0 page tools first (a text edit, a simple look ask)
+            el_extra_ = _el_stash(cat, text, fix_left_) if cur and fix_left_ else ''
             for k, i in enumerate(order):
+                if k and cur and fix_els_ and not fix_left_:   # the page tools did every pick: nothing for a second mind to check
+                    continue
                 doc['stage'] = 'review' if k else 'build'; rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
                     rs._ws_save(cat_id, {**doc, 'busy': {'at': round(rs.time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost + usd_, 6), 'by': by_, 'draft': rs.re.sub(r'```(?:html)?', '', raw_)[:rs.WS_DRAFT_CHARS]}})
                 raw, usd, own, html = '', 0.0, paid_own, None
-                if cur and fix_els_:   # 🔍 Slice 9: an inspected fix asks for that element only (its exact code, a few style rules) and code puts it back: small enough for the local minds, and it always matches
-                    html, usd, own, same_ = await _inspect_edit(cat, brains[i], cur, fix_els_, text, review=bool(k)); cost += usd; paid_own = own
+                if cur and fix_els_ and not fix_left_:   # 🧰 every pick done by the page tools, $0: no mind is paid
+                    html = q_page_; retried_ = True   # a refused tool edit never falls back to a paid rewrite
+                    rs._feat.add_msg(doc, 'FEELESS', f"Page tools, $0 (no mind called): {'; '.join(q_said_)}.", rs.time.time())
+                elif cur and fix_els_:   # 🔍 Slice 9: an inspected fix asks for that element only (its exact code, a few style rules) and code puts it back: small enough for the local minds, and it always matches
+                    base_ = q_page_ if not k else cur
+                    if q_said_ and not k:
+                        rs._feat.add_msg(doc, 'FEELESS', f"Page tools, $0: {'; '.join(q_said_)}. The rest goes to {name(i)}.", rs.time.time())
+                    html, usd, own, same_ = await _inspect_edit(cat, brains[i], base_, fix_left_, text, review=bool(k), extra=el_extra_); cost += usd; paid_own = own
+                    if not html and base_ != cur:
+                        html = base_   # its mind changed nothing, the tools' part still lands
                     if same_:
                         rs._feat.add_msg(doc, name(i), 'I checked the element: it already does what you asked. No change.', rs.time.time()); continue
                 if not html and rs._feat.wants_rewrite(cur, text):
@@ -1358,11 +1370,22 @@ async def _ps_after(cat_id, ws_id, doc, start_versions):
     doc['codeCheck'] = {**(rs._ps_hidden.run(html, rs._kit_pins(), seen_) or {}), 'version': len(doc.get('versions') or []), **({} if seen_.get('ran') else {'notRun': seen_.get('why')})}
 
 
-async def _inspect_edit(cat, brain, cur, els, text, review=False):
+def _el_stash(cat, text, els):
+    """🧰 Slice 27: the stash's best tools for this inspect ask, so the mind reuses one instead of writing it again. '' when none / no stash."""
+    rs = _rs()
+    try:
+        words_ = rs.re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", f"{text} {' '.join(str(t.get('tag') or '') for t in els)}")[:10]
+        return rs._feat._sources.best_line(rs._stash.best_for(rs.STASH_DIR, words_, None, 2), rs._stash.agent_tag(cat.get('id')))
+    except Exception as e:   # noqa: BLE001: no stash line, the edit still runs
+        print(f'[inspect] stash: {type(e).__name__}')
+        return ''
+
+
+async def _inspect_edit(cat, brain, cur, els, text, review=False, extra=''):
     """🔍 Slice 9: each inspected element rewritten by one mind from its own code, spliced back by code. → (page or None, $, own, unchanged)"""
     rs = _rs(); page, usd, own, changed, same = cur, 0.0, False, 0, 0
     for t in els:
-        raw_, u_, own = await rs._ws_ask(cat, brain, _insp.EL_SYS + (_insp.EL_REVIEW if review else ''), _insp.el_prompt(t, text, page, review), _insp.EL_REPLY_TOKENS); usd += u_
+        raw_, u_, own = await rs._ws_ask(cat, brain, _insp.EL_SYS + (extra or '') + (_insp.EL_REVIEW if review else ''), _insp.el_prompt(t, text, page, review), _insp.EL_REPLY_TOKENS); usd += u_
         new_ = _insp.splice(page, t, raw_)
         if new_ and new_ != page:
             page, changed = new_, changed + 1

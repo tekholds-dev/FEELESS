@@ -1,0 +1,84 @@
+/* 💻 Slice 27 · the PoStatic build on Slice 33's shell (the owner's "The Collective Landing" v11 screenshot): the 7 steps fold into the slim top bar,
+   the toolbar is ONE row (the rarely used tools behind ⋯), the "Also loads …" warnings live in an issues tray, the inspect hover label and the pin
+   numbers sit OUTSIDE the page (a status line and a gutter), and the picked-element cards are compact. Meta tokens only; transform / opacity motion. */
+
+/* the steps, compact in the bar: dots, the step it is on named */
+.fea-steps.is-compact { flex-wrap: nowrap; gap: 3px; align-items: center; min-width: 0; overflow: hidden; }
+.fea-steps.is-compact li { padding: 0; border: 0; background: none; gap: 4px; }
+.fea-steps.is-compact li span { display: none; }
+.fea-steps.is-compact li i { width: 16px; height: 16px; font-size: 9px; }
+.fea-steps.is-compact li:is(.is-now, .is-stopped) { padding: 1px 8px 1px 1px; border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); border-radius: 999px; }
+.fea-steps.is-compact li:is(.is-now, .is-stopped) span { display: inline; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 10.5px var(--f-ui); }
+.fea-steps.is-compact li:not(.is-done):not(.is-now):not(.is-stopped) i { opacity: .55; }
+.pws-extra { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+
+/* one toolbar row; on a narrow pane it may wrap to a second, never four */
+.fea-build.is-grouped .fea-tools { flex-wrap: wrap; row-gap: 6px; column-gap: 6px; padding: 6px 8px; }
+.fea-build.is-grouped .fea-tools .m-btn, .fea-build.is-grouped .fea-tools .m-seg button { min-height: 30px; }
+.fea-build.is-grouped .fea-url { flex: 1 1 120px; }
+.fea-ic { min-width: 32px; padding-inline: 8px; font-size: 15px; line-height: 1; }
+.fea-ic.is-on { background: color-mix(in srgb, var(--m-accent) 16%, transparent); color: var(--m-accent); }
+.fea-more-wrap { position: relative; display: inline-flex; }
+.fea-more { position: absolute; z-index: 40; top: calc(100% + 6px); right: 0; display: grid; gap: 6px; min-width: 220px; padding: 8px; border: 1px solid var(--m-line-hi, var(--m-line)); border-radius: 12px;
+  background: linear-gradient(var(--m-surface), var(--m-surface)), var(--m-bg); box-shadow: 0 14px 36px color-mix(in srgb, var(--m-bg) 70%, transparent); animation: feaMore .14s ease both; }
+.fea-more[hidden] { display: none; }
+.fea-more > :is(.m-btn, .stc-wrap, a), .fea-more .stc-wrap > .m-btn { width: 100%; justify-content: flex-start; }
+.fea-more .sites-read, .fea-more > span { min-width: 0; }
+@keyframes feaMore { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* the issues tray (was: "✕ Also loads …" chips wrapped through the toolbar) */
+.fea-issues-btn { gap: 6px; color: var(--m-warn); border-color: color-mix(in srgb, var(--m-warn) 35%, transparent); }
+.fea-issues-btn i { width: 7px; height: 7px; border-radius: 50%; background: var(--m-warn); }
+.fea-issues-btn.is-on { background: color-mix(in srgb, var(--m-warn) 14%, transparent); }
+.fea-issues { display: grid; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-warn) 6%, var(--m-surface)); animation: feaMore .14s ease both; }
+.fea-issues header { display: flex; align-items: center; gap: 6px; font: 600 11.5px var(--f-ui); color: var(--m-text); }
+.fea-issues header small { color: var(--m-warn); } .fea-issues header .psi-x { margin-left: auto; height: 26px; }
+.fea-issues ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fea-issues li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.fea-issues li > i { width: 7px; height: 7px; border-radius: 50%; background: var(--m-warn); }
+.fea-issues li span { display: grid; min-width: 0; gap: 1px; }
+.fea-issues li b { font: 600 12px var(--f-ui); color: var(--m-text); }
+.fea-issues li small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 10.5px var(--f-mono); color: var(--m-mute); }
+.fea-issues li em { font: 500 11px/1.35 var(--f-ui); font-style: normal; color: var(--m-mute); }
+@media (max-width: 520px) { .fea-issues li { grid-template-columns: 8px minmax(0, 1fr); } .fea-issues li .m-btn { grid-column: 2; justify-self: start; } }
+
+/* inspect: the hover label as a status line above the page, the pin numbers in a gutter beside it */
+.psi-hoverbar { margin: 0; display: flex; align-items: center; gap: 7px; min-width: 0; padding: 5px 10px; border-bottom: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-accent) 8%, var(--m-surface));
+  font: 500 11.5px var(--f-mono); color: var(--m-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.psi-hoverbar i { flex: none; width: 8px; height: 8px; border-radius: 2px; outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.fea-view.has-gutter { padding-left: 24px; }
+.psi-gutter { position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 22px; margin: 0; padding: 0; list-style: none; border-right: 1px solid var(--m-line); background: var(--m-surface); }
+.psi-gutter li { position: absolute; left: 0; right: 0; display: grid; justify-items: center; align-content: start; border-right: 2px solid var(--m-accent); }
+.psi-gutter li.is-c { border-right-color: var(--m-warn); }
+.psi-gutter button { padding: 0; border: 0; background: none; cursor: pointer; }
+.psi-gutter em { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; border-radius: 999px; background: var(--m-accent); color: var(--m-accent-ink); font: 700 10px/1 var(--f-mono); font-style: normal; }
+.psi-gutter li.is-c em { background: var(--m-warn); }
+.psi-gutter button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; border-radius: 999px; }
+
+/* compact pick cards: one header line (number · what it is · selector), its words, one action row */
+.psi-card { gap: 5px; padding: 7px 8px; }
+.psi-card header { grid-template-columns: 26px minmax(0, 1fr) 26px; gap: 5px; }
+.psi-card .psi-n, .psi-card .psi-x { width: 26px; height: 26px; }
+.psi-what { display: grid; min-width: 0; gap: 0; }
+.psi-what b { font: 700 10.5px/1.3 var(--f-mono); color: var(--m-accent); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.psi-what .psi-sel b { display: none; }
+.psi-card.is-three .psi-what b { color: var(--m-accent); }
+.psi-card .psi-text { -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; }
+.psi-card .psi-text small { color: var(--m-mute); font-family: var(--f-mono); }
+.psi-dot { display: inline-block; width: 9px; height: 9px; margin-left: 5px; border-radius: 50%; vertical-align: -1px; }
+.psi-row, .psi-edit { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.psi-row .m-input, .psi-edit .m-input { flex: 1 1 150px; min-width: 0; min-height: 30px; font-size: 12px; }
+.psi-row .m-btn, .psi-edit .m-btn { min-height: 30px; padding-inline: 10px; }
+
+body.fx-lite .fea-more, body.fx-lite .fea-issues { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fea-more, .fea-issues { animation: none; } }
+
+/* a phone or a half window (the page pane is phone-narrow there): the toolbar keeps to two rows (no url pill, the word "Issues" drops to its dot + count, a tighter screen-size switch) */
+@media (max-width: 900px) {
+  .fea-build.is-grouped .fea-url { display: none; }
+  .fea-build.is-grouped :is(.fea-issues-w, .fea-w) { display: none; }
+  .fea-build.is-grouped .fea-tools .m-seg button { padding-inline: 7px; font-size: 9.5px; letter-spacing: .06em; }
+  .fea-build.is-grouped .fea-tools { column-gap: 5px; }
+  .fea-build.is-grouped .fea-bar { flex: 1 1 100%; min-width: 0; }
+  .fea-steps.is-compact li:is(.is-now, .is-stopped) span { max-width: 9ch; }   /* while it builds, the progress line gets its own row above the two tool rows */
+}

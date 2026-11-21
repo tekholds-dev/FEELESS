@@ -67,7 +67,7 @@ export function MindsThread({ rows = [], empty = 'Its minds have not said anythi
  * <ProofWorkspace id kind name status tone cost onBack backLabel bar chat chatLabel tools toolsLabel testid>{the work}</ProofWorkspace>
  * id: what it remembers its sizes under (one per kind of view, e.g. "pos-build"); chat / tools: nodes, or null when that view has none.
  */
-export function ProofWorkspace({ id, kind, name, status = null, tone = 'none', cost = null, onBack = null, backLabel = '', backId = 'pws-back', crumbs = null, bar = null, chat: chatIn = null, chatLabel = 'Chat', tools = null, toolsLabel = 'Tools', children, testid = 'pws', taskRef = '' }) {
+export function ProofWorkspace({ id, kind, name, status = null, tone = 'none', cost = null, onBack = null, backLabel = '', backId = 'pws-back', crumbs = null, bar = null, chat: chatIn = null, chatLabel = 'Chat', tools = null, toolsLabel = 'Tools', children, testid = 'pws', taskRef = '', sizes = null }) {   // sizes: {chat, tools} first-open % (a saved layout wins)
   const tcx = useTaskChats();   // 🧵 Slice 35: every proof chat can split a task off this filing; its cards + recaps sit on top of the chat
   const chat = chatIn && tcx && KIND[kind] ? <><TaskStrip scope={scopeKey(kind, taskRef)} title="Task chats from this filing" />{chatIn}</> : chatIn;
   const [pop, setPop] = useState(() => ({ chat: 'dock', tools: 'dock', ...readWs(id).pop }));   // dock | float | window
@@ -110,9 +110,9 @@ export function ProofWorkspace({ id, kind, name, status = null, tone = 'none', c
     {note ? <p className="pws-note" role="status">{note}</p> : null}
     <PanelGroup direction="horizontal" autoSaveId={`pws-${id}`} className="pws-body">
       <Panel id="work" order={1} minSize={34} className="pws-pane pws-work" data-pane="work"><div className="pws-work-in">{children}</div></Panel>
-      {docked('chat') ? <><Seam id="chat" /><Panel id="chat" order={2} ref={chatRef} defaultSize={30} minSize={18} collapsible collapsedSize={0} onCollapse={() => onFold('chat')(true)} onExpand={() => onFold('chat')(false)}
+      {docked('chat') ? <><Seam id="chat" /><Panel id="chat" order={2} ref={chatRef} defaultSize={sizes?.chat || 30} minSize={18} collapsible collapsedSize={0} onCollapse={() => onFold('chat')(true)} onExpand={() => onFold('chat')(false)}
         className="pws-pane pws-chat" data-pane="chat" data-testid="pws-chat">{paneHead('chat', chatLabel)}<div className="pws-pane-in">{chat}</div></Panel></> : null}
-      {docked('tools') ? <><Seam id="tools" /><Panel id="tools" order={3} ref={toolsRef} defaultSize={24} minSize={14} collapsible collapsedSize={0} onCollapse={() => onFold('tools')(true)} onExpand={() => onFold('tools')(false)}
+      {docked('tools') ? <><Seam id="tools" /><Panel id="tools" order={3} ref={toolsRef} defaultSize={sizes?.tools || 24} minSize={14} collapsible collapsedSize={0} onCollapse={() => onFold('tools')(true)} onExpand={() => onFold('tools')(false)}
         className="pws-pane pws-tools" data-pane="tools" data-testid="pws-tools">{paneHead('tools', toolsLabel)}<div className="pws-pane-in">{tools}</div></Panel></> : null}
     </PanelGroup>
     <AnimatePresence>{['chat', 'tools'].filter(w => (w === 'chat' ? chat : tools) && !narrow && pop[w] === 'float').map(w =>

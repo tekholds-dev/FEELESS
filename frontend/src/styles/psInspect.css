@@ -10,9 +10,7 @@
 .psi-n:hover { transform: scale(1.1); } .psi-n:active { transform: scale(.94); } .psi-n:focus-visible, .psi-x:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .psi-x { height: 32px; border: 0; border-radius: 8px; background: none; color: inherit; opacity: .6; cursor: pointer; } .psi-x:hover { opacity: 1; background: color-mix(in srgb, var(--m-text) 8%, transparent); } .psi-x:active { background: color-mix(in srgb, var(--m-text) 14%, transparent); }
 .psi-text, .psi-diff q, .psi-side q { display: block; overflow: hidden; font: 500 11.5px/1.4 var(--f-ui); color: var(--m-text); text-overflow: ellipsis; quotes: '“' '”'; }
-.psi-css { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--m-dim); } .psi-css i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--m-line); }
 .psi-card .m-input { min-height: 32px; font-size: 12px; }
-.psi-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .psi-acts .m-btn { min-height: 32px; }
 .psi-comments { display: grid; gap: 6px; padding: 8px; border-radius: var(--m-r, 12px); border: 1px solid color-mix(in srgb, var(--m-warn) 35%, transparent); background: color-mix(in srgb, var(--m-warn) 6%, var(--m-surface)); }
 .psi-comments li > span { display: grid; min-width: 0; } .psi-comments li b { font: 600 12px/1.35 var(--f-ui); color: var(--m-text); overflow-wrap: anywhere; }
 .psi-diff { position: relative; display: grid; gap: 9px; padding: 10px; border-radius: var(--m-r, 12px); border: 1px solid var(--m-line-hi, var(--m-line)); background: var(--m-surface); overflow: hidden; }
