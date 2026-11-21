@@ -1247,34 +1247,45 @@ class _Streamed:
 async def _or_stream(h, auth, body, on_delta):
     """💬 One OpenRouter call with stream=true (SSE). Every content chunk → on_delta(text so far); the reply, finish reason and the
     provider's own usage + cost (usage.include) come back as one non-stream-shaped response, so billing, receipts and refusals are
-    unchanged. A non-200 is returned as-is (nothing was written, nothing billed)."""
+    unchanged. A non-200 is returned as-is (nothing was written, nothing billed). An error event mid-stream is a refusal, not a
+    reply; a stream cut after words were written keeps them and still bills (the usage if it came, else the price-list estimate)."""
+    rs = _rs()
     parts, fin, usage, rid, rmodel = [], None, {}, None, None
     async with h.stream('POST', 'https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, 'stream': True, 'usage': {'include': True}}) as r:
         if r.status_code != 200:
             await r.aread()
             return _Streamed(r.status_code, {})
-        async for line in r.aiter_lines():
-            if not line.startswith('data:'):
-                continue   # ': OPENROUTER PROCESSING' keep-alives
-            data = line[5:].strip()
-            if data == '[DONE]':
-                break
-            try:
-                c = _rs().json.loads(data)
-            except ValueError:
-                continue
-            rid = rid or c.get('id'); rmodel = rmodel or c.get('model')
-            if c.get('usage'):
-                usage = c['usage']
-            ch = (c.get('choices') or [{}])[0]
-            piece = (ch.get('delta') or {}).get('content') or ''
-            if piece:
-                parts.append(piece)
+        try:
+            async for line in r.aiter_lines():
+                if not line.startswith('data:'):
+                    continue   # ': OPENROUTER PROCESSING' keep-alives
+                data = line[5:].strip()
+                if data == '[DONE]':
+                    break
                 try:
-                    on_delta(''.join(parts))
-                except Exception:
-                    pass   # the chat preview never breaks the call
-            fin = ch.get('finish_reason') or fin
+                    c = rs.json.loads(data)
+                except ValueError:
+                    continue
+                if c.get('error'):   # the provider failed after the stream began (still HTTP 200): never pass a half reply off as the answer
+                    rs._OR_LAST['err'] = f"The AI provider stopped mid-reply: {str((c['error'] or {}).get('message') or c['error'])[:120]}"
+                    return _Streamed(502, {})
+                rid = rid or c.get('id'); rmodel = rmodel or c.get('model')
+                if c.get('usage'):
+                    usage = c['usage']
+                ch = (c.get('choices') or [{}])[0]
+                piece = (ch.get('delta') or {}).get('content') or ''
+                if piece:
+                    parts.append(piece)
+                    try:
+                        on_delta(''.join(parts))
+                    except Exception:
+                        pass   # the chat preview never breaks the call
+                fin = ch.get('finish_reason') or fin
+        except Exception as exc:   # cut mid-stream: what was written was billed, so it is kept and counted
+            if not parts:
+                raise
+            rs._OR_LAST['err'] = f'The reply was cut off mid-stream ({type(exc).__name__}); what it wrote so far is kept.'
+            fin = fin or 'cut'
     return _Streamed(200, {'id': rid, 'model': rmodel, 'usage': usage, 'choices': [{'message': {'content': ''.join(parts)}, 'finish_reason': fin}]})
 
 

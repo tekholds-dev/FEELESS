@@ -146,7 +146,8 @@ def partial_answer(raw, plain=True):
             out.append(esc.get(n, n)); i += 2
             continue
         out.append(c); i += 1
-    return ''.join(out)[:6000]
+    got = ''.join(out)[:6000]
+    return '' if thinking_leak(got) else got   # private thinking never shows, even mid-stream
 
 
 def _streaming(task, plain=True):
@@ -813,7 +814,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
         try:
             p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
         finally:
-            STREAM.reset(tok_)
+            STREAM.reset(tok_); task.pop('partial', None)   # a preview never outlives its call
         if str(p.get('fast') or '').strip():
             task.update(answer=str(p['fast']).strip()[:4000], fast=True, status='done')
             for w in ws:
@@ -834,7 +835,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             try:
                 raw = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()
             finally:
-                STREAM.reset(tok_)
+                STREAM.reset(tok_); task.pop('partial', None)
             m = parse_json(raw)
             task['answer'] = str(m.get('answer') or raw).strip()[:6000]
             task['keep'] = [str(x)[:240] for x in (m.get('keep') or []) if str(x).strip() and not thinking_leak(x)][:KEEP_MAX]

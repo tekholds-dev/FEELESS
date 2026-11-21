@@ -64,3 +64,36 @@ def test_the_plan_streams_its_fast_answer_into_the_task_and_the_view_shows_it_on
     asyncio.run(ca.run(t, ask, [None], None, ['A']))
     assert shown == ['Fo', 'Four.'] and t['answer'] == 'Four.' and t['status'] == 'done'
     assert ca.STREAM.get() is None                                             # reset after the call
+
+
+def test_an_error_event_mid_stream_is_a_refusal_and_a_cut_stream_keeps_what_was_billed():
+    import fc_core
+    import feecat_service as fs
+    err = 'data: ' + json.dumps({'choices': [{'delta': {'content': 'half'}}]}) + '\n\ndata: ' + json.dumps({'error': {'message': 'upstream died'}}) + '\n\n'
+
+    async def go(transport):
+        async with httpx.AsyncClient(transport=transport) as h:
+            return await fc_core._or_stream(h, {}, {'model': 'm/a', 'messages': []}, lambda s: None)
+    r = asyncio.run(go(httpx.MockTransport(lambda req: httpx.Response(200, text=err))))
+    assert r.status_code == 502 and 'upstream died' in fs._OR_LAST.get('err', '')
+
+    class Cut(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield ('data: ' + json.dumps({'id': 'g', 'choices': [{'delta': {'content': 'kept words'}}]}) + '\n\n').encode()
+            raise httpx.ReadTimeout('slow')
+    r = asyncio.run(go(httpx.MockTransport(lambda req: httpx.Response(200, stream=Cut()))))
+    assert r.status_code == 200 and r.json()['choices'][0]['message']['content'] == 'kept words' and 'cut off' in fs._OR_LAST['err']
+
+
+def test_a_preview_never_outlives_its_call_and_thinking_never_streams():
+    assert ca.partial_answer('{"fast": "Okay, the user wants me to find. Let me think about it.') == ''
+    t = ca.new_task('s2', 'look it up', ['m/a'], 1.0)
+
+    async def ask(model, messages):
+        ca.STREAM.get()('{"fast": "I think')
+        return '{"fast": "I thin', 0.001   # cut / bad JSON: no fast answer, so it goes on to browse
+    try:
+        asyncio.run(ca.run(t, ask, [None], None, ['A']))
+    except Exception:
+        pass
+    assert 'partial' not in t
