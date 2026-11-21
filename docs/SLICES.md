@@ -17,7 +17,8 @@
 **State at handoff:**
 - Done and on main: 13, 15, 16, 24, 25, 26, 29, 33.
 - **Slice 34 (the Desk look everywhere + trench dash v2 + sizing fixes) was started on the last account; check its Status line.** If it isn't ✅ on origin/main, start a fresh session with Slice 34's prompt: it resumes from the Status line.
-- Then: 27 → 28 → 32 → 30 → 31 → 17–23 → 8.
+- Then: **35 task chats** → 27 → 28 → 32 → 30 → 31 → 17–23 → 8.
+- **Slice 35 · Task chats (owner 2026-11-20, not yet written out in full; the next manager writes its checks):** in the agent main desk chat AND every proof chat, the same mind can split a task into its own live conversation, the way the manager hands slices to sessions. The original chat shows a card that links to the task chat. The task chat shows live thinking (each thought a fold-open dropdown), logs, and a checklist with done / doing / pending steps, like the Claude desktop task list (owner's screenshot). The proof folders and files restyle after the Desk look comes next.
 - Open: the owner hasn't given his final greenlight on trench dash v3. Ask once when he's back.
 - Named misses still open:
   - Slice 15: a converted .mov's first clip is slow.
