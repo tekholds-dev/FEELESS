@@ -147,6 +147,7 @@ export function ArenaPrime({ onLoad }) {
       <ul className="prime-legs">{c.legs.map(l => ({ ...l, pnlPct: l.pnlPct ?? (l.costUsd ? (l.usd / l.costUsd - 1) * 100 : 0) })).map(l => <li key={l.pairAddress}><b role="button" tabIndex={0} className="pl-open" data-tip="Open its chart — trade this coin on its own" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: l.pairAddress, baseToken: { address: l.mint, symbol: l.symbol } })}>${l.symbol}</b>{l.division && DIVISION[l.division] && l.role !== 'anchor' && <small className="pl-div" data-tip="The Gauntlet division this coin came in from">{DIVISION[l.division]}</small>}<small className={`pl-${l.role}`} data-tip={l.ride ? 'Riding: frozen through rounds until it falls 30% from its high' : undefined}>{l.ride ? '🏇 riding' : l.role === 'anchor' ? '⚓ anchor' : l.role}</small><i data-tip={`${l.stars || 3}★ — ${l.role === 'anchor' ? 'eligible major; protected from stops and advanced on configured re-shapes' : l.role === 'pool' ? 'depth + volume' : 'runner score'}`}>{'★'.repeat(l.stars || 3)}</i>
         <em key={l.pnlPct.toFixed(1)} className={`m-num fl-tick ${l.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{l.pnlPct >= 0 ? '+' : ''}{l.pnlPct.toFixed(1)}%</em></li>)}</ul>
       {c.parked?.length > 0 && <ul className="prime-parked">{c.parked.map(p => <li key={p.pairAddress} data-tip="Stopped out and sold to SOL — the slot is kept; it's bought back when price returns to its entry with momentum">🅿 ${p.symbol} <b className="m-num">${p.usd.toFixed(2)}</b> parked · back at ${tiny(Number(p.backAt), 3)}</li>)}</ul>}
+      <DataCheck c={c} />
       <div className="prime-stats"><span data-tip={`Profit = now ${usd(c.valueUsd)} − put in ${usd(putIn)} (fees apart)`}><small>PROFIT</small><b key={c.pnlPct.toFixed(1)} className={`m-num fl-tick ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{usdK(c.valueUsd - putIn)}</b><small className={`ps-pct ${c.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pnlPct)}</small></span>
             <span data-tip="Confirmed SOL already segregated from the card and unavailable to future buys"><small>PAID OUT</small><b className="m-num m-pos">{usdK(c.walletUsd)}</b>{c.pendingPayoutUsd > 0 && <small className="m-dim"> · {usd(c.pendingPayoutUsd)} settling</small>}</span>
         {c.floored ? <span data-tip="Floored: everything moved into the anchor; the card is re-dealt with fresh 3★+ coins (Arena picks first) on the next tick — a new run"><small>FLOORED</small><b className="m-num">re-dealing…</b></span>
@@ -177,6 +178,30 @@ export function ArenaPrime({ onLoad }) {
     </article>; })}</div>;
       return gi === 0 ? row : <details key={gi} className="hrt-fold prime-rest" data-testid="prime-rest"><summary><b><Ic3 e="📄" /> {grp.length} more paper {grp.length === 1 ? 'card' : 'cards'}</b><small className="m-dim"> — same engine, no money. Folded so the real card and its best paper rival stay in view.</small></summary>{row}</details>; })}
   </section>;
+}
+
+// 🩺 DATA CHECK (Slice 34, owner 2026-11-20: "Fuse cards restart when inaccurate"). The server reads every card for numbers that rest on
+// bad or missing data (a coin with no live price, an impossible record line, a real card far from its confirmed book) and says SINCE WHEN.
+// Only the OWNER restarts the record (two taps; the server re-checks): coins, cash, payouts and rounds stay, the old record is kept.
+const dayOf = t => (t ? new Date(t * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null);
+export function DataCheck({ c }) {
+  const { isOwner, call } = useAdmin();
+  const [arm, setArm] = useState(false); const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!arm) return undefined; const t = setTimeout(() => setArm(false), 5000); return () => clearTimeout(t); }, [arm]);
+  const dc = c?.dataCheck;
+  if (!dc?.bad) return c?.restartedAt ? <p className="prime-dc is-ok" data-testid={`prime-dc-${c.tpl}`}><Ic3 e="🩺" /> Record restarted {dayOf(c.restartedAt)} · the old one is kept</p> : null;
+  const why = dc.flags.map(f => f.why).join(' · ');
+  const go = async () => {
+    if (!arm) { setArm(true); return; }
+    setBusy(true);
+    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ restart: { tpl: c.tpl, why } }) }); toast.success(`${c.label}: record restarted from what it is worth now`); window.dispatchEvent(new Event('feeless:prime')); }
+    catch (e) { toast.error(e.message); } finally { setBusy(false); setArm(false); }
+  };
+  return <div className="prime-dc is-bad" role="alert" data-testid={`prime-dc-${c.tpl}`}>
+    <p><Ic3 e="🩺" /> <b>Data was wrong{dc.since ? ` since ${dayOf(dc.since)}` : ''}</b></p>
+    <ul>{dc.flags.map(f => <li key={f.k} data-testid={`prime-dc-flag-${f.k}`}>{f.why}{f.since ? <small className="m-dim"> · since {dayOf(f.since)}</small> : null}</li>)}</ul>
+    {isOwner ? <button type="button" className={`m-btn ${arm ? 'danger' : ''}`} disabled={busy} onClick={go} data-tip="Starts a fresh record from what the card is worth now. Nothing is sold or bought; the old record stays in its history. Owner only." data-testid={`prime-restart-${c.tpl}`}>{busy ? 'Restarting…' : arm ? 'Tap again to restart the record' : '↻ Restart the record'}</button> : null}
+  </div>;
 }
 
 // HQ › ⚔ Arena: Prime controls — on/off, size, rotation (hours + coins), compound, deal fresh cards.

@@ -2497,6 +2497,9 @@ async def _prime_view():
         e = _eff(c); return {'clockMin': round(e['rotateHours'] * 60), 'confirm': e['rotateConfirm'], 'minDrop': e['rotateMinDrop'],
                              'instantSwapPct': e.get('instantSwapPct', 0), 'holdMin': e['minHoldMins'], 'rideAt': e.get('rideAt'), 'rideTrail': e.get('rideTrail'),
                              'cycle': (e.get('cycles') or {}).get(c['tpl']), 'reshape': e['cycleEvery'], 'slMode': e['slMode'], 'locked': c.get('tpl') in locks}
+    def _book_usd(c):   # 🩺 the wallet's confirmed book for a real card (None = paper, no book yet, or still pending)
+        b = fw_books.get(c.get('tpl')) if c.get('real') else None
+        return (_fw.book_value(b, px, sol_now) or None) if b and sol_now > 0 and not b.get('pending') else None
     def _truth(c, sm):
         b = fw_books.get(c.get('tpl')) if c.get('real') else None
         if not b or sol_now <= 0:
@@ -2513,7 +2516,8 @@ async def _prime_view():
                 'math': {**sm.get('math', {}), 'putIn': round(_fuse._f(b.get('fundedUsd')) or start, 4), 'runStartUsd': round(start, 4), 'heldUsd': round(held, 4), 'paidOutUsd': round(paid, 4),
                          'nowUsd': v, 'feesUsd': card_fees, 'pnlUsd': round(v + card_fees - (_fuse._f(b.get('fundedUsd')) or start), 4)}}   # P&L = price result; fees apart
     return [{**(sm := _truth(c, _prime.summary(c, px, _eff(c)))), **_vs(c, sm), 'seatPick': c.get('seatPick'), 'holdBy': c.get('holdBy'), 'proofWords': (_json_load(EDGE_AUDIT_PATH, {}).get('words') if c.get('real') else None), 'rebuying': (c.get('rebuy') or {}).get('mint'), 'seatQueue': c.get('seatQueue') or [], 'limits': [{**x_, 'word': _lim.word(x_)} for x_ in c.get('limits') or []], 'pipeline': c.get('pipeline'), 'parkedUsd': round(sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or []), 4), 'parkedN': len(c.get('skimPark') or []), 'heldUsd': round(max(0.0, _fuse._f(c.get('holdCashUsd')) - sum(_fuse._f(x.get('usd')) for x in c.get('skimPark') or [])), 4), 'cfgView': _cfgv(c), 'cfgScope': 'real' if c.get('real') else 'locked' if c.get('tpl') in locks else 'shared', 'cfgEff': _eff(c), 'pickStyle': None if c.get('real') else _eff(c).get('pickStyle'), 'holdAll': bool(c.get('holdAll')), 'pickCool': {}, 'handsOffUntil': c.get('handsOffUntil') if _prime.hands_off_left(c, time.time()) else None, 'cyclePeek': _prime.cycle_peek(c, _eff(c)), 'cycleMode': cyc.get(c['tpl'], 'off'), 'cycle': _cyc(c['tpl']), 'realBook': _fw_public(c['tpl'], sm.get('valueUsd'), sol_now, px) if c.get('real') else None,
-             'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]]} for c in cards.values()]
+             'audit': [{k: e.get(k) for k in ('at', 'kind', 'symbol', 'usd', 'why', 'to', 'mode')} for e in (c.get('events') or [])[-40:][::-1]],
+             'dataCheck': _prime.audit(c, px, _book_usd(c)), 'restartedAt': c.get('restartedAt'), 'history': [{k: h.get(k) for k in ('at', 'startUsd', 'endUsd', 'pct', 'why', 'by')} for h in (c.get('history') or [])[-5:][::-1]]} for c in cards.values()]
 
 
 PRIME_FRESH_SEC = 3.0     # a /fuses/prime answer this young is served as is

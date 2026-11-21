@@ -916,6 +916,46 @@ async def fuse_prime_admin(request: Request):
                 raise rs.HTTPException(400, str(e))
             rs._json_save(rs.FUSE_HQ_PATH, d)
             kick_real_keeper = bool(card.get('real'))
+    rs_ = body.get('restart') or {}
+    if rs_.get('tpl') in rs._prime.TEMPLATES:   # 🩺 RESTART a card's RECORD when its data was wrong (Slice 34) — OWNER ONLY, audited.
+        # It never trades: coins, cash, paid-out and parked money, rounds and what was put in all stay. Only the scoreboard starts fresh
+        # from what the card is worth NOW, and the old record is kept in its history. Claude never presses this on a real card (§1).
+        owner = rs._require_owner(request)
+        # prices are fetched BEFORE the lock (a slow provider never stalls the engine), then the card is re-read inside it
+        c0_ = ((rs._json_load(rs.FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(rs_['tpl'])
+        if not c0_:
+            raise rs.HTTPException(404, 'No card for that tier yet.')
+        bk = (rs._fw_peek().get('books') or {}).get(rs_['tpl']) if c0_.get('real') else None
+        want_ = {l['pairAddress']: l.get('mint') for l in c0_.get('legs') or [] if not l.get('placeholder')}
+        want_.update({bl.get('pair'): m for m, bl in ((bk or {}).get('legs') or {}).items() if bl.get('pair') and rs._fw.held_units(bk, m) > 0})
+        px_r = await rs._hq_prices([{'chainId': 'solana', 'pairAddress': pa, 'mint': m} for pa, m in want_.items()])
+        sol_r = await rs._sol_usd_live() if c0_.get('real') else 0.0
+        async with rs._admin_lock:
+            d = rs._json_load(rs.FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
+            card = cards.get(rs_['tpl'])
+            if not card:
+                raise rs.HTTPException(404, 'No card for that tier yet.')
+            if card.get('real'):   # 💵 a real card restarts from the wallet's CONFIRMED book, never the engine's estimate
+                bk = (rs._fw_peek().get('books') or {}).get(rs_['tpl'])
+                if not bk or bk.get('pending') or not sol_r > 0:
+                    raise rs.HTTPException(400, 'The wallet book is still settling — restart once its trades confirm.')
+                blind = [bl.get('symbol') or m[:6] for m, bl in (bk.get('legs') or {}).items() if rs._fw.held_units(bk, m) > 0 and not rs._fuse._f(px_r.get(bl.get('pair')))]
+                if blind:   # book_value would count a held coin at its entry price: never start a new record from that
+                    raise rs.HTTPException(400, f"No live price for {', '.join('$' + str(s) for s in blind[:4])} — restart once it is priced again.")
+                v_r = rs._fw.book_value(bk, px_r, sol_r)
+            else:
+                blind = [l.get('symbol') for l in card.get('legs') or [] if not l.get('placeholder') and not rs._fuse._f(px_r.get(l['pairAddress']))]
+                if blind:   # restarting from a coin counted at its entry would carry the wrong number into the new record
+                    raise rs.HTTPException(400, f"No live price for {', '.join('$' + str(s) for s in blind[:4])} — swap it out first, then restart.")
+                v_r = rs._prime.value(card, px_r)
+            try:
+                cards[rs_['tpl']] = rs._prime.restart_record(card, v_r, rs.time.time(), why=str(rs_.get('why') or 'data was wrong')[:200], by='owner')
+            except ValueError as e:
+                raise rs.HTTPException(400, str(e))
+            rs._json_save(rs.FUSE_HQ_PATH, d)
+        ad = rs._admin_load(); rs._audit(ad, owner, 'fuse-restart', f"{rs_['tpl']} from ${v_r:,.2f}: {str(rs_.get('why') or 'data was wrong')[:120]}"); rs._admin_save(ad)
+        rs._prime_resp_clear()
+        return {'ok': True, 'restartedAt': cards[rs_['tpl']]['restartedAt'], 'startUsd': cards[rs_['tpl']]['startUsd'], 'cards': await rs._prime_view()}
     rep = body.get('replace') or {}
     if rep.get('tpl') in rs._prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
         pools, runners, anchors = await rs._prime_candidates()

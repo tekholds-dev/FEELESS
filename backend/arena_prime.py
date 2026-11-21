@@ -3180,6 +3180,69 @@ def record(card):
             'lowPct': _f(card.get('lowPct')), 'floored': bool(card.get('flooredAt')), 'runs': (card.get('runs') or [])[-5:]}
 
 
+# 🩺 FUSE DATA CHECK (Slice 34, owner 2026-11-20: "Fuse cards restart when inaccurate"). Reads a card and today's prices — never trades,
+# never writes. A card is flagged when its numbers rest on bad or missing data, and every flag says SINCE WHEN it could be wrong:
+#   · a coin on it has no live price → value() silently counts it at entry (`prices.get(...) or l['entry']`)
+#   · its run has no start value → every % on it means nothing
+#   · a run or a day on its record shows an impossible move (under −100% or over +10,000%)
+#   · its worst-ever dip reads under −100%
+#   · (real card) the card's own estimate is more than 15% away from the wallet's confirmed book
+# The OWNER presses Restart (restart_record) — Claude never restarts a real-money card by itself (CLAUDE.md §1).
+AUDIT_MAX_PCT = 10000.0
+AUDIT_BOOK_GAP_PCT = 15.0
+
+
+def audit(card, prices, true_usd=None):
+    """→ {'bad': bool, 'since': ts | None, 'flags': [{'k', 'why', 'since'}]}. Pure."""
+    if not card:
+        return {'bad': False, 'since': None, 'flags': []}
+    flags, prices = [], prices or {}
+    nop = [l for l in card.get('legs') or [] if not l.get('placeholder') and not _f(prices.get(l.get('pairAddress')))]
+    if nop:
+        names = ', '.join('$' + str(l.get('symbol') or '?') for l in nop[:4]) + (' …' if len(nop) > 4 else '')
+        flags.append({'k': 'no-price', 'since': None,   # the price is missing NOW — never "wrong since it was bought"
+                      'why': f"no live price for {names} right now: counted at what was paid, not what it is worth"})
+    if not _f(card.get('startUsd')) > 0:
+        flags.append({'k': 'no-start', 'since': _f(card.get('at')) or None, 'why': 'this run has no start value, so its % means nothing'})
+    fresh = _f(card.get('restartedAt'))   # a restart closed every line before it: those stay in the history, judged no more
+    odd = [r for r in (card.get('runs') or []) + (card.get('days') or []) if (not fresh or _f(r.get('at')) > fresh) and r.get('pct') is not None and not (-100.0 <= _f(r.get('pct')) <= AUDIT_MAX_PCT)]
+    if odd:
+        moves = ', '.join(f"{_f(r.get('pct')):+.0f}%" for r in odd[:3])
+        flags.append({'k': 'impossible', 'since': min((_f(r.get('at')) for r in odd if _f(r.get('at'))), default=None),
+                      'why': f"{len(odd)} record line{'s show' if len(odd) > 1 else ' shows'} an impossible move ({moves})"})
+    if _f(card.get('lowPct')) < -100.0:
+        flags.append({'k': 'low', 'since': None, 'why': f"its worst dip reads {_f(card.get('lowPct')):.0f}% (a card can't lose more than it has)"})
+    if true_usd is not None and _f(true_usd) > 0:
+        est = value(card, prices)
+        gap = abs(est / _f(true_usd) - 1) * 100
+        if gap > AUDIT_BOOK_GAP_PCT:
+            flags.append({'k': 'book-gap', 'since': None, 'why': f"the card says ${est:,.2f}, the wallet's confirmed book says ${_f(true_usd):,.2f} ({gap:.0f}% apart)"})
+    since = min((f['since'] for f in flags if f.get('since')), default=None)
+    return {'bad': bool(flags), 'since': since, 'flags': flags}
+
+
+def restart_record(card, value_usd, now, why='', by='owner'):
+    """The owner's ONE PRESS: close this card's record and start a fresh one from what it is worth NOW. It never sells, buys or moves a
+    coin, its cash, its paid-out or parked money, its rounds (cooling-off keeps working) or what was PUT IN. The old record stays in
+    `history` (and in `runs` like every closed run). → the restarted card (a copy). ValueError = no value to start from."""
+    v = _f(value_usd)
+    if not v > 0:
+        raise ValueError('no value to start the new record from')
+    start = _f(card.get('startUsd'))
+    old = {'at': now, 'startUsd': start, 'endUsd': round(v, 4), 'pct': round((v / start - 1) * 100, 2) if start > 0 else None,
+           'days': list(card.get('days') or []), 'lowPct': _f(card.get('lowPct')), 'roundWins': int(card.get('roundWins') or 0),
+           'restarted': True, 'why': str(why or 'data was wrong')[:200], 'by': by}
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    c['history'] = (list(card.get('history') or []) + [old])[-50:]
+    c['runs'] = (list(card.get('runs') or []) + [{k: old[k] for k in ('at', 'startUsd', 'endUsd', 'pct', 'restarted')}])[-10:]
+    c.update(startUsd=round(v, 4), dayStartUsd=round(v, 4), dayAt=now, roundStartUsd=round(v, 4), lowPct=0.0, days=[], roundWins=0, restartedAt=now)
+    c.pop('floorBaseUsd', None)   # the floor is measured from the NEW start, never the old record's base
+    if card.get('real'):
+        c['realBaselineAt'] = now   # the real card's run is measured from THIS start, not its first funding (fuse_wallet.real_run_start)
+    c['events'].append({'at': now, 'kind': 'restart', 'why': f"record restarted by the {by}: {old['why']} (the old record is kept in its history)"})
+    return c
+
+
 def clock_rank(rows, rotate_hours, mom=None):
     """⏱ Every round length wants different coins. FAST clocks (≤ 15 min) need coins that are moving NOW: last-hour volume and
     momentum come first, so a 5-min card gets the coins that can pay inside a few rounds. SLOW clocks (≥ 1 h) keep the caller's

@@ -23,3 +23,13 @@ body.theme-day .pls { background: var(--pl-tx2); border-color: var(--pl-wn4); } 
 .prime-scrap { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 3px; font-size: 11px; }
 .prime-scrap li:not(.m-label) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 3px 8px; border-left: 2px solid var(--pl-dg3); border-radius: 0 8px 8px 0; background: var(--pl-tx3); } .prime-scrap b { color: var(--pl-dg2); font: 700 11px "JetBrains Mono", monospace; } .prime-scrap small { opacity: .75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.theme-day .prime-renewed { color: var(--pl-ac5); } body.theme-day .prime-scrap li:not(.m-label) { background: var(--pl-tx4); } body.theme-day .prime-scrap b { color: var(--pl-dg4); }
+
+/* 🩺 Data check (Slice 34): a card whose numbers rest on bad data says so — and since when — above its stats */
+.prime-dc { margin: 6px 0; padding: 7px 9px; border-radius: var(--m-r-sm); font-size: 12px; line-height: 1.35; }
+.prime-dc p { margin: 0; display: flex; align-items: center; gap: 5px; }
+.prime-dc.is-bad { border: 1px solid color-mix(in srgb, var(--m-warn) 45%, transparent); background: color-mix(in srgb, var(--m-warn) 9%, transparent); color: var(--m-text); }
+.prime-dc.is-bad b { color: var(--m-warn); font-weight: 600; }
+.prime-dc.is-ok { color: var(--m-mute); font-size: 11px; }
+.prime-dc ul { margin: 4px 0 6px; padding-left: 16px; }
+.prime-dc li { margin: 1px 0; }
+.prime-dc .m-btn { font-size: 12px; padding: 4px 10px; }

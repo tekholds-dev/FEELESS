@@ -33,10 +33,11 @@ export function useAdmin() {
   const { wallet, signMessage } = useWallet() || {};
   const address = wallet?.address;
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isStaff, setIsStaff] = useState(false);   // staff = the creator via ANY linked wallet (server `_is_staff`); UI only, the server re-checks
+  const [isStaff, setIsStaff] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);   // the owner wallets only (server `_require_owner`); UI only, the server re-checks   // staff = the creator via ANY linked wallet (server `_is_staff`); UI only, the server re-checks
   useEffect(() => {
-    if (!address) { setIsAdmin(false); setIsStaff(false); return; }
-    sharedJson(`/api/reputation/admin/is-admin/${address}`, { maxAge: 60000 }).then(d => { setIsAdmin(!!d?.admin); setIsStaff(!!(d?.staff || d?.admin)); }).catch(() => { setIsAdmin(false); setIsStaff(false); });
+    if (!address) { setIsAdmin(false); setIsStaff(false); setIsOwner(false); return; }
+    sharedJson(`/api/reputation/admin/is-admin/${address}`, { maxAge: 60000 }).then(d => { setIsAdmin(!!d?.admin); setIsStaff(!!(d?.staff || d?.admin)); setIsOwner(!!d?.owner); }).catch(() => { setIsAdmin(false); setIsStaff(false); setIsOwner(false); });
   }, [address]);
   const call = useCallback(async (path, opts = {}) => {
     let s = read(address);
@@ -47,7 +48,7 @@ export function useAdmin() {
     if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
     return body;
   }, [address, signMessage]);
-  return { isAdmin, isStaff, call };
+  return { isAdmin, isStaff, isOwner, call };
 }
 
 // Pick a file -> optional crop (shape from CROP) -> resize stills to ≤1600px, GIFs kept animated
