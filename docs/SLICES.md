@@ -405,6 +405,23 @@ FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
   - duotone icons on the rail
 
   Every control on today's dash stays, and the wallet still signs everything. The Duo layout of this dash stays as it is: the owner loves it.
+- [ ] **Trench dash v2 (owner 2026-11-20: "tape should be a flip card option to the live tape we already have, but with an updated design for a more accurate edge … quick trade on one side and chat on the other … keep it sort of one page"):**
+  - **One screen on desktop.** The tools that don't fit go into a Tools popover (Holders, Snipers + bundles, Dev history, Case file, Fee view, Wide, Neo, Calls log, Price alerts, Fuse card, Share GIF, Why this read) that opens popout windows. None are lost.
+  - **The tape card flips.** The front is the live tape; the back is the Flow read (today's LIVE TRADE TAPE panel, redesigned). The Flow read:
+    - weighs dollars, not trade counts
+    - calls nothing under 8 trades in the window
+    - names a single big seller instead of calling it a crowd
+    - counts flagged-wallet selling
+    - shows a confidence bar
+    - has 60s / 5m / 15m windows
+    - shows net per wallet as diverging bars
+  - **The right card flips** between Quick trade (Market / Dip & rip) and Coin chat, with an unread badge.
+- [ ] **Charts are true, nothing faked.**
+  - The chart, tape, Flow read and pump pulse all come from ONE trade stream (our index + DexScreener), so they always agree.
+  - A test proves the chart's last candle matches the last tape trade.
+  - Any empty or stale feed says so, and is never filled with made-up bars.
+- [ ] **Fuse cards restart when inaccurate.** An audit finds every Fuse card whose numbers came from bad or missing data and flags it on the card ("data was wrong since …"). One press restarts it with a fresh record, and the old one stays in history.
+  - The owner presses the restart on his real card; Claude never restarts a real-money card by itself (§1).
 - [ ] **Phones, foldables and iPhone Duo get an official clean Desk look** (owner 2026-11-20: "so they can always work on the go … no battery burn or cell data burn").
   - **Layout:** one monitor at a time with swipe between them, the chat as a bottom sheet, the cabinet as a drawer list, and the widgets as a swipe row.
   - **iPhone Duo:** it inherits the Duo layout the trench dash already has (the owner loves it). The outer screen gets the chat + proof status; the open inner screen gets a monitor + chat side by side. It changes live on hinge posture, for agent desks and the desktop alike.

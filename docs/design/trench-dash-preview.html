@@ -86,8 +86,8 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
 .rail .agent{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7ff7c4,#0f7f52 60%,#05271a);box-shadow:0 0 0 2px var(--panel-solid),0 0 0 3px color-mix(in srgb,var(--accent) 60%,transparent);margin-bottom:4px}
 
 /* center */
-.center{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0;overflow-y:auto;scrollbar-width:none}
-.head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 14px;flex:none}
+.center{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:9px 14px;flex:none}
 .coin{display:flex;align-items:center;gap:12px;min-width:0}
 .avatar{width:44px;height:44px;border-radius:50%;flex:none;position:relative;background:radial-gradient(circle at 30% 30%,#ffd8a8,#c0662b 55%,#3b1a0a);box-shadow:0 0 0 2px var(--panel-solid),0 0 0 3px var(--line-2)}
 .avatar::after{content:"";position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:conic-gradient(from 200deg,#9945ff,#14f195,#9945ff);box-shadow:0 0 0 2px var(--panel-solid)}
@@ -116,7 +116,7 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
 .passport .sp{flex:1}
 .link{font-size:11.5px;color:var(--accent);white-space:nowrap}
 
-.mon{display:flex;flex-direction:column;padding:6px;flex:1 0 360px;min-height:360px}
+.mon{display:flex;flex-direction:column;padding:6px;flex:1;min-height:260px}
 .tools{display:flex;align-items:center;gap:6px;padding:2px 4px 8px;flex-wrap:wrap}
 .tf{display:flex;gap:1px;padding:2px;border-radius:7px;background:var(--line)}
 .tf button{padding:2px 8px;border-radius:5px;font:500 11px var(--f-data);color:var(--fg-2)}
@@ -134,94 +134,105 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
 .score b{font:500 12px var(--f-data)}.score small{font-size:10.5px;letter-spacing:.08em;color:var(--warn)}
 .wm{position:absolute;inset:0;display:grid;place-items:center;font:800 64px var(--f-ui);letter-spacing:.3em;color:var(--fg);opacity:.025;pointer-events:none;z-index:1}
 
-.lower{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;flex:none}
-.pane{padding:10px 12px;min-width:0}
-.pane-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.pane-h .sp{flex:1}
-.tape{display:grid;gap:1px;font-size:11.5px;max-height:150px;overflow:hidden}
-.tr{display:grid;grid-template-columns:54px 40px 1fr 1fr 80px;gap:8px;padding:3px 6px;border-radius:5px;align-items:center;white-space:nowrap}
+
+/* flip cards: a quick turn on the Y axis (two-phase so glass blur keeps working) */
+.flip{position:relative;min-height:0;min-width:0;transition:transform .2s cubic-bezier(.4,0,.2,1)}
+.flip.turn{transform:perspective(1400px) rotateY(90deg) scale(.98)}
+.face{height:100%;display:flex;flex-direction:column;min-height:0}
+.face[hidden]{display:none!important}
+.fh{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);flex:none}
+.fh b{font-size:12.5px}.fh .sp{flex:1}
+.turnbtn{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:3px 9px;border-radius:20px;border:1px solid var(--line-2);color:var(--fg-2)}
+.turnbtn:hover{color:var(--fg);border-color:var(--accent)}
+.turnbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.turnbtn .badge{font:600 10px var(--f-data);background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:0 5px}
+.win{display:flex;gap:1px;padding:2px;border-radius:6px;background:var(--line)}
+.win button{font:500 10.5px var(--f-data);padding:1px 7px;border-radius:4px;color:var(--fg-2)}
+.win button[aria-pressed="true"]{background:var(--panel-solid);color:var(--fg)}
+
+/* tape card */
+.tapecard{flex:none;height:232px}
+.tape{overflow:hidden;flex:1;padding:4px 6px}
+.tr{display:grid;grid-template-columns:62px 42px 70px 74px 1fr 92px 26px;gap:8px;padding:4px 6px;border-radius:5px;align-items:center;white-space:nowrap;font-size:11.5px}
 .tr.new{animation:flash 1.2s ease-out}
-.tr.b.new{--fl:var(--accent-soft)}.tr.s.new{--fl:var(--bad-soft)}
+.tr.b{--fl:var(--accent-soft)}.tr.s{--fl:var(--bad-soft)}
 @keyframes flash{from{background:var(--fl);transform:translateY(-4px)}to{background:transparent;transform:none}}
-.tr .w{color:var(--fg-3);overflow:hidden;text-overflow:ellipsis}
-.tr .t{color:var(--fg-3)}
-.dr{display:grid;gap:8px}
-.order{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--line)}
+.tr .t,.tr .w{color:var(--fg-3)}.tr .w{overflow:hidden;text-overflow:ellipsis}
+.tr .flag{font:600 9.5px var(--f-data);padding:0 4px;border-radius:3px;margin-left:4px}
+.tr .flag.f{background:var(--bad-soft);color:var(--bad)}.tr .flag.n{background:var(--accent-soft);color:var(--accent)}
+.tr .whale{color:var(--warn)}
+.tr .ins{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--fg-3)}
+.tr .ins:hover{background:var(--line);color:var(--accent)}
+.tr .ins svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.thead{color:var(--fg-3);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding-top:6px}
+
+/* flow (back of tape) */
+.flow{flex:1;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;padding:10px 12px;min-height:0}
+.read{display:flex;flex-direction:column;gap:8px;min-width:0}
+.verdict{display:flex;align-items:center;gap:10px}
+.vpill{font:700 13px var(--f-data);letter-spacing:.14em;padding:4px 12px;border-radius:8px;border:1px solid}
+.vpill.pump{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:var(--accent-soft)}
+.vpill.dump{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 50%,transparent);background:var(--bad-soft)}
+.vpill.chop{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent);background:var(--warn-soft)}
+.vpill.thin{color:var(--fg-2);border-color:var(--line-2);background:var(--line)}
+.why{font-size:11.5px;color:var(--fg-2);line-height:1.35}
+.why b{color:var(--fg);font-weight:600}
+.conf{display:flex;align-items:center;gap:6px;font:10.5px var(--f-data);color:var(--fg-3)}
+.conf i{display:inline-block;width:5px;height:10px;border-radius:2px;background:var(--line-2)}
+.conf i.on{background:var(--accent)}
+.share{position:relative;height:8px;border-radius:5px;background:var(--bad);overflow:hidden}
+.share i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.share em{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--fg);opacity:.5}
+.sharelab{display:flex;justify-content:space-between;font:10.5px var(--f-data);color:var(--fg-3)}
+.grid10{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.cell{padding:4px 6px;border-radius:6px;background:var(--line);min-width:0}
+.cell span{display:block;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell b{display:block;font:500 12px var(--f-data);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wallets{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wl{display:grid;grid-template-columns:78px minmax(0,1fr) 66px;gap:8px;align-items:center;font:11px var(--f-data)}
+.wl .n{color:var(--fg-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wl .n .flag{font-size:9px;color:var(--bad)}
+.div{position:relative;height:8px}
+.div::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line-2)}
+.div i{position:absolute;top:1px;bottom:1px;border-radius:3px;transition:all .5s cubic-bezier(.2,.8,.2,1)}
+.wl .v{text-align:right}
+.wtitle{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+
+/* trade / chat card */
+.right{display:flex;flex-direction:column;min-height:0;min-width:0}
+.tcc{flex:1}
+.tabs2{display:flex;gap:1px;padding:2px;border-radius:7px;background:var(--line);margin:10px 12px 0}
+.tabs2 button{flex:1;padding:4px;border-radius:5px;font-size:11.5px;color:var(--fg-2)}
+.tabs2 button[aria-pressed="true"]{background:var(--panel-solid);color:var(--fg)}
+.tbody{padding:10px 12px;overflow-y:auto;flex:1;scrollbar-width:none}
+.order{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);margin-bottom:8px}
 .order .lab{font-weight:600;font-size:12px}
 .order small{display:block;color:var(--fg-3);font:11px var(--f-data)}
 .order .sp{flex:1}
 .order button{font-size:11.5px;padding:4px 10px;border-radius:6px;border:1px solid var(--line-2)}
 .order.buy .lab{color:var(--accent)}.order.sell .lab{color:var(--bad)}
+.trig{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+.trig label{font-size:10.5px;color:var(--fg-3);display:grid;gap:3px}
+.trig input{padding:6px 8px;border-radius:7px;border:1px solid var(--line-2);background:var(--panel-solid);color:var(--fg);font:12px var(--f-data);min-width:0}
 
-/* right column */
-.right{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
-.trade{padding:12px;flex:none}
-.trade-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.trade-h b{font-size:13px}
-.trade-h .sp{flex:1}
-.gear{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);display:grid;place-items:center}
-.gear svg{width:13px;height:13px;stroke:var(--fg-2);fill:none;stroke-width:1.8}
-.side{display:grid;grid-template-columns:1fr 1fr;padding:3px;border-radius:9px;background:var(--line);margin-bottom:10px}
-.side button{padding:7px;border-radius:7px;font-weight:700;letter-spacing:.06em;font-size:12px;color:var(--fg-2)}
-.side button[aria-pressed="true"].buy{background:var(--accent);color:var(--accent-ink)}
-.side button[aria-pressed="true"].sell{background:var(--bad);color:#fff}
-.amt-h{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--fg-3);margin-bottom:6px}
-.mini{display:flex;padding:2px;border-radius:6px;background:var(--line)}
-.mini button{font:500 10.5px var(--f-data);padding:1px 7px;border-radius:4px;color:var(--fg-2)}
-.mini button[aria-pressed="true"]{background:var(--panel-solid);color:var(--fg)}
-.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:6px}
-.presets button{padding:6px 0;border-radius:7px;border:1px solid var(--line);font:500 11.5px var(--f-data);color:var(--fg-2)}
-.presets button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-.amt{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel-solid)}
-.amt input{flex:1;min-width:0;border:0;background:none;color:var(--fg);font:500 14px var(--f-data);outline:0}
-.amt span{font:11px var(--f-data);color:var(--fg-3)}
-.shield{margin-top:10px;border-radius:9px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-soft);padding:9px 10px;font-size:11.5px}
-.shield summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none;font-weight:600;color:var(--bad)}
-.shield summary::-webkit-details-marker{display:none}
-.shield summary svg{width:14px;height:14px;fill:var(--bad)}
-.shield summary .sp{flex:1}
-.shield summary em{font:normal 10.5px var(--f-data);color:var(--fg-3)}
-.shield ul{margin:7px 0 6px;padding-left:16px;color:var(--fg-2);display:grid;gap:3px}
-.shield label{display:flex;gap:7px;align-items:flex-start;color:var(--fg-2);margin-top:6px}
-.shield input{accent-color:var(--bad);margin-top:2px}
-.note{margin-top:8px;font-size:11px;color:var(--warn);line-height:1.4}
-.go{position:relative;overflow:hidden;width:100%;margin-top:9px;padding:10px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;box-shadow:0 8px 24px -10px var(--accent)}
-.go.sell{background:var(--bad);color:#fff;box-shadow:0 8px 24px -10px var(--bad)}
-.go[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
-.ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);transform:scale(0);animation:rip .55s ease-out forwards;pointer-events:none}
-@keyframes rip{to{transform:scale(4);opacity:0}}
-.route{margin-top:7px;font-size:10.5px;color:var(--fg-3);text-align:center}
-
-.cchat{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;min-height:0;flex:1}
-.pulse{padding:10px 12px;border-bottom:1px solid var(--line)}
-.pulse-h{display:flex;align-items:center;gap:8px;font-size:11.5px}
-.pulse-h b{font-size:10.5px;letter-spacing:.1em;color:var(--accent)}
-.pulse-h .sp{flex:1}
-.pulse-nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
-.pulse-nums div{font-size:10.5px;color:var(--fg-3)}
-.pulse-nums b{display:block;font:500 12.5px var(--f-data);color:var(--fg)}
-.buys{height:4px;border-radius:3px;background:var(--bad);margin-top:7px;overflow:hidden}
-.buys i{display:block;height:100%;width:63%;background:var(--accent)}
-.feed{overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}
-.m{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;font-size:12.5px}
-.m .av{width:24px;height:24px;border-radius:50%}
-.m .who{display:flex;align-items:baseline;gap:6px;font-size:11px;color:var(--fg-3)}
-.m .who b{color:var(--fg);font-weight:600;font-size:12px}
-.m .who .hold{font:10px var(--f-data);padding:0 4px;border-radius:4px;background:var(--accent-soft);color:var(--accent)}
-.m .who time{margin-left:auto;font:10.5px var(--f-data)}
-.m p{margin:1px 0 0}
-.call{margin-top:5px;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);font-size:11.5px}
-.call .sp{flex:1}
-.call .sig{font:10px var(--f-data);color:var(--accent)}
-.gate{margin:0 10px;padding:6px 10px;border-radius:7px;background:var(--warn-soft);color:var(--warn);font-size:11px;display:flex;gap:6px;align-items:center}
-.gate svg{width:12px;height:12px;fill:currentColor;flex:none}
-.composer{padding:8px 10px 10px}
-.box{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 10px;border:1px solid var(--line-2);border-radius:10px;background:var(--panel-solid)}
-.box input{flex:1;min-width:0;border:0;background:none;color:var(--fg);font:12.5px var(--f-ui);outline:0}
-.box input::placeholder{color:var(--fg-3)}
-.box .ib{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--fg-3)}
-.box .ib svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
-.box .send{background:var(--accent);color:var(--accent-ink)}
+/* tools popover + popout window */
+.tools{position:relative}
+.pop{position:absolute;right:4px;top:34px;z-index:20;width:320px;padding:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);animation:pin .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes pin{from{opacity:0;transform:translateY(-6px) scale(.98)}}
+.pop button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 4px;border-radius:8px;font-size:11px;color:var(--fg-2)}
+.pop button:hover{background:var(--line);color:var(--fg)}
+.pop .ic{width:20px;height:20px}
+.modal{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(0,0,0,.35);padding:16px}
+.win2{width:min(560px,100%);max-height:80vh;overflow:auto;padding:0;animation:pin .22s cubic-bezier(.2,.8,.2,1);background:var(--panel-solid)}
+.win2 .fh b{font-size:13px}
+.win2 .x{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--fg-2)}
+.win2 .x:hover{background:var(--line)}
+.wbody{padding:12px;font-size:12.5px;display:grid;gap:8px}
+.tbl{width:100%;border-collapse:collapse;font:11.5px var(--f-data)}
+.tbl td,.tbl th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}
+.tbl th{font:500 10px var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+.hbar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}.hbar i{display:block;height:100%;background:var(--warn)}
+.sample{font:500 10px var(--f-data);color:var(--fg-3);border:1px dashed var(--line-2);border-radius:4px;padding:1px 5px}
 
 .tips{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:6px;font-size:11.5px;padding:5px 10px;border-radius:20px}
 .tips b{color:var(--accent)}
@@ -231,7 +242,7 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
   body{overflow:auto}.app{height:auto;min-height:100%}
   .main{grid-template-columns:1fr}.rail{flex-direction:row;padding:4px;overflow-x:auto}.rail hr,.rail .tip{display:none}.rail .agent{margin:0 4px 0 0}
   .center{overflow:visible}.head{grid-template-columns:1fr auto}.stats{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:10px}.stats .st:nth-child(n+4){display:block}.st:nth-child(odd){border-left:0;padding-left:0}
-  .lower{grid-template-columns:1fr}.cchat{height:560px;flex:none}.bar .seg:not(.keep){display:none}
+  .tapecard{height:auto}.flow{grid-template-columns:1fr}.grid10{grid-template-columns:repeat(2,minmax(0,1fr))}.tr{grid-template-columns:54px 38px 62px 1fr 26px}.tr .px,.tr .w{display:none}.tcc{height:640px;flex:none}.mon{min-height:340px}.center{overflow:visible}.bar .seg:not(.keep){display:none}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -324,11 +335,22 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
           <span class="sp"></span>
           <button class="tg" aria-pressed="true" id="tVol"><svg viewBox="0 0 24 24"><path d="M5 20V12M10 20V6M15 20v-9M20 20V9"/></svg>Volume</button>
           <button class="tg" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M3 11l15-6v14L3 13z"/><path d="M7 13v5"/></svg>Calls</button>
-          <button class="tg" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 10h4.5a1.5 1.5 0 0 1 0 3H10a1.5 1.5 0 0 0 0 3h4"/></svg>Fee</button>
-          <button class="tg" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>Wide</button>
           <button class="tg" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>Alert</button>
-          <button class="tg" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>Neo</button>
-          <button class="tg" aria-label="Pop out"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5"/></svg></button>
+          <button class="tg" id="toolsBtn" aria-expanded="false"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>Tools <span class="chip">12</span></button>
+          <div class="pop glass" id="pop" hidden>
+            <button data-tool="holders"><svg class="ic warm"><use href="#i-crown"/></svg>Holders</button>
+            <button data-tool="bundles"><svg class="ic red"><use href="#i-bolt"/></svg>Snipers + bundles</button>
+            <button data-tool="dev"><svg class="ic blue"><use href="#i-flask"/></svg>Dev history</button>
+            <button data-tool="case"><svg class="ic"><use href="#i-shield"/></svg>Case file</button>
+            <button data-tool="fee"><svg class="ic"><use href="#i-bars"/></svg>Fee view</button>
+            <button data-tool="wide"><svg class="ic blue"><use href="#i-desk"/></svg>Wide chart</button>
+            <button data-tool="neo"><svg class="ic"><use href="#i-spark"/></svg>Neo read</button>
+            <button data-tool="calls"><svg class="ic warm"><use href="#i-signal"/></svg>Calls log</button>
+            <button data-tool="alerts"><svg class="ic warm"><use href="#i-star"/></svg>Price alerts</button>
+            <button data-tool="fuse"><svg class="ic red"><use href="#i-flame"/></svg>Fuse card</button>
+            <button data-tool="gif"><svg class="ic"><use href="#i-rocket"/></svg>Share GIF</button>
+            <button data-tool="docs"><svg class="ic blue"><use href="#i-doc"/></svg>Why this read</button>
+          </div>
         </div>
         <div class="screen">
           <div class="score"><span class="ring" style="--v:63"><span>C</span></span><b>63<span style="color:var(--fg-3)">/100</span></b><small>WATCH</small></div>
@@ -337,61 +359,78 @@ button:focus-visible,input:focus-visible{outline:1.5px solid var(--accent);outli
         </div>
       </article>
 
-      <div class="lower">
-        <div class="pane glass">
-          <div class="pane-h"><span class="k">Tape</span><span class="chip live" id="tapeN">live</span><span class="sp"></span><span class="chip">1,030 trades · 5m</span></div>
+      <div class="tapecard glass flip" id="tapeCard">
+        <div class="face" id="tapeFront">
+          <div class="fh"><span class="dot"></span><b>Live tape</b><span class="chip" id="tapeSum">—</span><span class="sp"></span><button class="turnbtn" data-turn="tapeCard" type="button"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>Flow read</button></div>
+          <div class="tr thead"><span>Time</span><span>Side</span><span>USD</span><span>SOL</span><span class="px">Price · MC</span><span class="w">Wallet</span><span></span></div>
           <div class="tape" id="tape"></div>
         </div>
-        <div class="pane glass">
-          <div class="pane-h"><span class="k">Dip and rip</span><span class="sp"></span><span class="chip">limit · paper until signed</span></div>
-          <div class="dr">
-            <div class="order buy"><div><span class="lab">Buy the dip</span><small>at −20% · $78.3K MC · 0.05 SOL</small></div><span class="sp"></span><button type="button">Set</button></div>
-            <div class="order sell"><div><span class="lab">Sell the rip</span><small>at +50% · $146.9K MC · 50%</small></div><span class="sp"></span><button type="button">Set</button></div>
+        <div class="face" id="tapeBack" hidden>
+          <div class="fh"><span class="dot"></span><b>Flow read</b><div class="win" role="group" aria-label="Window" id="win"><button aria-pressed="true" data-w="60">60s</button><button aria-pressed="false" data-w="300">5m</button><button aria-pressed="false" data-w="900">15m</button></div><span class="sp"></span><span class="sample">from the same trades as the tape</span><button class="turnbtn" data-turn="tapeCard" type="button"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>Tape</button></div>
+          <div class="flow">
+            <div class="read">
+              <div class="verdict"><span class="vpill thin" id="vPill">THIN</span><div class="why" id="vWhy">Waiting for trades.</div></div>
+              <div><div class="share"><i id="shareBar" style="width:50%"></i><em></em></div><div class="sharelab"><span id="shB">buys —</span><span>by $, not by count</span><span id="shS">sells —</span></div></div>
+              <div class="grid10" id="cells"></div>
+              <div class="conf" id="conf"></div>
+            </div>
+            <div class="wallets"><div class="wtitle"><span>Net by wallet</span><span>sold ◂ ▸ bought</span></div><div id="wl"></div></div>
           </div>
         </div>
       </div>
     </section>
 
     <aside class="right">
-      <div class="trade glass">
-        <div class="trade-h"><svg class="ic" style="width:16px;height:16px"><use href="#i-bolt"/></svg><b>Quick trade</b><span class="sp"></span><span class="chip live">Slip 1%</span><button class="gear" aria-label="Trade settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button></div>
-        <div class="side" role="group" aria-label="Side"><button class="buy" aria-pressed="true" data-side="buy">BUY</button><button class="sell" aria-pressed="false" data-side="sell">SELL</button></div>
-        <div class="amt-h"><span>Amount in</span><div class="mini" role="group" aria-label="Unit"><button aria-pressed="true">SOL</button><button aria-pressed="false">USD</button></div></div>
-        <div class="presets" id="presets"><button aria-pressed="true" data-v=".01">.01</button><button aria-pressed="false" data-v="0.05">0.05</button><button aria-pressed="false" data-v="0.25">0.25</button><button aria-pressed="false" data-v="1">1</button></div>
-        <div class="amt"><input id="amt" value=".01" inputmode="decimal" aria-label="Amount in SOL"><span id="amtUsd">≈ $2.11</span></div>
-        <details class="shield" open>
-          <summary><svg viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/></svg>Rug shield: high risk<span class="sp"></span><em>3 flags</em></summary>
-          <ul>
-            <li>The creator's wallet snipes and bundles its launches (40 on record, no rug reported on this one).</li>
-            <li>8 wallets bought in the same block as the mint: a bundled launch.</li>
-            <li>6 wallets sniped within about 1 second of launch.</li>
-          </ul>
-          <button class="link" type="button">Investigate coin + creator →</button>
-          <label><input type="checkbox" id="ack">I understand the risk. Let me buy anyway.</label>
-        </details>
-        <div class="note">Not enough SOL: you have 0.0111 SOL. The most you can swap is 0.0066 SOL; about 0.0045 SOL stays for network fees and account rent.</div>
-        <button class="go" id="go" disabled>Tick the risk box to quote</button>
-        <div class="route">Jupiter route · simulated before you sign · non-custodial</div>
-      </div>
-
-      <div class="cchat glass">
-        <div class="pulse">
-          <div class="pulse-h"><svg class="ic" style="width:15px;height:15px"><use href="#i-bolt"/></svg><b>PUMP PULSE</b><span class="sp"></span><span class="chip">#coin-penny</span></div>
-          <div class="pulse-nums"><div>5m<b class="up">+30.9%</b></div><div>Trades<b>1,030</b></div><div>Buys<b>63%</b></div><div>Vol<b>$37.7K</b></div></div>
-          <div class="buys"><i></i></div>
+      <div class="tcc glass flip" id="tcc">
+        <div class="face" id="tradeFace">
+          <div class="fh"><svg class="ic" style="width:16px;height:16px"><use href="#i-bolt"/></svg><b>Quick trade</b><span class="chip live">Slip 1%</span><button class="gear" aria-label="Trade settings" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button><span class="sp"></span><button class="turnbtn" data-turn="tcc" type="button"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat <span class="badge" id="unread">2</span></button></div>
+          <div class="tabs2" role="group" aria-label="Order type" id="otab"><button aria-pressed="true" data-o="mkt">Market</button><button aria-pressed="false" data-o="dr">Dip &amp; rip</button></div>
+          <div class="tbody" id="mkt">
+            <div class="side" role="group" aria-label="Side"><button class="buy" aria-pressed="true" data-side="buy">BUY</button><button class="sell" aria-pressed="false" data-side="sell">SELL</button></div>
+            <div class="amt-h"><span>Amount in</span><div class="mini" role="group" aria-label="Unit"><button aria-pressed="true">SOL</button><button aria-pressed="false">USD</button></div></div>
+            <div class="presets" id="presets"><button aria-pressed="true" data-v=".01">.01</button><button aria-pressed="false" data-v="0.05">0.05</button><button aria-pressed="false" data-v="0.25">0.25</button><button aria-pressed="false" data-v="1">1</button></div>
+            <div class="amt"><input id="amt" value=".01" inputmode="decimal" aria-label="Amount in SOL"><span id="amtUsd">≈ $2.11</span></div>
+            <details class="shield" open>
+              <summary><svg viewBox="0 0 24 24"><path d="M12 2l9 4v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/></svg>Rug shield: high risk<span class="sp"></span><em>3 flags</em></summary>
+              <ul>
+                <li>The creator's wallet snipes and bundles its launches (40 on record).</li>
+                <li>8 wallets bought in the mint's block: a bundled launch.</li>
+                <li>6 wallets sniped within about 1 second of launch.</li>
+              </ul>
+              <button class="link" type="button" data-tool="dev">Investigate coin + creator →</button>
+              <label><input type="checkbox" id="ack">I understand the risk. Let me buy anyway.</label>
+            </details>
+            <div class="note">Not enough SOL: you have 0.0111 SOL. The most you can swap is 0.0066 SOL; about 0.0045 SOL stays for fees and rent.</div>
+            <button class="go" id="go" disabled>Tick the risk box to quote</button>
+            <div class="route">Jupiter route · simulated before you sign · non-custodial</div>
+          </div>
+          <div class="tbody" id="dr" hidden>
+            <div class="order buy"><div><span class="lab">Buy the dip</span><small>at −20% · <span id="dipMc">$78.3K</span> MC · 0.05 SOL</small></div><span class="sp"></span><button type="button">Set</button></div>
+            <div class="order sell"><div><span class="lab">Sell the rip</span><small>at +50% · <span id="ripMc">$146.9K</span> MC · 50%</small></div><span class="sp"></span><button type="button">Set</button></div>
+            <div class="trig"><label>Trigger MC<input id="trigMc" value="85000" inputmode="numeric"></label><label>Amount SOL<input value="0.02" inputmode="decimal"></label></div>
+            <div class="route" style="text-align:left;margin-top:10px">An order waits on our side and asks your wallet to sign when it fires. Nothing is held for you.</div>
+          </div>
         </div>
-        <div class="feed" id="feed">
-          <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#a8d8ff,#2b6cc0 60%,#0a1b3b)"></span><div><div class="who"><b>whaleboy</b><span class="hold">$412</span><time>04:21</time></div><p>Dev is the same wallet as FROG and BLIP. Careful under 80K.</p></div></div>
-          <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#7ff7c4,#0f7f52 60%,#05271a)"></span><div><div class="who"><b>Happy</b><span class="hold">agent</span><time>04:23</time></div><p>Paper call, for watching only.</p>
-            <div class="call"><span class="up num">BUY</span><span class="num">$92.9K MC</span><span class="sp"></span><span class="sig">signed · 2 of 2 agree</span></div></div></div>
-          <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#ffd8a8,#c0662b 60%,#3b1a0a)"></span><div><div class="who"><b>pennyprincess</b><span class="hold">$58</span><time>04:25</time></div><p>Volume came back on the 1m. Holding.</p></div></div>
+        <div class="face" id="chatFace" hidden>
+          <div class="fh"><svg class="ic" style="width:16px;height:16px"><use href="#i-chat"/></svg><b>Coin chat</b><span class="chip">#coin-penny</span><span class="sp"></span><button class="turnbtn" data-turn="tcc" type="button"><svg viewBox="0 0 24 24"><path d="M13 2L5 13h6l-1 9 8-11h-6z"/></svg>Trade</button></div>
+          <div class="pulse">
+            <div class="pulse-h"><b>PUMP PULSE</b><span class="sp"></span><span class="chip" id="pTr">—</span></div>
+            <div class="pulse-nums"><div>5m<b id="p5">—</b></div><div>Trades<b id="pN">—</b></div><div>Buys<b id="pB">—</b></div><div>Vol<b id="pV">—</b></div></div>
+            <div class="buys"><i id="pBar"></i></div>
+          </div>
+          <div class="feed" id="feed" style="flex:1;min-height:0">
+            <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#a8d8ff,#2b6cc0 60%,#0a1b3b)"></span><div><div class="who"><b>whaleboy</b><span class="hold">$412</span><time>04:21</time></div><p>Dev is the same wallet as FROG and BLIP. Careful under 80K.</p></div></div>
+            <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#7ff7c4,#0f7f52 60%,#05271a)"></span><div><div class="who"><b>Happy</b><span class="hold">agent</span><time>04:23</time></div><p>Paper call, for watching only.</p><div class="call"><span class="up num">BUY</span><span class="num">$92.9K MC</span><span class="sp"></span><span class="sig">signed · 2 of 2 agree</span></div></div></div>
+            <div class="m"><span class="av" style="background:radial-gradient(circle at 30% 30%,#ffd8a8,#c0662b 60%,#3b1a0a)"></span><div><div class="who"><b>pennyprincess</b><span class="hold">$58</span><time>04:25</time></div><p>Volume came back on the 1m. Holding.</p></div></div>
+          </div>
+          <div class="gate"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>Hold ≥ $1 of PENNY to chat here · you hold $0.00</div>
+          <form class="composer" id="form"><div class="box"><button class="ib" type="button" aria-label="Tools"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button><input id="q" placeholder="Drop alpha, $TICKER, CA… or / for commands" autocomplete="off"><button class="ib" type="button" aria-label="Voice"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="ib send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></form>
         </div>
-        <div class="gate"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/></svg>Hold ≥ $1 of PENNY to chat here · you hold $0.00</div>
-        <form class="composer" id="form"><div class="box"><button class="ib" type="button" aria-label="Tools"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button><input id="q" placeholder="Drop alpha, $TICKER, CA… or / for commands" autocomplete="off"><button class="ib" type="button" aria-label="Voice"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button><button class="ib send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></form>
       </div>
     </aside>
   </div>
 </div>
+<div class="modal" id="modal" hidden><div class="win2 glass" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="fh"><b id="mTitle">Tool</b><span class="sample">sample data</span><span class="sp"></span><button class="x" id="mClose" aria-label="Close" type="button">✕</button></div><div class="wbody" id="mBody"></div></div></div>
 <div class="tips glass"><b>3 tips</b> · <button type="button" id="skip" style="color:var(--fg-3)">skip</button></div>
 
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -443,7 +482,7 @@ function sparks(){document.querySelectorAll('.st canvas').forEach(c=>{const d=fi
 sparks();addEventListener('resize',sparks);
 
 /* ---- chart: market cap candles + volume ---- */
-const SUPPLY=1e9,SOLUSD=211;let chart,cs,vs,scale='mc';const el=document.getElementById('chart');
+const SUPPLY=1e9,SOLUSD=211;let chart,cs,vs,scale='mc';window.__push=()=>{};const el=document.getElementById('chart');
 const fmtK=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'M':'$'+(v/1e3).toFixed(1)+'K';
 const fmtPx=v=>'$'+(v/SUPPLY).toFixed(7);
 let s=21;const rnd=()=>{s=(s*16807)%2147483647;return s/2147483647};
@@ -464,36 +503,102 @@ if(window.LightweightCharts){
   document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{scale=b.dataset.sc;document.querySelectorAll('[data-sc]').forEach(x=>x.setAttribute('aria-pressed',x===b));
     cs.applyOptions({priceFormat:{type:'custom',minMove:1,formatter:v=>scale==='mc'?fmtK(v):fmtPx(v)}})});
   document.getElementById('tVol').addEventListener('click',e=>vs.applyOptions({visible:e.currentTarget.getAttribute('aria-pressed')==='true'}));
-  let lb={...bars[bars.length-1]};
-  setInterval(()=>{const c=Math.max(30000,lb.close*(1+(Math.random()-.47)*.025));lb={...lb,close:c,high:Math.max(lb.high,c),low:Math.min(lb.low,c)};cs.update(lb);
-    document.getElementById('sMc').textContent=fmtK(c);document.getElementById('sPx').textContent=fmtPx(c)},lite?4000:1200);
+  window.__lb={...bars[bars.length-1]};
+  window.__push=(t,mcNow)=>{let lb=window.__lb;const bt=Math.floor(t/60)*60;if(bt>lb.time){lb={time:bt,open:lb.close,high:Math.max(lb.close,mcNow),low:Math.min(lb.close,mcNow),close:mcNow};vols.push({time:bt,value:0,up:true})}
+    else lb={...lb,close:mcNow,high:Math.max(lb.high,mcNow),low:Math.min(lb.low,mcNow)};window.__lb=lb;cs.update(lb);
+    document.getElementById('sMc').textContent=fmtK(mcNow);document.getElementById('sPx').textContent=fmtPx(mcNow)};
 }else el.innerHTML='<p style="padding:60px 14px;color:var(--fg-3)">The chart library did not load.</p>';
 
-/* ---- tape ---- */
-const tape=document.getElementById('tape'),names=['7xKp…q2','9fRt…mA','Bv3n…Lw','D4sQ…8z','Hq1c…Yt','Mm7e…Pf','Zx2a…Rk'];
-function row(isNew){const buy=Math.random()<.63,sol=(Math.random()**2*2.4+.01),d=new Date();const t=d.toTimeString().slice(0,8);
-  const r=document.createElement('div');r.className='tr '+(buy?'b':'s')+(isNew?' new':'');
-  r.innerHTML=`<span class="t num">${t}</span><span class="${buy?'up':'dn'}" style="font-weight:600">${buy?'BUY':'SELL'}</span><span class="num">${sol.toFixed(3)} SOL</span><span class="num" style="color:var(--fg-2)">$${(sol*SOLUSD).toFixed(2)}</span><span class="w num">${names[Math.floor(Math.random()*names.length)]}</span>`;
-  tape.prepend(r);while(tape.children.length>8)tape.lastChild.remove()}
-for(let i=0;i<7;i++)row(false);setInterval(()=>row(true),lite?5000:1800);
+/* ---- one trade stream: the tape, flow read, pulse and chart all read this array ---- */
+const WAL=[['7xKp…q2'],['9fRt…mA'],['Bv3n…Lw'],['D4sQ…8z'],['Hq1c…Yt',1],['Mm7e…Pf'],['Zx2a…Rk'],['4poP…BhEi',1],['K37s…cwsg'],['Gxic…hLxy'],['BD1G…5Gbt'],['4gTm…MT6H']];
+const seen=new Set(),trades=[];let mcNow=(window.__lb||{close:92900}).close;
+function mk(t){const buy=Math.random()<.58,[w,flag]=WAL[Math.floor(Math.random()*WAL.length)];const big=Math.random()<.05;
+  const usd=big?300+Math.random()*700:Math.random()**2*90+.5;const fresh=buy&&!seen.has(w);seen.add(w);
+  mcNow=Math.max(30000,mcNow*(1+(buy?1:-1)*usd/ (mcNow*.06)));return{t,buy,usd,sol:usd/SOLUSD,w,flag:!!flag,fresh,mc:mcNow}}
+const now0=Date.now()/1000;for(let i=0;i<70;i++){const tr=mk(now0-900+i*12.8);trades.push(tr)}
+{const goal=(window.__lb||{close:mcNow}).close,f=goal/mcNow;trades.forEach(x=>x.mc*=f);mcNow=goal}
+const tape=document.getElementById('tape'),ts=t=>new Date(t*1000).toTimeString().slice(0,8);
+const fK=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'M':v>=1e3?'$'+(v/1e3).toFixed(1)+'K':'$'+v.toFixed(2);
+function rowEl(tr,isNew){const r=document.createElement('div');r.className='tr '+(tr.buy?'b':'s')+(isNew?' new':'');
+  r.innerHTML=`<span class="t num">${ts(tr.t)}</span><span class="${tr.buy?'up':'dn'}" style="font-weight:600">${tr.buy?'BUY':'SELL'}</span><span class="num ${tr.usd>300?'whale':''}">$${tr.usd.toFixed(2)}</span><span class="num" style="color:var(--fg-2)">${tr.sol.toFixed(3)}</span><span class="num px" style="color:var(--fg-2)">$${(tr.mc/SUPPLY).toFixed(8)} · ${fK(tr.mc)}</span><span class="w num">${tr.w}${tr.flag?'<span class="flag f">flag</span>':tr.fresh?'<span class="flag n">new</span>':''}</span><button class="ins" type="button" aria-label="Inspect wallet" data-tool="wallet"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></button>`;return r}
+trades.slice(-8).forEach(tr=>tape.prepend(rowEl(tr,false)));
+let W=60;
+function flow(){const now=Date.now()/1000,win=trades.filter(x=>x.t>now-W),b=win.filter(x=>x.buy),sl=win.filter(x=>!x.buy);
+  const sum=a=>a.reduce((n,x)=>n+x.usd,0),bU=sum(b),sU=sum(sl),tot=bU+sU||1,share=bU/tot,n=win.length;
+  const wb=new Set(b.map(x=>x.w)),ws=new Set(sl.map(x=>x.w)),fresh=b.filter(x=>x.fresh).length;
+  const topB=Math.max(0,...b.map(x=>x.usd)),topS=Math.max(0,...sl.map(x=>x.usd)),flagS=sum(sl.filter(x=>x.flag));
+  const whB=b.filter(x=>x.usd>300).length,whS=sl.filter(x=>x.usd>300).length;
+  const p0=win.length?win[0].mc:mcNow,p1=win.length?win[win.length-1].mc:mcNow,chg=(p1/p0-1)*100;
+  const recent=trades.filter(x=>x.t>now-20),rB=sum(recent.filter(x=>x.buy)),rT=sum(recent)||1,rShare=rB/rT;
+  // verdict: needs a real sample; weighs $ not counts; a whale or flagged seller can't be hidden by many small buys
+  let v='thin',label='THIN';if(n>=8){if(share>=.62&&chg>0){v='pump';label='PUMPING'}else if(share<=.38&&chg<0){v='dump';label='DUMPING'}else{v='chop';label='CHOP'}}
+  const pill=document.getElementById('vPill');pill.className='vpill '+v;pill.textContent=label;
+  const big=topS>tot*.5?` One wallet is <b>${Math.round(topS/tot*100)}%</b> of the flow (a single seller, not a crowd).`:'';
+  document.getElementById('vWhy').innerHTML=n<8?`Only <b>${n}</b> trades in ${W>=60?W/60+'m':W+'s'}. Too few to call.`:`<b>${wb.size}</b> wallets bought ${fK(bU)}, <b>${ws.size}</b> sold ${fK(sU)}. Price ${chg>=0?'+':''}${chg.toFixed(1)}%.${big}${flagS>0?` Flagged wallets sold <b>${fK(flagS)}</b>.`:''}`;
+  document.getElementById('shareBar').style.width=(share*100).toFixed(0)+'%';
+  document.getElementById('shB').textContent='buys '+Math.round(share*100)+'%';document.getElementById('shS').textContent='sells '+(100-Math.round(share*100))+'%';
+  const mom=rShare-share,arrow=Math.abs(mom)<.08?'→ steady':mom>0?'↗ buyers stepping in':'↘ sellers stepping in';
+  const C=[['Wallets',`<span class="up">${wb.size}▲</span> <span class="dn">${ws.size}▼</span>`],['Fresh buyers',fresh],['Top buy',`<span class="up">${fK(topB)}</span>`],['Top sell',`<span class="dn">${fK(topS)}</span>`],['Flagged sold',flagS?`<span class="dn">${fK(flagS)}</span>`:'$0'],
+    ['Net flow',`<span class="${bU>=sU?'up':'dn'}">${bU>=sU?'+':'−'}${fK(Math.abs(bU-sU))}</span>`],['Avg buy / sell',`<span class="up">${fK(b.length?bU/b.length:0)}</span> / <span class="dn">${fK(sl.length?sU/sl.length:0)}</span>`],['Trades / min',(n/(W/60)).toFixed(1)],['Whales',`<span class="up">${whB}</span> · <span class="dn">${whS}</span>`],['Momentum 20s',arrow]];
+  document.getElementById('cells').innerHTML=C.map(([k,v])=>`<div class="cell"><span>${k}</span><b>${v}</b></div>`).join('');
+  const conf=n>=40?4:n>=20?3:n>=8?2:1;document.getElementById('conf').innerHTML=`confidence ${[1,2,3,4].map(i=>`<i class="${i<=conf?'on':''}"></i>`).join('')} · ${n} trades · ${new Set(win.map(x=>x.w)).size} wallets`;
+  const net={};win.forEach(x=>net[x.w]=(net[x.w]||0)+(x.buy?x.usd:-x.usd));const top=Object.entries(net).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,5);const mx=Math.max(1,...top.map(x=>Math.abs(x[1])));
+  document.getElementById('wl').innerHTML=top.map(([w,v])=>{const pct=Math.abs(v)/mx*50,fl=WAL.find(x=>x[0]===w)[1];return `<div class="wl"><span class="n">${w}${fl?' <span class="flag">●</span>':''}</span><div class="div"><i style="${v<0?`right:50%;width:${pct}%;background:var(--bad)`:`left:50%;width:${pct}%;background:var(--accent)`}"></i></div><span class="v ${v<0?'dn':'up'}">${v<0?'−':'+'}${fK(Math.abs(v))}</span></div>`}).join('')||'<div class="why">No trades in this window.</div>';
+  document.getElementById('tapeSum').textContent=`${Math.round(share*100)}% buys · ${n} trades · ${W>=60?W/60+'m':W+'s'}`;
+  const t5=trades.filter(x=>x.t>now-300),b5=sum(t5.filter(x=>x.buy)),a5=sum(t5)||1,c5=t5.length?(t5[t5.length-1].mc/t5[0].mc-1)*100:0;
+  document.getElementById('p5').innerHTML=`<span class="${c5>=0?'up':'dn'}">${c5>=0?'+':''}${c5.toFixed(1)}%</span>`;document.getElementById('pN').textContent=t5.length;document.getElementById('pB').textContent=Math.round(b5/a5*100)+'%';document.getElementById('pV').textContent=fK(a5);document.getElementById('pBar').style.width=(b5/a5*100)+'%';document.getElementById('pTr').textContent=label.toLowerCase()}
+function tick(){const tr=mk(Date.now()/1000);trades.push(tr);while(trades.length>400)trades.shift();tape.prepend(rowEl(tr,true));while(tape.children.length>8)tape.lastChild.remove();window.__push(tr.t,tr.mc);flow()}
+flow();setInterval(tick,lite?5000:1700);
+document.getElementById('win').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;W=+b.dataset.w;document.querySelectorAll('#win button').forEach(x=>x.setAttribute('aria-pressed',x===b));flow()});
+
+/* ---- flip cards ---- */
+function turn(id){const card=document.getElementById(id),faces=[...card.querySelectorAll(':scope>.face')];if(reduce){faces.forEach(f=>f.hidden=!f.hidden);return}
+  card.classList.add('turn');setTimeout(()=>{faces.forEach(f=>f.hidden=!f.hidden);card.classList.remove('turn');if(id==='tcc'&&!document.getElementById('chatFace').hidden)document.getElementById('unread').hidden=true},200)}
+document.querySelectorAll('[data-turn]').forEach(b=>b.addEventListener('click',()=>turn(b.dataset.turn)));
+document.getElementById('otab').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#otab button').forEach(x=>x.setAttribute('aria-pressed',x===b));document.getElementById('mkt').hidden=b.dataset.o!=='mkt';document.getElementById('dr').hidden=b.dataset.o!=='dr'});
+
+/* ---- tools popover + popout windows ---- */
+const pop=document.getElementById('pop'),tb=document.getElementById('toolsBtn');
+tb.addEventListener('click',e=>{e.stopPropagation();pop.hidden=!pop.hidden;tb.setAttribute('aria-expanded',!pop.hidden)});
+document.addEventListener('click',e=>{if(!pop.hidden&&!e.target.closest('#pop'))pop.hidden=true});
+const TOOLS={
+ holders:['Holders',`<table class="tbl"><tr><th>Wallet</th><th>Share</th><th></th><th>Since</th></tr>${[['Bv3n…Lw',14.2],['4poP…BhEi',9.8],['D4sQ…8z',6.1],['Hq1c…Yt',5.4],['Mm7e…Pf',3.9]].map(([w,p])=>`<tr><td>${w}</td><td>${p}%</td><td style="width:40%"><div class="hbar"><i style="width:${p*5}%"></i></div></td><td>mint</td></tr>`).join('')}</table><div class="why">Top 10 hold <b>48.6%</b>. That is the "Top-heavy holders" chip.</div>`],
+ bundles:['Snipers + bundles','<div class="why">8 wallets bought in the mint block (slot 291,004,118). 6 bought within 1 s. 5 of them still hold, 3 sold for <b>$1.2K</b>.</div>'],
+ dev:['Dev history','<div class="why">Creator <b>C2nr…dpump</b>: 40 launches, 31 bundled, median life 3 h, 0 reported rugs. Linked to FROG and BLIP.</div>'],
+ case:['Case file','<div class="why">Passport 62 / 100 · LP locked · mint + freeze revoked · creator flagged · top-heavy holders. Every chip opens its proof here.</div>'],
+ fee:['Fee view','<div class="why">Shows what our fee would be on each size. Fees are never counted in P&amp;L; they live on the receipt.</div>'],
+ wide:['Wide chart','<div class="why">Opens the chart across the whole page; the trade card floats on top.</div>'],
+ neo:['Neo read','<div class="why">FeeCat AI reads the chart, flow and holders and says what it sees, with its reasons and a confidence.</div>'],
+ calls:['Calls log','<div class="why">Every signed call on this coin, with who called it, the MC at the call and how it went.</div>'],
+ alerts:['Price alerts','<div class="trig"><label>Alert at MC<input value="120000"></label><label>Or at −%<input value="25"></label></div>'],
+ fuse:['Fuse card','<div class="why">The Fuse card\'s record on this coin. A card whose numbers came from bad data is flagged here, and you restart it with one press.</div>'],
+ gif:['Share GIF','<div class="why">Makes a short GIF of this chart and the call for posting.</div>'],
+ docs:['Why this read','<div class="why">The flow read weighs dollars, not trade counts, needs 8+ trades before it calls anything, names a single big seller, and shows how sure it is.</div>'],
+ wallet:['Wallet','<div class="why">The wallet\'s trades on this coin, its other coins, and whether it is flagged.</div>']};
+const modal=document.getElementById('modal');
+function openTool(k){const [t,h]=TOOLS[k]||['Tool',''];document.getElementById('mTitle').textContent=t;document.getElementById('mBody').innerHTML=h;modal.hidden=false;pop.hidden=true;document.getElementById('mClose').focus()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(b)openTool(b.dataset.tool)});
+document.querySelectorAll('.passport .link').forEach(b=>b.addEventListener('click',()=>openTool('case')));
+document.getElementById('mClose').onclick=()=>modal.hidden=true;modal.addEventListener('click',e=>{if(e.target===modal)modal.hidden=true});
+addEventListener('keydown',e=>{if(e.key==='Escape'){modal.hidden=true;pop.hidden=true}});
 
 /* ---- quick trade (preview: nothing is signed or sent) ---- */
 const go=document.getElementById('go'),ack=document.getElementById('ack'),amt=document.getElementById('amt');let side='buy';
 function syncGo(){const v=parseFloat(amt.value)||0;document.getElementById('amtUsd').textContent='≈ $'+(v*SOLUSD).toFixed(2);
-  if(side==='buy'&&!ack.checked){go.disabled=true;go.textContent='Tick the risk box to quote';}
-  else if(side==='buy'&&v>0.0066){go.disabled=false;go.textContent='Max 0.0066 SOL · use max';}
-  else{go.disabled=false;go.textContent=(side==='buy'?'Get quote · buy ':'Get quote · sell ')+v+' SOL';}
+  if(side==='buy'&&!ack.checked){go.disabled=true;go.textContent='Tick the risk box to quote'}
+  else if(side==='buy'&&v>0.0066){go.disabled=false;go.textContent='Max 0.0066 SOL · use max'}
+  else{go.disabled=false;go.textContent=(side==='buy'?'Get quote · buy ':'Get quote · sell ')+v+' SOL'}
   go.classList.toggle('sell',side==='sell')}
 document.querySelectorAll('[data-side]').forEach(b=>b.onclick=()=>{side=b.dataset.side;document.querySelectorAll('[data-side]').forEach(x=>x.setAttribute('aria-pressed',x===b));syncGo()});
 document.getElementById('presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#presets button').forEach(x=>x.setAttribute('aria-pressed',x===b));amt.value=b.dataset.v;syncGo()});
 amt.addEventListener('input',syncGo);ack.addEventListener('change',syncGo);
 go.addEventListener('click',()=>{if(go.textContent.startsWith('Max')){amt.value='0.0066';syncGo();return}go.textContent='Preview only · no wallet connected';setTimeout(syncGo,1600)});
 syncGo();
+setInterval(()=>{const m=mcNow;document.getElementById('dipMc').textContent=fK(m*.8);document.getElementById('ripMc').textContent=fK(m*1.5)},3000);
 
 /* ---- coin chat (preview) ---- */
-const feed=document.getElementById('feed'),q=document.getElementById('q');
-document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();q.value='';
-  const g=document.querySelector('.gate');g.animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:280})});
+document.getElementById('form').addEventListener('submit',e=>{e.preventDefault();document.getElementById('q').value='';
+  document.querySelector('.gate').animate([{transform:'translateX(0)'},{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}],{duration:280})});
 
 const saved=store.get('desk-theme');if(saved)setTheme(saved);
 })();
