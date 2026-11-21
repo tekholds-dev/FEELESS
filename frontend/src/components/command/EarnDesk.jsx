@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { motion } from 'motion/react';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import '../../styles/earnDesk.css';
 
@@ -21,14 +20,14 @@ function Parts({ r }) {
 // 📋 a job is ONE row of a dense table (~44 px, owner 2026-11-21 screenshot: "the job rows, scores, titles and $ are oversized"):
 // score · title + one fact line · the score parts · expected $ · Draft bid.
 function Listing({ r, i, busy, onBid }) {
-  return <motion.li className="ern-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i, 8) * 0.03 }} data-testid={`ern-row-${i}`}>
+  return <li className="ern-row" style={{ '--i': Math.min(i, 8) }} data-testid={`ern-row-${i}`}>
     <span className="ern-score m-num" data-tip="Fit 30 + pay 30 + time 20 + profit 20">{r.score}</span>
     <span className="ern-main"><a href={r.url} target="_blank" rel="noopener noreferrer" className="ern-title" title={r.title}>{r.title}<ExternalLink size={10} aria-hidden="true" /></a>
       <span className="ern-facts"><em>{PLAT[r.src] || r.src}</em><em>{r.cat}</em><span>{r.pay}</span><span>{r.daysLeft == null ? 'no deadline' : `${r.daysLeft} d left`}</span><span>{r.rivals} entered</span></span></span>
     <Parts r={r} />
     <b className={`ern-exp m-num ${(r.expProfit || 0) > 0 ? 'is-up' : ''}`} data-tip={`Expected: ${Math.round((r.chance || 0) * 100)}% win chance × ${usd(r.payUsd)} − minds ${usd(r.cost)}`}>{usd(r.expProfit)}</b>
     <button type="button" className="m-btn ern-go" disabled={busy} onClick={() => onBid(r.id)} data-tip="Both minds draft the bid blind. Nothing is sent" data-testid={`ern-bid-${i}`}>Draft bid</button>
-  </motion.li>;
+  </li>;
 }
 
 export function EarnBoard({ v, busy, onFind, onBid }) {
