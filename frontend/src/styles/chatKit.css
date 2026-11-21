@@ -46,3 +46,25 @@ body.theme-day .ckit-mic.is-on { color: var(--ck-ac2); } body.theme-day .ckit-mi
 @keyframes wnIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .wn .m-chip { animation: none; } @media (prefers-reduced-motion: reduce) { .wn .m-chip { animation: none; transition: none; } }
 body.theme-day .wn .m-chip { background: var(--ck-tx3); color: var(--ck-sf2); }
+
+/* ⚙ the agent's settings panel (owner 2026-11-21): words + drawn glyphs, never emoji next to line icons; one accent (never a teal chip); switches, never a native checkbox; it stays on screen */
+.ckit-pop-in.cwb-set { gap: 6px; font: 500 12px var(--f-ui); }
+.ckit-pop-in.cwb-set .m-seg { display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 9px; }
+.ckit-pop-in.cwb-set .m-seg > button { flex: 1 1 auto; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 9px; font: 600 11.5px var(--f-ui); letter-spacing: 0; text-transform: none; border-radius: 7px; }
+.ckit-pop-in.cwb-set .m-seg > button.active, .ckit-pop-in.cwb-set .cwb-cap > button.active { background: var(--m-accent); color: var(--m-accent-ink, #04140b); }
+.ckit-pop-in.cwb-set .cwb-cap > button { font: 600 11.5px var(--f-mono); }
+.ckit-pop-in.cwb-set .chs-row { flex-wrap: nowrap; align-items: stretch; gap: 6px; } .ckit-pop-in.cwb-set .chs-row > .m-seg { flex: 1 1 auto; }
+.cwb-cur-ic { position: relative; display: inline-block; width: 12px; height: 12px; flex: none; }
+.cwb-cur-ic.c-arrow { background: currentColor; clip-path: polygon(10% 0, 10% 82%, 34% 62%, 52% 100%, 66% 94%, 49% 57%, 82% 57%); }
+.cwb-cur-ic.c-paw { width: 8px; height: 7px; margin-top: 4px; border-radius: 50% 50% 45% 45%; background: currentColor; box-shadow: -4px -4px 0 -1px currentColor, 0 -6px 0 -1px currentColor, 4px -4px 0 -1px currentColor; }
+.cwb-cur-ic.c-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 35%, transparent); }
+.cwb-cur-ic.c-cross { background: linear-gradient(currentColor, currentColor) center / 1.5px 100% no-repeat, linear-gradient(currentColor, currentColor) center / 100% 1.5px no-repeat; }
+.cwb-sw-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cwb-sw { display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; font: 600 11.5px var(--f-ui); cursor: pointer; }
+.cwb-sw > i { position: relative; width: 26px; height: 15px; border-radius: 99px; background: color-mix(in srgb, currentColor 18%, transparent); transition: background .15s; }
+.cwb-sw > i::after { content: ''; position: absolute; left: 2px; top: 2px; width: 11px; height: 11px; border-radius: 50%; background: currentColor; opacity: .7; transition: transform .15s var(--m-ease, ease); }
+.cwb-sw.is-on > i { background: var(--m-accent); } .cwb-sw.is-on > i::after { transform: translateX(11px); background: var(--m-accent-ink, #04140b); opacity: 1; }
+.cwb-sw:hover { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--border)); } .cwb-sw:focus-visible { outline: 1.5px solid var(--m-accent); outline-offset: 2px; }
+.cwb-sw:disabled { opacity: .6; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .cwb-sw > i, .cwb-sw > i::after { transition: none; } }
+body.fx-lite .cwb-sw > i, body.fx-lite .cwb-sw > i::after { transition: none; }

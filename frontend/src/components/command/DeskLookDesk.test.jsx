@@ -119,3 +119,45 @@ test('🕐 timestamps, 🎨 honest generation %, and markdown that never sets HT
   expect([...el.querySelectorAll('a')].map(a => a.getAttribute('href'))).toEqual(['https://x.y']);
   act(() => root.unmount());
 });
+
+test('🗂 owner 2026-11-21: "All folders" on the Desk look opens the OG desktop exactly as it was (wall, folders, print, count, widgets); one folder popped out keeps the Desk glass', async () => {
+  const { el, root } = mount();
+  await act(async () => { root.render(<CatWorkbench cat={CAT} />); });
+  await act(async () => { el.querySelector('[data-testid="dkl-rail-folders"]').click(); });
+  const og = document.querySelector('[data-testid="cwb-pop"]');
+  expect(og).not.toBeNull(); expect(og.className).not.toContain('is-dl'); expect(og.className).not.toContain('is-over'); expect(og.dataset.og).toBe('on');
+  expect(document.body.classList.contains('dsk-over')).toBe(false);   // the OG desktop covers the page, like it always did
+  expect(og.querySelector('.dsk-icons')).not.toBeNull(); expect(og.querySelectorAll('.dsk-icons button').length).toBeGreaterThan(5);   // every folder
+  expect(og.querySelector('[data-testid="dsk-widgets"]')).not.toBeNull();   // its widgets
+  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+  expect(document.querySelector('[data-testid="cwb-pop"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="dkl-rail-stash"]').click(); });   // one folder over the desk: its window only, in the Desk glass
+  const one = document.querySelector('[data-testid="cwb-pop"]'); expect(one.className).toContain('is-over'); expect(one.className).toContain('is-dl');
+  expect(one.querySelector('.dsk-icons')).toBeNull(); expect(document.body.classList.contains('dsk-over')).toBe(true);
+  await act(async () => { root.unmount(); }); el.remove();
+});
+
+test('⚙ owner 2026-11-21: every control in the desk settings panel works — click → saved → used (chat look, theme, animations, way, cursor, $ cap, job, Browse / Forms)', async () => {
+  const { el, root, calls } = mount({ task: null, windows: [], job: 'agent', tools: { browse: true, forms: true }, toolkits: { agent: ['browse', 'forms'], researcher: ['browse', 'notes'] } });
+  localStorage.removeItem('feeless.chatStyle.g1'); localStorage.removeItem('feeless:ai-cursor');
+  await act(async () => { root.render(<CatWorkbench cat={CAT} />); });
+  const q = t => document.querySelector(`[data-testid="${t}"]`); const click = async t => { await act(async () => { q(t).click(); }); };
+  await click('cwb-gear');
+  const panel = q('cwb-settings');
+  const seen = panel.cloneNode(true); seen.querySelectorAll('[hidden]').forEach(n => n.remove());   // a real 3D icon keeps its symbol hidden for copy / search
+  expect(seen.textContent).not.toMatch(/\p{Extended_Pictographic}/u);   // words + drawn glyphs, never a bare emoji beside line icons
+  expect(panel.querySelector('input[type="checkbox"], select')).toBeNull();   // switches and segments, never a native checkbox / select
+  expect(q('cwb-job-agent').textContent).toBe('General helper');   // never the raw "agent" id
+  const saved = () => JSON.parse(localStorage.getItem('feeless.chatStyle.g1') || '{}');
+  for (const s of ['classic', 'bubbles', 'feed', 'clean']) { await click(`chs-${s}`); expect(saved().style).toBe(s); expect(q('cwb-chat').dataset.style).toBe(s); }
+  await click('chs-agent'); expect(q('chs-stage')).not.toBeNull(); expect(q('cwb-chat').hidden).toBe(true); await click('chs-clean');
+  await click('chs-theme-day'); expect(saved().theme).toBe('day'); expect(q('cwb-chat').dataset.theme).toBe('day');
+  await click('chs-motion'); expect(saved().motion).toBe(false); expect(q('chs-motion').getAttribute('aria-checked')).toBe('false'); expect(q('cwb-chat').dataset.motion).toBe('off');
+  await click('cwb-way-jobs'); expect(calls.find(c => c.op === 'mode')).toMatchObject({ op: 'mode', job: 'jobs' });
+  await click('cwb-cur-paw'); expect(localStorage.getItem('feeless:ai-cursor')).toBe('paw'); expect(q('cwb-cur-paw').getAttribute('aria-checked')).toBe('true');
+  await click('cwb-cap-1'); expect(calls.at(-1)).toMatchObject({ op: 'cap', cap: 1 });
+  await click('cwb-job-researcher'); expect(calls.at(-1)).toMatchObject({ op: 'tools', job: 'researcher' });
+  expect(q('cwb-tool-browse').getAttribute('aria-checked')).toBe('true');
+  await click('cwb-tool-browse'); expect(calls.at(-1)).toMatchObject({ op: 'tools', tools: { browse: false, forms: true } });   // the engine refuses a blocked tool (backend: test_desk_settings_engine)
+  await act(async () => { root.unmount(); }); el.remove();
+});

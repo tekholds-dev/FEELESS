@@ -86,11 +86,11 @@ export function ChatStop(props) {
   return <Button isIconOnly size="sm" variant="secondary" aria-label="Stop" className="ckit-stop" {...props}><Square size={13} fill="currentColor" aria-hidden="true" /></Button>;
 }
 // ⚙ settings: HeroUI's popover, opened from the composer's own bar. The chat passes what's inside.
-export function ChatSettings({ open, onOpen, tip, testid, label = 'Chat settings', panelTestid, placement = 'top start', icon = null, children }) {
+export function ChatSettings({ open, onOpen, tip, testid, label = 'Chat settings', panelTestid, placement = 'top start', icon = null, className = '', children }) {
   return <Popover isOpen={open} onOpenChange={onOpen}>
     <ChatTool aria-label={label} data-tip={tip} data-testid={testid} className={open ? 'is-on' : ''}>{icon || <Settings2 size={16} aria-hidden="true" />}</ChatTool>
     <Popover.Content placement={placement} offset={10} className="ckit-pop">
-      <Popover.Dialog aria-label={label} className="ckit-pop-in" data-testid={panelTestid}>{children}</Popover.Dialog>
+      <Popover.Dialog aria-label={label} className={`ckit-pop-in${className ? ` ${className}` : ''}`} data-testid={panelTestid}>{children}</Popover.Dialog>
     </Popover.Content>
   </Popover>;
 }
