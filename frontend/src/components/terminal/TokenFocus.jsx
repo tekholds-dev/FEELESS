@@ -18,7 +18,7 @@ import { Metric, TokenAvatar, DataStatus, MarketAvailabilityNotice, MarketError,
 import { dexUrl, shortAddress, formatAge } from '../../lib/dexscreener';
 import { useMarket } from '../../hooks/useMarket';
 
-export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand, expanded }) => {
+export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand, expanded, v2 = false }) => {   // v2: the trench dash (Slice 34) — quick trade lives in its flip card, the Edge score + forensics in its Tools
   const nav = useNavigate(); const { selectPair } = useWorkspace();
   const live = useMarket(pair ? `/pair/${pair.chainId}/${pair.pairAddress}` : null, 3000);
   const livePair = live.data?.pairs?.[0];
@@ -38,10 +38,10 @@ export const TokenFocus = ({ pair, has, toggle, defaultInterval = '1m', onExpand
     {live.error && <MarketError error={`${live.error} Showing the discovery snapshot.`} reload={live.reload} id="token-refresh-error" />}
     <div className="token-metrics"><div className="metric"><small>Price USD</small><strong className="mono"><LivePrice pair={current} precise id="selected-token-price" /></strong></div><div className="metric"><small>24h change</small><LiveChange24 pair={current} id="selected-token-change" /></div><div className="metric"><small>{current.marketCap != null ? 'Market cap' : 'FDV'}</small><strong className="mono"><LiveMarketCap pair={current} id="selected-token-mcap" /></strong></div><Metric label="24h volume" value={current.volume?.h24} id="selected-token-volume" /><Metric label="Liquidity" value={current.liquidity?.usd} id="selected-token-liquidity" /></div>
      <CoinPassport pair={current} />
-     <TrenchChart pair={current} defaultInterval={defaultInterval} onExpand={onExpand} expanded={expanded} />
+     <TrenchChart pair={current} defaultInterval={defaultInterval} onExpand={onExpand} expanded={expanded} tools={!v2} />
      <div className="focus-meta"><span data-testid="selected-token-age">Pool age {formatAge(current.pairCreatedAt)}</span><CreatorProfile pair={current} /><DataStatus data={live.data} id="token-data-status" /></div>
-     <section className="td-edge edge-static"><div className="edge-static-head">FEELESS Edge score <Explain>One grade for how tradeable this coin looks right now: buy/sell order flow, liquidity depth, the creator's track record, and how many snipers or bundled wallets got in early. Every reason behind the grade is listed below.</Explain></div><EdgeScore pair={current} /></section>
-     <LaunchForensics pair={current} />
+     {v2 ? null : <><section className="td-edge edge-static"><div className="edge-static-head">FEELESS Edge score <Explain>One grade for how tradeable this coin looks right now: buy/sell order flow, liquidity depth, the creator's track record, and how many snipers or bundled wallets got in early. Every reason behind the grade is listed below.</Explain></div><EdgeScore pair={current} /></section>
+     <LaunchForensics pair={current} /></>}
     <div className="token-actions"><button className="primary-action" data-testid="selected-token-trade-inapp" onClick={() => { selectPair(current); nav('/terminal/trade'); }}><ArrowUpRight size={19} /><span>Trade in FEELESS<small>{current.chainId === 'solana' ? 'Jupiter execution' : 'Network status'}</small></span><ArrowUpRight size={14} /></button>{current.chainId === 'solana' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address || '') && <a href={`https://pump.fun/coin/${address}`} target="_blank" rel="noopener noreferrer" data-testid="selected-token-pump-link"><Rocket size={19} /><span>View on Pump<small>External token page</small></span><ArrowUpRight size={14} /></a>}<a href={dexUrl(current)} target="_blank" rel="noreferrer" data-testid="selected-token-dex-link"><BarChart3 size={19} /><span>View on DEX<small>Chart & transactions</small></span><ArrowUpRight size={14} /></a></div>
   </section>;
 };

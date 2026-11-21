@@ -1,0 +1,32 @@
+/* 🔁 TRENCH DASH v2 (Slice 34): one screen — the chart on the left, one card on the right that flips between Quick trade and the coin chat;
+   whatever doesn't fit sits in the Tools popover. Small dense type (≤ 19 px), meta tokens only, transform / opacity motion only. */
+.tfl-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tfl-bar > .trench-bar { flex: 1 1 auto; min-width: 0; }
+.trenches-grid.is-v2 { align-items: stretch; }
+.trenches-grid.is-v2 > .trenches-chat-section { display: flex; flex-direction: column; }
+.tfl { display: flex; flex-direction: column; flex: 1; min-height: 0; border: 1px solid var(--m-border); border-radius: 12px; background: var(--m-surface); overflow: hidden; }
+.tfl-h { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-bottom: 1px solid var(--m-border); flex: none; }
+.tfl-h button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; border: 0; border-radius: 9px; background: none; color: var(--m-mute); font: 600 12px var(--f-ui); cursor: pointer; transition: transform .12s; }
+.tfl-h button[aria-selected="true"] { background: color-mix(in srgb, var(--m-accent) 14%, transparent); color: var(--m-text); }
+.tfl-h button:active { transform: scale(.97); } .tfl-h button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
+.tfl-badge { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; background: var(--m-danger); color: white; font: 700 10px/17px var(--f-mono); font-style: normal; text-align: center; }
+.tfl-face { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; animation: tflIn .2s ease both; }
+.tfl-face[hidden] { display: none; }
+.tfl-trade { display: grid; align-content: start; gap: 10px; padding: 10px; }
+.tfl-chat { display: flex; flex-direction: column; } .tfl-chat > * { flex: 1; min-height: 0; }
+@keyframes tflIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.tfl-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 9px; background: color-mix(in srgb, var(--m-text) 5%, transparent); }
+.tfl-seg button { min-height: 28px; border: 0; border-radius: 7px; background: none; color: var(--m-mute); font: 600 11.5px var(--f-ui); cursor: pointer; }
+.tfl-seg button[aria-pressed="true"] { background: var(--m-surface); color: var(--m-text); box-shadow: 0 1px 0 color-mix(in srgb, var(--m-text) 8%, transparent); }
+.tfl-empty { margin: 0; padding: 18px 6px; color: var(--m-mute); font: 12.5px var(--f-ui); text-align: center; }
+.tfl-tools { position: relative; flex: none; }
+.tfl-tools-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 11px; border: 1px solid var(--m-border); border-radius: 9px; background: var(--m-surface); color: var(--m-text); font: 600 12px var(--f-ui); cursor: pointer; transition: transform .12s; }
+.tfl-tools-btn b { padding: 0 5px; border-radius: 6px; background: color-mix(in srgb, var(--m-text) 8%, transparent); font-size: 10.5px; }
+.tfl-tools-btn:active { transform: scale(.97); } .tfl-tools-btn[aria-expanded="true"] { border-color: var(--m-accent); }
+.tfl-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; display: grid; grid-template-columns: repeat(3, 108px); gap: 4px; padding: 8px; border: 1px solid var(--m-border); border-radius: 12px;
+  background: color-mix(in srgb, var(--m-surface) 92%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 18px 40px color-mix(in srgb, black 35%, transparent); animation: tflIn .16s ease both; }
+.tfl-pop button { display: grid; justify-items: center; gap: 5px; padding: 10px 4px; border: 0; border-radius: 9px; background: none; color: var(--m-text); font: 500 11px/1.25 var(--f-ui); text-align: center; cursor: pointer; }
+.tfl-pop button:hover, .tfl-pop button:focus-visible { background: color-mix(in srgb, var(--m-accent) 10%, transparent); outline: none; }
+body.fx-lite .tfl-pop { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--m-surface); }
+@media (prefers-reduced-motion: reduce) { .tfl-face, .tfl-pop { animation: none; } }
+@media (max-width: 980px) { .trenches-grid.is-v2 > .trenches-chat-section { height: 78vh; } .tfl-pop { grid-template-columns: repeat(2, 108px); } }

@@ -64,3 +64,24 @@ body.theme-day .tpl, body.theme-day .tpl.is-dn { background: rgba(236, 246, 240,
 body.theme-day .tpl-word.is-up, body.theme-day .tpl-row.is-b b { color: var(--tp-ac4); } body.theme-day .tpl-word.is-dn, body.theme-day .tpl-word.is-rug, body.theme-day .tpl-row.is-s b { color: var(--tp-dg3); }
 body.theme-day .tpl-word.is-mid { color: var(--tp-wn2); } body.theme-day .tpl-kpis span { background: rgba(24, 30, 27, .05); }
 @media (max-width: 640px) { .tpl-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tpl-bars { height: 42px; } }
+/* 🔁 trench dash v2: the tape card flips to the Flow read (same trades). One small turn button, window tabs, a confidence bar, net per wallet diverging from the centre */
+.trade-tape-head { gap: 8px; } .trade-tape-head small { margin-left: auto; }
+.tape-turn { flex: none; min-height: 24px; padding: 0 8px; border: 1px solid var(--m-border); border-radius: 999px; background: transparent; color: var(--m-text); font: 600 10.5px var(--f-ui); cursor: pointer; transition: transform .12s, border-color .12s; }
+.tape-turn:hover { border-color: var(--m-accent); } .tape-turn:active { transform: scale(.96); } .tape-turn:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.tape-win { display: inline-flex; gap: 2px; padding: 2px; border-radius: 7px; background: color-mix(in srgb, var(--m-text) 5%, transparent); }
+.tape-win button { min-height: 22px; padding: 0 7px; border: 0; border-radius: 5px; background: none; color: var(--m-mute); font: 600 10.5px var(--f-mono); cursor: pointer; }
+.tape-win button[aria-pressed="true"] { background: color-mix(in srgb, var(--m-accent) 16%, transparent); color: var(--m-accent); }
+.trade-tape.is-flow .tpl { animation: tplFlip .22s ease both; } @keyframes tplFlip { from { opacity: 0; transform: rotateX(8deg) translateY(4px); } to { opacity: 1; transform: none; } }
+.tpl-conf { display: flex; align-items: center; gap: 4px; margin-top: 6px; font: 600 10px var(--f-mono); color: var(--m-mute); }
+.tpl-conf em { font-style: normal; letter-spacing: .08em; margin-right: 4px; } .tpl-conf small { margin-left: 6px; font-size: 10px; }
+.tpl-conf i { width: 18px; height: 5px; border-radius: 3px; background: color-mix(in srgb, var(--m-text) 10%, transparent); } .tpl-conf i.is-on { background: var(--m-accent); }
+.tpl-net2 { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; }
+.tpl-net2-h { display: flex; justify-content: space-between; font: 600 10px var(--f-mono); letter-spacing: .06em; color: var(--m-mute); padding: 0 4px 2px; }
+.tpl-dv { display: grid; grid-template-columns: 92px minmax(60px, 1fr) 70px; gap: 6px; align-items: center; width: 100%; padding: 2px 4px; border: 0; border-radius: 5px; background: none; color: var(--m-text); font: 500 11px var(--f-mono); cursor: pointer; text-align: left; }
+.tpl-dv:hover { background: color-mix(in srgb, var(--m-accent) 7%, transparent); } .tpl-dv code { font: inherit; color: var(--m-mute); } .tpl-dv.is-bad code { color: var(--m-danger); } .tpl-dv b { text-align: right; font-weight: 600; }
+.tpl-dv-bar { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--m-text) 5%, transparent); }
+.tpl-dv-bar::before { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: color-mix(in srgb, var(--m-text) 22%, transparent); }
+.tpl-dv-bar i { position: absolute; top: 0; bottom: 0; width: 50%; border-radius: 3px; transition: transform .4s ease; }
+.tpl-dv-bar i.is-b { left: 50%; transform-origin: left; background: var(--m-success, var(--m-accent)); } .tpl-dv-bar i.is-s { right: 50%; transform-origin: right; background: var(--m-danger); }
+@media (prefers-reduced-motion: reduce) { .trade-tape.is-flow .tpl, .tpl-dv-bar i { animation: none; transition: none; } }
+.tape-dead { margin: 0; padding: 14px 12px; color: var(--m-warn, var(--m-mute)); font: 12px/1.45 var(--f-ui); }

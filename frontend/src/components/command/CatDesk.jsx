@@ -23,6 +23,7 @@ import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentDesktop } from './CatWorkbench';
 import { DeskExtras, Lamp, SetupDot, ShaderWall } from './DeskShell';
 import { twoTap } from '../ActBtn';
+import { DESK_BGS, DeskBackdrop as DeskLookBackdrop, useDeskLook } from '../desk/DeskLook';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the agent on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -305,6 +306,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const saveSkin = async sk => { if (!canEdit) return; const look = { bg: sk.bg, acc: sk.acc };   // Fee's look is the creator's signed change; any other agent's, its owner's
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
   const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
+  const [dl, setDl] = useDeskLook(); const deskLook = !dl.classic;   // 🖥 Slice 34: the trading desk wears the Desk look (its backdrop, glass, small type); every control stays where it was
   // 🖥 EVERY owner desk is tabbed (owner 2026-10-31: "Fee's desk is all scroll, not organized like Happy's")
   const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk'); const [deskAt, setDeskAt] = useState(null);
   const pubTabbed = !canEdit && !visitor; const [pubTab, setPubTab] = useState('live');   // 🗂 SITE-6 (2026-11-10): Fee's public desk was one 3,300 px scroll: everyone sees it as three tabs   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
@@ -374,7 +376,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const [workLive, setWorkLive] = useState(false);   // 💡 its windows tell the lamp when they work
   useEffect(() => { const on = e => { if (e.detail?.id === cat.id) setWorkLive(!!e.detail.live); }; window.addEventListener('feeless:agent-live', on); return () => window.removeEventListener('feeless:agent-live', on); }, [cat.id]);
   const lampOn = workLive || (cat.brainsCfg?.kind !== 'general' && !cat.revoked && ['hunting', 'running'].includes(String(cat.status || '').toLowerCase()));
-  return <DeskExtras.Provider value={deskApps}><section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />{skin.bg === 'night' ? <div className="kd-wall" aria-hidden="true"><ShaderWall mood={cat.isLeader ? 'fee' : 'agent'} /></div> : null}
+  return <DeskExtras.Provider value={deskApps}><section ref={theater} className={`kd has-skin${deskLook ? ' is-dl' : ''}${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk">{deskLook ? <div className="ckb is-dl" aria-hidden="true"><div className="ckb-stick"><DeskLookBackdrop bg={dl.bg} /></div></div> : <><DeskBackdrop bg={skin.bg} />{skin.bg === 'night' ? <div className="kd-wall" aria-hidden="true"><ShaderWall mood={cat.isLeader ? 'fee' : 'agent'} /></div> : null}</>}
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     {visitor ? null : <>   {/* 👀 a visitor sees only the monitors + its proofs (owner 2026-10-31: "nothing on screen but the monitors") */}
       <header className="kd-hero">
@@ -394,7 +396,10 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
             : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
   </> : canEdit ? <span className="kd-visitor" data-tip="Your agent — her engine runs from her Fee desk below"><Ic3 e="👑" /> YOUR AGENT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
           {canEdit ? <DeskCountLive cat={cat} onOpen={() => setDeskAt('boost')} /> : null}
-          {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
+          {canEdit && !deskLook ? <SkinPicker skin={skin} set={setSkin} /> : null}
+          {deskLook ? <span className="kd-dlseg" role="group" aria-label="Desk background">{DESK_BGS.map(([k, l]) => <button key={k} type="button" aria-pressed={dl.bg === k} onClick={() => setDl({ bg: k })} data-testid={`kd-dl-bg-${k}`}>{l}</button>)}
+            <button type="button" onClick={() => setDl({ classic: true })} data-tip="The classic desk and its own wallpaper (saved)" data-testid="kd-dl-classic">Classic</button></span>
+            : <button type="button" onClick={() => setDl({ classic: false })} data-tip="The Desk look: glass, small type, the desk's background" data-testid="kd-dl-on">Desk look</button>}
           {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
         </div>
       </header>

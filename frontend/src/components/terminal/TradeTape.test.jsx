@@ -36,3 +36,30 @@ test('tape flags whales, marks your trade, and opens any other wallet\'s case fi
   act(() => rows[0].querySelector('.tape-case').click());
   expect(opened).toEqual(['Wha1eWa11et99']);
 });
+
+test('🔁 the tape card flips to the Flow read (same trades) with 60s / 5m / 15m, and remembers the side', () => {
+  localStorage.removeItem('feeless.tapeFace'); localStorage.removeItem('feeless.flowWin');
+  mockTrades.trades = [{ tx: 'f1', kind: 'buy', usd: 50, price: 0.01, wallet: 'AAAAwallet', ts }, { tx: 'f2', kind: 'sell', usd: 30, price: 0.01, wallet: 'BBBBwallet', ts }];
+  const host = document.createElement('div'); document.body.appendChild(host); const root = createRoot(host);
+  act(() => root.render(<TradeTape pair={{ chainId: 'solana', pairAddress: 'P' }} />));
+  expect(host.querySelectorAll('[data-testid="tape-row"]')).toHaveLength(2); expect(host.querySelector('[data-testid="trench-pulse"]')).toBeNull();
+  act(() => host.querySelector('[data-testid="tape-flip"]').click());
+  expect(host.querySelector('[data-testid="trench-pulse"]')).not.toBeNull(); expect(host.querySelector('[data-testid="tpl-word"]').textContent).toContain('THIN');
+  act(() => host.querySelector('[data-testid="flow-win-900"]').click());
+  expect(localStorage.getItem('feeless.flowWin')).toBe('900'); expect(host.textContent).toContain('PRICE 15m');
+  act(() => root.unmount());
+  const again = createRoot(host); act(() => again.render(<TradeTape pair={{ chainId: 'solana', pairAddress: 'P' }} />));
+  expect(host.querySelector('[data-testid="trench-pulse"]')).not.toBeNull();   // it opens on the side you left it
+  act(() => host.querySelector('[data-testid="tape-flip"]').click()); expect(host.querySelectorAll('[data-testid="tape-row"]')).toHaveLength(2);
+  act(() => again.unmount()); host.remove();
+});
+
+test('📡 a dead trade feed says so on both faces, never a calm "QUIET"', () => {
+  localStorage.removeItem('feeless.tapeFace'); mockTrades.trades = []; mockTrades.feed = { state: 'down', error: 'provider unavailable' };
+  const host = document.createElement('div'); document.body.appendChild(host); const root = createRoot(host);
+  act(() => root.render(<TradeTape pair={{ chainId: 'solana', pairAddress: 'P' }} />));
+  expect(host.querySelector('.trade-tape-head small').textContent).toBe('trade feed down (provider unavailable): no trades shown');
+  act(() => host.querySelector('[data-testid="tape-flip"]').click());
+  expect(host.querySelector('[data-testid="flow-dead"]').textContent).toContain('calls nothing'); expect(host.querySelector('[data-testid="tpl-word"]')).toBeNull();
+  act(() => root.unmount()); host.remove(); delete mockTrades.feed;
+});

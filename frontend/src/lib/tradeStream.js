@@ -6,6 +6,8 @@ import { apiUrl } from './api';
 export function useTradeStream(pair) {
   const [trades, setTrades] = useState([]);
   const [fresh, setFresh] = useState({ buys: 0, sells: 0, buyUsd: 0, sellUsd: 0 });
+  // 📡 where the feed stands (Slice 34: an empty or dead feed SAYS so, never a calm-looking empty tape): 'wait' · 'live' · 'empty' · 'down'
+  const [feed, setFeed] = useState({ state: 'wait', error: '', source: '' });
   const seen = useRef(new Set());
   const mine = useRef([]);   // your confirmed trades on this coin, shown at once (the public feed can lag a minute)
   const baseline = useRef(null);
@@ -14,13 +16,14 @@ export function useTradeStream(pair) {
   useEffect(() => {
     if (!pair?.pairAddress || !pair?.chainId) return undefined;
     let alive = true;
-    seen.current = new Set();
+    seen.current = new Set(); setFeed({ state: 'wait', error: '', source: '' });
     const load = async () => {
       if (document.hidden) return;
       try {
         const res = await fetch(apiUrl(`/api/candles/trades/${pair.chainId}/${pair.pairAddress}`));
         const body = await res.json();
         const list = body?.trades || [];
+        if (alive) setFeed(f => (list.length ? { state: 'live', error: '', source: body?.source || '' } : body?.error ? (f.state === 'live' ? f : { state: 'down', error: String(body.error), source: '' }) : { state: f.state === 'live' ? 'live' : 'empty', error: '', source: '' }));
         if (!alive || !list.length) return;
         const first = seen.current.size === 0;
         const add = { buys: 0, sells: 0, buyUsd: 0, sellUsd: 0 };
@@ -35,7 +38,7 @@ export function useTradeStream(pair) {
         mine.current = mine.current.filter(t => !inFeed.has(t.tx) && Date.now() - Date.parse(t.ts) < 5 * 60000);
         setTrades([...mine.current, ...list].slice(0, 40));
       } catch {
-        // keep last tape
+        if (alive) setFeed(f => (f.state === 'live' ? f : { state: 'down', error: 'the trade feed did not answer', source: '' }));   // keep the last tape
       }
     };
     load();
@@ -63,5 +66,5 @@ export function useTradeStream(pair) {
     window.addEventListener('feeless:live-fill', onFill);
     return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:trade-confirmed', onTrade); window.removeEventListener('feeless:live-fill', onFill); };
   }, [pair?.chainId, pair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { trades, fresh };
+  return { trades, fresh, feed };
 }

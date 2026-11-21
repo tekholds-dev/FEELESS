@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CatWorkbench } from '../components/command/CatWorkbench';
 import { FeeCatDesk } from '../components/command/FeeCatDesk';
+import { CatDesk } from '../components/command/CatDesk';
 import '../styles/feecatDesk.css';
 import { applyLook, DEFAULT_LOOK, LOCAL_LOOKS } from '../lib/looks';
 import '../styles/agentDemo.css';
@@ -33,10 +34,16 @@ applyLook(LOCAL_LOOKS[(Q.match(/[?&]look=(\w+)/) || [])[1]] || DEFAULT_LOOK);   
 const feeCall = async (u, o) => { if (o?.method && o.method !== 'GET') { SENT.push({ u, ...JSON.parse(o.body || '{}') }); return {}; }
   const [prof, act] = await Promise.all([REAL('/api/cats/leader/profile').then(r => r.json()), REAL('/api/cats/activity?catId=leader').then(r => r.json())]);
   return { rules: {}, bounds: {}, leader: { status: (prof.cat || {}).status }, strategyPreset: 'feecat', events: (act.events || []).slice(0, 30), discipline: prof.discipline, cat: prof.cat || {}, scan: {}, duo: {}, duoLearn: {} }; };
+function CatDeskHarness() {   // ?catdesk = the trading desk on Fee's REAL public cat (GET /api/cats/leader), view-only: no control here can act
+  const [c, setC] = useState(null);
+  useEffect(() => { REAL('/api/cats/leader').then(r => r.json()).then(j => setC(j.cat)).catch(() => {}); }, []);
+  return c ? <div className="kd-harness" style={{ minHeight: '100vh', width: W ? `${W}px` : '100%' }} data-testid="desk-harness"><CatDesk cat={c} canEdit={false} onBack={() => {}} onAct={a => SENT.push({ act: a })} /></div> : <p style={{ padding: 20 }}>Loading Fee…</p>;
+}
 export default function DeskHarness() {
   const [cat, setCat] = useState(null);
   useEffect(() => { try { localStorage.setItem('feeless.deskLook', JSON.stringify({ ...JSON.parse(localStorage.getItem('feeless.deskLook') || '{}'), classic: /classic/.test(Q) })); } catch { /* private */ }
     REAL('/dev-agent.json').then(r => r.json()).then(j => { SNAP = j; setCat({ id: j.id, name: j.name, brainsCfg: { kind: 'general', brains: j.brains } }); }); }, []);
+  if (/catdesk/.test(Q)) return <CatDeskHarness />;
   if (/fee/.test(Q)) return <div className="kd" style={{ height: '100vh', width: W ? `${W}px` : '100%', overflow: 'auto' }} data-testid="desk-harness"><FeeCatDesk call={feeCall} /></div>;
   if (!cat) return <p style={{ padding: 20 }}>Loading the snapshot… (run scripts/dev-agent-snapshot.py first)</p>;
   return <div className="kd" style={{ height: '100vh', width: W ? `${W}px` : '100%' }} data-testid="desk-harness"><CatWorkbench cat={cat} /></div>;
