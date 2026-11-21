@@ -70,7 +70,7 @@ import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 import { twoTap } from '../ActBtn';
-import { DeskCabinet, DeskLook, GenCard, Md, Meter, stamp, useDeskLook } from '../desk/DeskLook';
+import { DeskCabinet, DeskLook, GenCard, Md, Meter, readDeskLook, stamp, useDeskLook } from '../desk/DeskLook';
 import { DESK_HINTS, STOP_OPS, clipQueue, collectiveOf, deskCommand, deskPct, deskUsd, ecoOf, paperOf, proofStatus, todayOf } from '../desk/deskData';
 const deskOver = () => document.body.classList.contains('dsk-open');
 const mergeIf = (x, patch) => (Object.keys(patch).every(k => patch[k] === x?.[k] || JSON.stringify(patch[k]) === JSON.stringify(x?.[k])) ? x : { ...x, ...patch });   // ⚡ a poll that changed nothing keeps the same state: no desk-wide re-render   // ⚡ an agent desktop covers the page: what is under it stops polling
@@ -1568,8 +1568,8 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const hadWin = useRef(false); const anyOpen = Object.values(w).some(x => x?.open) || picker || replay || inbox || ask;
   useEffect(() => { if (anyOpen) hadWin.current = true; else if (bare && hadWin.current) onClose(); }, [anyOpen, bare, onClose]);   // its last popout closed: back to the desk
   useEffect(() => { if (!over) return undefined; document.body.classList.add('dsk-over'); return () => document.body.classList.remove('dsk-over'); }, [over]);   // the Desk look stays painted under its popouts
-  return createPortal(<IconLook.Provider value={prefs.folderLook === 'line' ? true : '3d'}><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><PrintDigests.Provider value={d?.prints || NO_PRINTS}><div className={`dsk${bare ? ' is-over' : ''}`} data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
-    {prefs.motion === 'off' || bare ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title && !bare ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
+  return createPortal(<IconLook.Provider value={prefs.folderLook === 'line' ? true : '3d'}><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><PrintDigests.Provider value={d?.prints || NO_PRINTS}><div className={`dsk${bare ? ' is-over' : ''}${over ? ' is-dl' : ''}`} data-desk={over ? (readDeskLook().theme === 'light' ? 'light' : 'dark') : undefined} data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
+    {prefs.motion === 'off' || over ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen || picker || replay || inbox} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title && !bare ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print && !bare ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     {bare ? null : <DeskCount d={pool} onOpen={() => openWin('boost')} />}
     {bare ? null : <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />

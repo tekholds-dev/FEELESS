@@ -1,12 +1,14 @@
 /* 🖥 THE DESK LOOK (owner 2026-11-20, docs/design/agent-desk-approved.html). One screen: slim bar · [rail | widgets · monitors · vitals · cabinet | chat].
    Colours come from the meta tokens (Black) or a white mix of them (White); the green is the worn look's accent. Motion = transform / opacity only. */
-.dkl {
+.dkl, .dsk.is-dl {
   --dk-bg: var(--m-bg); --dk-panel: color-mix(in srgb, var(--m-surface) 58%, transparent); --dk-solid: var(--m-surface);
   --dk-line: color-mix(in srgb, var(--m-text) 8%, transparent); --dk-line2: color-mix(in srgb, var(--m-text) 14%, transparent);
   --dk-fg: var(--m-text); --dk-fg2: color-mix(in srgb, var(--m-text) 64%, transparent); --dk-fg3: color-mix(in srgb, var(--m-text) 40%, transparent);
   --dk-acc: var(--m-accent); --dk-ink: var(--m-accent-ink); --dk-soft: color-mix(in srgb, var(--m-accent) 13%, transparent);
   --dk-warn: var(--m-warn); --dk-bad: var(--m-danger); --dk-screen: color-mix(in srgb, var(--m-bg) 70%, black);
   --dk-r: 10px;
+}
+.dkl {
   position: relative; isolation: isolate; height: 100%; min-height: 560px; color: var(--dk-fg); background: var(--dk-bg); font: 13px/1.45 var(--f-ui); -webkit-font-smoothing: antialiased; overflow: hidden;
 }
 .dkl[data-desk="light"] {
@@ -294,7 +296,10 @@ body.fx-lite .dkl-wd, body.fx-lite .dkl-file, body.fx-lite .dkl-msg, body.fx-lit
 @media (prefers-reduced-motion: reduce) { .dkl *, .dkl-pop-veil * { animation: none !important; transition: none !important; } }
 
 /* a classic folder popped out over the Desk look: its window floats on a light veil, the desk shows through */
-.dsk.is-over { background: color-mix(in srgb, black 34%, transparent); }
+.dsk.is-over, .dsk.is-dl { background: color-mix(in srgb, black 34%, transparent); }
+.dsk.is-dl:not(.is-over) { background: color-mix(in srgb, var(--dk-bg) 78%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }   /* the whole desktop over the desk: the desk is a soft blur behind it, never readable clutter */
+body.fx-lite .dsk.is-dl:not(.is-over) { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--dk-bg); }   /* the desk's own backdrop shows through, dimmed (no second wallpaper) */
+/* folder windows stay dark glass in White too: what is inside them follows the site's theme, so a white window would put dark cards on white */
 body.dsk-over .app-content > :not(section), body.dsk-over #root > :not(.app-content) { content-visibility: visible; }   /* a popout over the Desk look: the desk shows through (deskShell.css hides the page under a full desktop) */
 .dkl-err { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; }
 /* img3 clean-up on the classic desktop: a readable wordmark, one-line folder labels */
@@ -311,3 +316,20 @@ body.dsk-over .app-content > :not(section), body.dsk-over #root > :not(.app-cont
 .dkl-msg-act button.is-on { color: var(--dk-acc); border-color: var(--dk-acc) !important; }
 .dkl-live { height: 100%; overflow: auto; font-size: 12.5px; }
 .dkl-chat > .lbc, .dkl-chat > .lpc, .dkl-chat > [class*="auto"] { margin: 0 10px 6px; }
+
+/* 🗂 folder windows popped out over the Desk look (AgentDesktop `over`): the same glass, lines and small type as the desk, not the classic window */
+.dsk.is-dl .dsk-win { background: color-mix(in srgb, var(--dk-solid) 88%, transparent) !important; border: 1px solid var(--dk-line2) !important; border-radius: var(--dk-r); color: var(--dk-fg);
+  backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--dk-fg) 6%, transparent), 0 24px 60px color-mix(in srgb, black 40%, transparent) !important; }
+.dsk.is-dl .dsk-win.is-top { border-color: color-mix(in srgb, var(--dk-acc) 40%, var(--dk-line2)) !important; }
+.dsk.is-dl .dsk-title { background: color-mix(in srgb, var(--dk-fg) 3%, transparent); border-bottom: 1px solid var(--dk-line); padding: 6px 10px; }
+.dsk.is-dl .dsk-title > b { color: var(--dk-fg); font: 600 12px var(--f-ui); letter-spacing: .02em; }
+.dsk.is-dl .dsk-side { background: transparent; border-right-color: var(--dk-line); }
+.dsk.is-dl .dsk-side button { color: var(--dk-fg2); font-size: 12px; min-height: 30px; }
+.dsk.is-dl .dsk-side button.active { background: var(--dk-soft); color: var(--dk-fg); box-shadow: inset 2px 0 0 var(--dk-acc); }
+.dsk.is-dl .dsk-path { background: transparent; border-color: var(--dk-line); color: var(--dk-fg3); }
+.dsk.is-dl .dsk-bar { background: var(--dk-panel); border-top-color: var(--dk-line); box-shadow: none; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+body.fx-lite .dsk.is-dl .dsk-win, body.fx-lite .dsk.is-dl .dsk-bar { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--dk-solid) !important; }
+/* 🐱 Fee's desk + The Collective (FeeDeskLook): a monitor's content scrolls inside its screen, so a long list never stretches the monitor */
+.fdl-mon { position: absolute; inset: 0; overflow: auto; padding: 8px 10px; scrollbar-width: thin; display: grid; align-content: start; gap: 6px; }
+.fdl-mon .dkl-rows > span > :first-child b { color: var(--dk-fg); font-weight: 600; }
+.fdl-popbody { min-width: 0; }

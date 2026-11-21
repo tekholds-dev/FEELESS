@@ -27,6 +27,8 @@ import { AgentsDiagram, AppDesktop, DeskExtras, PerfGlass, ShaderWall } from './
 import { Ic3 } from '../../lib/icon3d';
 import { FolderArt } from '../../lib/folderArt';
 import { apiUrl } from '../../lib/api';
+import { useDeskLook } from '../desk/DeskLook';
+import { FeeDeskLook } from './FeeDeskLook';
 import '../../styles/catWorkbench.css';
 import '../../styles/feecatDesk.css';
 
@@ -168,6 +170,7 @@ function SlotAgents() {
 }
 
 export function FeeCatDesk({ call }) {
+  const [deskLook, setDeskLook] = useDeskLook();   // 🖥 Slice 34: Fee's desk opens in the Desk look; Settings › Desk › Classic desktop brings this page back
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
   const root = React.useRef(null);
   const [wantOwner, setWantOwner] = useState(false);
@@ -200,6 +203,26 @@ export function FeeCatDesk({ call }) {
             <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
       <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
     </div>;
+  const feeApps = [
+      { k: 'lane', ic: '📍', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
+      { k: 'brain', ic: '🎚', label: 'Her rules', tip: 'Her style, her rules and what she learned (one folder: the old Brain)', body: brainPane() },
+      { k: 'prompts', ic: '✍', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
+      { k: 'rails', ic: '🔒', label: 'Guardrails', tip: 'Owner only: every limit COMP and the agents run under, a switch each. They only tighten; the hard limits are locked', body: <Guardrails call={call} /> },
+      { k: 'model', ic: '🧊', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
+    ];
+  const agentApps = [
+      { k: 'collective', ic: '💎', label: 'The Collective', tip: 'One folder (img3: it was two): where the money stands, every split and fee, the Pool wallet, then the living print, every agent and every winning proof', body: <><CollectiveOwner call={call} /><div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div></> },
+      { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
+      { k: 'allwork', ic: '🗂', label: 'All work', tip: 'Every proof and every job from every agent, with how each scored', body: <AllWork cat={c} work={work} /> },
+      { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
+      { k: 'ideas', ic: '💡', label: 'Ideas', tip: 'OSSY and G4 pitch vitals, mechanics and money ideas from real counts. You mark them. Nothing changes until you say', body: <IdeasFolder cat={c} work={work} /> },
+      { k: 'git', ic: '🔗', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
+      { k: 'stash', ic: '🗃', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
+      { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
+      { k: 'adlab', ic: '🎬', label: 'Ad lab', tip: 'Every ad attempt your agents made: model, $, what failed and why, and its video. Kept so the next build learns', body: <AdLab cat={c} work={work} /> },
+      { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
+    ];
+  if (!deskLook.classic) return <FeeDeskLook c={c} d={d} equity={equity} roi={roi} start={start} trades={trades} wr={wr} disc={disc} pos={pos} duo={duo} f={f} running={running} cyc={cyc} busy={busy} save={save} feeApps={feeApps} agentApps={agentApps} />;
   return <section className="fch" data-testid="feecat-desk">
     <header className="fch-hero m-card m-live">
       <span className={`fch-orb ${running ? 'is-on' : ''}`} aria-hidden>🐱</span>
@@ -211,27 +234,11 @@ export function FeeCatDesk({ call }) {
       <span className="fch-kpi fch-ring" style={{ '--k': (n(disc.lives) ?? 9) / (n(disc.maxLives) || 9) }} data-tip="Her 9 lives: a loss takes one, a win in 24h gives one back, 0 = she naps"><small>LIVES</small><b data-testid="fch-lives">{disc.lives ?? '—'}</b></span>
       <span className="fch-kpi"><small>OPEN</small><b>{pos.length}</b><i>{disc.why && disc.why !== 'normal size' ? disc.why : 'discipline normal'}</i></span>
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
-        <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run"><Ic3 e="⚡" /> Run a cycle</button></span>
+        <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run"><Ic3 e="⚡" /> Run a cycle</button>
+        <button type="button" className="m-btn" onClick={() => setDeskLook({ classic: false })} data-testid="fch-desk-look">Desk look</button></span>
     </header>
     <div ref={root}><SegTabs items={FCH_TABS} value={tab} onChange={pickTab} label="Fee's desk" className="fch-tabs" testid={k => `fch-tab-${k}`} /></div>
-    {tab === 'owner' ? <OwnerDesk cat={c} trades={trades} feeApps={[
-      { k: 'lane', ic: '📍', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
-      { k: 'brain', ic: '🎚', label: 'Her rules', tip: 'Her style, her rules and what she learned (one folder: the old Brain)', body: brainPane() },
-      { k: 'prompts', ic: '✍', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
-      { k: 'rails', ic: '🔒', label: 'Guardrails', tip: 'Owner only: every limit COMP and the agents run under, a switch each. They only tighten; the hard limits are locked', body: <Guardrails call={call} /> },
-      { k: 'model', ic: '🧊', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
-    ]} agentApps={[
-      { k: 'collective', ic: '💎', label: 'The Collective', tip: 'One folder (img3: it was two): where the money stands, every split and fee, the Pool wallet, then the living print, every agent and every winning proof', body: <><CollectiveOwner call={call} /><div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div></> },
-      { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
-      { k: 'allwork', ic: '🗂', label: 'All work', tip: 'Every proof and every job from every agent, with how each scored', body: <AllWork cat={c} work={work} /> },
-      { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
-      { k: 'ideas', ic: '💡', label: 'Ideas', tip: 'OSSY and G4 pitch vitals, mechanics and money ideas from real counts. You mark them. Nothing changes until you say', body: <IdeasFolder cat={c} work={work} /> },
-      { k: 'git', ic: '🔗', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
-      { k: 'stash', ic: '🗃', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
-      { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
-      { k: 'adlab', ic: '🎬', label: 'Ad lab', tip: 'Every ad attempt your agents made: model, $, what failed and why, and its video. Kept so the next build learns', body: <AdLab cat={c} work={work} /> },
-      { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
-    ]} call={call} /> : null}
+    {tab === 'owner' ? <OwnerDesk cat={c} trades={trades} feeApps={feeApps} agentApps={agentApps} call={call} /> : null}
     {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4><Ic3 e="🔎" /> WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
