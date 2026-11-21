@@ -8,8 +8,6 @@
 .dk-menu a { display: inline-flex; align-items: center; min-height: 32px; padding: 0 8px; border-radius: 8px; color: var(--m-dim); transition: color .15s, background .15s; }
 .dk-menu a:hover { color: var(--m-text); background: color-mix(in srgb, var(--m-text) 6%, transparent); } .dk-menu a:active { transform: scale(.97); } .dk-menu a:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .dk-clock { margin-left: auto; font: 500 12px var(--f-mono); color: var(--m-text); font-variant-numeric: tabular-nums; }
-.dk-win { display: flex; align-items: center; gap: 7px; padding: 9px 14px; font: 500 12px var(--f-mono); color: var(--m-dim); }
-.dk-win i { width: 11px; height: 11px; border-radius: 50%; background: var(--dl-dg1); } .dk-win i:nth-child(2) { background: var(--dl-wn1); } .dk-win i:nth-child(3) { background: var(--dl-ac1); margin-right: 8px; }
 .dk-widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 14px; }
 .dk-w { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 14px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-surface); box-shadow: 0 18px 40px -24px var(--dl-bg1); animation: dkIn .3s ease both; animation-delay: calc(var(--i) * 50ms); }
 .dk-big { font: 600 26px/1 var(--f-display); letter-spacing: -.04em; color: var(--m-text); font-variant-numeric: tabular-nums; } .dk-big small { font: 500 13px var(--f-ui); letter-spacing: 0; color: var(--m-dim); }
