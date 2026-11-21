@@ -161,6 +161,15 @@ def test_a_clip_whose_upload_is_gone_keeps_its_look_and_nobody_pays_for_it(svc, 
     assert r.json()['changed'] == ['p0'] and 'PoC #22: its upload is gone, left as it was' in r.json()['notes'] and queued[-1] == {'p0'}
 
 
+def test_a_runs_upload_link_is_never_trimmed_by_many_rerenders(svc):
+    fs, cat, c, queued = svc; import fc_clips
+    _upload(fs, cat)
+    for i in range(40):   # 13 re-renders of 3 formats: the old 24-row cap dropped the upload row, and nothing could re-render again
+        fc_clips._link('c1', 'r1', f'clip{i}.mp4', 'clip', 'x')
+    ks = cat['clipRuns'][0]['links']
+    assert ks[0]['kind'] == 'upload' and len(ks) == 25 and ks[-1]['file'] == 'clip39.mp4' and fc_clips._src_of(cat, cat['pocFolders'][0]) is not None
+
+
 def test_the_minds_design_a_new_template_saved_under_its_own_name(svc, monkeypatch):
     fs, cat, c, _q = svc; import fc_clips
     _ask(monkeypatch, fs, {'name': 'Neon whisper', 'base': 'sweep', 'patch': {'cap': {'hot': 'pink', 'font': 'demi'}, 'fx': {'grade': 'cool'}}, 'why': 'soft neon for late posts'})

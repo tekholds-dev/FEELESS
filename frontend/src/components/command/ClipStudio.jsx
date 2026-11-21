@@ -47,7 +47,7 @@ function Tile({ f, fmt, i, rendering, onEdit, onOpen, onSlot, links, busy: slotB
     <div className="cst-tile-b">
       <b title={s.hook}>{s.hook}</b>
       <small className="m-num">#{f.n} · {Math.round(s.clip.dur || 0)} s · {clock(s.clip.s)} in{f.testRun || f.test ? ' · TEST' : ''}</small>
-      {s.tpl ? <small className={`cst-tplchip is-${s.tpl.by}`} data-testid={`cst-tplchip-${f.id}`}><LayoutTemplate size={11} aria-hidden="true" /><b>{s.tpl.name}{s.tpl.edited ? ' · edited' : ''}</b>
+      {s.tpl ? <small className={`cst-tplchip is-${s.tpl.by}`} data-tip={`${s.tpl.name}: ${s.tpl.why || ''}`} data-testid={`cst-tplchip-${f.id}`}><LayoutTemplate size={11} aria-hidden="true" /><b>{s.tpl.name}{s.tpl.edited ? ' · edited' : ''}</b>
         <span>{s.tpl.by === 'minds' ? 'minds' : s.tpl.by === 'code' ? 'by mood' : s.tpl.by === 'owner' ? 'yours' : s.tpl.by}: {s.tpl.why}</span></small> : null}
       <small className="cst-look" data-tip="Its look: font · caption style · transition · effects">{describe(s.look)}</small>
     </div>

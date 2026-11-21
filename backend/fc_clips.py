@@ -146,7 +146,8 @@ def _link(cat_id, run_id, file_name, kind, label, folder=None, fmt=None):
     rs = _rs(); store = rs._load(); cat = store['cats'].get(cat_id) or {}
     r = next((x for x in cat.get('clipRuns') or [] if x.get('id') == run_id), None)
     if r is not None:
-        r['links'] = (list(r.get('links') or []) + [row])[-24:]; _remember(cat_id, run=r); rs._save(store)
+        ks = list(r.get('links') or []) + [row]   # the upload row is never trimmed (it is what every re-render cuts from, and what sweep() deletes on day 7)
+        r['links'] = [k for k in ks if k.get('kind') == 'upload'] + [k for k in ks if k.get('kind') != 'upload'][-24:]; _remember(cat_id, run=r); rs._save(store)
     return row
 
 
