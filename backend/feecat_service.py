@@ -122,6 +122,7 @@ import proof_stamp as _stamp   # noqa: F401  (read by fc_desk, fc_orders as rs._
 import proof_print as _pprint   # noqa: F401  🧬 each proof's own fingerprint, from its evidence (read by fc_cat_work)
 import ps_hidden as _ps_hidden   # noqa: F401  (read by fc_cats as rs._ps_hidden)
 import ps_kits as _psk   # noqa: F401  (Slice 3, read by fc_desk as rs._psk: the full PoStatic toolkit)
+import start_wizard as _wiz   # noqa: F401  (Slice 33, read by fc_cat_work, fc_desk, fc_tools, fc_earn, fc_pow as rs._wiz: the start wizard)
 import ps_unique as _psu   # noqa: F401  (Slice 3, read by fc_desk as rs._psu: every build unique)
 import ps_keep as _pskeep   # noqa: F401  (Slice 3, read by fc_desk as rs._pskeep: no back pedals)
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof   # noqa: F401  (read by fc_cats, fc_cloud as rs._mission)

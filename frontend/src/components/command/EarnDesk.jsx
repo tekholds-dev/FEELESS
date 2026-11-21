@@ -57,14 +57,14 @@ function Bid({ b, kept }) {
     <small className="ern-why">{(b.why || []).join(' · ')}</small></article>;
 }
 
-export function EarnFiling({ f, onBack, busy, act }) {
+export function EarnFiling({ f, onBack, busy, act, bare = false }) {
   const [real, setReal] = useState(false); const [why, setWhy] = useState(''); const [amt, setAmt] = useState(''); const [fee, setFee] = useState(''); const [cur, setCur] = useState('USD'); const [copied, setCopied] = useState(false);
   const l = f.listing || {}; const at = TRACK.findIndex(([k]) => k === f.stage); const ended = f.stage === 'lost' || f.stage === 'unpaid'; const test = !!(f.test || f.testRun);
   const go = (stage, extra = {}) => act({ op: 'earn_go', job: f.id, tools: { stage, ...extra } });
   const copy = async () => { try { await navigator.clipboard.writeText(f.bid?.bid || ''); setCopied(true); } catch { setCopied(false); } };
   const g = f.graded;
   return <div className="ern-f" data-testid={`ern-f-${f.id}`}>
-    <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · earn</b>{test ? <em className="trec-tag">TEST</em> : null}</header>
+    {bare ? null : <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · earn</b>{test ? <em className="trec-tag">TEST</em> : null}</header>}
     <a className="ern-ft" href={l.url} target="_blank" rel="noopener noreferrer" data-testid="ern-listing">{l.title}<ExternalLink size={12} aria-hidden="true" /></a>
     <span className="ern-facts"><em className="m-chip">{f.platform?.name}</em><em className="m-chip ok">{l.cat}</em><span>{l.pay}</span><span>{l.daysLeft == null ? 'no deadline' : `${l.daysLeft} d left`}</span><span>{l.rivals} entered</span><span>score <b className="m-num">{l.score}</b></span></span>
     <p className="ern-kpis" data-testid="ern-kpis"><span><small>EXPECTED</small><b className="m-num is-up">{usd(l.expProfit)}</b></span><span><small>MINDS</small><b className="m-num">{usd(f.cost)}</b></span><span><small>HOURS SAVED</small><b className="m-num">{l.hours}</b></span><span><small>WIN CHANCE</small><b className="m-num">{Math.round((l.chance || 0) * 100)}%</b></span></p>
@@ -96,5 +96,5 @@ export function useEarn(cat, work) {
   const call = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); setV(j); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(false); } }, [work, cat.id]);
   useEffect(() => { call({ op: 'earn_view' }); }, [cat.id]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!v?.busy) return undefined; const t = setInterval(() => work(cat.id, { op: 'earn_view' }).then(setV).catch(() => {}), 5000); return () => clearInterval(t); }, [v?.busy, cat.id, work]);
-  return { v, busy: busy || !!v?.busy, err, call };
+  return { v, busy: busy || !!v?.busy, err, call, set: setV };
 }

@@ -3,7 +3,10 @@ import { Ic3 } from '../../lib/icon3d';
 import { ProofHead, ProofKit, ProofTile } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
 import { EcoLive } from './EcoLive';
-import { EarnBoard, EarnFiling, useEarn } from './EarnDesk';
+import { EarnBoard, EarnFiling, RecordRow, useEarn } from './EarnDesk';
+import { ProofWorkspace } from './ProofWorkspace';
+import { StartWizard } from './StartWizard';
+import { StartedWith, TestTag } from './TrueRecord';
 import '../../styles/ecoFolder.css';
 
 // 📊 PoEco REBUILT (owner 2026-11-13: "forget any ideas on PoEco and just build what you want that competes with the other proofs").
@@ -25,10 +28,10 @@ function PoolCard({ r, lead, tag }) {
 }
 
 // One market call, open: the question, the rule, both sealed number sets, the hash and the countdown — or the verdict reality wrote.
-function MarketCall({ f, onBack, busy, onGrade }) {
+function MarketCall({ f, onBack, busy, onGrade, bare = false }) {
   const b = f.baseline || {}; const a = f.after || {};
   return <div className="eco-call" data-testid={`eco-call-${f.id}`}>
-    <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n}</b>
+    <header className={`eco-bh${bare ? ' is-bare' : ''}`}>{bare ? null : <><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n}</b></>}
       {f.graded ? <em className={`eco-verdict is-${f.graded}`} data-testid="eco-verdict">{f.graded === 'right' ? 'RIGHT' : 'WRONG'} · reality graded it</em>
         : <em className="eco-due m-num" data-tip="Nobody marks this. At the horn the real numbers grade it" data-testid="eco-due">{left(f.due)}</em>}</header>
     <p className="eco-q" data-testid="eco-q">{f.q}</p>
@@ -50,8 +53,8 @@ function Rail({ rows, busy, onCall, onOpen, onCommand }) {
 }
 
 // Legacy book proofs (the old PoEco) still open read-only, so nothing filed is lost.
-function OldBook({ f, onBack }) {
-  return <div className="eco-call" data-testid={`eco-book-${f.id}`}><header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · {f.topic}</b>{f.graded ? <em className={`eco-verdict is-${f.graded}`}>{f.graded.toUpperCase()}</em> : null}</header>
+function OldBook({ f, onBack, bare = false }) {
+  return <div className="eco-call" data-testid={`eco-book-${f.id}`}>{bare ? null : <header className="eco-bh"><button type="button" className="m-btn" onClick={onBack} data-testid="eco-back">← PoEco</button><b>PoEco #{f.n} · {f.topic}</b>{f.graded ? <em className={`eco-verdict is-${f.graded}`}>{f.graded.toUpperCase()}</em> : null}</header>}
     <div className="eco-kpis">{[['INCOME', usd(f.income)], ['COSTS', usd(f.costs)], ['NET', usd(f.net)], ['MARGIN', f.margin == null ? '—' : `${f.margin}%`]].map(([k, v]) => <span key={k}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
     <p className="eco-hash"><small>PROOF</small><code>{f.hash}</code></p></div>;
 }
@@ -66,8 +69,18 @@ export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse, focus
   const act = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); if (j.poeFolders) onRows(j.poeFolders); } catch (e) { setErr(e.message); } finally { setBusy(false); } }, [work, cat.id, onRows]);
   useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (rows.some(f => f.kind === 'market' && !f.graded && f.due * 1000 <= Date.now())) act({ op: 'eco_grade' }); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
-    <div className="prf-main">{open?.kind === 'earn' ? <EarnFiling f={open} onBack={() => setOpen(null)} busy={earn.busy} act={earn.call} /> : open ? (open.kind === 'market' ? <MarketCall f={open} onBack={() => setOpen(null)} busy={busy} onGrade={() => act({ op: 'eco_grade' })} /> : <OldBook f={open} onBack={() => setOpen(null)} />) : <><EarnBoard v={earn.v} busy={earn.busy} onFind={() => earn.call({ op: 'earn_find' })} onBid={id => earn.call({ op: 'earn_bid', text: id })} /><EcoLive /></>}
-      {err || earn.err ? <p className="lct-err" role="alert">⚠ {err || earn.err}</p> : null}</div>
+  const [wiz, setWiz] = useState('');   // 🧭 Slice 33: a bid starts through the 3-step wizard (direction · kits · research), never a bare tap
+  const bidGo = async wizard => { const j = await work(cat.id, { op: 'earn_bid', text: wiz, tools: { wizard } }); earn.set(j); };
+  const back = () => setOpen(null); const errs = err || earn.err ? <p className="lct-err" role="alert">⚠ {err || earn.err}</p> : null;
+  if (open) {   // 🗂 Slice 33: an opened filing lives on the shared workspace shell: slim bar, the work, its record in the rail
+    const g = open.kind === 'earn' ? (open.graded ? (open.graded.result === 'paid' ? 'good' : 'bad') : 'wait') : open.graded === 'right' ? 'good' : open.graded === 'wrong' ? 'bad' : 'live';
+    const st = open.kind === 'earn' ? (open.graded ? open.graded.result : String(open.stage || '').replace('_', ' ')) : open.kind === 'market' ? (open.graded ? `graded ${open.graded}` : 'reality grades it') : open.graded || 'book';
+    return <div className="prf eco-prf is-open" data-testid="dsk-poe"><ProofWorkspace id="poe-filed" kind="poe" name={`PoEco #${open.n} · ${open.kind === 'earn' ? open.listing?.title || 'earn' : open.q || open.topic || ''}`} status={st} tone={g} cost={open.cost} onBack={back} backLabel="PoEco" backId="eco-back"
+      bar={<TestTag f={open.test ? open : open.testRun ? { ...open, test: { agent: cat.name } } : null} />} tools={open.kind === 'earn' ? <><RecordRow f={open} /><StartedWith w={open.wizard} /></> : open.wizard ? <StartedWith w={open.wizard} /> : null} toolsLabel="Record">
+      {open.kind === 'earn' ? <EarnFiling bare f={open} onBack={back} busy={earn.busy} act={earn.call} /> : open.kind === 'market' ? <MarketCall bare f={open} onBack={back} busy={busy} onGrade={() => act({ op: 'eco_grade' })} /> : <OldBook bare f={open} onBack={back} />}{errs}</ProofWorkspace></div>;
+  }
+  return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead slim kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
+    <div className="prf-main"><EarnBoard v={earn.v} busy={earn.busy} onFind={() => earn.call({ op: 'earn_find' })} onBid={id => setWiz(id)} /><EcoLive />{errs}
+      <StartWizard open={!!wiz} cat={cat} work={work} kind="poe" job={wiz} onGo={bidGo} onClose={() => setWiz('')} goLabel="Draft the bid" /></div>
     <aside className="prf-rail"><Rail rows={rows} busy={busy} onCall={() => act({ op: 'eco_call' })} onOpen={setOpen} onCommand={onCommand} /></aside></div>;
 }

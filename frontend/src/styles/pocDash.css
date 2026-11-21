@@ -79,7 +79,6 @@ body.theme-day .pcd-kpi.is-reach > b.m-num { text-shadow: none; }
 .pdk-folders { display: grid; gap: 6px; margin-top: 4px; } .pdk-folders > h4 { margin: 0; font: 800 9.5px var(--f-mono); letter-spacing: .14em; color: var(--m-mute); }
 /* the desk bar: a PoC folder in a half window (its root measured by lib/boxRef, data-w760) stacks its work over its chat, so the work gets the width */
 .pfx.is-poc[data-w760] .fea-content { grid-template-columns: minmax(0, 1fr); }
-.pfx.is-poc[data-w760] .fea-content-side { position: static; height: auto; min-height: 420px; }
 /* the TEST chip never breaks a letter off; on a phone it sits under the numbers in the last column, not in the 40px thumb column */
 .pcd-open > .trec-tag { white-space: nowrap; justify-self: end; }
 .pcd-wrap[data-w640] .pcd-open > .trec-tag { grid-column: -2 / -1; }

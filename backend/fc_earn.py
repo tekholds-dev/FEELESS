@@ -133,7 +133,7 @@ def _kit_names(cat_id):
     return [names.get(i, i) for i in ids]
 
 
-async def _bid(cat_id, lid=''):
+async def _bid(cat_id, lid='', wiz=None):
     """One listing → both minds' blind bids → the stronger kept → an earn filing (footprint-gated, true record, TEST mark)."""
     rs = _rs()
     try:
@@ -147,10 +147,16 @@ async def _bid(cat_id, lid=''):
         row = next((r for r in rows if r['id'] == lid), None) if lid else (rows[0] if rows else None)
         if not row:
             raise RuntimeError('no open faceless listing left on the board' if not lid else 'that listing is not on the board (or was already bid on)')
+        wiz_line, wiz_rec = '', None
+        if wiz:   # 🧭 Slice 33: the start wizard's kits (via _recall), its research pass and the owner's direction reach both minds
+            rs._wiz.CTX.set(wiz)
+            async with rs.httpx.AsyncClient(timeout=12) as http_w:
+                found_ = await rs._wiz.research(wiz, f"{row['title']} {row.get('cat') or ''}".strip(), http_w, rs._tools.build_refs, rs._fc_desk.wiz_ask(cat, 'poe', row['id']))
+            base_ = rs._wiz.start_row(_earns(cat), wiz.get('start')); wiz_line = rs._wiz.line(wiz, found_, base_); wiz_rec = rs._wiz.record(wiz, found_, base_)
         for attempt in range(2):
             fid = f'earn{int(rs.time.time())}{attempt or ""}'; brains = rs._lc.minds_for(cat.get('brainsCfg'), 'poe') or []
             rs._CALL_CTX.set({'kind': 'poe', 'ref': fid, 'minds': brains})
-            sys_ = _ee.SYS + rs._recall(cat, 'Earn', f"{row['title']} {row.get('cat')} bid proposal") + rs._prec.back_line(cat.get('footBack'), 'poe', rs.time.time())
+            sys_ = _ee.SYS + rs._recall(cat, 'Earn', f"{row['title']} {row.get('cat')} bid proposal") + rs._prec.back_line(cat.get('footBack'), 'poe', rs.time.time()) + wiz_line
             got = await _two(cat, brains, sys_, _ee.ask_text(row), _ee.parse_bid, 1400)
             cost = sum(g[1] for g in got); own = any(g[2] for g in got)
             k, scored = _ee.pick([g[0] for g in got], row)
@@ -162,7 +168,7 @@ async def _bid(cat_id, lid=''):
             f_ = _ee.new_folder(rs._next_n(list_), row, k, scored, calls, cost)
             f_.update(id=fid, kits=_kit_names(cat_id), callRefs=[fid], sitesRead=[{'host': r['host'], 'ok': r['ok']} for r in b.get('reads') or []],
                       sources={'listing': [{'url': row['url']}], 'feeds': [{'url': r['url']} for r in b.get('reads') or [] if r.get('ok')][:12]},
-                      **({'testRun': True} if (cat_id, 'poe') in rs._TEST_ON else {}))
+                      **({'testRun': True} if (cat_id, 'poe') in rs._TEST_ON else {}), **({'wizard': wiz_rec} if wiz_rec else {}))
             if cost and not own and c_.get('brainsCfg'):
                 rs._lc.charge(c_['brainsCfg'], cost)
             if k is None:
@@ -254,7 +260,7 @@ async def op(cat_id, cat, store, p, internal_):
         if cat_id in _BUSY:
             raise rs.HTTPException(409, 'A bid or a job is already being drafted on this agent.')
         _BUSY.add(cat_id)
-        rs.asyncio.create_task(_bid(cat_id, str(p.text or '')))
+        rs.asyncio.create_task(_bid(cat_id, str(p.text or ''), t_.get('wizard')))   # 🧭 Slice 33: + the start wizard's choices
         return {**_view(cat), 'busy': True, 'said': 'Both minds are drafting the bid blind. Nothing will be sent.'}
     by = 'auto' if internal_ or p.auto else 'owner'
     f = _folder(cat, p.job)

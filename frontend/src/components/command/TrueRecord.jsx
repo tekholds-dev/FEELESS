@@ -28,6 +28,17 @@ function Meter({ c, i }) {
     <small>{c.key}</small><i aria-hidden="true"><b /></i><span className="m-num">{c.ok ? 'PASS' : 'FAIL'}</span></li>;
 }
 
+// 🧭 Slice 33: what the owner chose in the start wizard before this filing ran (start_wizard.record on the folder), read back, never computed here
+const RESEARCH_BY = { minds: 'its minds searched', comp: 'COMP searched', ossy: 'OSSY searched', g4: 'G4 searched' };
+export function StartedWith({ w, line = false }) {
+  if (!w) return null;
+  const r = w.research || {}; const kits = (w.kits || []).length ? w.kits.join(', ') : 'its own pick';
+  const say = `${w.edited ? 'his direction' : 'pitch approved'} · kits ${kits} · ${w.start && w.start !== 'fresh' ? `from #${w.startN ?? '?'}` : 'fresh'} · ${RESEARCH_BY[r.by] || r.by}${r.refs?.length ? ` (${r.refs.length} found)` : ''}`;
+  if (line) return <span data-testid="trc-wizard">{say}</span>;
+  return <section className="trec-wiz" data-testid="started-with" aria-label="Started with"><small>STARTED WITH</small><b>{say}</b>
+    {w.direction ? <p>“{w.direction}”</p> : null}{r.why ? <em className={r.ok === false ? 'is-bad' : ''}>{r.why}</em> : null}</section>;
+}
+
 export function TrueRecord({ kind, folders }) {
   const real = useMemo(() => lastOf(folders, false), [folders]); const test = useMemo(() => lastOf(folders, true), [folders]);
   const [lens, setLens] = useState('real'); const f = lens === 'test' ? test || real : real || test;
@@ -48,6 +59,7 @@ export function TrueRecord({ kind, folders }) {
       <div data-tip={m.why || ''}><dt>MINDS THAT RAN</dt><dd className={m.ok ? 'is-ok' : 'is-bad'} data-testid="trc-minds">{mindsLine}</dd></div>
       <div data-tip={sites.join(', ')}><dt>SOURCES READ</dt><dd data-testid="trc-sources"><b className="m-num">{sites.length}</b> site{sites.length === 1 ? '' : 's'} · <b className="m-num">{(rd.pages || []).length}</b> page{(rd.pages || []).length === 1 ? '' : 's'}{sites.length ? ` · ${sites.slice(0, 3).join(', ')}${sites.length > 3 ? '…' : ''}` : ''}</dd></div>
       <div data-tip={ft.shared?.length ? `Shared with #${ft.nearest}: ${ft.shared.join(', ')}` : 'Nothing shared with a past proof of its kind'}><dt>FOOTPRINT</dt><dd className={ft.repeat ? 'is-bad' : 'is-ok'} data-testid="trc-foot"><b className="m-num">{ft.pct ?? '—'}%</b> new{ft.nearest ? ` next to #${ft.nearest}` : ''}{ft.sentBack ? ' · sent back once first' : ''}</dd></div>
+      {f.wizard ? <div data-tip={f.wizard.direction ? `His direction: ${f.wizard.direction}` : 'He approved the minds\' pitch as it was'}><dt>STARTED WITH</dt><dd className={f.wizard.research?.ok === false ? 'is-bad' : 'is-ok'}><StartedWith w={f.wizard} line /></dd></div> : null}
       {f.studio?.length ? <div data-tip="The pieces sent here from the 3D studio, read back from the page's own code: same file, same turn and spin"><dt>3D STUDIO PIECES</dt><dd className={f.studio.every(r => r.used) ? 'is-ok' : 'is-bad'} data-testid="trc-studio">{f.studio.map(r => `${r.name} · ${r.height ? `${r.height} m` : 'as made'} · ${Math.round((r.turn?.[1] || 0) * 180 / Math.PI)}° · spin ${r.spin || 0} · ${r.used ? 'in the page' : 'MISSING'}`).join('  ·  ')}</dd></div> : null}
     </dl>
   </section>;

@@ -30,6 +30,57 @@ def _desk_focus(cat, win, pid, now):
     return {**desk, 'id': pid}
 
 
+_WIZ_KEYS = {'pos': 'psFolders', 'poc': 'pocFolders', 'poe': 'poeFolders'}
+
+
+def _wizard_rows(cat, kind):
+    rows = [f for f in cat.get(_WIZ_KEYS[kind]) or [] if isinstance(f, dict)]
+    return [f for f in rows if f.get('kind') == 'earn'] if kind == 'poe' else rows
+
+
+def _wizard_kits(kind):
+    rs = _rs()
+    return [k for k in rs._kits.all_rows(rs.KITS_DIR) if kind in (k.get('kinds') or rs._kits.KINDS)]
+
+
+def _wizard_take(cat, kind, raw):
+    """🧭 The owner's wizard choices, checked against what is really on offer. Raises 400."""
+    rs = _rs()
+    try:
+        return rs._wiz.clean(kind, raw, [k['id'] for k in _wizard_kits(kind)], [f.get('id') for f in _wizard_rows(cat, kind)], rs.time.time())
+    except ValueError as e:
+        raise rs.HTTPException(400, str(e))
+
+
+async def _wizard_opts(cat, kind, job, typed=''):
+    """🧭 The popout's three steps: the brief, goal and the minds' pitch · kits + what to start from · who researches, the minds and the cost."""
+    rs = _rs()
+    if kind not in rs._wiz.KINDS:
+        raise rs.HTTPException(400, 'The start wizard is for PoC, PoEco and PoStatic.')
+    cfg_ = cat.get('brainsCfg') or {}; mode_, picks_ = rs._kits.picks_of(cfg_, kind); brief_, goal_, pitch_ = typed, '', []
+    if kind == 'pos':
+        doc_ = rs._ws_load(cat['id'], job) if job else None
+        pl_ = (doc_ or {}).get('plan') or {}; plan_ = pl_.get('plan') or {}
+        brief_ = pl_.get('ask') or typed or (doc_ or {}).get('name') or ''; goal_ = 'A new page with its own brief, centrepiece and layout'
+        pitch_ = ([f"{pl_.get('by') or 'Its mind'}: {plan_.get('summary')}"] if plan_.get('summary') else []) + list(plan_.get('steps') or [])[:4]
+    elif kind == 'poc':
+        doc_ = rs._ws_load(cat['id'], job) if job else None
+        brief_ = typed or (doc_ or {}).get('name') or 'best fit now'; goal_ = 'Ride what is moving today; reach graded at 24 h and 7 d'
+        try:
+            async with rs.httpx.AsyncClient(timeout=8, follow_redirects=True) as http_:
+                tr_ = (await rs._tools.trending(http_)).get('trends') or {}
+            pitch_ = [f"{k}: {'; '.join(v[:3])}" for k, v in tr_.items() if v][:5]
+        except Exception as e:   # noqa: BLE001: the pitch is a help, never a stop
+            pitch_ = [f'The trend reader did not answer ({type(e).__name__}). The minds read trends again when it starts.']
+    else:
+        row_ = next((r for r in (cat.get('earnBoard') or {}).get('best') or [] if r.get('id') == job), None)
+        if not row_:
+            raise rs.HTTPException(404, 'That listing is not on the board any more. Find work again.')
+        brief_ = f"{row_.get('title')}: {str(row_.get('desc') or '')[:300]}"; goal_ = f"Pay {row_.get('pay')} · expected profit ${float(row_.get('expProfit') or 0):.2f} · {row_.get('daysLeft') if row_.get('daysLeft') is not None else 'open'} days"
+        pitch_ = [x for x in [row_.get('fitWhy'), f"Kind of work: {row_.get('cat')}" if row_.get('cat') else '', f"Already entered: {row_.get('rivals')}" if row_.get('rivals') is not None else ''] if x]
+    return rs._wiz.options(kind, _wizard_rows(cat, kind), rs._lc.minds_for(cfg_, kind), _wizard_kits(kind), picks_, mode_, brief_, goal_, pitch_, rs.time.time())
+
+
 async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
     """🧠🧠 A general cat's workbench (the cat's OWNER only): ask · state · continue / stop (a human-needed window) · stop · cap ($ per task)."""
     rs = _rs()
@@ -60,6 +111,10 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🎯 {desk_['label']} \"{desk_['name']}\" is on the desk. Your words go to it.", 'at': rs.time.time(), 'open': desk_['open']}])[-200:]
         rs.keep_owned(cat); rs._save(store)
         return {**rs._work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+    if p.op == 'wizard_opts':   # 🧭 Slice 33: what the start wizard shows before a PoC / PoEco / PoStatic job (read only, no model)
+        return {'wizard': await _wizard_opts(cat, str(p.text or ''), str(p.job or ''), str(p.cap or '') if isinstance(p.cap, str) else '')}
+    if p.op in ('ws_approve', 'poc', 'earn_bid') and isinstance(p.tools, dict) and p.tools.get('wizard') is not None:   # 🧭 the wizard's choices ride on the start
+        p.tools = {**p.tools, 'wizard': _wizard_take(cat, {'ws_approve': 'pos', 'poc': 'poc', 'earn_bid': 'poe'}[p.op], p.tools.get('wizard'))}
     if p.op in rs._fc_earn.OPS:   # 💼 Slice 16: PoEco's earn door (finding + drafting may run on the internal key; every send / deliver / money mark is the owner's)
         return await rs._fc_earn.op(cat_id, cat, store, p, internal_)
     if p.op in rs._fc_poc.OPS:   # 🎬 Slice 5: the PoC studio's goal / accounts / approve / reach (the approve refuses the internal key)
@@ -1257,6 +1312,10 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if not b_.get('brains') or not (rs._lc.can_ask(b_) or rs._ck.key_for(cat, 'openrouter', data_dir=rs.DATA_DIR) or rs._pays_itself(cat)):
             raise rs.HTTPException(402, 'It needs model credit to do this.')
         note_ = str(p.text or '').strip()[:600]; pl_ = doc_['plan']; pl_['approved'] = True; ask_ = pl_.get('ask') or ''; go_ = f'{ask_}\nThe owner adds: {note_}' if note_ else ask_
+        wiz_ = (p.tools or {}).get('wizard') if isinstance(p.tools, dict) else None
+        if wiz_:   # 🧭 Slice 33: the start wizard took the place of the plan text: its direction is the owner's word, the rest rides on the folder for the build
+            doc_['wizard'] = wiz_; note_ = note_ or ((wiz_.get('direction') or {}).get('text') if (wiz_.get('direction') or {}).get('edited') else '')
+            go_ = f'{ask_}\nThe owner adds: {note_}' if note_ else ask_
         rs._feat.add_msg(doc_, 'you', note_ or 'Approved. Build it.', rs.time.time()); doc_['busy'] = {'at': round(rs.time.time()), 'to': pl_.get('to') or 'both', 'stage': 'build'}; doc_['stage'] = 'build'; rs._ws_save(cat_id, doc_)
         rs._ws_start(cat_id, p.job, str(pl_.get('to') or 'both'), go_, None)
         return {'doc': rs._ws_view(cat_id, p.job)}
@@ -1537,7 +1596,7 @@ async def _cat_work(cat_id: str, p: _RSM.WorkPayload):
         if (room_ := rs._proof_room(cat, cat_id, 'PoC')):
             raise rs.HTTPException(409, room_)
         topic_ = str(p.text or '').strip()[:120]
-        rs._POC_BUSY.add(cat_id); rs.asyncio.create_task(rs._poc_file(cat_id, topic_, str(p.job or '') or None))
+        rs._POC_BUSY.add(cat_id); rs.asyncio.create_task(rs._poc_file(cat_id, topic_, str(p.job or '') or None, (p.tools or {}).get('wizard') if isinstance(p.tools, dict) else None))   # 🧭 Slice 33: + the start wizard
         return {'ok': True, 'pocFolders': rs._poc_view(cat)}
     if p.op == 'week_plans':   # 🗓 its minds write 3 different weeks (launch / drip / hype) for this PoC folder; each files as a PoC
         if not (cat.get('brainsCfg') or {}).get('brains'):

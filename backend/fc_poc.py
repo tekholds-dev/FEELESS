@@ -73,7 +73,7 @@ async def _thumb(http, url):
         return None
 
 
-async def poc_file(cat_id, topic, ws=None):
+async def poc_file(cat_id, topic, ws=None, wiz=None):
     """📣 PROOF OF CONTENT, the studio: trend first, real files, a goal, nothing posted. Its PoI is the trend list it chose from."""
     rs = _rs()
     try:
@@ -89,8 +89,13 @@ async def poc_file(cat_id, topic, ws=None):
                 raise RuntimeError('no trend source answered')
             notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
             read_, sites_read_ = await rs._site_reads('poc', (cat['id'], cat.get('name')))
+            wiz_line_, wiz_rec_ = '', None
+            if wiz:   # 🧭 Slice 33: the start wizard's kits (via _recall), research pass and the owner's direction reach both minds
+                rs._wiz.CTX.set(wiz)
+                found_ = await rs._wiz.research(wiz, topic or (wiz.get('direction') or {}).get('text') or '', http, rs._tools.build_refs, rs._fc_desk.wiz_ask(cat, 'poc', ws or pid_))
+                base_ = rs._wiz.start_row(cat.get('pocFolders'), wiz.get('start')); wiz_line_ = rs._wiz.line(wiz, found_, base_); wiz_rec_ = rs._wiz.record(wiz, found_, base_)
             sys_ = (_ps.SYS + rs._foot.note('poc', cat.get('pocFolders'), 0) + rs._feat._sources.proof_line('poc') + read_ + rs._recall(cat, 'Content', topic)
-                    + rs._know.for_ask(topic) + rs._prec.back_line(cat.get('footBack'), 'poc', rs.time.time()))
+                    + rs._know.for_ask(topic) + rs._prec.back_line(cat.get('footBack'), 'poc', rs.time.time()) + wiz_line_)
             user_ = _ps.ask_text(trends, topic, notes); cost = 0.0; paid_own = False
 
             async def one(i, m):
@@ -127,7 +132,7 @@ async def poc_file(cat_id, topic, ws=None):
                    'mind': k_, 'angle': best['angle'], 'hook': best['hook'], 'sub': best['sub'], 'beats': best['beats'], 'post': best['post'], 'thread': best['thread'],
                    'goal': goal_, 'files': files_, 'filled': best.get('filled') or [], 'gaps': best.get('gaps') or [], 'maker': {'name': 'FEELESS free maker (Pillow + ffmpeg, on this machine)', 'usd': 0.0, 'watermark': False},
                    'why': best.get('why') or '', 'bg': 'the trend’s own picture' if bg_ else 'FEELESS green field'}
-        f_ = {'id': pid_, 'kits': rs._KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': rs._next_n(rows), 'kind': 'PoC',
+        f_ = {'id': pid_, **({'wizard': wiz_rec_} if wiz_rec_ else {}), 'kits': rs._KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': rs._next_n(rows), 'kind': 'PoC',
               'at': round(rs.time.time()), 'status': 'closed', 'paper': True, 'topic': (f"{_ps._cut(tr_['text'], 60)}" + (f' · {topic}' if topic else ''))[:120],
               'trends': {k: v[:5] for k, v in ((got_ or {}).get('trends') or {}).items()}, 'calls': calls, 'cost': round(cost, 5), 'studio': studio_,
               'sources': {'trends': [{'url': t['url']} for t in trends if str(t.get('url') or '').startswith('http')]},
@@ -136,7 +141,7 @@ async def poc_file(cat_id, topic, ws=None):
             if cost and not paid_own and c_.get('brainsCfg'):
                 rs._lc.charge(c_['brainsCfg'], cost)
             rs._save(store)
-            return await rs._poc_file(cat_id, topic, ws)
+            return await rs._poc_file(cat_id, topic, ws, wiz)
         rows.append(rs._record_file(c_, 'poc', f_))
         c_['pocFolders'] = rows[-60:]
         ok_, why_ = _ps.files_check(files_)

@@ -277,8 +277,8 @@ def test_the_test_door_files_an_earn_filing_and_never_a_market_call(svc, monkeyp
     monkeypatch.setattr(fs, '_internal', lambda r: None)
     started = []
 
-    async def fake_bid(cid, lid=''):
-        started.append((cid, lid))
+    async def fake_bid(cid, lid='', wiz=None):
+        started.append((cid, lid) if wiz is None else (cid, lid, wiz))   # 🧭 Slice 33: no wizard sent = none passed on
     old = fs._fc_earn._bid; fs._fc_earn._bid = fake_bid
     try:
         cat['handle'] = 'happy-assistant'

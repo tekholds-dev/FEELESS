@@ -7,6 +7,8 @@ jest.mock('../terminal/TrenchChart', () => ({ TrenchChart: () => <i data-testid=
 jest.mock('../perps/PerpsChart', () => ({ PerpsChart: ({ asset }) => <i data-testid="perps">{asset}</i> }));
 jest.mock('../terminal/TradeTape', () => ({ TradeTape: () => <i data-testid="tape" /> }));
 jest.mock('./FeeCatShell', () => ({ goTo: jest.fn() }));
+const WIZ = { kind: 'pos', label: 'PoStatic', brief: 'B', goal: '', pitch: ['A desk'], kits: [{ id: 'k1', name: 'Kit one' }], picks: [], mode: 'auto', starts: [], max: 3, minds: ['m1'], cost: { usd: 0.01, n: 2 },
+  research: [{ by: 'minds', label: 'The minds', tip: '', usd: 0, mind: null }, { by: 'comp', label: 'COMP', tip: '', usd: 0, mind: 'COMP' }] };
 const DATA = { workspaces: [], memory: { notes: 3, mindNotes: 1, recent: ['a note'], personal: '' }, print: { level: 40, proofs: 6, traits: [{ t: 'source pump', score: 2, n: 3, won: 3 }] }, edge: [{ id: 'x', cat: 'safety', t: 'Mint on', read: 'r', means: 'm', do: 'd', stop: 's' }], edgeCats: { safety: 'Rugs' }, indicators: [{ id: 'rsi', t: 'RSI' }], pocFolders: [] };
 async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); await act(async () => { }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
 const type = async (n, v) => { await act(async () => { const set = Object.getOwnPropertyDescriptor(n.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set; set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); }); };
@@ -99,7 +101,7 @@ test('PoStatic approval grows its progress and can complete the proof', async ()
 test('a PoStatic shows its steps, waits on its plan, and approval is what builds it', async () => {
   const { act } = require('react-dom/test-utils'); const { createRoot } = require('react-dom/client');
   const doc = { id: 'w1', kind: 'build', name: 'B', messages: [{ by: 'you', text: 'x' }], stage: 'approve', busy: null, versions: 0, cfg: { research: true, suggest: true, review: true, depth: 'quick' }, plan: { by: 'Mind A', approved: false, allRefs: [{ title: 'a/b', url: 'https://a', source: 'GitHub', score: 9, open: true }, { title: 'c', url: 'https://c', source: 'Hacker News', score: 1, open: false }], plan: { summary: 'A desk', steps: ['one'], borrow: 'layout', refs: [], risks: 'none' } } };
-  const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_approve' ? { doc: { ...doc, busy: { stage: 'build' }, stage: 'build', plan: { ...doc.plan, approved: true } } } : b.op === 'ws_cfg' ? { doc: { ...doc, cfg: { ...doc.cfg, ...b.tools } } } : {}));
+  const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_approve' ? { doc: { ...doc, busy: { stage: 'build' }, stage: 'build', plan: { ...doc.plan, approved: true } } } : b.op === 'ws_cfg' ? { doc: { ...doc, cfg: { ...doc.cfg, ...b.tools } } } : b.op === 'wizard_opts' ? { wizard: WIZ } : {}));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const { FeaturesFolder } = require('./FeaturesFolder');
   await act(async () => { root.render(<FeaturesFolder cat={{ id: 'c' }} d={{}} work={work} />); });
   await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your work')).click(); });
@@ -108,7 +110,15 @@ test('a PoStatic shows its steps, waits on its plan, and approval is what builds
   expect(el.querySelector('[data-testid="ws-plan-stage"]').textContent).toContain('A desk'); expect(el.querySelector('[data-testid="ws-plan-stage"]').textContent).toContain('Blocked');   // a waiting plan takes the stage (owner 2026-11-09)
   await act(async () => { el.querySelector('[data-testid="ws-settings"]').click(); });
   await act(async () => { el.querySelector('[data-testid="ws-depth-deep"]').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_cfg', tools: expect.objectContaining({ depth: 'deep' }) }));
-  await act(async () => { el.querySelector('[data-testid="ws-approve"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'ws_approve', job: 'w1', text: '' });
+  // 🧭 Slice 33: approving opens the 3-step start wizard; its Go is what builds, and every choice rides along
+  await act(async () => { el.querySelector('[data-testid="ws-approve"]').click(); });
+  expect(work).toHaveBeenCalledWith('c', { op: 'wizard_opts', text: 'pos', job: 'w1', cap: '' }); expect(work).not.toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_approve' }));
+  const W = id => document.querySelector(`[data-testid="${id}"]`);
+  const tap = async id => { for (let i = 0; i < 60 && !W(id); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 15)); }); await act(async () => { W(id).click(); }); };   // Motion's step slide runs on frames
+  await tap('swz-approve'); await tap('swz-kit-k1'); await tap('swz-next');
+  await tap('swz-research-comp'); expect(W('swz-minds').textContent).toContain('COMP');
+  await tap('swz-go');
+  expect(work).toHaveBeenCalledWith('c', { op: 'ws_approve', job: 'w1', text: '', tools: { wizard: { direction: { text: '', pitch: 'A desk', approved: true }, kits: ['k1'], start: 'fresh', research: { by: 'comp' } } } });
   expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('It builds');
   await act(async () => root.unmount());
 });

@@ -55,6 +55,7 @@ def summary(last):
             + (lambda b: f"\n  stash: {b.get('hits')} hits / {b.get('browsed')} browsed ({b.get('stale')} stale) · kept {b.get('kept')} · saved {b.get('savedSecs')} s, ${b.get('savedUsd')} (paid-eq ${b.get('paidEqUsd')}) · cats {b.get('cats')} · from {b.get('from')}" if b else '\n  stash: none recorded')(last.get('stash'))
             + ''.join(f"\n  studio piece: {r.get('name')} · {r.get('height')} m · turn {r.get('turn')} · spin {r.get('spin')} · {'IN THE PAGE' if r.get('used') else 'MISSING'}" for r in (last.get('studio') if isinstance(last.get('studio'), list) else []))
             + (f"\n  version {last.get('version')} · brief {(last.get('brief') or {}).get('centre')} + {(last.get('brief') or {}).get('layout')}" if last.get('brief') or last.get('version') else '')
+            + (lambda w: f"\n  started with: {w.get('direction') or 'pitch approved'} · kits {w.get('kits') or 'its own pick'} · {w.get('start')} · research {(w.get('research') or {}).get('by')} ok={(w.get('research') or {}).get('ok')} refs={len((w.get('research') or {}).get('refs') or [])}" if w else '')(last.get('wizard'))
             + ''.join(f"\n  kit {k.get('name')}: {k.get('did')}" for k in last.get('kitsDid') or [])
             + (lambda u: f"\n  unique: page {u.get('centre')} + {u.get('layout')}, {round(float(u.get('like') or 0) * 100)}% like #{u.get('nearest')}{' COPY' if u.get('copy') else ''}" if u else '')(last.get('unique'))
             + (lambda c: f"\n  code check: {c.get('passed')}/{c.get('total')} failed {c.get('failed')}{' NOT RUN ' + str(c.get('notRun')) if c.get('notRun') else ''}" if c else '')(last.get('codeCheck'))
@@ -84,6 +85,7 @@ def main():
     ap.add_argument('--earn', action='store_true', help="PoEco only (Slice 16): an earn filing: a real open listing from the public feeds, both minds bid blind, nothing sent (--topic = a listing id from the board; '' = its best)")
     ap.add_argument('--dash', action='store_true', help='PoB only: file through the PoB dashboard door (op pob: a tap on What to file next), not the chat line')
     ap.add_argument('--slip', default='', help='PoB only, with --dash: his own slip as JSON, [{"ticker": "...", "side": "yes|no", "title": "..."}]')
+    ap.add_argument('--wizard', default='', help='PoEco --earn (Slice 33): the start wizard\'s choices as JSON, {"direction": {"text": "", "approved": true}, "kits": [], "start": "fresh", "research": {"by": "comp"}}')
     ap.add_argument('--inspect', action='append', default=[], help='PoStatic + --ws: a CSS query for the element to click with inspect (repeatable); --topic is the fix')
     a = ap.parse_args()
     global AGENT
@@ -99,7 +101,7 @@ def main():
     code, j = call('POST', {'kind': a.kind, 'topic': a.topic, 'op': 'stop' if a.stop else 'start',
                             **({'model': {'id': a.model, 'height': a.size, 'turn': a.turn, 'spin': a.spin}} if a.model and a.kind == 'pos' else {}),
                             **({'ws': a.ws} if a.ws and a.kind == 'pos' else {}),
-                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'door': 'earn'} if a.earn and a.kind == 'poe' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
+                            **({'door': 'dash'} if a.dash and a.kind == 'pob' else {}), **({'door': 'earn'} if a.earn and a.kind == 'poe' else {}), **({'wizard': json.loads(a.wizard)} if a.wizard and a.earn and a.kind == 'poe' else {}), **({'slip': json.loads(a.slip)} if a.slip and a.kind == 'pob' else {}),
                             **({'inspect': [{'click': q, 'note': a.topic} for q in a.inspect]} if a.inspect and a.ws and a.kind == 'pos' else {})})
     print(code, json.dumps({k: v for k, v in j.items() if k != 'chat'})[:600])
     if code != 200 or not a.wait:

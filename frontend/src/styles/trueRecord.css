@@ -47,3 +47,7 @@ body.fx-lite .rfold-body, body.fx-lite .rfold-chev { animation: none; transition
 @media (prefers-reduced-motion: reduce) { .rfold-body { animation: none; } .rfold-chev { transition: none; } }
 body.theme-day .rfold { --rf: color-mix(in srgb, var(--pk, var(--m-accent)) 60%, var(--m-text)); background: color-mix(in srgb, var(--rf) 4%, var(--m-surface)); }
 @media (max-width: 640px) { .rfold-row { gap: 4px 10px; } .rfold-n { display: none; } }
+/* 🧭 Slice 33: STARTED WITH (the start wizard's choices, read back from the filed proof) */
+.trec-wiz { display: grid; gap: 3px; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); }
+.trec-wiz > small { font: 800 10px var(--f-mono); letter-spacing: .14em; color: var(--m-mute); } .trec-wiz > b { font: 600 12px var(--f-ui); }
+.trec-wiz > p { margin: 0; font: 400 12px/1.45 var(--f-ui); color: var(--m-dim); } .trec-wiz > em { font: 400 11px var(--f-ui); font-style: normal; color: var(--m-mute); } .trec-wiz > em.is-bad { color: var(--m-danger); }

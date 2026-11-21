@@ -51,6 +51,7 @@
     "react-dom": "19.0.0",
     "react-globe.gl": "^2.38.0",
     "react-konva": "19.0.3",
+    "react-resizable-panels": "2.1.9",
     "react-router-dom": "7.18.5",
     "react-scripts": "5.0.1",
     "recharts": "2.15.4",

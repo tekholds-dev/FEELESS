@@ -23,6 +23,7 @@ class TestIn(BaseModel):   # 🧪 Slice 0's body + Slice 2's studio piece: {id: 
     agent: str = ''   # 🧪 owner 2026-11-19: '' / 'sicarios' = Sicario's (free local minds) · 'happy' = Happy's (its paid minds, proposals and paper only, TEST_BUDGET_USD in all)
     door: str = ''   # 🎲 Slice 13: PoB only, 'dash' = through the PoB dashboard's door (op pob: a tap on What to file next / his own slip), not the chat line
     slip: Optional[list] = None   # 🧾 Slice 13: with door 'dash', his own slip [{ticker, side, title}]: the minds check it with the same guards
+    wizard: Optional[dict] = None   # 🧭 Slice 33: what the start wizard would send (direction, kits, start, research); it rides tools.wizard on the same door the owner's Go takes
     inspect: Optional[list] = None   # 🔍 Slice 9: with ws, [{click: a CSS query, note}]: each element is clicked through the page's own inspect tool on a headless browser, then fixed through the same build door
 RUN_MARKED = ('pow', 'pob')   # the kinds with money steps: their TEST mark rides the run itself (folder testRun / pobRead by 'test')
 TEST_TTL_S = 3 * 3600   # a TEST claim no filing answered within this is dropped (it never marks a later proof)
@@ -158,7 +159,7 @@ def _test_view(cat):
         last = next((f for f in reversed(cat.get(key) or []) if isinstance(f, dict) and f.get('test')), None)
         live = _test_live(cat, kind)
         out[kind] = {'running': bool(live), 'since': (live or {}).get('at'),
-                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief', 'stash', 'kind', 'listing', 'bids', 'kept', 'bid', 'stage', 'platform', 'kits')}
+                     'last': {k: last.get(k) for k in ('id', 'n', 'at', 'topic', 'sym', 'test', 'wizard', 'ran', 'mindsCheck', 'read', 'foot', 'status', 'noTrade', 'why', 'ws', 'studio', 'version', 'kitsDid', 'unique', 'keep', 'brief', 'stash', 'kind', 'listing', 'bids', 'kept', 'bid', 'stage', 'platform', 'kits')}
                              | ({'codeCheck': {k: (last.get('codeCheck') or {}).get(k) for k in ('passed', 'total', 'failed', 'notRun')}} if last.get('codeCheck') else {}) | {'checks': last.get('proofChecks') or (last.get('checks') if isinstance(last.get('checks'), list) else [])} if last else None}
     return out
 
@@ -218,7 +219,7 @@ async def test_proof_start(p: TestIn, request: Request):
     rs._TEST_ON[(cid, kind)] = {'at': now, 'by': 'Claude', 'run': rs.uuid.uuid4().hex[:10], 'topic': str(p.topic or '')[:120]}
     try:
         if kind == 'poe' and p.door == 'earn':   # 💼 Slice 16: an earn filing through the same door the owner's tap takes: a real listing, both minds bid blind; nothing is sent
-            out = await rs._cat_work(cid, rs.WorkPayload(op='earn_bid', text=str(p.topic or '')[:200], session=rs._AUTO_TOKEN, auto=True))
+            out = await rs._cat_work(cid, rs.WorkPayload(op='earn_bid', text=str(p.topic or '')[:200], session=rs._AUTO_TOKEN, auto=True, tools={'wizard': p.wizard} if p.wizard else None))
         elif kind == 'poe':   # 📊 PoEco: one sealed market call on live pools, no model
             out = await rs._cat_work(cid, rs.WorkPayload(op='eco_call', session=rs._AUTO_TOKEN, auto=True))
         elif kind == 'pos' and p.ws:   # ⏫ Slice 3: a change to a TEST folder Claude made: its next version, through the same build door

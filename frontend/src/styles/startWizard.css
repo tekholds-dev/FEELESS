@@ -1,0 +1,65 @@
+/* 🧭 StartWizard.jsx (swz-*): the 3-step popout before a PoC, PoEco or PoStatic job (Slice 33). A compact pro-tool dialog: 12-13px body,
+   10-11px mono labels, the kind's own light (the --pws-* tokens from proofWorkspace.css) on the step rail, the chosen chips and the cost.
+   Steps slide (Motion, transform / opacity); the dialog fits a 360 px phone without a sideways scroll. */
+.swz { --sw-ac: var(--pws-pos, var(--m-accent)); }
+.swz.is-poc { --sw-ac: var(--pws-poc); } .swz.is-poe { --sw-ac: var(--pws-poe); } .swz.is-pos { --sw-ac: var(--pws-pos); }
+.swz-back { position: fixed; inset: 0; z-index: 9400; background: color-mix(in srgb, var(--m-bg) 62%, transparent); animation: swzFade .16s ease both; }
+.swz { position: fixed; left: 50%; top: 50%; z-index: 9401; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; width: min(640px, calc(100vw - 16px)); max-height: min(720px, calc(100dvh - 16px));
+  border: 1px solid color-mix(in srgb, var(--sw-ac) 40%, var(--m-line)); border-radius: var(--m-r); background: var(--m-bg); color: var(--m-text); font: 400 12.5px/1.45 var(--f-ui);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .75), 0 0 0 1px color-mix(in srgb, var(--sw-ac) 10%, transparent), inset 0 1px 0 color-mix(in srgb, var(--m-text) 7%, transparent);
+  transform: translate(-50%, -50%); animation: swzIn .18s var(--m-ease) both; overflow: hidden; }
+.swz:focus { outline: none; }
+.swz-h { position: relative; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--m-line); background: linear-gradient(90deg, color-mix(in srgb, var(--sw-ac) 12%, var(--m-surface)), var(--m-surface) 55%); }
+.swz-t { display: inline-flex; align-items: center; gap: 7px; margin: 0; font: 700 13px var(--f-ui); white-space: nowrap; }
+.swz-t > i { width: 7px; height: 7px; border-radius: 50%; background: var(--sw-ac); box-shadow: 0 0 10px var(--sw-ac); }
+.swz-steps { display: flex; gap: 2px; margin: 0 0 0 auto; padding: 0; list-style: none; }
+.swz-steps button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 8px; border: 0; border-radius: var(--m-r-sm); background: transparent; color: var(--m-mute); font: 700 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.swz-steps button:disabled { cursor: default; opacity: .6; }
+.swz-steps i { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid currentColor; font: 800 9px var(--f-mono); font-style: normal; }
+.swz-steps .is-now button { color: var(--m-text); } .swz-steps .is-now i { background: var(--sw-ac); border-color: var(--sw-ac); color: var(--m-bg); }
+.swz-steps .is-done button { color: var(--sw-ac); }
+.swz-x { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--m-r-sm); background: transparent; color: var(--m-mute); cursor: pointer; font: 600 13px var(--f-ui); }
+.swz-x:hover { color: var(--m-text); background: color-mix(in srgb, var(--sw-ac) 12%, transparent); }
+:is(.swz-steps button, .swz-x, .swz-chip, .swz-start, .swz-ropt):focus-visible { outline: 2px solid var(--sw-ac); outline-offset: 2px; }
+.swz-body { min-height: 260px; padding: 12px; overflow: auto; scrollbar-width: thin; }
+.swz-wait { margin: 0; color: var(--m-dim); }
+.swz-pane { display: grid; gap: 12px; }
+.swz h4, .swz-brief dt, .swz-edit > span, .swz-sum small { margin: 0; font: 800 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--m-mute); }
+.swz h4 small, .swz-edit small { margin-left: 6px; letter-spacing: .02em; text-transform: none; font: 500 11px var(--f-ui); color: var(--m-mute); }
+.swz-brief { display: grid; gap: 8px; margin: 0; } .swz-brief dd { margin: 2px 0 0; color: var(--m-text); }
+.swz-pitch ol { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; counter-reset: p; }
+.swz-pitch li { position: relative; padding: 6px 8px 6px 28px; border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--sw-ac) 6%, var(--m-surface)); counter-increment: p; animation: swzRow .2s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.swz-pitch li::before { content: counter(p); position: absolute; left: 8px; top: 6px; font: 800 10px var(--f-mono); color: var(--sw-ac); }
+.swz-edit { display: grid; gap: 5px; } .swz-edit textarea { width: 100%; min-height: 64px; resize: vertical; font: 400 12.5px/1.45 var(--f-ui); }
+.swz-sec { display: grid; gap: 6px; }
+.swz-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 210px; overflow: auto; scrollbar-width: thin; }
+.swz-chip { min-height: 32px; padding: 0 10px; border: 1px solid var(--m-line); border-radius: 999px; background: transparent; color: var(--m-dim); font: 600 11.5px var(--f-ui); cursor: pointer; transition: background .14s, color .14s, transform .14s var(--m-ease); }
+.swz-chip:hover:not(:disabled) { color: var(--m-text); border-color: var(--sw-ac); } .swz-chip:active { transform: scale(.97); } .swz-chip:disabled { opacity: .4; cursor: default; }
+.swz-chip.is-on { background: var(--sw-ac); border-color: var(--sw-ac); color: var(--m-bg); }
+.swz-starts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
+.swz-start, .swz-ropt { display: grid; gap: 2px; min-height: 44px; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); color: var(--m-text); text-align: left; cursor: pointer; transition: border-color .14s, background .14s, transform .14s var(--m-ease); }
+.swz-start:hover, .swz-ropt:hover { border-color: color-mix(in srgb, var(--sw-ac) 60%, var(--m-line)); } .swz-start:active, .swz-ropt:active { transform: scale(.99); }
+.swz-start b, .swz-ropt b { font: 600 12px var(--f-ui); } .swz-start b em { margin-left: 5px; font-style: normal; color: var(--m-accent); }
+.swz-start small, .swz-ropt small { color: var(--m-mute); font: 400 11px/1.35 var(--f-ui); }
+.swz-start.is-on, .swz-ropt.is-on { border-color: var(--sw-ac); background: color-mix(in srgb, var(--sw-ac) 12%, var(--m-surface)); box-shadow: inset 2px 0 0 var(--sw-ac); }
+.swz-res { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.swz-ropt { position: relative; padding-right: 48px; } .swz-ropt em { position: absolute; right: 9px; top: 8px; font: 700 11px var(--f-mono); font-style: normal; color: var(--m-accent); }
+.swz-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-line); overflow: hidden; }
+.swz-sum > span { display: grid; gap: 2px; padding: 7px 9px; background: var(--m-surface); min-width: 0; }
+.swz-sum b { font: 600 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swz-sum .swz-hot { font: 700 16px var(--f-mono); color: var(--sw-ac); text-shadow: 0 0 12px color-mix(in srgb, var(--sw-ac) 40%, transparent); }
+.swz-sum .swz-sum-dir { grid-column: 1 / -1; } .swz-sum .swz-sum-dir b { white-space: normal; }
+.swz-err { margin: 0; padding: 6px 12px; color: var(--m-danger); font: 500 12px var(--f-ui); }
+.swz-f { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--m-line); background: var(--m-surface); }
+@keyframes swzIn { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes swzFade { from { opacity: 0; } }
+@keyframes swzRow { from { opacity: 0; transform: translateX(-6px); } }
+body.fx-lite :is(.swz, .swz-back, .swz-pitch li) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .swz, .swz-back, .swz-pitch li { animation: none; } .swz-chip, .swz-start, .swz-ropt { transition: none; } }
+body.theme-day .swz.is-poc { --sw-ac: var(--pws-poc-d); } body.theme-day .swz.is-poe { --sw-ac: var(--pws-poe-d); } body.theme-day .swz.is-pos { --sw-ac: var(--pws-pos-d); }
+body.theme-day .swz { box-shadow: 0 30px 70px -34px rgba(40, 20, 90, .45), 0 0 0 1px color-mix(in srgb, var(--sw-ac) 16%, transparent); }
+body.theme-day .swz-back { background: rgba(240, 236, 250, .62); }
+@media (max-width: 640px) {
+  .swz-steps button { padding: 0 5px; letter-spacing: .04em; } .swz-h { flex-wrap: wrap; } .swz-steps { order: 3; flex-basis: 100%; margin: 0; }
+  .swz-res { grid-template-columns: minmax(0, 1fr); } .swz-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } .swz-t { font-size: 12px; }
+}

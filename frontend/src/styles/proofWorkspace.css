@@ -1,0 +1,114 @@
+:root { /* page tokens (STYLE-1): each proof type keeps its own light; the same hues as features.css's --pfea-* type tokens */
+  --pws-pow: #ff9f43; --pws-pop: #b58cff; --pws-pob: #ffc94d; --pws-poc: #ff5fb0; --pws-pos: #5cc8ff; --pws-poe: #36e2c4;
+  --pws-pow-d: #b5560f; --pws-pop-d: #6a3fd0; --pws-pob-d: #8a6a1c; --pws-poc-d: #b02a72; --pws-pos-d: #1673b0; --pws-poe-d: #0f8a76; }
+/* 🗂 ProofWorkspace.jsx (pws-*): the ONE shell for every opened filing (Slice 33). A slim bar, the big work area, a chat pane and a tools rail
+   that resize by their seams (react-resizable-panels), fold, pop out over the desk or into a window of their own. Pro-tool type: body 12-13px,
+   labels 10-11px mono; the kind's own light on the bar's left edge, the name, the seams and the hot number. Width from lib/boxRef (data-w640 /
+   data-w980) and .is-narrow, never a container query. Motion: transform / opacity only, off under body.fx-lite and reduced motion. */
+:is(.pws, .pws-float, .pws-ownin) { --ws-ac: var(--m-accent); }
+:is(.pws, .pws-float, .pws-ownin).is-pow { --ws-ac: var(--pws-pow); } :is(.pws, .pws-float, .pws-ownin).is-pop { --ws-ac: var(--pws-pop); }
+:is(.pws, .pws-float, .pws-ownin).is-pob { --ws-ac: var(--pws-pob); } :is(.pws, .pws-float, .pws-ownin).is-poc { --ws-ac: var(--pws-poc); }
+:is(.pws, .pws-float, .pws-ownin).is-pos { --ws-ac: var(--pws-pos); } :is(.pws, .pws-float, .pws-ownin).is-poe { --ws-ac: var(--pws-poe); }
+.pws { position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: min(78dvh, 640px); height: 100%; color: var(--m-text); font: 400 12.5px/1.45 var(--f-ui); animation: pwsIn .22s var(--m-ease) both; }
+:where(.pws, .pws-float, .pws-ownin) .m-num { font-size: inherit; }   /* meta.css .m-num is a 22px hero; in a workspace only the hero numbers are big */
+
+/* the slim bar: one 34px row, the kind's light down its left edge */
+.pws-bar { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 3px 6px 3px 9px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ws-ac) 10%, var(--m-surface)), var(--m-surface) 42%); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 6%, transparent); overflow: hidden; }
+.pws-bar::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 2px; background: var(--ws-ac); box-shadow: 0 0 10px var(--ws-ac); }
+.pws-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: 30%; pointer-events: none; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ws-ac) 9%, transparent), transparent); animation: pwsSweep 9s linear infinite; }
+.pws-back { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 9px 0 6px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: transparent; color: var(--m-dim); font: 600 11px var(--f-tech); letter-spacing: .04em; cursor: pointer; transition: transform .14s var(--m-ease), color .14s, border-color .14s; }
+.pws-back > i { font-style: normal; font-size: 15px; line-height: 1; }
+.pws-back:hover { color: var(--m-text); border-color: var(--ws-ac); } .pws-back:active { transform: scale(.97); } .pws-back:focus-visible, .pws-tg:focus-visible, .pws-ic:focus-visible, .pws-tabs > button:focus-visible { outline: 2px solid var(--ws-ac); outline-offset: 2px; }
+.pws-kind { flex: none; padding: 1px 6px; border-radius: 3px; background: color-mix(in srgb, var(--ws-ac) 16%, transparent); color: var(--ws-ac); font: 800 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; }
+.pws-name { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px var(--f-ui); color: var(--m-text); }
+.pws-status { flex: none; display: inline-flex; align-items: center; gap: 5px; font: 700 10px var(--f-mono); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); white-space: nowrap; }
+.pws-status > i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pws-status.is-live { color: var(--ws-ac); } .pws-status.is-live > i { animation: pwsPulse 1.6s ease-in-out infinite; }
+.pws-status.is-good { color: var(--m-accent); } .pws-status.is-bad { color: var(--m-danger); } .pws-status.is-wait { color: var(--m-warn); }
+.pws-cost { flex: none; display: inline-flex; align-items: baseline; gap: 4px; padding-left: 8px; border-left: 1px solid var(--m-line); }
+.pws-cost > small { font: 700 9.5px var(--f-mono); letter-spacing: .12em; color: var(--m-mute); } .pws-cost > b { font: 700 12.5px var(--f-mono); color: var(--m-text); }
+.pws-extra { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: hidden; justify-content: flex-end; }
+.pws-ctl { display: inline-flex; gap: 4px; margin-left: auto; flex: none; }
+.pws-tg { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 9px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: transparent; color: var(--m-mute); font: 700 10px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; transition: background .14s, color .14s, transform .14s var(--m-ease); }
+.pws-tg > i { font-style: normal; font-size: 12px; } .pws-tg:hover { color: var(--m-text); } .pws-tg:active { transform: scale(.97); }
+.pws-tg.is-on { color: var(--m-text); border-color: color-mix(in srgb, var(--ws-ac) 55%, var(--m-line)); background: color-mix(in srgb, var(--ws-ac) 10%, transparent); }
+.pws-tg.is-out { border-style: dashed; }
+.pws-note { margin: 0; padding: 4px 9px; border-radius: var(--m-r-sm); background: color-mix(in srgb, var(--m-warn) 12%, transparent); color: var(--m-warn); font: 500 11.5px var(--f-ui); }
+
+/* the panes and their seams */
+.pws-body { flex: 1 1 0; min-height: 0; }   /* the panes always take what is left under the bar (a grid put them in an auto row when there were no phone tabs) */
+.pws > :not(.pws-body) { flex: none; }
+.pws-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.pws-work-in { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ws-ac) 50%, transparent) transparent; }
+.pws-work-in > * { flex: 1 1 auto; min-width: 0; }
+.pws-chat, .pws-tools { border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: linear-gradient(180deg, color-mix(in srgb, var(--ws-ac) 5%, var(--m-surface)), var(--m-surface) 30%); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 5%, transparent); }
+.pws-pane-h { display: flex; align-items: center; gap: 2px; min-height: 30px; padding: 2px 4px 2px 9px; border-bottom: 1px solid var(--m-line); }
+.pws-pane-h > b { flex: 1; font: 800 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ws-ac); }
+.pws-pane-in { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 8px; overflow: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ws-ac) 50%, transparent) transparent; }
+.pws-pane-in > * { min-width: 0; }
+.pws-ic { display: inline-grid; place-items: center; width: 32px; height: 28px; border: 0; border-radius: var(--m-r-sm); background: transparent; color: var(--m-mute); font: 600 13px var(--f-ui); cursor: pointer; transition: background .14s, color .14s; }
+.pws-ic:hover { background: color-mix(in srgb, var(--ws-ac) 12%, transparent); color: var(--m-text); } .pws-ic:active { transform: scale(.94); }
+.pws-seam { position: relative; flex: 0 0 9px; display: grid; place-items: center; cursor: col-resize; outline: none; }
+.pws-seam > i { width: 2px; height: 36px; border-radius: 2px; background: var(--m-line); transition: background .14s, transform .14s var(--m-ease); }
+.pws-seam:hover > i, .pws-seam[data-resize-handle-state='drag'] > i, .pws-seam:focus-visible > i { background: var(--ws-ac); transform: scaleY(1.6); box-shadow: 0 0 8px var(--ws-ac); }
+:is(.pws-work-in, .pws-pane-in)::-webkit-scrollbar { width: 6px; height: 6px; } :is(.pws-work-in, .pws-pane-in)::-webkit-scrollbar-thumb { border-radius: 6px; background: color-mix(in srgb, var(--ws-ac) 50%, transparent); }
+
+/* popped out: over the desk (drag by its head, resize from its corner), or in a browser window of its own */
+.pws-float { position: fixed; right: 24px; bottom: 84px; z-index: 9000; display: flex; flex-direction: column; width: 400px; height: min(560px, 70dvh); min-width: 280px; min-height: 220px; max-width: 92vw; max-height: 88dvh; resize: both; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ws-ac) 45%, var(--m-line)); border-radius: var(--m-r); background: var(--m-bg); color: var(--m-text); font: 400 12.5px/1.45 var(--f-ui); box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .7), 0 0 0 1px color-mix(in srgb, var(--ws-ac) 12%, transparent), inset 0 1px 0 color-mix(in srgb, var(--m-text) 7%, transparent); }
+.pws-float-h { display: flex; align-items: center; gap: 4px; min-height: 32px; padding: 2px 4px 2px 10px; border-bottom: 1px solid var(--m-line); cursor: grab; touch-action: none; background: color-mix(in srgb, var(--ws-ac) 8%, var(--m-surface)); }
+.pws-float-h:active { cursor: grabbing; } .pws-float-h > i { width: 6px; height: 6px; border-radius: 50%; background: var(--ws-ac); box-shadow: 0 0 8px var(--ws-ac); }
+.pws-float-h > b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; }
+.pws-float-in { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 8px; overflow: auto; scrollbar-width: thin; }
+.pws-ownbody { margin: 0; background: var(--m-bg); color: var(--m-text); }
+.pws-own { min-height: 100vh; } .pws-ownin { display: flex; flex-direction: column; gap: 8px; min-height: 100vh; padding: 10px; font: 400 12.5px/1.45 var(--f-ui); }
+
+/* phone (≤ 640 px): the panes become three tabs, one pane at a time, full width */
+.pws-tabs { justify-self: start; }
+.pws.is-narrow .pws-seam { display: none; }
+.pws.is-narrow .pws-body > [data-pane] { flex: 1 1 100% !important; }
+.pws.is-narrow[data-tab='work'] .pws-body > [data-pane]:not([data-pane='work']), .pws.is-narrow[data-tab='chat'] .pws-body > [data-pane]:not([data-pane='chat']),
+.pws.is-narrow[data-tab='tools'] .pws-body > [data-pane]:not([data-pane='tools']) { display: none !important; }
+.pws.is-narrow .pws-pane-h > .pws-ic { display: none; }
+.pws[data-w640] .pws-bar { flex-wrap: wrap; row-gap: 4px; } .pws[data-w640] .pws-extra { flex-basis: 100%; justify-content: flex-start; order: 9; }
+.pws[data-w640] .pws-kind { display: none; }
+.pws[data-w980] .pws-cost > small { display: none; }
+
+@keyframes pwsIn { from { opacity: .4; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes pwsSweep { from { transform: translateX(-100%); } to { transform: translateX(420%); } }
+@keyframes pwsPulse { 50% { opacity: .35; } }
+body.fx-lite :is(.pws, .pws-bar::after, .pws-status > i) { animation: none; } body.fx-lite .pws-bar::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .pws, .pws-bar::after, .pws-status.is-live > i { animation: none; } .pws-seam > i, .pws-tg, .pws-back { transition: none; } }
+body.theme-day :is(.pws, .pws-float, .pws-ownin).is-pow { --ws-ac: var(--pws-pow-d); } body.theme-day :is(.pws, .pws-float, .pws-ownin).is-pop { --ws-ac: var(--pws-pop-d); }
+body.theme-day :is(.pws, .pws-float, .pws-ownin).is-pob { --ws-ac: var(--pws-pob-d); } body.theme-day :is(.pws, .pws-float, .pws-ownin).is-poc { --ws-ac: var(--pws-poc-d); }
+body.theme-day :is(.pws, .pws-float, .pws-ownin).is-pos { --ws-ac: var(--pws-pos-d); } body.theme-day :is(.pws, .pws-float, .pws-ownin).is-poe { --ws-ac: var(--pws-poe-d); }
+body.theme-day .pws-float { box-shadow: 0 24px 50px -28px rgba(40, 20, 90, .45), 0 0 0 1px color-mix(in srgb, var(--ws-ac) 18%, transparent); }
+@media (max-width: 640px) { .pws-float { right: 8px; left: 8px; width: auto; } }
+
+/* a filing's minds' thread (MindsThread): what each mind said, as a read-only chat */
+.pws-thread { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pws-thread > li { display: grid; gap: 2px; max-width: 94%; padding: 7px 9px; border: 1px solid var(--m-line); border-radius: 2px 10px 10px 10px; background: color-mix(in srgb, var(--ws-ac) 7%, var(--m-surface)); animation: pwsIn .2s var(--m-ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.pws-thread > li.is-b { justify-self: end; border-radius: 10px 2px 10px 10px; background: var(--m-surface); }
+.pws-thread small { font: 800 10px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ws-ac); }
+.pws-thread b { font: 600 12.5px var(--f-ui); } .pws-thread p { margin: 0; font: 400 12.5px/1.45 var(--f-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pws-thread em { font: 400 11px var(--f-ui); font-style: normal; color: var(--m-mute); }
+.pws-thread-none { margin: 0; color: var(--m-mute); font: 400 12px var(--f-ui); }
+body.fx-lite .pws-thread > li { animation: none; } @media (prefers-reduced-motion: reduce) { .pws-thread > li { animation: none; } }
+/* views that ran their own side column now live on the shell: one column inside the work pane */
+.pws .fea-content, .pws .fea-build.is-shell { grid-template-columns: minmax(0, 1fr); }
+.pws .fea-build.is-shell { grid-template-areas: 'steps' 'screen'; min-height: 0; }
+/* a filing reached through folders keeps its breadcrumb (↑ and each step back), folded into the slim bar */
+.pws-crumbs { display: flex; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.pws-crumbs > * { display: flex !important; align-items: center; gap: 3px; min-width: 0; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; overflow: hidden; white-space: nowrap; font: 600 12px var(--f-ui) !important; }
+.pws-crumbs .m-btn { min-height: 28px; padding: 0 8px; font: 600 12px var(--f-ui); }
+.pws-crumbs span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; } .pws-crumbs i { font-style: normal; color: var(--m-mute); }
+.pws-crumbs span > button { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; padding: 2px 4px; border: 0; border-radius: 3px; background: none; color: var(--m-dim); font: 600 12px var(--f-ui); cursor: pointer; }
+.pws-crumbs span > button:hover:not(:disabled) { color: var(--m-text); background: color-mix(in srgb, var(--ws-ac) 10%, transparent); }
+.pws-crumbs span > button:disabled { color: var(--m-text); cursor: default; }
+/* 🗂 an opened PoW / PoP filing takes its whole proof window, like an opened PoB (.prf-filing): the record head and rail step aside,
+   the slim bar carries the name, status and cost, Back (↑) brings them back */
+.prf:has(.dsk-pow.is-filing) > :is(.phd, .prf-rail) { display: none; }
+.prf:has(.dsk-pow.is-filing) { grid-template-columns: minmax(0, 1fr); }
+.dsk-pow.is-filing { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.pws-tools .dsk-fold-steps { grid-template-columns: minmax(0, 1fr); gap: 6px; } .pws-tools .dsk-fold-steps li { grid-template-columns: 34px minmax(0, 1fr); align-items: center; font-size: 10px; }   /* the folder's steps read top-down in the narrow rail */

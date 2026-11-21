@@ -134,9 +134,6 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 /* owner 2026-11-15 IMG1 'so I don't scroll to the bottom to see filings': on Bids the 7-step how-to strip steps aside and the head is one tight row */
 .prf-bids .phd .phd-steps { display: none; }
 .pfl { display: grid; gap: 12px; animation: pfcIn .28s var(--m-ease) both; }
-.pfl-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--m-r); }
-.pfl-title { display: grid; gap: 3px; min-width: 0; } .pfl-title b { font: 800 22px var(--f-display); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pfl-title em { font-style: normal; font-size: 11px; color: var(--m-dim); }
 .pfl-money { --tone: var(--m-dim); display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 99px; font: 700 12px var(--f-ui); color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent); }
 .pfl-money i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 12px var(--tone); }
 .pfl-money.is-good { --tone: var(--m-accent); } .pfl-money.is-bad { --tone: var(--m-danger); } .pfl-money.is-live { --tone: var(--m-warn); }
@@ -149,8 +146,8 @@ body.theme-day .kd-ticket { background: var(--ppd-tx2); } body.theme-day .kd-tk-
 @keyframes pfcIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.fx-lite :is(.pfl, .pfl-mind, .pfl-body) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.pfl, .pfl-mind, .pfl-body) { animation: none; } }
-body.theme-day .pfl-head, body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
-@media (max-width: 640px) { .pfl-head { grid-template-columns: auto minmax(0, 1fr); } .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } .pfl-money { grid-column: 1 / -1; justify-self: start; } .pfl-title b { font-size: 18px; } }
+body.theme-day .pfl-mind { box-shadow: 0 1px 0 var(--m-line); }
+@media (max-width: 640px) { .pfc-teams.is-l .pfc-team { width: 40px; height: 40px; } }
 /* 🎲 the Bids home, as it was (owner 2026-11-16 'WHERES MY OLD VIEW'): head + File a bid, the doors, the board, a strip of plain filing folders */
 .bd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; --mg: var(--ppd-wn6); } .bd-head span { display: grid; gap: 2px; } .bd-head b { font: 800 13px var(--f-tech); letter-spacing: .1em; color: var(--ppd-wn7); } .bd-head small { font: 600 11px var(--f-ui); color: var(--ppd-wn8); }
 body.theme-day .bd-head b { color: var(--ppd-wn5); } body.theme-day .bd-head small { color: var(--ppd-ln1); }

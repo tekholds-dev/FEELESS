@@ -843,6 +843,19 @@ def _talk_pass(store):
         b_['talkWait'] = [x for x in b_.get('talkWait') or [] if x != o['i']]
 
 
+def wiz_ask(cat, kind, ref):
+    """🧭 The start wizard's research mind (OSSY / G4): its own call-log ref, so the job's 'minds that ran' check still reads only the job's minds."""
+    rs = _rs()
+
+    async def ask(model, sys_, user_, tokens):
+        tok_ = rs._CALL_CTX.set({'kind': kind, 'ref': f'wizard:{ref}', 'minds': [model]})
+        try:
+            return await rs._ws_ask(cat, model, sys_, user_, tokens)
+        finally:
+            rs._CALL_CTX.reset(tok_)
+    return ask
+
+
 def _ws_pass(store):
     rs = _rs()
     while rs._WS_DONE:
@@ -854,6 +867,8 @@ def _ws_pass(store):
         if o['doc']:   # 💻 the page it built is filed as a PoStatic
             filed_ = rs._feat.file_static(c_, o['doc'], (o['doc']['versions'][-1] or {}).get('by') or 'Mind', rs.time.time())
             filed_['cost'] = round(float(o['cost'] or 0), 6)
+            if isinstance(o['doc'].get('wizardRec'), dict):   # 🧭 Slice 33: what the owner chose in the start wizard, on the filed proof
+                filed_['wizard'] = o['doc']['wizardRec']
             rs._record_file(c_, 'pos', filed_)   # 🧾 Slice 0: the minds that really built it (PoStatic folders recorded none), its sources, its footprint (and TEST)
 
 
@@ -1192,16 +1207,25 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 except rs.httpx.HTTPError:
                     from_repo_ = ''
             rs._keep_mark_notes(doc, region)
+            wiz_ = doc.get('wizard') if isinstance(doc.get('wizard'), dict) and not doc['wizard'].get('filed') else None; wiz_line_ = ''; doc.pop('wizardRec', None)
+            if wiz_:   # 🧭 Slice 33: the start wizard's direction, kits, start and research reach this build (the first build after its Go, once)
+                rs._wiz.CTX.set(wiz_)
+                async with rs.httpx.AsyncClient(timeout=12) as http_w:
+                    found_ = await rs._wiz.research(wiz_, text or (wiz_.get('direction') or {}).get('text') or '', http_w, rs._tools.build_refs, wiz_ask(cat, 'pos', ws_id))
+                base_ = rs._wiz.start_row(cat.get('psFolders'), wiz_.get('start')); wiz_line_ = rs._wiz.line(wiz_, found_, base_)
+                wiz_['filed'] = True; doc['wizardRec'] = rs._wiz.record(wiz_, found_, base_); cost += float(found_.get('usd') or 0)
             live_ = ''
             user = f'{ask_}{rs._know.for_ask(text)}{rs._feat.region_note(region, blank=not cur)}{said_}{rs._feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             if rs._feat.wants_live(text) or 'feeless-live' in str(cur) or rs._psk.wants_market(text):   # 📡 a page that asks for live data gets real numbers and how to receive them (Slice 3: + DexScreener pools and our own candles)
                 live_ = rs._feat.live_line(await rs._page_live(cat), page=True); user += live_
             mode_k_, mine_k_ = rs._kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = rs._kits.auto_picks(rs.KITS_DIR, 'pos', text, record=rs._kit_record()) if mode_k_ == 'auto' else mine_k_
+            picks_ = rs._wiz.kits_for('pos', picks_)   # 🧭 Slice 33: the wizard's kits for this job win
             if (rs._assets.wants_3d(text) or doc.get('scene3d')) and 'three' not in picks_ and not doc.get('ad'):   # 🧊 a 3D ask written by the minds: real three.js, their own design
                 picks_ = ['three', *picks_]
             picks_ = list(rs._ads.KITS) if doc.get('ad') else picks_   # 🎬 an ad gets GSAP, never a game kit (Phaser dragged in the game playtest and its STATE / SCORE counter, 2026-11-11)
             stash_, doc['kitsStash'] = rs._kits.stash_line(rs.KITS_DIR, 'pos', text, picks_)
             kits_ = rs._kits.use_line(picks_) + stash_ + rs._parts.offer_line(rs._parts.offer(rs._parts_path(), text)) + rs._mark_lessons() + rs._kits.skills_line(cat.get('brainsCfg')) + rs._foot.note('pos', cat.get('psFolders')) + rs._recall(cat, 'Code', text) + rs._om.page_line(doc.get('models3d'))   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            kits_ += wiz_line_
             past_ = _ps_past(rs._load(), ws_id) if not doc.get('ad') else []   # 🧬 Slice 3: every past build of every agent, to be unlike
             if not doc.get('ad'):
                 kits_ += rs._psk.menu_line(picks_)   # 🧰 Slice 3: every approved kit, not only the 3 picks
