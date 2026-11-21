@@ -35,7 +35,7 @@ FEELESS, Slice N. Read CLAUDE.md, then docs/VISION.md, then "Slice N" in docs/SL
 2. Let it run. If it runs out of room, it continues in the same session by itself. **Don't start a new session mid-slice.**
 3. It ends with a report. **Faked-only / not wired** comes first, then which VISION checks pass for real. It also updates that slice's **Status** line below.
 4. Not finished? Start the next session **with the same model**, using the same prompt. It reads the Status line and carries on.
-5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 33 → 27 → 28 → 32 → 34 → 30 → 31 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
+5. **ONE slice at a time (owner 2026-11-19: "only need one slice running at a time").** Order left: 33 → 34 → 27 → 28 → 32 → 30 → 31 → 17–23 → 8. A slice starts only when the slice before it shows ✅ (done) or ⛔ (stopped, cause written) on its Status line **on main**. So every slice ends by pushing its Status line, starting with ✅ or ⛔. **Lane lock (2026-11-19, kept as a safety net):** before saving any backend file or starting a TEST, take `mkdir .claude/lane.lock` (it fails if anything else holds it).lock` (it succeeds for exactly one slice; on failure, wait and retry). Put your slice number in `.claude/lane.lock/owner` and remove the lock right after your TEST files. A backend save kills any running TEST. To see if a TEST is running, use `pgrep -fl test-proof | grep -v zsh` or `/api/cats/health` busy; a bare `pgrep -f` matches your own waiting shell and hangs. **TEST agent (owner 2026-11-19):** once Slice 6 is on main, every TEST runs on Happy (`scripts/test-proof.py --agent happy`, proposals and paper only, $0.25 per proof type, $1.00 total). Don't waste the owner's credit: one TEST per check, not reruns for luck. A paused slice leaves no half-wired code live: it finishes the edit it's in or restores its own files, and its Status line says where to resume. **Clean:** every slice deletes what it replaced, ships no unwired file, and ends with `git status` showing none of its own files left uncommitted.
 6. Never push backend code while a TEST or proof is running: a push restarts every service.
 
 **Order (2026-11-19):** everything up to 14 has a Status line on main; left: 26 (PoP desk) → 29 (clip studio) → 27 (PoStatic desk) → 28 (PoEco desk) → 17–23 (earn ideas) → 8 last.
@@ -327,7 +327,7 @@ FEELESS, Slice 28. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 ```
 
 ## Slices 30–34 + the 27/28 add-ons · owner 2026-11-20 night ("think big and robust … be senior dev and mad computer scientist … investors are ready for the beta")
-Order: **33 → 27 → 28 → 32 → 34 → 30 → 31 → 17–23 → 8.** The shared workspace shell (33) goes first because every desk after it builds on it.
+Order: **33 → 34 → 27 → 28 → 32 → 30 → 31 → 17–23 → 8.** (34 moved up 2026-11-20: the approved Desk look must exist before the next desks are built, or they get redone.) The shared workspace shell (33) goes first because every desk after it builds on it.
 
 ## Slice 33 · The filing workspace + the start wizard (shared by every proof type)
 **Why:** Owner 2026-11-20 (night, with 5 screenshots): "in any proof type folder the ui/layout isnt robust and lit!! just bulky and annoying … don't be afraid to use popouts … before a PoC, PoEco or PoStatic job starts, instead of the drop of long text, it can pop out a 3-step window."
@@ -355,24 +355,42 @@ FEELESS, Slice 33. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
 FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("PoC"), then RULINGS 2026-11-20, then "Slice 32" in docs/SLICES.md. Do only Slice 32, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 32 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 32's Status line.
 ```
 
-## Slice 34 · Main desk: a real chat + the clean desk look
-**Why:** Owner 2026-11-20 (night, with 5 screenshots): "main desk needs to be dynamic with true chat stuff and if I ask GPT SOL 6 to generate an img it actually shows a beautiful box referencing the loading state of the img" · "the OG agent main desk looks unprofessional". The look is set by the preview the manager built in chat (owner's pick of theme and background).
-**Area:** the agent main desk (`CatDesk`, the desktop, the chat), `media_gen.py` for image calls.
+## Slice 34 · The Desk look: default for every desk + a site-wide theme
+**Why:** owner 2026-11-20 night, on the manager's preview (`docs/design/agent-desk-approved.html`, artifact claude.ai/artifact/3pRYBxakKeUWa6FsCm7HwH v4): "OMG!! YES make this the default look for Fee, agents and Collective, and also a theme built for site wide as an option for users … nothing should be missing … add click animations and effects, timestamps for chat, cool realistic icons, no BS icons like the white ones on the agent desktop." Earlier: "main desk needs to be dynamic with true chat stuff … if I ask GPT SOL 6 to generate an img it shows a beautiful box referencing the loading state."
+**Area:** `CatDesk.jsx`, `DeskShell.jsx`, `CatCockpit.jsx` (the file cabinet), The Collective's desk, the chat, `lib/looks.js` + `styles/looks.css` + `backend/looks.py`, `TerminalShell.jsx`, `media_gen.py`.
 **Checks:**
-- [ ] A real chat: streaming replies, markdown, code blocks, attachments, tool steps as tidy cards, the mind and cost per answer, retry and edit.
-- [ ] **Image generation in chat:** an image ask shows a polished generating card (shimmering dot-grid, % progress, the model's name, cancel), then the image with download, use-in-proof and variations. The same goes for video.
-- [ ] **Desktop clean-up (manager's finds on the owner's screenshot):**
-  - The icons are scattered with big gaps; they snap to a tidy grid with groups.
-  - Duplicates are merged: The Collective ×2, Brain + Brains, Wallet + "Wallet + style", Browser ×2.
-  - Prompts, Character and Features share one generic icon, so each gets its own.
-  - The "Fee" wordmark and "PRIVATE DESKTOP" are nearly invisible.
-  - "Wallet + style" wraps onto two lines.
-  - The DASHBOARD widget says Proofs 0 · Won/lost 0/0 · Jobs 0 on Fee's desk while the agent desks show 118: say whose numbers they are, or show the account total.
-  - The widgets column is a stack of plain boxes.
-- [ ] The clean look from the preview: black and white themes, 2 monitors, chat, vitals, and full-page backgrounds (real smoke grain + others), with transform / opacity animation only and heavy FX off under `body.fx-lite`.
+- [ ] **The approved preview is the spec.** Fee's desk, every agent desk and The Collective open in it by default:
+  - the slim glass bar (agent switcher, SOL, Pool, spend, Black / White, background)
+  - the icon rail
+  - the widgets row (Collective agree meters + verdict, paper positions, stash saved, clip-farm queue, PoEco bids)
+  - two 16:10 monitors on stands
+  - the vitals strip with sparklines and meters
+  - the file cabinet (drawers with label slots and pulls; the open drawer slides out over a tray of hanging files)
+  - the chat column
+
+  All of it on real data, with nothing faked: every number comes from the live service or says it is empty.
+- [ ] **Nothing goes missing.** Every folder, app, widget and action on today's desks is listed first, and each gets a home in the new layout (the rail, the cabinet, a monitor, a widget, or a command menu). The audit list is in the report.
+- [ ] **Backgrounds:** Smoke (slow wisps + a still fine grain; never TV static), Aurora, Grid, Film and Plain, plus Black and White. They are saved per user, with transform / opacity only, and off under `body.fx-lite`.
+- [ ] **Real chat:**
+  - streaming replies, markdown and code
+  - a **timestamp** on every message
+  - the mind and cost per answer, tool steps as tidy cards
+  - retry, edit and attachments
+- [ ] **Image and video generation cards** as in the preview: dot-grid shimmer, % progress, the model's name, cancel, then a blur-to-sharp reveal with Regenerate / Use / Variations.
+- [ ] **Click animations and effects:** press-down scale on buttons, a ripple or glow on primary actions, drawers sliding, a spring on panel open and close (Motion), and hover lifts on files. Every effect respects reduced motion and `fx-lite`.
+- [ ] **Real icons, no white generic line icons:** a polished, detailed icon set (a free / open library first, e.g. a duotone or 3D-style set). Each desk item gets its own icon and no two share one. The owner's folder rule still holds: classic coloured folders with their 3D icons (owner 2026-11-13).
+- [ ] **Desktop clean-up from the owner's img3** (still owed):
+  - merge the duplicates (Collective ×2, Brain / Brains, Wallet / "Wallet + style", Browser ×2)
+  - a readable wordmark
+  - no wrapping labels
+  - the Dashboard widget says whose numbers it shows
+- [ ] **Site-wide theme "Desk"** (a look in `lib/looks.js`, mirrored in `backend/looks.py`) that users can pick. It brings the same glass, type, backgrounds and motion to the whole site (terminal, proofs, profile, wallet), with the layout cleaned where needed and nothing missing.
+  - Keep 3 of the old looks: **Obsidian** (the current default), **Pit** and **Carbon**. These are the manager's pick; the owner can swap one in his one batch of questions.
+  - The other old looks are removed, and anyone wearing one falls back to Obsidian.
+  - The default site look stays Obsidian unless the owner says otherwise.
 **Status:** not started.
 ```
-FEELESS, Slice 34. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("The point of it all" and "Brains"), then RULINGS 2026-11-20, then "Slice 34" in docs/SLICES.md. Do only Slice 34, fully, end to end. Research free/open libraries first and make one real call before building on any outside service. Ask any vision questions in ONE batch first, then don't stop. Done = every Slice 34 check passes on real data, every tab seen in the browser on 51366 at full / half / phone width, night and day, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 34's Status line.
+FEELESS, Slice 34. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md ("The point of it all" and "Brains"), then RULINGS 2026-11-20, then "Slice 34" in docs/SLICES.md, then open docs/design/agent-desk-approved.html in the browser: it is the approved look. Do only Slice 34, fully, end to end. Research free/open libraries first (icons, Motion). Ask any vision questions in ONE batch first (incl. the 3 looks to keep), then don't stop. Done = every Slice 34 check passes on real data, every desk + every site page seen in the browser on 51366 at full / half / phone width, Black and White, each background, with screenshots; a TEST on Happy if backend changed (inside the caps); gate green; pushed in the FOREGROUND from `.claude/worktrees/gate` and confirmed with `git merge-base --is-ancestor <sha> origin/main`. Finish by updating Slice 34's Status line.
 ```
 
 ## Slice 30 · The stash tooling: shared, selective, never copied
