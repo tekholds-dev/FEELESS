@@ -12,18 +12,22 @@ const PLAT = { superteam: 'Superteam', freelancer: 'Freelancer', algora: 'Algora
 const TRACK = [['bid', 'Bid drafted'], ['bid_approved', 'You approved'], ['sent', 'You sent it'], ['won', 'Won'], ['work', 'Work done'], ['checked', 'Collective checked'], ['delivery_approved', 'You approved delivery'], ['paid', 'Paid']];
 const PARTS = [['fit', 'FIT', 30], ['pay', 'PAY', 30], ['deadline', 'TIME', 20], ['profit', 'PROFIT', 20]];
 
-function Meter({ label, v, max, tip }) {
-  return <span className="ern-m" data-tip={tip}><small>{label}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (v || 0) / max))})` }} /></i><b className="m-num">{Math.round(v || 0)}</b></span>;
+// One mini bar per score part (fit / pay / time / profit), stacked in one 4-segment strip: the row stays one line (owner 2026-11-21: a dense list).
+function Parts({ r }) {
+  return <span className="ern-parts" data-tip={PARTS.map(([k, l, m]) => `${l} ${Math.round(r.parts?.[k] || 0)}/${m}`).join(' · ')}>{PARTS.map(([k, l, m]) =>
+    <i key={k} style={{ '--w': m }} aria-label={`${l} ${Math.round(r.parts?.[k] || 0)} of ${m}`}><u style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (r.parts?.[k] || 0) / m))})` }} /></i>)}</span>;
 }
 
+// 📋 a job is ONE row of a dense table (~44 px, owner 2026-11-21 screenshot: "the job rows, scores, titles and $ are oversized"):
+// score · title + one fact line · the score parts · expected $ · Draft bid.
 function Listing({ r, i, busy, onBid }) {
-  return <motion.li className="ern-row" initial={{ y: 6 }} animate={{ y: 0 }} transition={{ delay: Math.min(i, 8) * 0.04 }} data-testid={`ern-row-${i}`}>
+  return <motion.li className="ern-row" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i, 8) * 0.03 }} data-testid={`ern-row-${i}`}>
     <span className="ern-score m-num" data-tip="Fit 30 + pay 30 + time 20 + profit 20">{r.score}</span>
-    <div className="ern-main"><a href={r.url} target="_blank" rel="noopener noreferrer" className="ern-title">{r.title}<ExternalLink size={11} aria-hidden="true" /></a>
-      <span className="ern-facts"><em className="m-chip">{PLAT[r.src] || r.src}</em><em className="m-chip ok">{r.cat}</em><span>{r.pay}</span><span>{r.daysLeft == null ? 'no deadline' : `${r.daysLeft} d left`}</span><span>{r.rivals} entered</span></span>
-      <span className="ern-meters">{PARTS.map(([k, l, m]) => <Meter key={k} label={l} v={r.parts?.[k]} max={m} />)}</span></div>
-    <div className="ern-side"><b className={`m-num ${(r.expProfit || 0) > 0 ? 'is-up' : ''}`} data-tip={`${Math.round((r.chance || 0) * 100)}% win chance × ${usd(r.payUsd)} − minds ${usd(r.cost)}`}>{usd(r.expProfit)}</b><small>EXPECTED</small>
-      <button type="button" className="m-btn" disabled={busy} onClick={() => onBid(r.id)} data-tip="Both minds draft the bid blind. Nothing is sent" data-testid={`ern-bid-${i}`}>Draft bid</button></div>
+    <span className="ern-main"><a href={r.url} target="_blank" rel="noopener noreferrer" className="ern-title" title={r.title}>{r.title}<ExternalLink size={10} aria-hidden="true" /></a>
+      <span className="ern-facts"><em>{PLAT[r.src] || r.src}</em><em>{r.cat}</em><span>{r.pay}</span><span>{r.daysLeft == null ? 'no deadline' : `${r.daysLeft} d left`}</span><span>{r.rivals} entered</span></span></span>
+    <Parts r={r} />
+    <b className={`ern-exp m-num ${(r.expProfit || 0) > 0 ? 'is-up' : ''}`} data-tip={`Expected: ${Math.round((r.chance || 0) * 100)}% win chance × ${usd(r.payUsd)} − minds ${usd(r.cost)}`}>{usd(r.expProfit)}</b>
+    <button type="button" className="m-btn ern-go" disabled={busy} onClick={() => onBid(r.id)} data-tip="Both minds draft the bid blind. Nothing is sent" data-testid={`ern-bid-${i}`}>Draft bid</button>
   </motion.li>;
 }
 
@@ -31,10 +35,10 @@ export function EarnBoard({ v, busy, onFind, onBid }) {
   const b = v?.board || {}; const best = b.best || []; const kept = (v?.platforms || []).filter(p => p.in); const out = (v?.platforms || []).filter(p => !p.in);
   const top = best[0];
   return <section className="ern m-card" data-testid="ern-board">
-    <header className="ern-h"><h4>💼 EARN REAL MONEY · FACELESS WORK</h4><button type="button" className="m-btn m-go" disabled={busy} onClick={onFind} data-tip="Reads every kept platform's public feed. No login" data-testid="ern-find">{busy ? 'Working…' : best.length ? 'Read the feeds again' : 'Find paid work'}</button></header>
+    <header className="ern-h"><h4>EARN · FACELESS WORK</h4><button type="button" className="m-btn m-go" disabled={busy} onClick={onFind} data-tip="Reads every kept platform's public feed. No login" data-testid="ern-find">{busy ? 'Working…' : best.length ? 'Read the feeds again' : 'Find paid work'}</button></header>
     {best.length ? <p className="ern-verdict" data-testid="ern-verdict"><b>{top.title}</b> pays best for the minds: <span className="m-num">{usd(top.expProfit)}</span> expected after <span className="m-num">{usd(top.cost)}</span> of minds. {b.kept} open listings fit, from {b.seen} read.</p>
       : <p className="ern-say">{b.at ? 'No open faceless listing fits right now.' : 'It reads Superteam Earn, Freelancer.com and Algora bounties (public feeds only), keeps the faceless work its minds can do, and shows the best with the expected profit.'}</p>}
-    {best.length ? <ol className="ern-list">{best.map((r, i) => <Listing key={r.id} r={r} i={i} busy={busy} onBid={onBid} />)}</ol> : null}
+    {best.length ? <ol className="ern-list"><li className="ern-row is-head" aria-hidden="true"><span>SCORE</span><span>JOB</span><span>FIT · PAY · TIME · PROFIT</span><span>EXPECTED</span><span /></li>{best.map((r, i) => <Listing key={r.id} r={r} i={i} busy={busy} onBid={onBid} />)}</ol> : null}
     {b.out?.length ? <p className="ern-out" data-testid="ern-out"><small>LEFT OUT</small>{b.out.slice(0, 3).map(o => <span key={o.why}><b className="m-num">{o.n}</b> {o.why}</span>)}</p> : null}
     <details className="ern-terms" data-testid="ern-terms"><summary>Terms first: {kept.length} platforms kept, {out.length} out</summary>
       <ul>{kept.map(p => <li key={p.id} className="is-in"><b>{p.name}</b> {p.terms} <i>{p.how}</i></li>)}{out.map(p => <li key={p.id}><b>{p.name}</b> out: {p.why}</li>)}</ul></details>
