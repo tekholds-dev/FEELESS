@@ -30,3 +30,23 @@
 body.fx-lite .tfl-pop { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--m-surface); }
 @media (prefers-reduced-motion: reduce) { .tfl-face, .tfl-pop { animation: none; } }
 @media (max-width: 980px) { .trenches-grid.is-v2 > .trenches-chat-section { height: 78vh; } .tfl-pop { grid-template-columns: repeat(2, 108px); } }
+
+/* The coin header on the trench dash is one compact band (was ~380 px before the chart), so the chart sits in the first screen.
+   Nothing is dropped: name, rug flags, chain · dex · CA, context line, mood, the 5 numbers and the passport all stay — they just share rows. */
+.trenches-chart-panel > .section-title { padding: 8px 12px 6px; }
+.token-focus.is-v2 > .focus-header { padding: 8px 12px 4px; gap: 9px; align-items: flex-start; }
+.token-focus.is-v2 > .focus-header .token-avatar { width: 32px !important; height: 32px !important; }
+.token-focus.is-v2 .token-heading { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 3px; }
+.token-focus.is-v2 .token-heading h2 { font-size: 17px; }
+.token-focus.is-v2 .token-heading .token-sub { margin-top: 0; }
+.token-focus.is-v2 .token-heading .token-context-meta { flex: 1 1 100%; display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.token-focus.is-v2 .token-heading .token-context-meta::-webkit-scrollbar,
+.token-focus.is-v2 > .coin-passport::-webkit-scrollbar { display: none; }
+.token-focus.is-v2 > .token-metrics { margin: 2px 12px 6px !important; padding: 6px 0 !important; }
+.token-focus.is-v2 > .token-metrics .metric { gap: 3px; }
+.token-focus.is-v2 > .coin-passport { flex-wrap: nowrap; width: auto; margin: 0 12px 6px; padding: 4px 8px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.token-focus.is-v2 > .coin-passport > * { flex: none; }
+.token-focus.is-v2 > .token-metrics .metric { padding: 0 6px; }
+.token-focus.is-v2 > .token-metrics .metric:first-child { padding-left: 0; }
+.token-focus.is-v2 > .token-metrics .metric small { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.token-focus.is-v2 > .token-metrics :is(strong, .anim-num, .anim-num .digit) { font-size: 13px; }
