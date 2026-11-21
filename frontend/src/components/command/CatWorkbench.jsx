@@ -1802,8 +1802,8 @@ function GuardedDrawer({ children }) {
   if (ok) return children;
   return <>{ask ? <SafeGate label="Credentials" onYes={() => { setAsk(false); setOk(true); }} onNo={() => setAsk(false)} /> : null}<p className="dkl-empty">Sealed. <button type="button" className="dkl-go" onClick={() => setAsk(true)} data-testid="dkl-unlock">Unlock</button></p></>;
 }
-const LOG_DRAWERS = [['tasks', '📋', 'Tasks', 'calender'], ['thoughts', '💡', 'Thoughts', 'chat-text'], ['files', '📄', 'Files', 'file'], ['cloud', '☁', 'Cloud', 'folder-new'], ['guards', '🛡', 'Guards', 'shield']];
-const DRAWER_ICON = { creds: 'locker', api: 'key', made: 'color-palette', cmds: 'hash', earn: 'flash', treasury: 'money', pass: 'credit-card', media: 'picture' };   // every drawer its own real icon
+export const LOG_DRAWERS = [['tasks', '📋', 'Tasks', 'calender'], ['thoughts', '💡', 'Thoughts', 'chat-text'], ['files', '📄', 'Files', 'file'], ['cloud', '☁', 'Cloud', 'folder-new'], ['guards', '🛡', 'Guards', 'shield']];
+export const DRAWER_ICON = { creds: 'locker', api: 'key', made: 'color-palette', cmds: 'hash', earn: 'flash', treasury: 'money', pass: 'credit-card', media: 'picture' };   // every drawer its own real icon
 // 🧭 the rail: each item its own real 3D icon (no two share one), opening the same window its classic desktop folder opens
 export const AGENT_RAIL = [['desk', '🖥', 'Desk', 'computer'], ['proofs', '🏆', 'Proofs  (⌘K)', 'trophy'], ['approve', '✅', 'Approve inbox', 'tick'], ['pow', '⛏', 'PoW', 'axe'], ['pop', '📉', 'PoP', 'chart'], ['bids', '🎲', 'PoB', 'chess'], ['poc', '📣', 'PoC', 'megaphone'], ['postatic', '🎨', 'PoStatic', 'painting-kit'], ['poe', '💰', 'PoEco', 'money-bag'],
   ['hr1'], ['debate', '🔮', 'The Collective', 'sphere'], ['stash', '🧠', 'Stash brain', 'bulb'], ['tests', '🧪', 'Test bench', 'lab'], ['browser', '🌐', 'Browser', 'explorer'], ['vault', '🔐', 'Vault', 'lock'], ['wallet', '👛', 'Wallet', 'wallet'], ['hr2'], ['folders', '📁', 'All folders', 'folder'], ['settings', '⚙', 'Settings', 'setting']];

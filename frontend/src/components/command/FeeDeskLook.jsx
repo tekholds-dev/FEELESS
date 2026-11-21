@@ -17,7 +17,9 @@ const ago = ts => { const t = num(ts); if (!t) return ''; const s = Math.max(0, 
 const dur = v => { const x = num(v); if (x == null) return '—'; return x < 60 ? `${Math.round(x)}s` : x < 3600 ? `${Math.round(x / 60)}m` : x < 86400 ? `${Math.round(x / 3600)}h` : `${Math.round(x / 86400)}d`; };
 const secs = ts => { const t = num(ts); return t ? (t > 1e12 ? t / 1000 : t) : null; };
 // every folder its own real 3D icon (no two share one)
-const ICON = { lane: 'map-pin', brain: 'setting', prompts: 'chat-text', rails: 'shield', model: 'rocket', collective: 'sphere', pow: 'axe', allwork: 'folder', ideas: 'bulb', git: 'link', stash: 'locker', ready: 'key', adlab: 'video-cam', slots: 'credit-card' };
+export const FEE_RAIL_ICON = { lane: 'map-pin', brain: 'setting', prompts: 'chat-text', rails: 'shield', model: 'rocket', collective: 'sphere', pow: 'axe', allwork: 'folder', ideas: 'bulb', git: 'link', stash: 'locker', ready: 'key', adlab: 'video-cam', slots: 'credit-card' };
+// 🗄 the cabinet's drawers: each its own icon, never one the rail already uses (icon audit, Slice 34 — deskIcons.test.js)
+export const FEE_DRAWER_ICON = { moves: 'flash', skips: 'thumb-down', learn: 'notebook', agents: 'cube' };
 
 export function useColonyFlow() {
   const [flow, setFlow] = useState(null);
@@ -41,8 +43,8 @@ export function FeeDeskLook({ c, d, equity, roi, start, trades, wr, disc, pos, d
   const rail = [{ k: 'desk', e: '🖥', icon: 'computer', label: who === 'fee' ? "Fee's desk" : 'The Collective', current: true, onClick: () => {} },
     { k: 'desktop', e: '🗂', icon: 'folder-new', label: 'Her whole desktop (every folder)', onClick: () => setPop('desktop') },
     { k: 'print', e: '🔮', icon: 'target', label: 'The living print (the Collective page)', onClick: () => setPop({ k: 'print', label: 'The living print', body: <Suspense fallback={<p className="dkl-empty">Opening the Collective…</p>}><CollectiveLandingLazy /></Suspense> }) }, { k: 'hr1', hr: true },
-    ...feeApps.map(a => ({ k: `fee-${a.k}`, e: a.ic, icon: ICON[a.k], label: a.label, onClick: () => setPop(a) })), { k: 'hr2', hr: true },
-    ...agentApps.map(a => ({ k: `ag-${a.k}`, e: a.ic, icon: a.k === 'prompts' ? 'chat-bubble' : ICON[a.k], label: a.label, onClick: () => setPop(a) }))];
+    ...feeApps.map(a => ({ k: `fee-${a.k}`, e: a.ic, icon: FEE_RAIL_ICON[a.k], label: a.label, onClick: () => setPop(a) })), { k: 'hr2', hr: true },
+    ...agentApps.map(a => ({ k: `ag-${a.k}`, e: a.ic, icon: a.k === 'prompts' ? 'chat-bubble' : FEE_RAIL_ICON[a.k], label: a.label, onClick: () => setPop(a) }))];
   const pulse = who === 'fee'
     ? [{ k: 'equity', label: 'Equity', value: sol(equity), delta: pct(roi), up: (roi || 0) >= 0 }, { k: 'real', label: 'Realized', value: sol(c?.realizedPnlSol) }, { k: 'lives', label: 'Lives', value: lives == null ? '—' : `${lives}/${maxLives}` }]
     : [{ k: 'pnl', label: 'All agents', value: flow ? sol(flow.pnlSol) : '—' }, { k: 'agents', label: 'Agents', value: flow ? String(flow.agents ?? agents.length) : '—' }];
@@ -80,10 +82,10 @@ export function FeeDeskLook({ c, d, equity, roi, start, trades, wr, disc, pos, d
     : [{ k: 'agents', label: 'Agents', value: flow?.agents ?? agents.length }, { k: 'proofs', label: 'Proofs filed', value: proofs }, { k: 'right', label: 'Graded right', value: graded ? `${Math.round((100 * right) / graded)}%` : '—', unit: graded ? `${right}/${graded}` : '', meter: graded ? right / graded : null },
       { k: 'pow', label: 'PoW trades', value: flow?.pow?.trades ?? '—', unit: `${flow?.pow?.won ?? 0} won` }, { k: 'pnl', label: 'All agents', value: flow ? sol(flow.pnlSol) : '—', spark: agents.map(a => num(a.pnlSol) || 0) }];
   const drawers = who === 'fee'
-    ? [{ k: 'moves', e: '⚡', icon: 'flash', label: 'Moves', n: events.length, files: events.slice(0, 24).map(e => ({ tab: secs(e.ts) ? stamp(secs(e.ts)) : '', title: `${e.type || 'move'}${e.symbol ? ` $${e.symbol}` : ''}${e.detail || e.reason ? ` · ${e.detail || e.reason}` : ''}`, st: /sell|loss|stop/i.test(e.type || '') ? 'w' : '' })), empty: 'No moves yet on this paper trail.' },
-      { k: 'skips', e: '🚫', icon: 'shield', label: 'Said no', n: [...f.brain, ...f.safety].length, files: [...f.brain, ...f.safety].map(x => ({ title: `$${x.symbol}`, sub: x.why, st: 'w' })), empty: 'Nothing refused in the last scan.' },
-      { k: 'learn', e: '🎓', icon: 'bulb', label: 'Learned', n: (d?.duoLearn?.lessons || []).length, body: <DuoLearn learn={d?.duoLearn} /> }]
-    : [{ k: 'agents', e: '🤖', icon: 'cube', label: 'Agents', n: agents.length, files: agents.slice(0, 40).map(a => ({ title: a.name, sub: `${num(a.proofs) || 0} proofs · ${sol(a.pnlSol)}`, st: (num(a.pnlSol) || 0) < 0 ? 'w' : '' })), empty: 'No agents yet.' }];
+    ? [{ k: 'moves', e: '⚡', icon: FEE_DRAWER_ICON.moves, label: 'Moves', n: events.length, files: events.slice(0, 24).map(e => ({ tab: secs(e.ts) ? stamp(secs(e.ts)) : '', title: `${e.type || 'move'}${e.symbol ? ` $${e.symbol}` : ''}${e.detail || e.reason ? ` · ${e.detail || e.reason}` : ''}`, st: /sell|loss|stop/i.test(e.type || '') ? 'w' : '' })), empty: 'No moves yet on this paper trail.' },
+      { k: 'skips', e: '🚫', icon: FEE_DRAWER_ICON.skips, label: 'Said no', n: [...f.brain, ...f.safety].length, files: [...f.brain, ...f.safety].map(x => ({ title: `$${x.symbol}`, sub: x.why, st: 'w' })), empty: 'Nothing refused in the last scan.' },
+      { k: 'learn', e: '🎓', icon: FEE_DRAWER_ICON.learn, label: 'Learned', n: (d?.duoLearn?.lessons || []).length, body: <DuoLearn learn={d?.duoLearn} /> }]
+    : [{ k: 'agents', e: '🤖', icon: FEE_DRAWER_ICON.agents, label: 'Agents', n: agents.length, files: agents.slice(0, 40).map(a => ({ title: a.name, sub: `${num(a.proofs) || 0} proofs · ${sol(a.pnlSol)}`, st: (num(a.pnlSol) || 0) < 0 ? 'w' : '' })), empty: 'No agents yet.' }];
   const chat = <>
     <header className="dkl-chat-h"><b>{who === 'fee' ? 'Her tape' : 'The Collective'}</b><span className="dkl-sp" />
       {who === 'fee' ? <><button type="button" className="dkl-chip" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? 'Pause' : 'Resume'}</button>
