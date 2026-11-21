@@ -394,6 +394,17 @@ FEELESS, Slice 32. Read CLAUDE.md, then docs/specs/style.md, then docs/VISION.md
   - a readable wordmark
   - no wrapping labels
   - the Dashboard widget says whose numbers it shows
+- [ ] **The coin trading dash (`/terminal/chat`, the trench dash) on desktop** follows `docs/design/trench-dash-preview.html` (artifact claude.ai/artifact/5yAHJHkYCyGCCoy5oqY6EE), which is waiting for the owner's verdict. Its layout:
+  - the coin head with 5 stats + sparklines
+  - the passport chips + case file
+  - a market-cap / price chart monitor with every toolbar toggle (Volume, Calls, Fee, Wide, Alert, Neo, pop-out) and the C-score ring
+  - the live tape
+  - dip / rip orders
+  - quick trade with the rug shield and the risk checkbox
+  - the coin chat with pump pulse, the hold gate and timestamps
+  - duotone icons on the rail
+
+  Every control on today's dash stays, and the wallet still signs everything. The Duo layout of this dash stays as it is: the owner loves it.
 - [ ] **Phones, foldables and iPhone Duo get an official clean Desk look** (owner 2026-11-20: "so they can always work on the go … no battery burn or cell data burn").
   - **Layout:** one monitor at a time with swipe between them, the chat as a bottom sheet, the cabinet as a drawer list, and the widgets as a swipe row.
   - **iPhone Duo:** it inherits the Duo layout the trench dash already has (the owner loves it). The outer screen gets the chat + proof status; the open inner screen gets a monitor + chat side by side. It changes live on hinge posture, for agent desks and the desktop alike.
